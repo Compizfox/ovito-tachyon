@@ -45,6 +45,8 @@ SET(SourceFiles
 	modifier/dxa/DislocationTracer.cpp
 	modifier/elasticstrain/ElasticStrainModifier.cpp
 	modifier/elasticstrain/ElasticStrainEngine.cpp
+	modifier/grains/GrainSegmentationModifier.cpp
+	modifier/grains/GrainSegmentationEngine.cpp
 	modifier/microstructure/SimplifyMicrostructureModifier.cpp
 )
 
