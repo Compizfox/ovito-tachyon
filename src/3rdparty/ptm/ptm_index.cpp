@@ -311,6 +311,10 @@ static void output_data(ptm::result_t *res, ptm_atomicenv_t* env,
 		}
 	}
 
+	if (atom_indices != NULL)
+		for (int i = 0; i < ref->num_nbrs + 1; i++)
+			atom_indices[i] = env->nbr_indices[res->mapping[i]];
+
 	double interatomic_distance = calculate_interatomic_distance(ref->type, res->scale);
 	double lattice_constant = calculate_lattice_constant(ref->type, interatomic_distance);
 

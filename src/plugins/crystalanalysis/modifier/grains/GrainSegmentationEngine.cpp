@@ -171,18 +171,19 @@ bool GrainSegmentationEngine::identifyAtomicStructures()
 			structures()->setInt(index, type);
 			rmsd()->setFloat(index, kernel.rmsd());
 
-#if 0
-//TODO: put back in
 			if(type != PTMAlgorithm::OTHER) {
 				if(orientations()) orientations()->setQuaternion(index, kernel.orientation());
+
 				// Store neighbor list.
 				for(int j = 0; j < ptm_num_nbrs[type]; j++) {
-					OVITO_ASSERT(j < _neighborLists->componentCount());
-					OVITO_ASSERT(mapping[j + 1] >= 1);
-					OVITO_ASSERT(mapping[j + 1] <= numNeighbors);
+					//OVITO_ASSERT(j < _neighborLists->componentCount());
+					//OVITO_ASSERT(mapping[j + 1] >= 1);
+					//OVITO_ASSERT(mapping[j + 1] <= numNeighbors);
 
-					_neighborLists->setInt64Component(index, j, neighQuery.results()[mapping[j + 1] - 1].index);
+					_neighborLists->setInt64Component(index, j, kernel._atom_indices[j + 1]);
 
+#if 0
+//TODO: put back in
 					const Vector3& neighborVector = neighQuery.results()[mapping[j + 1] - 1].delta;
 					// Check if neighbor vector spans more than half of a periodic simulation cell.
 					for(size_t dim = 0; dim < 3; dim++) {
@@ -194,11 +195,14 @@ bool GrainSegmentationEngine::identifyAtomicStructures()
 							}
 						}
 					}
+#endif
 				}
 			}
 			else {
 				rmsd()->setFloat(index, 0);
 
+#if 0
+//TODO: put back in.  use topological ordering if atom is disordered.
 				// Store neighbor list.  Don't need more than 12 neighbors for defect atoms.
 				numNeighbors = std::min(numNeighbors, PTM_MAX_NBRS);
 				numNeighbors = std::min(numNeighbors, 12);
@@ -206,9 +210,8 @@ bool GrainSegmentationEngine::identifyAtomicStructures()
 				for(int j = 0; j < numNeighbors; j++) {
 					_neighborLists->setInt64Component(index, j, neighQuery.results()[j].index);
 				}
-			}
 #endif
-
+			}
 		}
 	});
 	if(task()->isCanceled() || positions()->size() == 0)
@@ -310,14 +313,10 @@ bool GrainSegmentationEngine::buildNeighborGraph()
 			double orientA[4] = { qA.w(), qA.x(), qA.y(), qA.z() };
 			double orientB[4] = { qB.w(), qB.x(), qB.y(), qB.z() };
 
-#if 0
-//TODO: put back in
-			//TODO: add diamond and graphene structure types
-			if(structureType == SC || structureType == FCC || structureType == BCC)
+			if(structureType == PTMAlgorithm::SC || structureType == PTMAlgorithm::FCC || structureType == PTMAlgorithm::BCC || structureType == PTMAlgorithm::CUBIC_DIAMOND)
 				disorientationAngle = (FloatType)ptm::quat_disorientation_cubic(orientA, orientB);
-			else if(structureType == HCP)
-				disorientationAngle = (FloatType)ptm::quat_disorientation_hcp(orientA, orientB);
-#endif
+			else if(structureType == PTMAlgorithm::HCP || structureType == PTMAlgorithm::HEX_DIAMOND || structureType == PTMAlgorithm::GRAPHENE)
+				disorientationAngle = (FloatType)ptm::quat_disorientation_hcp_conventional(orientA, orientB);
 		}
 	});
 
@@ -360,12 +359,11 @@ bool GrainSegmentationEngine::calculateAverageClusterOrientations()
 		Quaternion qrot = orient0.inverse() * orient;
 		double qrot_[4] = { qrot.w(), qrot.x(), qrot.y(), qrot.z() };
 
-//TODO: add diamond and graphene structure types
 		int structureType = structures()->getInt(particleIndex);
-		if(structureType == PTMAlgorithm::SC || structureType == PTMAlgorithm::FCC || structureType == PTMAlgorithm::BCC)
+		if(structureType == PTMAlgorithm::SC || structureType == PTMAlgorithm::FCC || structureType == PTMAlgorithm::BCC || structureType == PTMAlgorithm::CUBIC_DIAMOND)
 			ptm::rotate_quaternion_into_cubic_fundamental_zone(qrot_);
-		else if(structureType == PTMAlgorithm::HCP)
-			ptm::rotate_quaternion_into_hcp_fundamental_zone(qrot_);
+		else if(structureType == PTMAlgorithm::HCP || structureType == PTMAlgorithm::HEX_DIAMOND || structureType == PTMAlgorithm::GRAPHENE)
+			ptm::rotate_quaternion_into_hcp_conventional_fundamental_zone(qrot_);
 
 		Quaternion qclosest = orient0 * Quaternion(qrot_[1], qrot_[2], qrot_[3], qrot_[0]);
 		_clusterOrientations[clusterIndex] += qclosest;
