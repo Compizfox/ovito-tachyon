@@ -22,8 +22,6 @@
 #include <plugins/crystalanalysis/CrystalAnalysis.h>
 #include <plugins/stdobj/simcell/SimulationCellObject.h>
 #include <plugins/particles/objects/BondsVis.h>
-//#include <plugins/particles/modifier/ParticleInputHelper.h>
-//#include <plugins/particles/modifier/ParticleOutputHelper.h>
 #include <core/utilities/concurrent/Promise.h>
 #include <core/utilities/concurrent/TaskManager.h>
 #include <core/utilities/units/UnitsManager.h>
@@ -166,10 +164,8 @@ void GrainSegmentationEngine::emitResults(TimePoint time, ModifierApplication* m
 	//seriesObj->setIntervalStart(0);
 	//seriesObj->setIntervalEnd(rmsdHistogramRange());
 
-
 	size_t numGrains = atomClusters()->size() == 0 ? 0 : (*std::max_element(atomClusters()->constDataInt64(), atomClusters()->constDataInt64() + atomClusters()->size()));
-	//output.setStatus(PipelineStatus(PipelineStatus::Success, GrainSegmentationModifier::tr("Found %1 grains").arg(numGrains)));
-	//return output;
+	state.setStatus(PipelineStatus(PipelineStatus::Success, GrainSegmentationModifier::tr("Found %1 grains").arg(numGrains)));
 }
 
 #if 0

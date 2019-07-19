@@ -68,7 +68,11 @@ int calculate_two_shell_neighbour_ordering(	int num_inner, int num_outer,
 	for (int i=0;i<num_inner;i++)
 	{
 		ptm_atomicenv_t inner;
+<<<<<<< HEAD
 		int num_points = get_neighbours(nbrlist, -1, central.atom_indices[1 + i], PTM_MAX_INPUT_POINTS, &inner);
+=======
+		int num_points = get_neighbours(nbrlist, -1, central.nbr_indices[1 + i], PTM_MAX_INPUT_POINTS, &inner);
+>>>>>>> more work on reintegration
 		if (num_points < num_inner + 1)
 			return -1;
 

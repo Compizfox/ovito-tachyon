@@ -170,7 +170,6 @@ void GrainSegmentationModifierEditor::plotHistogram()
 void GrainSegmentationModifierEditor::onPerformGrainTracking()
 {
 #if 0
-//TODO: put this back in
 	GrainSegmentationModifier* modifier = static_object_cast<GrainSegmentationModifier>(editObject());
 	GrainSegmentationModifierApplication* modApp = dynamic_object_cast<GrainSegmentationModifierApplication>(someModifierApplication());
 	if(!modifier || !modApp) return;
@@ -180,6 +179,12 @@ void GrainSegmentationModifierEditor::onPerformGrainTracking()
 		modifier->trackGrains(progressDialog.taskManager(), modApp);
 	});
 #endif
+	GrainSegmentationModifier* modifier = static_object_cast<GrainSegmentationModifier>(editObject());
+	if(!modifier) return;
+
+	undoableTransaction(tr("Grain tracking"), [this,modifier]() {
+		ProgressDialog progressDialog(container(), modifier->dataset()->container()->taskManager(), tr("Grain tracking"));
+	});
 }
 
 }	// End of namespace
