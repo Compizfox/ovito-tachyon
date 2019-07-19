@@ -81,19 +81,24 @@ void GrainSegmentationEngine::perform()
 ******************************************************************************/
 bool GrainSegmentationEngine::identifyAtomicStructures()
 {
+	// Initialize the PTMAlgorithm object.
 	boost::optional<PTMAlgorithm> _algorithm;
-
 	_algorithm.emplace();
 	_algorithm->setRmsdCutoff(0.0); // Note: We do our own RMSD threshold filtering in postProcessStructureTypes().
-
 
 	// Specify the structure types the PTM should look for.
 	for(int i = 0; i < typesToIdentify().size() && i < PTMAlgorithm::NUM_STRUCTURE_TYPES; i++) {
 		_algorithm->setStructureTypeIdentification(static_cast<PTMAlgorithm::StructureType>(i), typesToIdentify()[i]);
 	}
 
-	// Initialize the algorithm object.
 	if(!_algorithm->prepare(*positions(), cell(), selection().get(), task().get()))
+		return false;
+
+	// Initialize the neighbor finder for disordered atoms
+	// Don't need more than 12 neighbors for defect atoms.
+	#define MAX_DISORDERED_NEIGHBORS 12
+	NearestNeighborFinder neighFinder(MAX_DISORDERED_NEIGHBORS);
+	if(!neighFinder.prepare(*positions(), cell(), selection().get(), task().get()))
 		return false;
 
 	task()->setProgressValue(0);
@@ -139,10 +144,13 @@ bool GrainSegmentationEngine::identifyAtomicStructures()
 
 
 	// Perform analysis on each particle.
-	parallelForChunks(positions()->size(), *task(), [this, &cachedNeighbors, &_algorithm](size_t startIndex, size_t count, Task& task) {
+	parallelForChunks(positions()->size(), *task(), [this, &cachedNeighbors, &_algorithm, &neighFinder](size_t startIndex, size_t count, Task& task) {
 
 		// Create a thread-local kernel for the PTM algorithm.
 		PTMAlgorithm::Kernel kernel(*_algorithm);
+
+		// Create a neighbor query for disordered atoms
+		NearestNeighborFinder::Query<MAX_DISORDERED_NEIGHBORS> neighQuery(neighFinder);
 
 //size_t startIndex = 0, count = positions()->size();
 		// Loop over input particles.
@@ -199,10 +207,12 @@ bool GrainSegmentationEngine::identifyAtomicStructures()
 			else {
 				rmsd()->setFloat(index, 0);
 
-				// Store neighbor list.  Don't need more than 12 neighbors for defect atoms.
-				int numNeighbors = std::min(kernel._env.num - 1, 12);
+				neighQuery.findNeighbors(index);
+				int numNeighbors = neighQuery.results().size();
+
+				// Store neighbor list.  
 				for(int j = 0; j < numNeighbors; j++) {
-					_neighborLists->setInt64Component(index, j, kernel._env.atom_indices[j + 1]);
+					_neighborLists->setInt64Component(index, j, neighQuery.results()[j].index);
 				}
 			}
 		}

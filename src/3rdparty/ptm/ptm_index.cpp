@@ -405,12 +405,8 @@ int ptm_index(ptm_local_handle_t local_handle,
 		}
 	}
 
-	if (res.ref_struct == NULL) {
-		if (output_env != NULL) {
-			memcpy(output_env, &env, sizeof(ptm_atomicenv_t));
-		}
+	if (res.ref_struct == NULL)
 		return PTM_NO_ERROR;
-	}
 
 	ptm_atomicenv_t* res_env = &env;
 	if (res.ref_struct->type == PTM_MATCH_DCUB || res.ref_struct->type == PTM_MATCH_DHEX)
