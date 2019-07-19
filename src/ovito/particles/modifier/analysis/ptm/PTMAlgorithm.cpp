@@ -23,7 +23,6 @@
 #include <ovito/particles/Particles.h>
 #include "PTMAlgorithm.h"
 
-#include <3rdparty/ptm/ptm_functions.h>
 
 namespace Ovito { namespace Particles { OVITO_BEGIN_INLINE_NAMESPACE(Util)
 

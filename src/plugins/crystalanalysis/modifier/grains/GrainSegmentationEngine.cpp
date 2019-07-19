@@ -72,7 +72,7 @@ void GrainSegmentationEngine::perform()
 	for(FloatType& angle : neighborDisorientationAngles()->floatRange())
 		angle *= FloatType(180) / FLOATTYPE_PI;
 
-	//if(!mergeOrphanAtoms()) return;
+	if(!mergeOrphanAtoms()) return;
 }
 
 /******************************************************************************
@@ -180,12 +180,11 @@ bool GrainSegmentationEngine::identifyAtomicStructures()
 					//OVITO_ASSERT(mapping[j + 1] >= 1);
 					//OVITO_ASSERT(mapping[j + 1] <= numNeighbors);
 
-					_neighborLists->setInt64Component(index, j, kernel._atom_indices[j + 1]);
+					_neighborLists->setInt64Component(index, j, kernel._env.atom_indices[j + 1]);
 
-#if 0
-//TODO: put back in
-					const Vector3& neighborVector = neighQuery.results()[mapping[j + 1] - 1].delta;
 					// Check if neighbor vector spans more than half of a periodic simulation cell.
+					double* delta = kernel._env.points[j + 1];
+					Vector3 neighborVector(delta[0], delta[1], delta[2]);
 					for(size_t dim = 0; dim < 3; dim++) {
 						if(cell().pbcFlags()[dim]) {
 							if(std::abs(cell().inverseMatrix().prodrow(neighborVector, dim)) >= FloatType(0.5)+FLOATTYPE_EPSILON) {
@@ -195,22 +194,16 @@ bool GrainSegmentationEngine::identifyAtomicStructures()
 							}
 						}
 					}
-#endif
 				}
 			}
 			else {
 				rmsd()->setFloat(index, 0);
 
-#if 0
-//TODO: put back in.  use topological ordering if atom is disordered.
 				// Store neighbor list.  Don't need more than 12 neighbors for defect atoms.
-				numNeighbors = std::min(numNeighbors, PTM_MAX_NBRS);
-				numNeighbors = std::min(numNeighbors, 12);
-				OVITO_ASSERT(numNeighbors <= _neighborLists->componentCount());
+				int numNeighbors = std::min(kernel._env.num - 1, 12);
 				for(int j = 0; j < numNeighbors; j++) {
-					_neighborLists->setInt64Component(index, j, neighQuery.results()[j].index);
+					_neighborLists->setInt64Component(index, j, kernel._env.atom_indices[j + 1]);
 				}
-#endif
 			}
 		}
 	});
@@ -426,7 +419,7 @@ bool GrainSegmentationEngine::regionMerging()
 	};
 
 
-	task()->setProgressText(GrainSegmentationModifier::tr("Grain segmentation - region merging"));
+	task()->setProgressText(GrainSegmentationModifier::tr("Grain segmentation - building graph"));
 	task()->setProgressValue(0);
 	task()->setProgressMaximum(latticeNeighborBonds()->size());
 
@@ -451,6 +444,11 @@ bool GrainSegmentationEngine::regionMerging()
 
 	if(task()->isCanceled())
 		return false;
+
+
+	task()->setProgressText(GrainSegmentationModifier::tr("Grain segmentation - region merging"));
+	task()->setProgressValue(0);
+	task()->setProgressMaximum(graph.size());
 
 	std::vector<bool> hit(numAtoms, 0);
 	std::vector< std::tuple< size_t, size_t, FloatType > > contracted;
@@ -511,6 +509,8 @@ bool GrainSegmentationEngine::regionMerging()
 				hit[a] = true;
 				hit[b] = true;
 				merged = true;
+
+				if(!task()->incrementProgressValue()) return false;
 			}
 		}
 
@@ -552,6 +552,9 @@ bool GrainSegmentationEngine::regionMerging()
 			graph.emplace_back(std::make_tuple(a, b, weight, -1));
 		}
 	}
+
+	if(task()->isCanceled())
+		return false;
 
 	for(size_t i = 0; i < numAtoms; i++) {
 		_clusterSizes[i] = sizes[i];

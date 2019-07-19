@@ -311,10 +311,6 @@ static void output_data(ptm::result_t *res, ptm_atomicenv_t* env,
 		}
 	}
 
-	if (atom_indices != NULL)
-		for (int i = 0; i < ref->num_nbrs + 1; i++)
-			atom_indices[i] = env->nbr_indices[res->mapping[i]];
-
 	double interatomic_distance = calculate_interatomic_distance(ref->type, res->scale);
 	double lattice_constant = calculate_lattice_constant(ref->type, interatomic_distance);
 
@@ -409,8 +405,12 @@ int ptm_index(ptm_local_handle_t local_handle,
 		}
 	}
 
-	if (res.ref_struct == NULL)
+	if (res.ref_struct == NULL) {
+		if (output_env != NULL) {
+			memcpy(output_env, &env, sizeof(ptm_atomicenv_t));
+		}
 		return PTM_NO_ERROR;
+	}
 
 	ptm_atomicenv_t* res_env = &env;
 	if (res.ref_struct->type == PTM_MATCH_DCUB || res.ref_struct->type == PTM_MATCH_DHEX)
