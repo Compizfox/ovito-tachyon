@@ -38,11 +38,12 @@ GrainSegmentationEngine::GrainSegmentationEngine(
 			ParticleOrderingFingerprint fingerprint, ConstPropertyPtr positions, const SimulationCell& simCell,
 			const QVector<bool>& typesToIdentify, ConstPropertyPtr selection,
 			FloatType rmsdCutoff, FloatType mergingThreshold,
-			int minGrainAtomCount) :
+			int minGrainAtomCount, bool orphanAdoption) :
 	StructureIdentificationModifier::StructureIdentificationEngine(std::move(fingerprint), positions, simCell, std::move(typesToIdentify), std::move(selection)),
 	_rmsdCutoff(rmsdCutoff),
 	_mergingThreshold(mergingThreshold),
 	_minGrainAtomCount(std::max(minGrainAtomCount, 1)),
+	_orphanAdoption(orphanAdoption),
 	_rmsd(std::make_shared<PropertyStorage>(positions->size(), PropertyStorage::Float, 1, 0, QStringLiteral("RMSD"), false)),
 	_orientations(ParticlesObject::OOClass().createStandardStorage(positions->size(), ParticlesObject::OrientationProperty, true)),
 	_atomClusters(ParticlesObject::OOClass().createStandardStorage(positions->size(), ParticlesObject::ClusterProperty, true))
@@ -73,7 +74,9 @@ void GrainSegmentationEngine::perform()
 	for(FloatType& angle : neighborDisorientationAngles()->floatRange())
 		angle *= FloatType(180) / FLOATTYPE_PI;
 
-	//if(!mergeOrphanAtoms()) return;
+	if (_orphanAdoption) {
+		if(!mergeOrphanAtoms()) return;
+	}
 }
 
 /******************************************************************************

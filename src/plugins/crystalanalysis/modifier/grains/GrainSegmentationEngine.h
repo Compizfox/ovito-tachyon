@@ -46,7 +46,7 @@ public:
 			ParticleOrderingFingerprint fingerprint, ConstPropertyPtr positions, const SimulationCell& simCell,
 			const QVector<bool>& typesToIdentify, ConstPropertyPtr selection,
 			FloatType rmsdCutoff, FloatType misorientationThreshold,
-			int minGrainAtomCount);
+			int minGrainAtomCount, bool orphanAdoption);
 
 	/// Performs the computation.
 	virtual void perform() override;
@@ -144,6 +144,9 @@ private:
 
 	/// The minimum number of crystalline atoms per grain.	
 	int _minGrainAtomCount;
+
+	/// Whether to adopt orphan atoms
+	int _orphanAdoption;
 
 	/// Stores the list of neighbors of each lattice atom.
 	PropertyPtr _neighborLists;

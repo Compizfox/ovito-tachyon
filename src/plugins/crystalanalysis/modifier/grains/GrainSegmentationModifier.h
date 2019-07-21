@@ -72,6 +72,9 @@ private:
 	/// The minimum number of crystalline atoms per grain.
 	DECLARE_MODIFIABLE_PROPERTY_FIELD(int, minGrainAtomCount, setMinGrainAtomCount);
 
+	/// Controls whether to adopt orphan atoms
+	DECLARE_MODIFIABLE_PROPERTY_FIELD_FLAGS(bool, orphanAdoption, setOrphanAdoption, PROPERTY_FIELD_MEMORIZE);
+
 	/// Controls whether only selected particles should be taken into account.
 	DECLARE_MODIFIABLE_PROPERTY_FIELD(bool, onlySelectedParticles, setOnlySelectedParticles);
 

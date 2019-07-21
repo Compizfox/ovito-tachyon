@@ -75,6 +75,12 @@ void GrainSegmentationModifierEditor::createUI(const RolloutInsertionParameters&
 	sublayout2->addWidget(minGrainAtomCountUI->label(), 2, 0);
 	sublayout2->addLayout(minGrainAtomCountUI->createFieldLayout(), 2, 1);
 
+	// Orphan atom adoption
+	BooleanParameterUI* orphanAdoptionUI = new BooleanParameterUI(this, PROPERTY_FIELD(GrainSegmentationModifier::orphanAdoption));
+	sublayout2->addWidget(orphanAdoptionUI->checkBox(), 3, 0, 1, 2);
+	orphanAdoptionUI->checkBox()->setText(tr("Orphan atom adoption"));
+
+
 	QPushButton* grainTrackingButton = new QPushButton(tr("Perform grain tracking..."));
 	layout->addWidget(grainTrackingButton);
 	connect(grainTrackingButton, &QPushButton::clicked, this, &GrainSegmentationModifierEditor::onPerformGrainTracking);
