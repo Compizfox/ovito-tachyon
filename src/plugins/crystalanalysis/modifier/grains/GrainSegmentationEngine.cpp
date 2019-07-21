@@ -63,6 +63,7 @@ void GrainSegmentationEngine::perform()
 	// Grain segmentation algorithm:
 	if(!identifyAtomicStructures()) return;
 	if(!buildNeighborGraph()) return;
+	//if(!mergeSuperclusters()) return;
 	if(!regionMerging()) return;
 
 	//if(!randomizeClusterIDs()) return;
@@ -72,7 +73,7 @@ void GrainSegmentationEngine::perform()
 	for(FloatType& angle : neighborDisorientationAngles()->floatRange())
 		angle *= FloatType(180) / FLOATTYPE_PI;
 
-	if(!mergeOrphanAtoms()) return;
+	//if(!mergeOrphanAtoms()) return;
 }
 
 /******************************************************************************
@@ -327,57 +328,101 @@ bool GrainSegmentationEngine::buildNeighborGraph()
 }
 
 /******************************************************************************
-* Computes the average lattice orientation of each cluster.
+* Merges adjacent clusters with similar lattice orientations.
 ******************************************************************************/
-bool GrainSegmentationEngine::calculateAverageClusterOrientations()
+bool GrainSegmentationEngine::mergeSuperclusters()
 {
-	task()->setProgressText(GrainSegmentationModifier::tr("Grain segmentation - average cluster orientation"));
+	size_t numAtoms = positions()->size();
+	_superclusterSizes.resize(numAtoms, 1);
+	_atomSuperclusters.resize(numAtoms, 0);
+
+	// Disjoint sets data structures.
+	std::vector<size_t> ranks(numAtoms, 0);
+	std::vector<size_t> parents(numAtoms);
+	std::iota(parents.begin(), parents.end(), (size_t)0);
+
+	// Disjoint-sets helper function. Find part of Union-Find
+	auto findParent = [&parents](size_t index) {
+		// Find root and make root as parent of i (path compression)
+		size_t parent = parents[index];
+	    while(parent != parents[parent]) {
+	    	parent = parents[parent];
+	    }
+		parents[index] = parent;
+	    return parent;
+	};
+
+	task()->setProgressText(GrainSegmentationModifier::tr("Grain segmentation - supercluster merging"));
 	task()->setProgressValue(0);
-	task()->setProgressMaximum(positions()->size());
+	task()->setProgressMaximum(latticeNeighborBonds()->size());
 
-	// Allocate cluster orientation and size arrays.
-	// We will create one cluster for each basin in the distance transform field.
-	_clusterOrientations.resize(_numClusters, Quaternion(0,0,0,0));
-	_clusterSizes.resize(_numClusters, 0);
+	FloatType threshold = _misorientationThreshold;
 
-	// Stores the seed atom index of each cluster.
-	std::vector<qlonglong> firstClusterAtom(_numClusters, -1);
-
-	for(size_t particleIndex = 0; particleIndex < positions()->size(); particleIndex++) {
+	// Merge superclusters.
+	for(size_t bondIndex = 0; bondIndex < latticeNeighborBonds()->size(); bondIndex++) {
 		if(!task()->incrementProgressValue()) return false;
+		size_t index1 = latticeNeighborBonds()->getInt64Component(bondIndex, 0);
+		size_t index2 = latticeNeighborBonds()->getInt64Component(bondIndex, 1);
 
-		qlonglong clusterId = atomClusters()->getInt64(particleIndex);
-		if(clusterId == 0) continue;
+		size_t parentA = findParent(index1);
+		size_t parentB = findParent(index2);
+		if(parentA == parentB) continue;
 
-		// Cluster IDs start at 1. Need to subtract 1 to get cluster index.
-		qlonglong clusterIndex = clusterId - 1;
+		// Skip high-angle edges.
+		if(neighborDisorientationAngles()->getFloat(bondIndex) > _misorientationThreshold) continue;
 
-		_clusterSizes[clusterIndex]++;
-		if(firstClusterAtom[clusterIndex] == -1)
-			firstClusterAtom[clusterIndex] = particleIndex;
-
-		const Quaternion& orient0 = orientations()->getQuaternion(firstClusterAtom[clusterIndex]);
-		const Quaternion& orient = orientations()->getQuaternion(particleIndex);
-
-		Quaternion qrot = orient0.inverse() * orient;
-		double qrot_[4] = { qrot.w(), qrot.x(), qrot.y(), qrot.z() };
-
-		int structureType = structures()->getInt(particleIndex);
-		if(structureType == PTMAlgorithm::SC || structureType == PTMAlgorithm::FCC || structureType == PTMAlgorithm::BCC || structureType == PTMAlgorithm::CUBIC_DIAMOND)
-			ptm::rotate_quaternion_into_cubic_fundamental_zone(qrot_);
-		else if(structureType == PTMAlgorithm::HCP || structureType == PTMAlgorithm::HEX_DIAMOND || structureType == PTMAlgorithm::GRAPHENE)
-			ptm::rotate_quaternion_into_hcp_conventional_fundamental_zone(qrot_);
-
-		Quaternion qclosest = orient0 * Quaternion(qrot_[1], qrot_[2], qrot_[3], qrot_[0]);
-		_clusterOrientations[clusterIndex] += qclosest;
+		// Merge the two superclusters.
+		// Attach smaller rank tree under root of high rank tree (Union by Rank)
+		if(ranks[parentA] < ranks[parentB]) {
+			parents[parentA] = parentB;
+			_superclusterSizes[parentB] += _superclusterSizes[parentA];
+		}
+		else {
+			parents[parentB] = parentA;
+			_superclusterSizes[parentA] += _superclusterSizes[parentB];
+			// If ranks are same, then make one as root and increment its rank by one
+			if(ranks[parentA] == ranks[parentB])
+				ranks[parentA]++;
+		}
 	}
-	for(auto& qavg : _clusterOrientations) {
-		if(qavg.dot(qavg) > FLOATTYPE_EPSILON)
-			qavg.normalize();
+	if(task()->isCanceled())
+		return false;
+
+	// Relabels the superclusters to obtain a contiguous sequence of cluster IDs.	
+	std::vector<size_t> superclusterRemapping(numAtoms);
+	_numSuperclusters = 1;
+	// Assign new consecutive IDs to root superclusters.
+	for(size_t i = 0; i < numAtoms; i++) {
+		if(findParent(i) == i) {
+			// If the cluster's size is below the threshold, dissolve the cluster.
+			if(_superclusterSizes[i] < _minGrainAtomCount) {
+				superclusterRemapping[i] = 0;
+			}
+			else {
+				superclusterRemapping[i] = _numSuperclusters;
+				_superclusterSizes[_numSuperclusters] = _superclusterSizes[i];
+				_numSuperclusters++;
+			}
+		}
 	}
+	// Determine new IDs for non-root superclusters.
+	for(size_t particleIndex = 0; particleIndex < numAtoms; particleIndex++)
+		superclusterRemapping[particleIndex] = superclusterRemapping[findParent(particleIndex)];
+
+	// Relabel atoms after cluster IDs have changed.
+	_superclusterSizes.resize(_numSuperclusters);
+	for(size_t particleIndex = 0; particleIndex < numAtoms; particleIndex++)
+		_atomSuperclusters[particleIndex] = superclusterRemapping[particleIndex];
+
+	// Supercluster 0 contains all atoms that are not part of a regular supercluster.
+	_superclusterSizes[0] = 0;
+	for(size_t particleIndex = 0; particleIndex < numAtoms; particleIndex++)
+		if(_atomSuperclusters[particleIndex] == 0)
+			_superclusterSizes[0]++;
 
 	return !task()->isCanceled();
 }
+
 
 /******************************************************************************
 * Builds grains by iterative region merging
@@ -434,7 +479,6 @@ bool GrainSegmentationEngine::regionMerging()
 	task()->setProgressMaximum(latticeNeighborBonds()->size());
 
 	std::vector< std::tuple< size_t, size_t, FloatType, FloatType > > graph;
-	FloatType threshold = 4 / FloatType(180) * FLOATTYPE_PI;
 
 	// Build graph edges
 	for(size_t bondIndex = 0; bondIndex < latticeNeighborBonds()->size(); bondIndex++) {
@@ -444,7 +488,7 @@ bool GrainSegmentationEngine::regionMerging()
 
 		// Skip high-angle edges.
 		FloatType disorientation = neighborDisorientationAngles()->getFloat(bondIndex);
-		if(disorientation > threshold) continue;
+		if(disorientation > _misorientationThreshold) continue;
 
 		FloatType deg = disorientation * FloatType(180) / FLOATTYPE_PI;
 		FloatType weight = std::exp(-FloatType(1)/3 * deg * deg);		//this is fairly arbitrary but it works well
@@ -461,50 +505,53 @@ bool GrainSegmentationEngine::regionMerging()
 	task()->setProgressMaximum(graph.size());
 
 	std::vector<bool> hit(numAtoms, 0);
-	std::vector< std::tuple< size_t, size_t, FloatType > > contracted;
 
+	int iteration = 0;
 	bool merged = true;
 	while (merged) {
+		printf("iteration: %d %lu\n", iteration++, graph.size());
+
+clock_t time[7];
+time[0] = clock();
+
 		merged = false;
 		std::vector<size_t> components(parents.begin(), parents.end());
 		std::vector<FloatType> curWeights(weights.begin(), weights.end());
 
-		double wsum = 0;
-		for (auto edge: graph)
-			wsum += std::get<2>(edge);
-
-		double cwsum = 0;
-		for(size_t i = 0; i < numAtoms; i++)
-			if (i == findParent(i))
-				cwsum += weights[i];
-
 		FloatType threshold = _mergingThreshold;
 		for (size_t i=0;i<graph.size();i++) {	//can't use auto since we want to set tuple elements
 
-			std::tuple< size_t, size_t, FloatType, FloatType > edge = graph[i];
+			auto edge = graph[i];
 
 			size_t a = std::get<0>(edge);
 			size_t b = std::get<1>(edge);
 			FloatType w = std::get<2>(edge);
 
-			int coordinations[PTMAlgorithm::NUM_STRUCTURE_TYPES] = {0, 12, 12, 14, 12, 6, 16, 16, 9};
-			int dimensions[PTMAlgorithm::NUM_STRUCTURE_TYPES] = {0, 3, 3, 3, 3, 3, 3, 3, 2};
+			const int coordinations[PTMAlgorithm::NUM_STRUCTURE_TYPES] = {0, 12, 12, 14, 12, 6, 16, 16, 9};
+			const int dimensions[PTMAlgorithm::NUM_STRUCTURE_TYPES] = {0, 3, 3, 3, 3, 3, 3, 3, 2};
 
 			int type = structures()->getInt(a);
-			int hc = coordinations[type] / 2;
 			int dim = dimensions[type];
+			double hc = coordinations[type] / 2.0;
+			double k = 0.5;
 
 			FloatType power = (-1. + dim) / dim;
-			FloatType za = (hc + w) / (1 + pow(curWeights[a] / hc, power));
-			FloatType zb = (hc + w) / (1 + pow(curWeights[b] / hc, power));
+			FloatType za = (k * hc + w) / (1 + pow(curWeights[a] / hc, power)) / coordinations[type];
+			FloatType zb = (k * hc + w) / (1 + pow(curWeights[b] / hc, power)) / coordinations[type];
 			std::get<3>(graph[i]) = std::max(za, zb);
 		}
+
+time[1] = clock();
 
 		std::sort(graph.begin(), graph.end(),
 			[](std::tuple< size_t, size_t, FloatType, FloatType > a, std::tuple< size_t, size_t, FloatType, FloatType > b)
 			{return std::get<3>(b) < std::get<3>(a);});
 
+time[2] = clock();
+
 		std::fill(hit.begin(), hit.end(), 0);
+
+time[3] = clock();
 
 		for (auto edge: graph) {
 
@@ -514,7 +561,7 @@ bool GrainSegmentationEngine::regionMerging()
 			FloatType z = std::get<3>(edge);
 
 			int num_hit = hit[a] + hit[b];
-			if (z >= threshold && num_hit < 2) {
+			if (z >= threshold && num_hit == 0) {
 				merge(a, b);
 				hit[a] = true;
 				hit[b] = true;
@@ -524,9 +571,11 @@ bool GrainSegmentationEngine::regionMerging()
 			}
 		}
 
-		std::map< std::tuple< size_t, size_t >, FloatType > contracted;
+time[4] = clock();
 
-		for (auto edge: graph) {
+		for (size_t i=0;i<graph.size();i++) {
+
+			auto edge = graph[i];
 
 			size_t a = std::get<0>(edge);
 			size_t b = std::get<1>(edge);
@@ -536,6 +585,10 @@ bool GrainSegmentationEngine::regionMerging()
 			size_t parentB = findParent(b);
 			if (parentA == parentB) {
 				weights[parentA] += w;
+
+				graph[i] = graph.back();
+				graph.pop_back();
+				i--;
 			}
 			else {
 				size_t keymin = parentA, keymax = parentB;
@@ -543,24 +596,51 @@ bool GrainSegmentationEngine::regionMerging()
 					std::swap(keymin, keymax);
 				}
 
-				std::tuple< size_t, size_t > key = std::make_tuple(keymin, keymax);
-
-				if (contracted.find(key) == contracted.end()) {
-					contracted[key] = 0;
-				}
-				contracted[key] += w;
+				std::get<0>(graph[i]) = keymin;
+				std::get<1>(graph[i]) = keymax;
 			}
 		}
 
-		graph.clear();
-		for (auto it=contracted.begin(); it!=contracted.end(); it++) {
+		std::sort(graph.begin(), graph.end(),
+			[](std::tuple< size_t, size_t, FloatType, FloatType > a, std::tuple< size_t, size_t, FloatType, FloatType > b)
+			{
+				if (std::get<0>(a) == std::get<0>(b)) {
+					return std::get<1>(a) < std::get<1>(b);
+				}
+				return std::get<0>(a) < std::get<0>(b);
+			});
 
-			auto key = it->first;
-			size_t a = std::get<0>(key);
-			size_t b = std::get<1>(key);
-			auto weight = it->second;
-			graph.emplace_back(std::make_tuple(a, b, weight, -1));
+time[5] = clock();
+
+		std::vector< std::tuple< size_t, size_t, FloatType, FloatType > > temp;
+		for (auto edge: graph) {
+
+			size_t a2 = std::get<0>(edge);
+			size_t b2 = std::get<1>(edge);
+			FloatType w2 = std::get<2>(edge);
+
+			bool same = temp.size() > 0 && (std::get<0>(temp.back()) == a2) && (std::get<1>(temp.back()) == b2);
+			if (same) {
+				std::get<2>(temp.back()) += w2;
+			}
+			else {
+				temp.push_back(edge);
+			}
 		}
+		graph.clear();
+		for (auto edge: temp) {
+			graph.push_back(edge);
+		}
+
+time[6] = clock();
+
+for (int u=1;u<7;u++) {
+
+	long int clockTicksTaken = time[u] - time[u - 1];
+	double timeInSeconds = clockTicksTaken / (double) CLOCKS_PER_SEC;
+	printf("\ttime taken: %f\n", timeInSeconds);
+}
+
 	}
 
 	if(task()->isCanceled())
@@ -716,6 +796,59 @@ bool GrainSegmentationEngine::mergeOrphanAtoms()
 		if(newOrphanCount == oldOrphanCount)
 			break;
 		oldOrphanCount = newOrphanCount;
+	}
+
+	return !task()->isCanceled();
+}
+
+/******************************************************************************
+* Computes the average lattice orientation of each cluster.
+******************************************************************************/
+bool GrainSegmentationEngine::calculateAverageClusterOrientations()
+{
+	task()->setProgressText(GrainSegmentationModifier::tr("Grain segmentation - average cluster orientation"));
+	task()->setProgressValue(0);
+	task()->setProgressMaximum(positions()->size());
+
+	// Allocate cluster orientation and size arrays.
+	// We will create one cluster for each basin in the distance transform field.
+	_clusterOrientations.resize(_numClusters, Quaternion(0,0,0,0));
+	_clusterSizes.resize(_numClusters, 0);
+
+	// Stores the seed atom index of each cluster.
+	std::vector<qlonglong> firstClusterAtom(_numClusters, -1);
+
+	for(size_t particleIndex = 0; particleIndex < positions()->size(); particleIndex++) {
+		if(!task()->incrementProgressValue()) return false;
+
+		qlonglong clusterId = atomClusters()->getInt64(particleIndex);
+		if(clusterId == 0) continue;
+
+		// Cluster IDs start at 1. Need to subtract 1 to get cluster index.
+		qlonglong clusterIndex = clusterId - 1;
+
+		_clusterSizes[clusterIndex]++;
+		if(firstClusterAtom[clusterIndex] == -1)
+			firstClusterAtom[clusterIndex] = particleIndex;
+
+		const Quaternion& orient0 = orientations()->getQuaternion(firstClusterAtom[clusterIndex]);
+		const Quaternion& orient = orientations()->getQuaternion(particleIndex);
+
+		Quaternion qrot = orient0.inverse() * orient;
+		double qrot_[4] = { qrot.w(), qrot.x(), qrot.y(), qrot.z() };
+
+		int structureType = structures()->getInt(particleIndex);
+		if(structureType == PTMAlgorithm::SC || structureType == PTMAlgorithm::FCC || structureType == PTMAlgorithm::BCC || structureType == PTMAlgorithm::CUBIC_DIAMOND)
+			ptm::rotate_quaternion_into_cubic_fundamental_zone(qrot_);
+		else if(structureType == PTMAlgorithm::HCP || structureType == PTMAlgorithm::HEX_DIAMOND || structureType == PTMAlgorithm::GRAPHENE)
+			ptm::rotate_quaternion_into_hcp_conventional_fundamental_zone(qrot_);
+
+		Quaternion qclosest = orient0 * Quaternion(qrot_[1], qrot_[2], qrot_[3], qrot_[0]);
+		_clusterOrientations[clusterIndex] += qclosest;
+	}
+	for(auto& qavg : _clusterOrientations) {
+		if(qavg.dot(qavg) > FLOATTYPE_EPSILON)
+			qavg.normalize();
 	}
 
 	return !task()->isCanceled();

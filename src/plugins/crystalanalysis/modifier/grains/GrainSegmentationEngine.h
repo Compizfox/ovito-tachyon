@@ -110,6 +110,9 @@ private:
 	/// Builds the graph of neighbor atoms and calculates the misorientation angle for each graph edge (i.e. bond).
 	bool buildNeighborGraph();
 
+	/// Merges adjacent clusters with similar lattice orientations.
+	bool mergeSuperclusters();
+
 	/// Computes the average lattice orientation of each cluster.
 	bool calculateAverageClusterOrientations();
 
@@ -123,6 +126,15 @@ private:
 	bool mergeOrphanAtoms();
 
 private:
+
+	/// Supercluster IDs
+	std::vector<size_t> _atomSuperclusters;
+
+	/// Counts the number of superclusters
+	size_t _numSuperclusters = 0;
+	
+	/// Stores the number of atoms in each supercluster.
+	std::vector<size_t> _superclusterSizes;
 
 	/// The cutoff parameter used by the PTM algorithm.
 	FloatType _rmsdCutoff;
@@ -171,6 +183,8 @@ private:
 
 	/// The computed disorientation angles between neighboring lattice atoms.
 	PropertyPtr _neighborDisorientationAngles;
+
+	FloatType _misorientationThreshold = 4 / FloatType(180) * FLOATTYPE_PI;
 };
 
 }	// End of namespace

@@ -64,7 +64,7 @@ GrainSegmentationModifier::GrainSegmentationModifier(DataSet* dataset) : Structu
 		_rmsdCutoff(0.1),
 		_minGrainAtomCount(100),
 		_onlySelectedParticles(false),
-		_mergingThreshold(1.5)
+		_mergingThreshold(0.1)
 {
 	// Define the structure types.
 	createStructureType(PTMAlgorithm::OTHER, ParticleType::PredefinedStructureType::OTHER);
