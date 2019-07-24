@@ -95,7 +95,7 @@ private:
 	bool buildNeighborGraph();
 
 	/// Merges adjacent clusters with similar lattice orientations.
-	bool mergeSuperclusters();
+	//bool mergeSuperclusters();
 
 	/// Computes the average lattice orientation of each cluster.
 	bool calculateAverageClusterOrientations();

@@ -328,6 +328,7 @@ bool GrainSegmentationEngine::buildNeighborGraph()
 	return !task()->isCanceled();
 }
 
+#if 0
 /******************************************************************************
 * Merges adjacent clusters with similar lattice orientations.
 ******************************************************************************/
@@ -342,7 +343,7 @@ bool GrainSegmentationEngine::mergeSuperclusters()
 	std::vector<size_t> parents(numAtoms);
 	std::iota(parents.begin(), parents.end(), (size_t)0);
 
-	// Disjoint-sets helper function. Find part of Union-Find
+	// Disjoint-sets helper function. "Find" part of Union-Find.
 	auto findParent = [&parents](size_t index) {
 		// Find root and make root as parent of i (path compression)
 		size_t parent = parents[index];
@@ -423,6 +424,7 @@ bool GrainSegmentationEngine::mergeSuperclusters()
 
 	return !task()->isCanceled();
 }
+#endif
 
 
 /******************************************************************************
@@ -440,8 +442,9 @@ bool GrainSegmentationEngine::regionMerging()
 
 	std::vector<size_t> sizes(numAtoms, 1);
 	std::vector<FloatType> weights(numAtoms, 0);
+	//std::vector<FloatType> rmsdSum(numAtoms, 0);
 
-	// Disjoint-sets helper function. Find part of Union-Find
+	// Disjoint-sets helper function. "Find" part of Union-Find.
 	auto findParent = [&parents](size_t index) {
 		// Find root and make root as parent of i (path compression)
 		size_t parent = parents[index];
@@ -452,6 +455,7 @@ bool GrainSegmentationEngine::regionMerging()
 	    return parent;
 	};
 
+	// Disjoint-sets helper function. "Union" part of Union-Find.
 	auto merge = [&findParent, &parents, &ranks, &sizes, &weights](size_t index1, size_t index2) {
 		size_t parentA = findParent(index1);
 		size_t parentB = findParent(index2);
@@ -462,11 +466,13 @@ bool GrainSegmentationEngine::regionMerging()
 			parents[parentA] = parentB;
 			sizes[parentB] += sizes[parentA];
 			weights[parentB] += weights[parentA];
+			//rmsdSum[parentB] += rmsdSum[parentA];
 		}
 		else {
 			parents[parentB] = parentA;
 			sizes[parentA] += sizes[parentB];
 			weights[parentA] += weights[parentB];
+			//rmsdSum[parentA] += rmsdSum[parentB];
 
 			// If ranks are same, then make one as root and increment its rank by one
 			if(ranks[parentA] == ranks[parentB])
@@ -479,9 +485,13 @@ bool GrainSegmentationEngine::regionMerging()
 	task()->setProgressValue(0);
 	task()->setProgressMaximum(latticeNeighborBonds().size());
 
-	std::vector< std::tuple< size_t, size_t, FloatType, FloatType > > graph;
+	std::vector< std::tuple< size_t,	//vertex A
+				size_t,		//vertex B
+				FloatType,	//edge weight
+				FloatType	//merge quality
+				> > graph;
 
-	// Build graph edges
+	// Build initial graph
 	const FloatType* disorientation = neighborDisorientationAngles()->constDataFloat();
 	for(const Bond& bond : latticeNeighborBonds()) {
 		if(!task()->incrementProgressValue()) return false;
@@ -489,6 +499,7 @@ bool GrainSegmentationEngine::regionMerging()
 		// Skip high-angle edges.
 		if(*disorientation++ > _misorientationThreshold) continue;
 
+		// Convert disorientations to graph weights
 		FloatType deg = *disorientation * FloatType(180) / FLOATTYPE_PI;
 		FloatType weight = std::exp(-FloatType(1)/3 * deg * deg);		//this is fairly arbitrary but it works well
 
@@ -526,6 +537,7 @@ time[0] = clock();
 			size_t b = std::get<1>(edge);
 			FloatType w = std::get<2>(edge);
 
+			//TODO: use number of surface bonds in Wullf construction to calculate a good normalization factor, so threshold values are similar across structures.
 			const int coordinations[PTMAlgorithm::NUM_STRUCTURE_TYPES] = {0, 12, 12, 14, 12, 6, 16, 16, 9};
 			const int dimensions[PTMAlgorithm::NUM_STRUCTURE_TYPES] = {0, 3, 3, 3, 3, 3, 3, 3, 2};
 
@@ -534,6 +546,7 @@ time[0] = clock();
 			double hc = coordinations[type] / 2.0;
 			double k = 0.5;
 
+			//TODO: replace 'pow' with multiplicative exponentation
 			FloatType power = (-1. + dim) / dim;
 			FloatType za = (k * hc + w) / (1 + pow(curWeights[a] / hc, power)) / coordinations[type];
 			FloatType zb = (k * hc + w) / (1 + pow(curWeights[b] / hc, power)) / coordinations[type];
@@ -542,15 +555,15 @@ time[0] = clock();
 
 time[1] = clock();
 
+		// Sort edges by merge quality
 		std::sort(graph.begin(), graph.end(),
 			[](std::tuple< size_t, size_t, FloatType, FloatType > a, std::tuple< size_t, size_t, FloatType, FloatType > b)
 			{return std::get<3>(b) < std::get<3>(a);});
 
 time[2] = clock();
 
+		// Perform greedy matching of unmatched vertices
 		std::fill(hit.begin(), hit.end(), 0);
-
-time[3] = clock();
 
 		for (auto edge: graph) {
 
@@ -570,8 +583,9 @@ time[3] = clock();
 			}
 		}
 
-time[4] = clock();
+time[3] = clock();
 
+		// Contract graph
 		for (size_t i=0;i<graph.size();i++) {
 
 			auto edge = graph[i];
@@ -583,13 +597,17 @@ time[4] = clock();
 			size_t parentA = findParent(a);
 			size_t parentB = findParent(b);
 			if (parentA == parentB) {
+				// Edge endpoints are now in same cluster
+				// Add the edge weight to the cluster weight
 				weights[parentA] += w;
 
+				// Remove the edge from the graph (not included in contracted graph)
 				graph[i] = graph.back();
 				graph.pop_back();
 				i--;
 			}
 			else {
+				// Edge endpoints are still in different clusters
 				size_t keymin = parentA, keymax = parentB;
 				if (keymin > keymax) {
 					std::swap(keymin, keymax);
@@ -600,6 +618,9 @@ time[4] = clock();
 			}
 		}
 
+time[4] = clock();
+
+		// Sort graph such that edges connecting the same pair of clusters are adjacent
 		std::sort(graph.begin(), graph.end(),
 			[](std::tuple< size_t, size_t, FloatType, FloatType > a, std::tuple< size_t, size_t, FloatType, FloatType > b)
 			{
@@ -611,6 +632,7 @@ time[4] = clock();
 
 time[5] = clock();
 
+		// Combine edges which connect the same pair of clusters
 		std::vector< std::tuple< size_t, size_t, FloatType, FloatType > > temp;
 		for (auto edge: graph) {
 
@@ -633,12 +655,22 @@ time[5] = clock();
 
 time[6] = clock();
 
-for (int u=1;u<7;u++) {
+#if 0
+#endif
+for (int i=1;i<7;i++) {
 
-	long int clockTicksTaken = time[u] - time[u - 1];
+	long int clockTicksTaken = time[i] - time[i - 1];
 	double timeInSeconds = clockTicksTaken / (double) CLOCKS_PER_SEC;
 	printf("\ttime taken: %f\n", timeInSeconds);
 }
+
+#if 0
+printf("!\t");
+for(size_t i = 0; i < numAtoms; i++) {
+	printf("%lu ", findParent(i));
+}
+printf("\n");
+#endif
 
 	}
 
