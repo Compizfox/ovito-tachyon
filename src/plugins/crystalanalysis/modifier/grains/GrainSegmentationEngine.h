@@ -24,11 +24,8 @@
 
 #include <plugins/crystalanalysis/CrystalAnalysis.h>
 #include <plugins/particles/modifier/analysis/StructureIdentificationModifier.h>
-
-#include <plugins/particles/Particles.h>
 #include <plugins/particles/objects/ParticlesObject.h>
 #include <plugins/particles/objects/BondsObject.h>
-
 #include <plugins/particles/modifier/analysis/ptm/PTMAlgorithm.h>
 #include <boost/optional/optional.hpp>
 
@@ -46,39 +43,36 @@ public:
 			ParticleOrderingFingerprint fingerprint, ConstPropertyPtr positions, const SimulationCell& simCell,
 			const QVector<bool>& typesToIdentify, ConstPropertyPtr selection,
 			FloatType rmsdCutoff, FloatType misorientationThreshold,
-			int minGrainAtomCount, bool orphanAdoption);
+			int minGrainAtomCount, bool orphanAdoption, bool outputBonds);
 
 	/// Performs the computation.
 	virtual void perform() override;
 
-	/// This method is called by the system to free memory and release any working data after the 
+	/// This method is called by the system to free memory and release any working data after the
 	/// computation has been successfully completed.
 	virtual void cleanup() override {
 		_neighborLists.reset();
 		decltype(_distanceSortedAtoms){}.swap(_distanceSortedAtoms);
 		decltype(_clusterOrientations){}.swap(_clusterOrientations);
 		decltype(_clusterSizes){}.swap(_clusterSizes);
+		if(!_outputBonds) {
+			decltype(_latticeNeighborBonds){}.swap(_latticeNeighborBonds);
+			_neighborDisorientationAngles.reset();
+		}
 		StructureIdentificationEngine::cleanup();
 	}
 
 	/// Injects the computed results into the data pipeline.
 	virtual void emitResults(TimePoint time, ModifierApplication* modApp, PipelineFlowState& state) override;
 
-
 	/// Returns the per-atom RMSD values computed by the PTM algorithm.
 	const PropertyPtr& rmsd() const { return _rmsd; }
 
-	/// Returns the computed RMSD histogram data.
-	const QVector<int>& rmsdHistogramData() const { return _rmsdHistogramData; }
+	/// Returns the RMSD value range of the histogram.
+	FloatType rmsdHistogramRange() const { return _rmsdHistogramRange; }
 
-	/// Returns the bin size of the RMSD histogram.
-	FloatType rmsdHistogramBinSize() const { return _rmsdHistogramBinSize; }
-
-	/// Replaces the stored RMSD histogram data.
-	void setRmsdHistogram(QVector<int> counts, FloatType rmsdHistogramBinSize) {
-		_rmsdHistogramData = std::move(counts);
-		_rmsdHistogramBinSize = rmsdHistogramBinSize;
-	}
+	/// Returns the histogram of computed RMSD values.
+	const PropertyPtr& rmsdHistogram() const { return _rmsdHistogram; }
 
 	/// Returns the computed per-particle lattice orientations.
 	const PropertyPtr& orientations() const { return _orientations; }
@@ -87,17 +81,7 @@ public:
 	const PropertyPtr& atomClusters() const { return _atomClusters; }
 
 	/// Returns the bonds generated between neighboring lattice atoms.
-	const PropertyPtr& latticeNeighborBonds() const { return _latticeNeighborBonds; }
-
-	/// Returns the PBC shift vectors of bonds.
-	const PropertyPtr& bondPBCShiftVectors() const { return _bondPBCShiftVectors; }
-
-	/// Allocates the bonds arrays.
-	void allocateBonds(size_t count) { 
-		_latticeNeighborBonds = BondsObject::OOClass().createStandardStorage(count, BondsObject::TopologyProperty, false);
-		_bondPBCShiftVectors = BondsObject::OOClass().createStandardStorage(count, BondsObject::PeriodicImageProperty, true);
-		_neighborDisorientationAngles = std::make_shared<PropertyStorage>(count, PropertyStorage::Float, 1, 0, QStringLiteral("Disorientation"), false);
-	}
+	const std::vector<Bond>& latticeNeighborBonds() const { return _latticeNeighborBonds; }
 
 	/// Returns the computed disorientation angles between neighboring lattice atoms.
 	const PropertyPtr& neighborDisorientationAngles() const { return _neighborDisorientationAngles; }
@@ -132,7 +116,7 @@ private:
 
 	/// Counts the number of superclusters
 	size_t _numSuperclusters = 0;
-	
+
 	/// Stores the number of atoms in each supercluster.
 	std::vector<size_t> _superclusterSizes;
 
@@ -142,10 +126,10 @@ private:
 	/// The merging criterion threshold.
 	FloatType _mergingThreshold;
 
-	/// The minimum number of crystalline atoms per grain.	
+	/// The minimum number of crystalline atoms per grain.
 	int _minGrainAtomCount;
 
-	/// Whether to adopt orphan atoms
+	/// Whether to adopt orphan atoms.
 	int _orphanAdoption;
 
 	/// Stores the list of neighbors of each lattice atom.
@@ -159,7 +143,7 @@ private:
 
 	/// Stores the average lattice orientation of each cluster.
 	std::vector<Quaternion> _clusterOrientations;
-	
+
 	/// Stores the number of atoms in each cluster.
 	std::vector<qlonglong> _clusterSizes;
 
@@ -167,10 +151,10 @@ private:
 	const PropertyPtr _rmsd;
 
 	/// Histogram of the RMSD values computed by the PTM algorithm.
-	QVector<int> _rmsdHistogramData;
+	PropertyPtr _rmsdHistogram;
 
-	/// Bin size of the RMSD histogram.
-	FloatType _rmsdHistogramBinSize;
+	/// The value range of the RMSD histogram.
+	FloatType _rmsdHistogramRange;
 
 	/// The computed per-particle lattice orientations.
 	PropertyPtr _orientations;
@@ -178,11 +162,11 @@ private:
 	/// The particle to cluster assignment.
 	PropertyPtr _atomClusters;
 
-	/// The bonds generated between neighboring lattice atoms.
-	PropertyPtr _latticeNeighborBonds;
+	/// Flag controlling the output of generated bonds to the data pipeline.
+	bool _outputBonds;
 
-	/// The PBC shift vectors of bonds.
-	PropertyPtr _bondPBCShiftVectors;
+	/// The bonds generated between neighboring lattice atoms.
+	std::vector<Bond> _latticeNeighborBonds;
 
 	/// The computed disorientation angles between neighboring lattice atoms.
 	PropertyPtr _neighborDisorientationAngles;

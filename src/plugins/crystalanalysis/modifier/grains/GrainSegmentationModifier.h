@@ -25,8 +25,6 @@
 #include <plugins/crystalanalysis/CrystalAnalysis.h>
 #include <plugins/particles/modifier/analysis/StructureIdentificationModifier.h>
 #include <plugins/particles/objects/BondsVis.h>
-
-#include <plugins/particles/Particles.h>
 #include <plugins/particles/objects/ParticlesObject.h>
 #include <plugins/stdobj/series/DataSeriesObject.h>
 
@@ -78,45 +76,11 @@ private:
 	/// Controls whether only selected particles should be taken into account.
 	DECLARE_MODIFIABLE_PROPERTY_FIELD(bool, onlySelectedParticles, setOnlySelectedParticles);
 
-	/// The display object for rendering the bonds created by the modifier.
+	/// The visual element for rendering the bonds created by the modifier.
 	DECLARE_MODIFIABLE_REFERENCE_FIELD_FLAGS(BondsVis, bondsVis, setBondsVis, PROPERTY_FIELD_DONT_PROPAGATE_MESSAGES | PROPERTY_FIELD_MEMORIZE);
-//};
 
-/**
- * \brief The type of ModifierApplication created for a GrainSegmentationModifier 
- *        when it is inserted into in a data pipeline. It stores the last computation results
- *        so that they can be displayed in the modifier's user interface.
- */
-//class OVITO_PARTICLES_EXPORT GrainSegmentationModifierApplication : public StructureIdentificationModifierApplication
-//{
-//	Q_OBJECT
-//	OVITO_CLASS(GrainSegmentationModifierApplication)
-
-public:
- 
-	/// Constructor.
-	//Q_INVOKABLE GrainSegmentationModifierApplication(DataSet* dataset) : StructureIdentificationModifierApplication(dataset) {}
- 
-	/// Returns the histogram of computed RMSD values.
-	const QVector<int>& rmsdHistogramData() const { return _rmsdHistogramData; }
-
-	/// Returns the bin size of the RMSD histogram.
-	FloatType rmsdHistogramBinSize() const { return _rmsdHistogramBinSize; }
-	 
-	/// Replaces the stored histogram data.
-	void setRmsdHistogram(QVector<int> counts, FloatType rmsdHistogramBinSize) {
-		_rmsdHistogramData = std::move(counts);
-		_rmsdHistogramBinSize = rmsdHistogramBinSize;
-		notifyDependents(ReferenceEvent::ObjectStatusChanged);
-	}
- 
-private:
- 
-	/// The histogram of computed RMSD values.
-	QVector<int> _rmsdHistogramData;
-
-	/// The bin size of the RMSD histogram;
-	FloatType _rmsdHistogramBinSize = 0;
+	/// Controls the output of bonds by the modifier.
+	DECLARE_MODIFIABLE_PROPERTY_FIELD(bool, outputBonds, setOutputBonds);
 };
 
 }	// End of namespace

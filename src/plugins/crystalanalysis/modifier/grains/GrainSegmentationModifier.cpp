@@ -20,20 +20,17 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #include <plugins/crystalanalysis/CrystalAnalysis.h>
-#include <plugins/stdobj/simcell/SimulationCellObject.h>
 #include <plugins/particles/objects/BondsVis.h>
+#include <plugins/stdobj/simcell/SimulationCellObject.h>
+#include <plugins/stdobj/properties/PropertyStorage.h>
+#include <plugins/stdobj/series/DataSeriesObject.h>
 #include <core/utilities/concurrent/Promise.h>
 #include <core/utilities/concurrent/TaskManager.h>
 #include <core/utilities/units/UnitsManager.h>
-#include "GrainSegmentationModifier.h"
-#include "GrainSegmentationEngine.h"
-//#include "GrainTrackingEngine.h"
-
-#include <plugins/particles/Particles.h>
-#include <plugins/stdobj/properties/PropertyStorage.h>
-#include <plugins/stdobj/series/DataSeriesObject.h>
 #include <core/dataset/pipeline/ModifierApplication.h>
 #include <core/dataset/DataSet.h>
+#include "GrainSegmentationModifier.h"
+#include "GrainSegmentationEngine.h"
 
 #include <ptm/ptm_functions.h>
 
@@ -45,19 +42,18 @@ DEFINE_PROPERTY_FIELD(GrainSegmentationModifier, mergingThreshold);
 DEFINE_PROPERTY_FIELD(GrainSegmentationModifier, minGrainAtomCount);
 DEFINE_PROPERTY_FIELD(GrainSegmentationModifier, orphanAdoption);
 DEFINE_PROPERTY_FIELD(GrainSegmentationModifier, onlySelectedParticles);
+DEFINE_PROPERTY_FIELD(GrainSegmentationModifier, outputBonds);
 DEFINE_REFERENCE_FIELD(GrainSegmentationModifier, bondsVis);
 SET_PROPERTY_FIELD_LABEL(GrainSegmentationModifier, rmsdCutoff, "RMSD cutoff");
 SET_PROPERTY_FIELD_LABEL(GrainSegmentationModifier, mergingThreshold, "Merging threshold");
 SET_PROPERTY_FIELD_LABEL(GrainSegmentationModifier, minGrainAtomCount, "Minimum grain size (# of atoms)");
 SET_PROPERTY_FIELD_LABEL(GrainSegmentationModifier, orphanAdoption, "Adopt orphan atoms");
 SET_PROPERTY_FIELD_LABEL(GrainSegmentationModifier, onlySelectedParticles, "Use only selected particles");
+SET_PROPERTY_FIELD_LABEL(GrainSegmentationModifier, outputBonds, "Output bonds");
 SET_PROPERTY_FIELD_LABEL(GrainSegmentationModifier, bondsVis, "Bonds display");
 SET_PROPERTY_FIELD_UNITS_AND_MINIMUM(GrainSegmentationModifier, rmsdCutoff, FloatParameterUnit, 0);
 SET_PROPERTY_FIELD_UNITS_AND_MINIMUM(GrainSegmentationModifier, minGrainAtomCount, IntegerParameterUnit, 1);
 SET_PROPERTY_FIELD_UNITS_AND_MINIMUM(GrainSegmentationModifier, mergingThreshold, FloatParameterUnit, 0);
-
-//IMPLEMENT_OVITO_CLASS(GrainSegmentationModifierApplication);
-//SET_MODIFIER_APPLICATION_TYPE(GrainSegmentationModifier, GrainSegmentationModifierApplication);
 
 /******************************************************************************
 * Constructs the modifier object.
@@ -66,7 +62,9 @@ GrainSegmentationModifier::GrainSegmentationModifier(DataSet* dataset) : Structu
 		_rmsdCutoff(0.1),
 		_minGrainAtomCount(100),
 		_onlySelectedParticles(false),
-		_mergingThreshold(0.1)
+		_mergingThreshold(0.1),
+		_orphanAdoption(true),
+		_outputBonds(false)
 {
 	// Define the structure types.
 	createStructureType(PTMAlgorithm::OTHER, ParticleType::PredefinedStructureType::OTHER);
@@ -79,9 +77,8 @@ GrainSegmentationModifier::GrainSegmentationModifier(DataSet* dataset) : Structu
 	createStructureType(PTMAlgorithm::HEX_DIAMOND, ParticleType::PredefinedStructureType::HEX_DIAMOND)->setEnabled(false);
 	createStructureType(PTMAlgorithm::GRAPHENE, ParticleType::PredefinedStructureType::GRAPHENE)->setEnabled(false);
 
-	// Create the visual element for the bonds (display is disabled by default).
+	// Create the visual element for the bonds.
 	setBondsVis(new BondsVis(dataset));
-	bondsVis()->setEnabled(false);
 }
 
 /******************************************************************************
@@ -110,7 +107,7 @@ std::shared_ptr<GrainSegmentationEngine> GrainSegmentationModifier::createSegmen
 	// Create engine object. Pass all relevant modifier parameters to the engine as well as the input data.
 	return std::make_shared<GrainSegmentationEngine>(particles, posProperty->storage(), simCell->data(),
 			getTypesToIdentify(PTMAlgorithm::NUM_STRUCTURE_TYPES), std::move(selectionProperty),
-			rmsdCutoff(), mergingThreshold(), minGrainAtomCount(), orphanAdoption());
+			rmsdCutoff(), mergingThreshold(), minGrainAtomCount(), orphanAdoption(), outputBonds());
 }
 
 /******************************************************************************
@@ -140,31 +137,16 @@ void GrainSegmentationEngine::emitResults(TimePoint time, ModifierApplication* m
 	if(atomClusters())
 		particles->createProperty(atomClusters());
 
-#if 0
-//TODO: put this back in
-
-	// Output lattice neighbor bonds.
-	if(latticeNeighborBonds()) {
-		for(int i = output.objects().size()-1; i>=0; i--)
-			if(dynamic_object_cast<BondProperty>(output.objects()[i]))
-				output.removeObjectByIndex(i);
-		OORef<BondProperty> topologyPropertyObj = BondProperty::createFromStorage(modifier->dataset(), latticeNeighborBonds());
-		topologyPropertyObj->setVisElement(modifier->bondsVis());
-		output.addObject(topologyPropertyObj);
-		poh.setOutputBondCount(latticeNeighborBonds()->size());
-		poh.outputProperty<BondProperty>(bondPBCShiftVectors());
-		poh.outputProperty<BondProperty>(neighborDisorientationAngles());
+	// Output the edges of the neighbor graph.
+	if(_outputBonds && modifier->outputBonds()) {
+		particles->addBonds(latticeNeighborBonds(), modifier->bondsVis(), { neighborDisorientationAngles() });
 	}
-#endif
 
-	// Store the RMSD histogram in the ModifierApplication.
-	//static_object_cast<GrainSegmentationModifierApplication>(modApp)->setRmsdHistogram(rmsdHistogramData(), rmsdHistogramBinSize());
-
-//TODO: put this back in
-	//DataSeriesObject* seriesObj = state.createObject<DataSeriesObject>(QStringLiteral("grains-rmsd"), modApp, DataSeriesObject::Line, GrainSegmentationModifier::tr("RMSD distribution"), rmsdHistogram());
-	//seriesObj->setAxisLabelX(GrainSegmentationModifier::tr("RMSD"));
-	//seriesObj->setIntervalStart(0);
-	//seriesObj->setIntervalEnd(rmsdHistogramRange());
+	// Output RMSD histogram.
+	DataSeriesObject* seriesObj = state.createObject<DataSeriesObject>(QStringLiteral("grains-rmsd"), modApp, DataSeriesObject::Line, GrainSegmentationModifier::tr("RMSD distribution"), rmsdHistogram());
+	seriesObj->setAxisLabelX(GrainSegmentationModifier::tr("RMSD"));
+	seriesObj->setIntervalStart(0);
+	seriesObj->setIntervalEnd(rmsdHistogramRange());
 
 	size_t numGrains = atomClusters()->size() == 0 ? 0 : (*std::max_element(atomClusters()->constDataInt64(), atomClusters()->constDataInt64() + atomClusters()->size()));
 	state.setStatus(PipelineStatus(PipelineStatus::Success, GrainSegmentationModifier::tr("Found %1 grains").arg(numGrains)));
@@ -218,7 +200,7 @@ bool GrainSegmentationModifier::trackGrains(TaskManager& taskManager, ModifierAp
 
 		// Update progress display.
 		task.setProgressValue(task.progressValue() + 1);
-		if(task.isCanceled()) 
+		if(task.isCanceled())
 			return false;
 	}
 
@@ -232,7 +214,7 @@ bool GrainSegmentationModifier::trackGrains(TaskManager& taskManager, ModifierAp
 
 	// Release working data structures that are no longer needed.
 	grainTrackingEngine->cleanup();
-	
+
 	return true;
 }
 #endif

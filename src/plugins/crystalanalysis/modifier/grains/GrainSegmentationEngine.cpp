@@ -38,15 +38,16 @@ GrainSegmentationEngine::GrainSegmentationEngine(
 			ParticleOrderingFingerprint fingerprint, ConstPropertyPtr positions, const SimulationCell& simCell,
 			const QVector<bool>& typesToIdentify, ConstPropertyPtr selection,
 			FloatType rmsdCutoff, FloatType mergingThreshold,
-			int minGrainAtomCount, bool orphanAdoption) :
+			int minGrainAtomCount, bool orphanAdoption, bool outputBonds) :
 	StructureIdentificationModifier::StructureIdentificationEngine(std::move(fingerprint), positions, simCell, std::move(typesToIdentify), std::move(selection)),
 	_rmsdCutoff(rmsdCutoff),
 	_mergingThreshold(mergingThreshold),
 	_minGrainAtomCount(std::max(minGrainAtomCount, 1)),
-	_orphanAdoption(orphanAdoption),
 	_rmsd(std::make_shared<PropertyStorage>(positions->size(), PropertyStorage::Float, 1, 0, QStringLiteral("RMSD"), false)),
 	_orientations(ParticlesObject::OOClass().createStandardStorage(positions->size(), ParticlesObject::OrientationProperty, true)),
-	_atomClusters(ParticlesObject::OOClass().createStandardStorage(positions->size(), ParticlesObject::ClusterProperty, true))
+	_atomClusters(ParticlesObject::OOClass().createStandardStorage(positions->size(), ParticlesObject::ClusterProperty, true)),
+	_orphanAdoption(orphanAdoption),
+	_outputBonds(outputBonds)
 {
 	// Allocate memory for neighbor lists.
 	_neighborLists = std::make_shared<PropertyStorage>(positions->size(), PropertyStorage::Int64, PTM_MAX_NBRS, 0, QStringLiteral("Neighbors"), false);
@@ -58,7 +59,7 @@ GrainSegmentationEngine::GrainSegmentationEngine(
 ******************************************************************************/
 void GrainSegmentationEngine::perform()
 {
-	if(positions()->size() == 0) 
+	if(positions()->size() == 0)
 		return;	// No input particles, nothing to do.
 
 	// Grain segmentation algorithm:
@@ -71,8 +72,10 @@ void GrainSegmentationEngine::perform()
 	if(!calculateAverageClusterOrientations()) return;
 
 	// For final output, convert edge disorientation angles from radians to degrees.
-	for(FloatType& angle : neighborDisorientationAngles()->floatRange())
-		angle *= FloatType(180) / FLOATTYPE_PI;
+	if(_outputBonds) {
+		for(FloatType& angle : neighborDisorientationAngles()->floatRange())
+			angle *= FloatType(180) / FLOATTYPE_PI;
+	}
 
 	if (_orphanAdoption) {
 		if(!mergeOrphanAtoms()) return;
@@ -80,7 +83,7 @@ void GrainSegmentationEngine::perform()
 }
 
 /******************************************************************************
-* Performs the PTM algorithm. Determines the local structure type and the 
+* Performs the PTM algorithm. Determines the local structure type and the
 * local lattice orientation at each atomic site.
 ******************************************************************************/
 bool GrainSegmentationEngine::identifyAtomicStructures()
@@ -214,7 +217,7 @@ bool GrainSegmentationEngine::identifyAtomicStructures()
 				neighQuery.findNeighbors(index);
 				int numNeighbors = neighQuery.results().size();
 
-				// Store neighbor list.  
+				// Store neighbor list.
 				for(int j = 0; j < numNeighbors; j++) {
 					_neighborLists->setInt64Component(index, j, neighQuery.results()[j].index);
 				}
@@ -225,21 +228,21 @@ bool GrainSegmentationEngine::identifyAtomicStructures()
 		return false;
 
 	// Determine histogram bin size based on maximum RMSD value.
-	QVector<int> rmsdHistogramData(100, 0);
-	FloatType rmsdHistogramBinSize = FloatType(1.01) * *std::max_element(rmsd()->constDataFloat(), rmsd()->constDataFloat() + rmsd()->size());
-	rmsdHistogramBinSize /= rmsdHistogramData.size();
+	const size_t numHistogramBins = 100;
+	_rmsdHistogram = std::make_shared<PropertyStorage>(numHistogramBins, PropertyStorage::Int64, 1, 0, GrainSegmentationModifier::tr("Count"), true, DataSeriesObject::YProperty);
+	FloatType rmsdHistogramBinSize = FloatType(1.01) * *std::max_element(rmsd()->constDataFloat(), rmsd()->constDataFloat() + rmsd()->size()) / numHistogramBins;
 	if(rmsdHistogramBinSize <= 0) rmsdHistogramBinSize = 1;
+	_rmsdHistogramRange = rmsdHistogramBinSize * numHistogramBins;
 
-	// Build RMSD histogram.
+	// Perform binning of RMSD values.
 	for(size_t index = 0; index < structures()->size(); index++) {
 		if(structures()->getInt(index) != PTMAlgorithm::OTHER) {
 			OVITO_ASSERT(rmsd()->getFloat(index) >= 0);
 			int binIndex = rmsd()->getFloat(index) / rmsdHistogramBinSize;
-			if(binIndex < rmsdHistogramData.size())
-				rmsdHistogramData[binIndex]++;
+			if(binIndex < numHistogramBins)
+				_rmsdHistogram->dataInt64()[binIndex]++;
 		}
 	}
-	setRmsdHistogram(std::move(rmsdHistogramData), rmsdHistogramBinSize);
 
 	// Set the atomic structure to OTHER for atoms with an RMSD value above the threshold.
 	if(_rmsdCutoff > 0) {
@@ -255,7 +258,7 @@ bool GrainSegmentationEngine::identifyAtomicStructures()
 }
 
 /******************************************************************************
-* Builds the graph of neighbor atoms and calculates the misorientation angle 
+* Builds the graph of neighbor atoms and calculates the misorientation angle
 * for each graph edge (i.e. bond)
 ******************************************************************************/
 bool GrainSegmentationEngine::buildNeighborGraph()
@@ -265,19 +268,7 @@ bool GrainSegmentationEngine::buildNeighborGraph()
 	task()->setProgressValue(0);
 	task()->setProgressMaximum(positions()->size());
 
-	// Count number of bonds to create.
-	size_t bondCount = 0;
-	for(size_t index = 0; index < positions()->size(); index++) {
-		for(size_t c = 0; c < _neighborLists->componentCount(); c++) {
-			if(_neighborLists->getInt64Component(index, c) == -1) break;
-			if(_neighborLists->getInt64Component(index, c) < index) continue;
-			bondCount++;
-		}
-	}
-	allocateBonds(bondCount);
-
-	qlonglong* bondTopology = latticeNeighborBonds()->dataInt64();
-	Vector3I* pbcShift = bondPBCShiftVectors()->dataVector3I();
+	// Create the bonds connecting neighboring lattice atoms.
 	for(size_t index = 0; index < positions()->size(); index++) {
 		if(!task()->incrementProgressValue()) return false;
 
@@ -288,23 +279,30 @@ bool GrainSegmentationEngine::buildNeighborGraph()
 			// Skip every other atom pair so that we don't create the same bond twice.
 			if(_neighborLists->getInt64Component(index, c) < index) continue;
 
+			Bond bond;
+			bond.index1 = index;
+			bond.index2 = neighborIndex;
 			// Determine PBC bond shift using minimum image convention.
 			Vector3 delta = positions()->getPoint3(index) - positions()->getPoint3(neighborIndex);
 			for(size_t dim = 0; dim < 3; dim++) {
 				if(cell().pbcFlags()[dim])
-					(*pbcShift)[dim] = (int)floor(cell().inverseMatrix().prodrow(delta, dim) + FloatType(0.5));
+					bond.pbcShift[dim] = (int)std::floor(cell().inverseMatrix().prodrow(delta, dim) + FloatType(0.5));
+				else
+					bond.pbcShift[dim] = 0;
 			}
-			++pbcShift;
-			*bondTopology++ = index;
-			*bondTopology++ = neighborIndex;
+
+			// Skip every other bond to create only one bond per particle pair.
+			if(!bond.isOdd())
+				_latticeNeighborBonds.push_back(bond);
 		}
 	}
 
 	// Compute disorientation angles associated with the neighbor graph edges.
 	task()->setProgressText(GrainSegmentationModifier::tr("Grain segmentation - misorientation calculation"));
-	parallelFor(bondCount, *task(), [this](size_t bondIndex) {
-		size_t index1 = latticeNeighborBonds()->getInt64Component(bondIndex, 0);
-		size_t index2 = latticeNeighborBonds()->getInt64Component(bondIndex, 1);
+	_neighborDisorientationAngles = std::make_shared<PropertyStorage>(_latticeNeighborBonds.size(), PropertyStorage::Float, 1, 0, QStringLiteral("Disorientation"), false);
+	parallelFor(_latticeNeighborBonds.size(), *task(), [this](size_t bondIndex) {
+		size_t index1 = latticeNeighborBonds()[bondIndex].index1;
+		size_t index2 = latticeNeighborBonds()[bondIndex].index2;
 		FloatType& disorientationAngle = *(neighborDisorientationAngles()->dataFloat() + bondIndex);
 
 		disorientationAngle = std::numeric_limits<FloatType>::infinity();
@@ -357,18 +355,18 @@ bool GrainSegmentationEngine::mergeSuperclusters()
 
 	task()->setProgressText(GrainSegmentationModifier::tr("Grain segmentation - supercluster merging"));
 	task()->setProgressValue(0);
-	task()->setProgressMaximum(latticeNeighborBonds()->size());
+	task()->setProgressMaximum(latticeNeighborBonds().size());
 
 	FloatType threshold = _misorientationThreshold;
 
 	// Merge superclusters.
-	for(size_t bondIndex = 0; bondIndex < latticeNeighborBonds()->size(); bondIndex++) {
+	for(size_t bondIndex = 0; bondIndex < latticeNeighborBonds().size(); bondIndex++) {
 		if(!task()->incrementProgressValue()) return false;
-		size_t index1 = latticeNeighborBonds()->getInt64Component(bondIndex, 0);
-		size_t index2 = latticeNeighborBonds()->getInt64Component(bondIndex, 1);
 
-		size_t parentA = findParent(index1);
-		size_t parentB = findParent(index2);
+		const Bond& bond = latticeNeighborBonds()[bondIndex];
+
+		size_t parentA = findParent(bond.index1);
+		size_t parentB = findParent(bond.index2);
 		if(parentA == parentB) continue;
 
 		// Skip high-angle edges.
@@ -391,7 +389,7 @@ bool GrainSegmentationEngine::mergeSuperclusters()
 	if(task()->isCanceled())
 		return false;
 
-	// Relabels the superclusters to obtain a contiguous sequence of cluster IDs.	
+	// Relabels the superclusters to obtain a contiguous sequence of cluster IDs.
 	std::vector<size_t> superclusterRemapping(numAtoms);
 	_numSuperclusters = 1;
 	// Assign new consecutive IDs to root superclusters.
@@ -479,24 +477,22 @@ bool GrainSegmentationEngine::regionMerging()
 
 	task()->setProgressText(GrainSegmentationModifier::tr("Grain segmentation - building graph"));
 	task()->setProgressValue(0);
-	task()->setProgressMaximum(latticeNeighborBonds()->size());
+	task()->setProgressMaximum(latticeNeighborBonds().size());
 
 	std::vector< std::tuple< size_t, size_t, FloatType, FloatType > > graph;
 
 	// Build graph edges
-	for(size_t bondIndex = 0; bondIndex < latticeNeighborBonds()->size(); bondIndex++) {
+	const FloatType* disorientation = neighborDisorientationAngles()->constDataFloat();
+	for(const Bond& bond : latticeNeighborBonds()) {
 		if(!task()->incrementProgressValue()) return false;
-		size_t index1 = latticeNeighborBonds()->getInt64Component(bondIndex, 0);
-		size_t index2 = latticeNeighborBonds()->getInt64Component(bondIndex, 1);
 
 		// Skip high-angle edges.
-		FloatType disorientation = neighborDisorientationAngles()->getFloat(bondIndex);
-		if(disorientation > _misorientationThreshold) continue;
+		if(*disorientation++ > _misorientationThreshold) continue;
 
-		FloatType deg = disorientation * FloatType(180) / FLOATTYPE_PI;
+		FloatType deg = *disorientation * FloatType(180) / FLOATTYPE_PI;
 		FloatType weight = std::exp(-FloatType(1)/3 * deg * deg);		//this is fairly arbitrary but it works well
 
-		graph.emplace_back(std::make_tuple(index1, index2, weight, -1));
+		graph.emplace_back(std::make_tuple(bond.index1, bond.index2, weight, -1));
 	}
 
 	if(task()->isCanceled())
@@ -653,7 +649,7 @@ for (int u=1;u<7;u++) {
 		_clusterSizes[i] = sizes[i];
 	}
 
-	// Relabels the clusters to obtain a contiguous sequence of cluster IDs.	
+	// Relabels the clusters to obtain a contiguous sequence of cluster IDs.
 	std::vector<size_t> clusterRemapping(numAtoms);
 
 	// Assign new consecutive IDs to root clusters.

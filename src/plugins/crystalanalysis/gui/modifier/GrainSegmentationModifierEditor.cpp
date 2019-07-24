@@ -20,24 +20,17 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #include <plugins/crystalanalysis/CrystalAnalysis.h>
+#include <plugins/crystalanalysis/modifier/grains/GrainSegmentationEngine.h>
+#include <plugins/crystalanalysis/modifier/grains/GrainSegmentationModifier.h>
 #include <plugins/particles/gui/modifier/analysis/StructureListParameterUI.h>
 #include <gui/properties/FloatParameterUI.h>
 #include <gui/properties/IntegerParameterUI.h>
 #include <gui/properties/BooleanParameterUI.h>
-#include <gui/properties/VariantComboBoxParameterUI.h>
-#include <gui/properties/SubObjectParameterUI.h>
-#include <gui/properties/BooleanGroupBoxParameterUI.h>
 #include <gui/utilities/concurrent/ProgressDialog.h>
 #include <core/dataset/DataSetContainer.h>
-#include <plugins/crystalanalysis/modifier/grains/GrainSegmentationEngine.h>
-#include <plugins/crystalanalysis/modifier/grains/GrainSegmentationModifier.h>
 #include "GrainSegmentationModifierEditor.h"
 
-#include <3rdparty/qwt/qwt_plot.h>
-#include <3rdparty/qwt/qwt_plot_curve.h>
 #include <3rdparty/qwt/qwt_plot_zoneitem.h>
-#include <3rdparty/qwt/qwt_plot_grid.h>
-
 
 namespace Ovito { namespace Plugins { namespace CrystalAnalysis {
 
@@ -75,15 +68,25 @@ void GrainSegmentationModifierEditor::createUI(const RolloutInsertionParameters&
 	sublayout2->addWidget(minGrainAtomCountUI->label(), 2, 0);
 	sublayout2->addLayout(minGrainAtomCountUI->createFieldLayout(), 2, 1);
 
+	QGroupBox* debuggingParamsBox = new QGroupBox(tr("Debugging options"));
+	layout->addWidget(debuggingParamsBox);
+	sublayout2 = new QGridLayout(debuggingParamsBox);
+	sublayout2->setContentsMargins(4,4,4,4);
+	sublayout2->setSpacing(4);
+	sublayout2->setColumnStretch(1, 1);
+
 	// Orphan atom adoption
 	BooleanParameterUI* orphanAdoptionUI = new BooleanParameterUI(this, PROPERTY_FIELD(GrainSegmentationModifier::orphanAdoption));
-	sublayout2->addWidget(orphanAdoptionUI->checkBox(), 3, 0, 1, 2);
-	orphanAdoptionUI->checkBox()->setText(tr("Orphan atom adoption"));
+	sublayout2->addWidget(orphanAdoptionUI->checkBox(), 0, 0, 1, 2);
 
+	BooleanParameterUI* outputBondsUI = new BooleanParameterUI(this, PROPERTY_FIELD(GrainSegmentationModifier::outputBonds));
+	sublayout2->addWidget(outputBondsUI->checkBox(), 1, 0, 1, 2);
 
+#if 0
 	QPushButton* grainTrackingButton = new QPushButton(tr("Perform grain tracking..."));
 	layout->addWidget(grainTrackingButton);
 	connect(grainTrackingButton, &QPushButton::clicked, this, &GrainSegmentationModifierEditor::onPerformGrainTracking);
+#endif
 
 	// Status label.
 	layout->addWidget(statusLabel());
@@ -94,15 +97,17 @@ void GrainSegmentationModifierEditor::createUI(const RolloutInsertionParameters&
 	layout->addWidget(new QLabel(tr("Structure types:")));
 	layout->addWidget(structureTypesPUI->tableWidget());
 
-	_plot = new QwtPlot();
-	_plot->setMinimumHeight(240);
-	_plot->setMaximumHeight(240);
-	_plot->setCanvasBackground(Qt::white);
-	_plot->setAxisTitle(QwtPlot::xBottom, tr("RMSD"));	
-	_plot->setAxisTitle(QwtPlot::yLeft, tr("Count"));	
-
+	// Create plot widget for RMSD distribution.
+	_rmsdPlotWidget = new DataSeriesPlotWidget();
+	_rmsdPlotWidget->setMinimumHeight(200);
+	_rmsdPlotWidget->setMaximumHeight(200);
+	_rmsdRangeIndicator = new QwtPlotZoneItem();
+	_rmsdRangeIndicator->setOrientation(Qt::Vertical);
+	_rmsdRangeIndicator->setZ(1);
+	_rmsdRangeIndicator->attach(_rmsdPlotWidget);
+	_rmsdRangeIndicator->hide();
 	layout->addSpacing(10);
-	layout->addWidget(_plot);
+	layout->addWidget(_rmsdPlotWidget);
 	connect(this, &GrainSegmentationModifierEditor::contentsReplaced, this, &GrainSegmentationModifierEditor::plotHistogram);
 }
 
@@ -111,7 +116,7 @@ void GrainSegmentationModifierEditor::createUI(const RolloutInsertionParameters&
 ******************************************************************************/
 bool GrainSegmentationModifierEditor::referenceEvent(RefTarget* source, const ReferenceEvent& event)
 {
-	if(event.sender() == editObject() && (event.type() == ReferenceEvent::ObjectStatusChanged || event.type() == ReferenceEvent::TargetChanged)) {
+	if(source == modifierApplication() && event.type() == ReferenceEvent::PipelineCacheUpdated) {
 		plotHistogramLater(this);
 	}
 	return ModifierPropertiesEditor::referenceEvent(source, event);
@@ -122,52 +127,26 @@ bool GrainSegmentationModifierEditor::referenceEvent(RefTarget* source, const Re
 ******************************************************************************/
 void GrainSegmentationModifierEditor::plotHistogram()
 {
-#if 0
-//TODO: put this back in
 	GrainSegmentationModifier* modifier = static_object_cast<GrainSegmentationModifier>(editObject());
-	GrainSegmentationModifierApplication* modApp = dynamic_object_cast<GrainSegmentationModifierApplication>(someModifierApplication());
-	
-	if(!modifier || !modApp || modApp->rmsdHistogramData().empty()) {
-		if(_plotCurve) _plotCurve->hide();
-		return;
+
+	if(modifier && modifier->rmsdCutoff() > 0) {
+		_rmsdRangeIndicator->setInterval(0, modifier->rmsdCutoff());
+		_rmsdRangeIndicator->show();
+	}
+	else {
+		_rmsdRangeIndicator->hide();
 	}
 
-	QVector<QPointF> plotData(modApp->rmsdHistogramData().size());
-	double binSize = modApp->rmsdHistogramBinSize();
-	double maxHistogramData = 0;
-	for(int i = 0; i < modApp->rmsdHistogramData().size(); i++) {
-		plotData[i].rx() = binSize * ((double)i + 0.5);
-		plotData[i].ry() = modApp->rmsdHistogramData()[i];
-		maxHistogramData = std::max(maxHistogramData, plotData[i].y());
-	}
+	if(modifierApplication()) {
+		// Request the modifier's pipeline output.
+		const PipelineFlowState& state = getModifierOutput();
 
-	if(!_plotCurve) {
-		_plotCurve = new QwtPlotCurve();
-	    _plotCurve->setRenderHint(QwtPlotItem::RenderAntialiased, true);
-		_plotCurve->setBrush(QColor(255, 160, 100));
-		_plotCurve->attach(_plot);
-		QwtPlotGrid* plotGrid = new QwtPlotGrid();
-		plotGrid->setPen(Qt::gray, 0, Qt::DotLine);
-		plotGrid->attach(_plot);
+		// Look up the data series in the modifier's pipeline output.
+		_rmsdPlotWidget->setSeries(state.getObjectBy<DataSeriesObject>(modifierApplication(), QStringLiteral("grains-rmsd")));
 	}
-	_plotCurve->setSamples(plotData);
-
-	if(modifier->rmsdCutoff() > 0) {
-		if(!_rmsdRange) {
-			_rmsdRange = new QwtPlotZoneItem();
-			_rmsdRange->setOrientation(Qt::Vertical);
-			_rmsdRange->setZ(_plotCurve->z() + 1);
-			_rmsdRange->attach(_plot);
-		}
-		_rmsdRange->show();
-		_rmsdRange->setInterval(0, modifier->rmsdCutoff());
+	else {
+		_rmsdPlotWidget->reset();
 	}
-	else if(_rmsdRange) {
-		_rmsdRange->hide();
-	}
-
-	_plot->replot();
-#endif
 }
 
 /******************************************************************************
