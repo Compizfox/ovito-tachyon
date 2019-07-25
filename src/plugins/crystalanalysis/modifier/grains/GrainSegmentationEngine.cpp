@@ -427,6 +427,19 @@ bool GrainSegmentationEngine::mergeSuperclusters()
 #endif
 
 
+class GraphEdge
+{
+public:
+	GraphEdge(size_t _a, size_t _b, FloatType _w, FloatType _mergeQuality)
+		: a(_a), b(_b), w(_w), mergeQuality(_mergeQuality) {}
+
+	size_t a;
+	size_t b;
+	FloatType w;
+	FloatType mergeQuality;
+};
+
+
 /******************************************************************************
 * Builds grains by iterative region merging
 ******************************************************************************/
@@ -442,7 +455,6 @@ bool GrainSegmentationEngine::regionMerging()
 
 	std::vector<size_t> sizes(numAtoms, 1);
 	std::vector<FloatType> weights(numAtoms, 0);
-	//std::vector<FloatType> rmsdSum(numAtoms, 0);
 
 	// Disjoint-sets helper function. "Find" part of Union-Find.
 	auto findParent = [&parents](size_t index) {
@@ -466,13 +478,11 @@ bool GrainSegmentationEngine::regionMerging()
 			parents[parentA] = parentB;
 			sizes[parentB] += sizes[parentA];
 			weights[parentB] += weights[parentA];
-			//rmsdSum[parentB] += rmsdSum[parentA];
 		}
 		else {
 			parents[parentB] = parentA;
 			sizes[parentA] += sizes[parentB];
 			weights[parentA] += weights[parentB];
-			//rmsdSum[parentA] += rmsdSum[parentB];
 
 			// If ranks are same, then make one as root and increment its rank by one
 			if(ranks[parentA] == ranks[parentB])
@@ -485,11 +495,7 @@ bool GrainSegmentationEngine::regionMerging()
 	task()->setProgressValue(0);
 	task()->setProgressMaximum(latticeNeighborBonds().size());
 
-	std::vector< std::tuple< size_t,	//vertex A
-				size_t,		//vertex B
-				FloatType,	//edge weight
-				FloatType	//merge quality
-				> > graph;
+	std::vector< GraphEdge > graph;
 
 	// Build initial graph
 	const FloatType* disorientation = neighborDisorientationAngles()->constDataFloat();
@@ -503,18 +509,46 @@ bool GrainSegmentationEngine::regionMerging()
 		FloatType deg = *disorientation * FloatType(180) / FLOATTYPE_PI;
 		FloatType weight = std::exp(-FloatType(1)/3 * deg * deg);		//this is fairly arbitrary but it works well
 
-		graph.emplace_back(std::make_tuple(bond.index1, bond.index2, weight, -1));
+		graph.emplace_back(bond.index1, bond.index2, weight, -1);
 	}
 
 	if(task()->isCanceled())
 		return false;
-
 
 	task()->setProgressText(GrainSegmentationModifier::tr("Grain segmentation - region merging"));
 	task()->setProgressValue(0);
 	task()->setProgressMaximum(graph.size());
 
 	std::vector<bool> hit(numAtoms, 0);
+
+
+	auto fastPower = [](double x, int dim) {
+
+		// Computes:	x^(1/2) if dim == 2
+		//		x^(2/3) if dim == 3
+		if (dim == 2) {
+			return std::sqrt(x);
+		}
+		else if (dim == 3) {
+			return std::cbrt(x * x);
+		}
+	};
+
+	auto mergeQuality = [&fastPower](int type, double curWeightA, double curWeightB, double w) {
+
+		//TODO: use number of surface bonds in Wullf construction to calculate a good normalization factor, so threshold values are similar across structures.
+		const int coordinations[PTMAlgorithm::NUM_STRUCTURE_TYPES] = {0, 12, 12, 14, 12, 6, 16, 16, 9};
+		const int dimensions[PTMAlgorithm::NUM_STRUCTURE_TYPES] = {0, 3, 3, 3, 3, 3, 3, 3, 2};
+
+		int dim = dimensions[type];
+		double hc = coordinations[type] / 2.0;
+		double k = 0.5;
+
+		FloatType qualityA = (k * hc + w) / (1 + fastPower(curWeightA / hc, dim)) / coordinations[type];
+		FloatType qualityB = (k * hc + w) / (1 + fastPower(curWeightB / hc, dim)) / coordinations[type];
+		return std::max(qualityA, qualityB);
+	};
+
 
 	int iteration = 0;
 	bool merged = true;
@@ -528,37 +562,22 @@ time[0] = clock();
 		std::vector<size_t> components(parents.begin(), parents.end());
 		std::vector<FloatType> curWeights(weights.begin(), weights.end());
 
-		FloatType threshold = _mergingThreshold;
-		for (size_t i=0;i<graph.size();i++) {	//can't use auto since we want to set tuple elements
+		for (size_t i=0;i<graph.size();i++) {	//can't use auto since we want to set object elements
 
 			auto edge = graph[i];
 
-			size_t a = std::get<0>(edge);
-			size_t b = std::get<1>(edge);
-			FloatType w = std::get<2>(edge);
-
-			//TODO: use number of surface bonds in Wullf construction to calculate a good normalization factor, so threshold values are similar across structures.
-			const int coordinations[PTMAlgorithm::NUM_STRUCTURE_TYPES] = {0, 12, 12, 14, 12, 6, 16, 16, 9};
-			const int dimensions[PTMAlgorithm::NUM_STRUCTURE_TYPES] = {0, 3, 3, 3, 3, 3, 3, 3, 2};
-
+			size_t a = edge.a;
+			size_t b = edge.b;
+			FloatType w = edge.w;
 			int type = structures()->getInt(a);
-			int dim = dimensions[type];
-			double hc = coordinations[type] / 2.0;
-			double k = 0.5;
 
-			//TODO: replace 'pow' with multiplicative exponentation
-			FloatType power = (-1. + dim) / dim;
-			FloatType za = (k * hc + w) / (1 + pow(curWeights[a] / hc, power)) / coordinations[type];
-			FloatType zb = (k * hc + w) / (1 + pow(curWeights[b] / hc, power)) / coordinations[type];
-			std::get<3>(graph[i]) = std::max(za, zb);
+			graph[i].mergeQuality = mergeQuality(type, curWeights[a], curWeights[b], w);
 		}
 
 time[1] = clock();
 
 		// Sort edges by merge quality
-		std::sort(graph.begin(), graph.end(),
-			[](std::tuple< size_t, size_t, FloatType, FloatType > a, std::tuple< size_t, size_t, FloatType, FloatType > b)
-			{return std::get<3>(b) < std::get<3>(a);});
+		std::sort(graph.begin(), graph.end(), [](GraphEdge& e, GraphEdge& f) {return e.mergeQuality > f.mergeQuality;});
 
 time[2] = clock();
 
@@ -567,13 +586,11 @@ time[2] = clock();
 
 		for (auto edge: graph) {
 
-			size_t a = std::get<0>(edge);
-			size_t b = std::get<1>(edge);
-			FloatType w = std::get<2>(edge);
-			FloatType z = std::get<3>(edge);
+			size_t a = edge.a;
+			size_t b = edge.b;
 
 			int num_hit = hit[a] + hit[b];
-			if (z >= threshold && num_hit == 0) {
+			if (edge.mergeQuality >= _mergingThreshold && num_hit == 0) {
 				merge(a, b);
 				hit[a] = true;
 				hit[b] = true;
@@ -590,9 +607,9 @@ time[3] = clock();
 
 			auto edge = graph[i];
 
-			size_t a = std::get<0>(edge);
-			size_t b = std::get<1>(edge);
-			FloatType w = std::get<2>(edge);
+			size_t a = edge.a;
+			size_t b = edge.b;
+			FloatType w = edge.w;
 
 			size_t parentA = findParent(a);
 			size_t parentB = findParent(b);
@@ -613,36 +630,25 @@ time[3] = clock();
 					std::swap(keymin, keymax);
 				}
 
-				std::get<0>(graph[i]) = keymin;
-				std::get<1>(graph[i]) = keymax;
+				graph[i].a = keymin;
+				graph[i].b = keymax;
 			}
 		}
 
 time[4] = clock();
 
 		// Sort graph such that edges connecting the same pair of clusters are adjacent
-		std::sort(graph.begin(), graph.end(),
-			[](std::tuple< size_t, size_t, FloatType, FloatType > a, std::tuple< size_t, size_t, FloatType, FloatType > b)
-			{
-				if (std::get<0>(a) == std::get<0>(b)) {
-					return std::get<1>(a) < std::get<1>(b);
-				}
-				return std::get<0>(a) < std::get<0>(b);
-			});
+		std::sort(graph.begin(), graph.end(), [](GraphEdge& e, GraphEdge& f) { return e.a == f.a ? e.b < f.b : e.a < f.a; });
 
 time[5] = clock();
 
 		// Combine edges which connect the same pair of clusters
-		std::vector< std::tuple< size_t, size_t, FloatType, FloatType > > temp;
+		std::vector< GraphEdge > temp;
 		for (auto edge: graph) {
 
-			size_t a2 = std::get<0>(edge);
-			size_t b2 = std::get<1>(edge);
-			FloatType w2 = std::get<2>(edge);
-
-			bool same = temp.size() > 0 && (std::get<0>(temp.back()) == a2) && (std::get<1>(temp.back()) == b2);
+			bool same = temp.size() > 0 && temp.back().a == edge.a && temp.back().b == edge.b;
 			if (same) {
-				std::get<2>(temp.back()) += w2;
+				temp.back().w += edge.w;
 			}
 			else {
 				temp.push_back(edge);
