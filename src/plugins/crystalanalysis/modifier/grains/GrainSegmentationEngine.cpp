@@ -463,6 +463,7 @@ bool GrainSegmentationEngine::mergeSuperclusters()
 printf("supercluster sizes:\n");
 for(size_t i = 0; i < _numSuperclusters; i++)
 	printf("\t%lu\t%lu\n", i, _superclusterSizes[i]);
+printf("\n");
 
 	return !task()->isCanceled();
 }
@@ -501,7 +502,7 @@ static FloatType mergeQuality(int type, FloatType curWeightA, FloatType curWeigh
 
 	int dim = dimensions[type];
 	FloatType hc = coordinations[type] / 2.0;
-	FloatType k = 0.5;
+	FloatType k = 1.0;
 
 	FloatType qualityA = (k * hc + w) / (1 + fastPower(curWeightA / hc, dim)) / coordinations[type];
 	FloatType qualityB = (k * hc + w) / (1 + fastPower(curWeightB / hc, dim)) / coordinations[type];
@@ -515,6 +516,17 @@ static FloatType mergeQuality(int type, FloatType curWeightA, FloatType curWeigh
 bool GrainSegmentationEngine::regionMerging()
 {
 	size_t numAtoms = positions()->size();
+
+	if (_numSuperclusters == 1) {
+		_numClusters = 1;
+		_clusterSizes.resize(_numClusters, 0);
+		_clusterSizes[0] = _superclusterSizes[0];
+		for (size_t particleIndex=0;particleIndex<numAtoms;particleIndex++) {
+			atomClusters()->setInt64(particleIndex, _atomSuperclusters[particleIndex]);
+		}
+		return true;
+	}
+
 	_clusterSizes.resize(numAtoms, 1);
 	DisjointSet uf(numAtoms);
 
@@ -522,9 +534,26 @@ bool GrainSegmentationEngine::regionMerging()
 	task()->setProgressValue(0);
 	task()->setProgressMaximum(latticeNeighborBonds().size());
 
-	std::vector< GraphEdge > initial_graph;
+	// Calculate a contiguous atom index mapping
+	std::vector< std::tuple< size_t, size_t > > atomIntervals(_numSuperclusters);
+	{
+		size_t start = 0;
+		for (size_t i=0;i<_numSuperclusters;i++) {
+			std::get<0>(atomIntervals[i]) = start;
+			std::get<1>(atomIntervals[i]) = start + _superclusterSizes[i];
+			start += _superclusterSizes[i];
+		}
+	}
 
-FloatType mw = 10000;
+	std::vector< size_t > atomMap(numAtoms);
+	std::vector< size_t > scCounts(_numSuperclusters, 0);
+	for (size_t i=0;i<numAtoms;i++) {
+		size_t sc = _atomSuperclusters[i];
+		size_t index = std::get<0>(atomIntervals[sc]) + scCounts[sc]++;
+		atomMap[i] = index;
+	}
+
+	std::vector< GraphEdge > initial_graph;
 
 	// Build initial graph
 	const FloatType* disorientation = neighborDisorientationAngles()->constDataFloat();
@@ -540,8 +569,10 @@ FloatType mw = 10000;
 		FloatType deg = dis * FloatType(180) / FLOATTYPE_PI;
 		FloatType weight = std::exp(-FloatType(1)/3. * deg * deg);		//this is fairly arbitrary but it works well
 
-		size_t sc = _atomSuperclusters[bond.index1];
-		initial_graph.emplace_back(bond.index1, bond.index2, weight, -1, sc);
+		size_t a = bond.index1;
+		size_t b = bond.index2;
+		size_t sc = _atomSuperclusters[a];
+		initial_graph.emplace_back(a, b, weight, -1, sc);
 	}
 
 	if(task()->isCanceled())
@@ -549,15 +580,34 @@ FloatType mw = 10000;
 
 	std::sort(initial_graph.begin(), initial_graph.end(), [](GraphEdge& e, GraphEdge& f) { return e.superCluster < f.superCluster; });
 
-	std::vector< std::tuple< size_t, size_t > > intervals;
+	std::map< size_t, std::tuple< size_t, size_t, int > > bondIntervals;
+
 	size_t start = 0;
 	for (size_t i=0;i<initial_graph.size();i++) {
-		if (initial_graph[i].superCluster != initial_graph[start].superCluster) {
-			intervals.emplace_back(std::make_tuple(start, i));
+		size_t sc = initial_graph[start].superCluster;
+		if (initial_graph[i].superCluster != sc) {
+
+			size_t a = initial_graph[i].a;
+			int type = structures()->getInt(a);
+			bondIntervals[sc] = std::make_tuple(start, i, type);
 			start = i;
 		}
 	}
-	intervals.emplace_back(std::make_tuple(start, initial_graph.size()));
+
+	{
+		size_t a = initial_graph.back().a;
+		size_t sc = initial_graph.back().superCluster;
+		int type = structures()->getInt(a);
+		bondIntervals[sc] = std::make_tuple(start, initial_graph.size(), type);
+	}
+
+	for (size_t i=0;i<initial_graph.size();i++) {
+
+		size_t a = initial_graph[i].a;
+		size_t b = initial_graph[i].b;
+		initial_graph[i].a = atomMap[a];
+		initial_graph[i].b = atomMap[b];
+	}
 
 	task()->setProgressText(GrainSegmentationModifier::tr("Grain segmentation - region merging"));
 	task()->setProgressValue(0);
@@ -565,28 +615,34 @@ FloatType mw = 10000;
 
 clock_t total_time[9] = {0};
 
-	parallelFor(_numSuperclusters, *task(), [this, &numAtoms, &initial_graph, &intervals, &uf, &total_time](size_t sc) {
+	std::vector<bool> hit(numAtoms, 0);
+	std::vector<FloatType> curWeights(numAtoms);
+
+	parallelFor(_numSuperclusters, *task(), [this, &numAtoms, &atomIntervals, &bondIntervals, &initial_graph, &uf, &hit, &curWeights, &total_time](size_t sc) {
 		if (sc == 0) return;
 
-		std::vector< GraphEdge > graph;
-		size_t start = std::get<0>(intervals[sc]);
-		size_t end = std::get<1>(intervals[sc]);
 
+		std::map< size_t, std::tuple< size_t, size_t, int > >::iterator it = bondIntervals.find(sc);
+		auto value = it->second;
+		size_t start = std::get<0>(value);
+		size_t end = std::get<1>(value);
+		int type = std::get<2>(value);
+
+		std::vector< GraphEdge > graph;
 		for (size_t i=start;i<end;i++) {
 			graph.push_back(initial_graph[i]);
 		}
-
-		std::vector<bool> hit(numAtoms, 0);
 
 		int iteration = 0;
 		bool merged = true;
 		while (merged) {
 			merged = false;
 			printf("iteration: %d %lu\n", iteration++, graph.size());
-
 clock_t time[9];
 time[0] = clock();
-			std::vector<FloatType> curWeights(uf.weights.begin(), uf.weights.end());
+			size_t start = std::get<0>(atomIntervals[sc]);
+			size_t end = std::get<1>(atomIntervals[sc]);
+			std::copy(uf.weights.begin() + start, uf.weights.begin() + end, curWeights.begin() + start);
 time[1] = clock();
 
 			for (size_t i=0;i<graph.size();i++) {	//can't use auto since we want to set object elements
@@ -596,7 +652,6 @@ time[1] = clock();
 				size_t a = edge.a;
 				size_t b = edge.b;
 				FloatType w = edge.w;
-				int type = structures()->getInt(a);
 
 				graph[i].mergeQuality = mergeQuality(type, curWeights[a], curWeights[b], w);
 			}
@@ -608,7 +663,7 @@ time[2] = clock();
 time[3] = clock();
 
 			// Perform greedy matching of unmatched vertices
-			std::fill(hit.begin(), hit.end(), 0);
+			std::fill(hit.begin() + start, hit.begin() + end, 0);
 time[4] = clock();
 
 			for (auto edge: graph) {
@@ -698,12 +753,9 @@ for(size_t i = 0; i < numAtoms; i++) {
 }
 printf("\n");
 #endif
-
 		}
 	});
 
-#if 0
-#endif
 for (int i=0;i<8;i++) {
 	long int clockTicksTaken = total_time[i];
 	double timeInSeconds = clockTicksTaken / (double) CLOCKS_PER_SEC;
@@ -745,7 +797,7 @@ for (int i=0;i<8;i++) {
 	std::fill(_clusterSizes.begin(), _clusterSizes.end(), 0);
 	for(size_t particleIndex = 0; particleIndex < numAtoms; particleIndex++) {
 
-		size_t gid = clusterRemapping[particleIndex];
+		size_t gid = clusterRemapping[atomMap[particleIndex]];
 		atomClusters()->setInt64(particleIndex, gid);
 		_clusterSizes[gid]++;
 	}
