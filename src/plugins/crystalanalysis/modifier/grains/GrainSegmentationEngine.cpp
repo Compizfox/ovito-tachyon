@@ -65,7 +65,7 @@ void GrainSegmentationEngine::perform()
 	// Grain segmentation algorithm:
 	if(!identifyAtomicStructures()) return;
 	if(!buildNeighborGraph()) return;
-	//if(!mergeSuperclusters()) return;
+	if(!mergeSuperclusters()) return;
 	if(!regionMerging()) return;
 
 	//if(!randomizeClusterIDs()) return;
@@ -328,149 +328,40 @@ bool GrainSegmentationEngine::buildNeighborGraph()
 	return !task()->isCanceled();
 }
 
-#if 0
-/******************************************************************************
-* Merges adjacent clusters with similar lattice orientations.
-******************************************************************************/
-bool GrainSegmentationEngine::mergeSuperclusters()
-{
-	size_t numAtoms = positions()->size();
-	_superclusterSizes.resize(numAtoms, 1);
-	_atomSuperclusters.resize(numAtoms, 0);
-
-	// Disjoint sets data structures.
-	std::vector<size_t> ranks(numAtoms, 0);
-	std::vector<size_t> parents(numAtoms);
-	std::iota(parents.begin(), parents.end(), (size_t)0);
-
-	// Disjoint-sets helper function. "Find" part of Union-Find.
-	auto findParent = [&parents](size_t index) {
-		// Find root and make root as parent of i (path compression)
-		size_t parent = parents[index];
-	    while(parent != parents[parent]) {
-	    	parent = parents[parent];
-	    }
-		parents[index] = parent;
-	    return parent;
-	};
-
-	task()->setProgressText(GrainSegmentationModifier::tr("Grain segmentation - supercluster merging"));
-	task()->setProgressValue(0);
-	task()->setProgressMaximum(latticeNeighborBonds().size());
-
-	FloatType threshold = _misorientationThreshold;
-
-	// Merge superclusters.
-	for(size_t bondIndex = 0; bondIndex < latticeNeighborBonds().size(); bondIndex++) {
-		if(!task()->incrementProgressValue()) return false;
-
-		const Bond& bond = latticeNeighborBonds()[bondIndex];
-
-		size_t parentA = findParent(bond.index1);
-		size_t parentB = findParent(bond.index2);
-		if(parentA == parentB) continue;
-
-		// Skip high-angle edges.
-		if(neighborDisorientationAngles()->getFloat(bondIndex) > _misorientationThreshold) continue;
-
-		// Merge the two superclusters.
-		// Attach smaller rank tree under root of high rank tree (Union by Rank)
-		if(ranks[parentA] < ranks[parentB]) {
-			parents[parentA] = parentB;
-			_superclusterSizes[parentB] += _superclusterSizes[parentA];
-		}
-		else {
-			parents[parentB] = parentA;
-			_superclusterSizes[parentA] += _superclusterSizes[parentB];
-			// If ranks are same, then make one as root and increment its rank by one
-			if(ranks[parentA] == ranks[parentB])
-				ranks[parentA]++;
-		}
-	}
-	if(task()->isCanceled())
-		return false;
-
-	// Relabels the superclusters to obtain a contiguous sequence of cluster IDs.
-	std::vector<size_t> superclusterRemapping(numAtoms);
-	_numSuperclusters = 1;
-	// Assign new consecutive IDs to root superclusters.
-	for(size_t i = 0; i < numAtoms; i++) {
-		if(findParent(i) == i) {
-			// If the cluster's size is below the threshold, dissolve the cluster.
-			if(_superclusterSizes[i] < _minGrainAtomCount) {
-				superclusterRemapping[i] = 0;
-			}
-			else {
-				superclusterRemapping[i] = _numSuperclusters;
-				_superclusterSizes[_numSuperclusters] = _superclusterSizes[i];
-				_numSuperclusters++;
-			}
-		}
-	}
-	// Determine new IDs for non-root superclusters.
-	for(size_t particleIndex = 0; particleIndex < numAtoms; particleIndex++)
-		superclusterRemapping[particleIndex] = superclusterRemapping[findParent(particleIndex)];
-
-	// Relabel atoms after cluster IDs have changed.
-	_superclusterSizes.resize(_numSuperclusters);
-	for(size_t particleIndex = 0; particleIndex < numAtoms; particleIndex++)
-		_atomSuperclusters[particleIndex] = superclusterRemapping[particleIndex];
-
-	// Supercluster 0 contains all atoms that are not part of a regular supercluster.
-	_superclusterSizes[0] = 0;
-	for(size_t particleIndex = 0; particleIndex < numAtoms; particleIndex++)
-		if(_atomSuperclusters[particleIndex] == 0)
-			_superclusterSizes[0]++;
-
-	return !task()->isCanceled();
-}
-#endif
-
-
-class GraphEdge
+class DisjointSet
 {
 public:
-	GraphEdge(size_t _a, size_t _b, FloatType _w, FloatType _mergeQuality)
-		: a(_a), b(_b), w(_w), mergeQuality(_mergeQuality) {}
+	DisjointSet(size_t n)
+	{
+		ranks.resize(n);
 
-	size_t a;
-	size_t b;
-	FloatType w;
-	FloatType mergeQuality;
-};
+		parents.resize(n);
+		std::iota(parents.begin(), parents.end(), (size_t)0);
 
+		sizes.resize(n);
+		std::fill(sizes.begin(), sizes.end(), 1);
 
-/******************************************************************************
-* Builds grains by iterative region merging
-******************************************************************************/
-bool GrainSegmentationEngine::regionMerging()
-{
-	size_t numAtoms = positions()->size();
-	_clusterSizes.resize(numAtoms, 1);
+		weights.resize(n);
+		std::fill(weights.begin(), weights.end(), 0);
+	}
 
-	// Disjoint sets data structures.
-	std::vector<size_t> ranks(numAtoms, 0);
-	std::vector<size_t> parents(numAtoms);
-	std::iota(parents.begin(), parents.end(), (size_t)0);
+	// "Find" part of Union-Find.
+	size_t find(size_t index) {
 
-	std::vector<size_t> sizes(numAtoms, 1);
-	std::vector<FloatType> weights(numAtoms, 0);
-
-	// Disjoint-sets helper function. "Find" part of Union-Find.
-	auto findParent = [&parents](size_t index) {
 		// Find root and make root as parent of i (path compression)
 		size_t parent = parents[index];
-	    while(parent != parents[parent]) {
-	    	parent = parents[parent];
-	    }
-		parents[index] = parent;
-	    return parent;
-	};
+		while(parent != parents[parent]) {
+			parent = parents[parent];
+		}
 
-	// Disjoint-sets helper function. "Union" part of Union-Find.
-	auto merge = [&findParent, &parents, &ranks, &sizes, &weights](size_t index1, size_t index2) {
-		size_t parentA = findParent(index1);
-		size_t parentB = findParent(index2);
+		parents[index] = parent;
+		return parent;
+	}
+
+	// "Union" part of Union-Find.
+	void merge(size_t index1, size_t index2) {
+		size_t parentA = find(index1);
+		size_t parentB = find(index2);
 		if(parentA == parentB) return;
 
 		// Attach smaller rank tree under root of high rank tree (Union by Rank)
@@ -488,203 +379,342 @@ bool GrainSegmentationEngine::regionMerging()
 			if(ranks[parentA] == ranks[parentB])
 				ranks[parentA]++;
 		}
-	};
+	}
 
+	std::vector<size_t> sizes;
+	std::vector<FloatType> weights;
+
+private:
+	std::vector<size_t> parents;
+	std::vector<size_t> ranks;
+};
+
+/******************************************************************************
+* Merges adjacent clusters with similar lattice orientations.
+******************************************************************************/
+bool GrainSegmentationEngine::mergeSuperclusters()
+{
+	size_t numAtoms = positions()->size();
+	_superclusterSizes.resize(numAtoms, 1);
+	_atomSuperclusters.resize(numAtoms, 0);
+	DisjointSet uf(numAtoms);
+
+	task()->setProgressText(GrainSegmentationModifier::tr("Grain segmentation - supercluster merging"));
+	task()->setProgressValue(0);
+	task()->setProgressMaximum(latticeNeighborBonds().size());
+
+	FloatType threshold = _misorientationThreshold;
+
+	// Merge superclusters.
+	for(size_t bondIndex = 0; bondIndex < latticeNeighborBonds().size(); bondIndex++) {
+		if(!task()->incrementProgressValue()) return false;
+
+		const Bond& bond = latticeNeighborBonds()[bondIndex];
+		// Skip high-angle edges.
+		if(neighborDisorientationAngles()->getFloat(bondIndex) > _misorientationThreshold) continue;
+
+		size_t parentA = uf.find(bond.index1);
+		size_t parentB = uf.find(bond.index2);
+		if(parentA != parentB) {
+			uf.merge(parentA, parentB);
+		}
+	}
+	if(task()->isCanceled())
+		return false;
+
+	for (size_t i=0;i<numAtoms;i++) {
+		_atomSuperclusters[i] = uf.find(i);
+		_superclusterSizes[i] = uf.sizes[i];
+	}
+
+	// Relabels the superclusters to obtain a contiguous sequence of cluster IDs.
+	std::vector<size_t> superclusterRemapping(numAtoms);
+	_numSuperclusters = 1;
+	// Assign new consecutive IDs to root superclusters.
+	for(size_t i = 0; i < numAtoms; i++) {
+		if(uf.find(i) == i) {
+			// If the cluster's size is below the threshold, dissolve the cluster.
+			if(_superclusterSizes[i] < _minGrainAtomCount) {
+				superclusterRemapping[i] = 0;
+			}
+			else {
+				superclusterRemapping[i] = _numSuperclusters;
+				_superclusterSizes[_numSuperclusters] = _superclusterSizes[i];
+				_numSuperclusters++;
+			}
+		}
+	}
+
+	// Determine new IDs for non-root superclusters.
+	for(size_t particleIndex = 0; particleIndex < numAtoms; particleIndex++)
+		superclusterRemapping[particleIndex] = superclusterRemapping[uf.find(particleIndex)];
+
+	// Relabel atoms after cluster IDs have changed.
+	_superclusterSizes.resize(_numSuperclusters);
+	for(size_t particleIndex = 0; particleIndex < numAtoms; particleIndex++)
+		_atomSuperclusters[particleIndex] = superclusterRemapping[particleIndex];
+
+	// Supercluster 0 contains all atoms that are not part of a regular supercluster.
+	_superclusterSizes[0] = 0;
+	for(size_t particleIndex = 0; particleIndex < numAtoms; particleIndex++)
+		if(_atomSuperclusters[particleIndex] == 0)
+			_superclusterSizes[0]++;
+
+printf("supercluster sizes:\n");
+for(size_t i = 0; i < _numSuperclusters; i++)
+	printf("\t%lu\t%lu\n", i, _superclusterSizes[i]);
+
+	return !task()->isCanceled();
+}
+
+
+class GraphEdge
+{
+public:
+	GraphEdge(size_t _a, size_t _b, FloatType _w, FloatType _mergeQuality, size_t _superCluster)
+		: a(_a), b(_b), w(_w), mergeQuality(_mergeQuality), superCluster(_superCluster) {}
+
+	size_t a;
+	size_t b;
+	FloatType w;
+	FloatType mergeQuality;
+	size_t superCluster;
+};
+
+static FloatType fastPower(FloatType x, int dim) {
+
+	// Computes:	x^(1/2) if dim == 2
+	//		x^(2/3) if dim == 3
+	if (dim == 2) {
+		return std::sqrt(x);
+	}
+	else if (dim == 3) {
+		return std::cbrt(x * x);
+	}
+}
+
+static FloatType mergeQuality(int type, FloatType curWeightA, FloatType curWeightB, FloatType w) {
+
+	//TODO: use number of surface bonds in Wullf construction to calculate a good normalization factor, so threshold values are similar across structures.
+	const int coordinations[PTMAlgorithm::NUM_STRUCTURE_TYPES] = {0, 12, 12, 14, 12, 6, 16, 16, 9};
+	const int dimensions[PTMAlgorithm::NUM_STRUCTURE_TYPES] = {0, 3, 3, 3, 3, 3, 3, 3, 2};
+
+	int dim = dimensions[type];
+	FloatType hc = coordinations[type] / 2.0;
+	FloatType k = 0.5;
+
+	FloatType qualityA = (k * hc + w) / (1 + fastPower(curWeightA / hc, dim)) / coordinations[type];
+	FloatType qualityB = (k * hc + w) / (1 + fastPower(curWeightB / hc, dim)) / coordinations[type];
+	return std::max(qualityA, qualityB);
+}
+
+
+/******************************************************************************
+* Builds grains by iterative region merging
+******************************************************************************/
+bool GrainSegmentationEngine::regionMerging()
+{
+	size_t numAtoms = positions()->size();
+	_clusterSizes.resize(numAtoms, 1);
+	DisjointSet uf(numAtoms);
 
 	task()->setProgressText(GrainSegmentationModifier::tr("Grain segmentation - building graph"));
 	task()->setProgressValue(0);
 	task()->setProgressMaximum(latticeNeighborBonds().size());
 
-	std::vector< GraphEdge > graph;
+	std::vector< GraphEdge > initial_graph;
+
+FloatType mw = 10000;
 
 	// Build initial graph
 	const FloatType* disorientation = neighborDisorientationAngles()->constDataFloat();
 	for(const Bond& bond : latticeNeighborBonds()) {
 		if(!task()->incrementProgressValue()) return false;
 
+		FloatType dis = *disorientation++;
+
 		// Skip high-angle edges.
-		if(*disorientation++ > _misorientationThreshold) continue;
+		if(dis > _misorientationThreshold) continue;
 
 		// Convert disorientations to graph weights
-		FloatType deg = *disorientation * FloatType(180) / FLOATTYPE_PI;
-		FloatType weight = std::exp(-FloatType(1)/3 * deg * deg);		//this is fairly arbitrary but it works well
+		FloatType deg = dis * FloatType(180) / FLOATTYPE_PI;
+		FloatType weight = std::exp(-FloatType(1)/3. * deg * deg);		//this is fairly arbitrary but it works well
 
-		graph.emplace_back(bond.index1, bond.index2, weight, -1);
+		size_t sc = _atomSuperclusters[bond.index1];
+		initial_graph.emplace_back(bond.index1, bond.index2, weight, -1, sc);
 	}
 
 	if(task()->isCanceled())
 		return false;
 
+	std::sort(initial_graph.begin(), initial_graph.end(), [](GraphEdge& e, GraphEdge& f) { return e.superCluster < f.superCluster; });
+
+	std::vector< std::tuple< size_t, size_t > > intervals;
+	size_t start = 0;
+	for (size_t i=0;i<initial_graph.size();i++) {
+		if (initial_graph[i].superCluster != initial_graph[start].superCluster) {
+			intervals.emplace_back(std::make_tuple(start, i));
+			start = i;
+		}
+	}
+	intervals.emplace_back(std::make_tuple(start, initial_graph.size()));
+
 	task()->setProgressText(GrainSegmentationModifier::tr("Grain segmentation - region merging"));
 	task()->setProgressValue(0);
-	task()->setProgressMaximum(graph.size());
+	task()->setProgressMaximum(initial_graph.size());
 
-	std::vector<bool> hit(numAtoms, 0);
+clock_t total_time[9] = {0};
 
+	parallelFor(_numSuperclusters, *task(), [this, &numAtoms, &initial_graph, &intervals, &uf, &total_time](size_t sc) {
+		if (sc == 0) return;
 
-	auto fastPower = [](double x, int dim) {
+		std::vector< GraphEdge > graph;
+		size_t start = std::get<0>(intervals[sc]);
+		size_t end = std::get<1>(intervals[sc]);
 
-		// Computes:	x^(1/2) if dim == 2
-		//		x^(2/3) if dim == 3
-		if (dim == 2) {
-			return std::sqrt(x);
+		for (size_t i=start;i<end;i++) {
+			graph.push_back(initial_graph[i]);
 		}
-		else if (dim == 3) {
-			return std::cbrt(x * x);
-		}
-	};
 
-	auto mergeQuality = [&fastPower](int type, double curWeightA, double curWeightB, double w) {
+		std::vector<bool> hit(numAtoms, 0);
 
-		//TODO: use number of surface bonds in Wullf construction to calculate a good normalization factor, so threshold values are similar across structures.
-		const int coordinations[PTMAlgorithm::NUM_STRUCTURE_TYPES] = {0, 12, 12, 14, 12, 6, 16, 16, 9};
-		const int dimensions[PTMAlgorithm::NUM_STRUCTURE_TYPES] = {0, 3, 3, 3, 3, 3, 3, 3, 2};
+		int iteration = 0;
+		bool merged = true;
+		while (merged) {
+			merged = false;
+			printf("iteration: %d %lu\n", iteration++, graph.size());
 
-		int dim = dimensions[type];
-		double hc = coordinations[type] / 2.0;
-		double k = 0.5;
-
-		FloatType qualityA = (k * hc + w) / (1 + fastPower(curWeightA / hc, dim)) / coordinations[type];
-		FloatType qualityB = (k * hc + w) / (1 + fastPower(curWeightB / hc, dim)) / coordinations[type];
-		return std::max(qualityA, qualityB);
-	};
-
-
-	int iteration = 0;
-	bool merged = true;
-	while (merged) {
-		printf("iteration: %d %lu\n", iteration++, graph.size());
-
-clock_t time[7];
+clock_t time[9];
 time[0] = clock();
-
-		merged = false;
-		std::vector<size_t> components(parents.begin(), parents.end());
-		std::vector<FloatType> curWeights(weights.begin(), weights.end());
-
-		for (size_t i=0;i<graph.size();i++) {	//can't use auto since we want to set object elements
-
-			auto edge = graph[i];
-
-			size_t a = edge.a;
-			size_t b = edge.b;
-			FloatType w = edge.w;
-			int type = structures()->getInt(a);
-
-			graph[i].mergeQuality = mergeQuality(type, curWeights[a], curWeights[b], w);
-		}
-
+			std::vector<FloatType> curWeights(uf.weights.begin(), uf.weights.end());
 time[1] = clock();
 
-		// Sort edges by merge quality
-		std::sort(graph.begin(), graph.end(), [](GraphEdge& e, GraphEdge& f) {return e.mergeQuality > f.mergeQuality;});
+			for (size_t i=0;i<graph.size();i++) {	//can't use auto since we want to set object elements
+
+				auto edge = graph[i];
+
+				size_t a = edge.a;
+				size_t b = edge.b;
+				FloatType w = edge.w;
+				int type = structures()->getInt(a);
+
+				graph[i].mergeQuality = mergeQuality(type, curWeights[a], curWeights[b], w);
+			}
 
 time[2] = clock();
 
-		// Perform greedy matching of unmatched vertices
-		std::fill(hit.begin(), hit.end(), 0);
-
-		for (auto edge: graph) {
-
-			size_t a = edge.a;
-			size_t b = edge.b;
-
-			int num_hit = hit[a] + hit[b];
-			if (edge.mergeQuality >= _mergingThreshold && num_hit == 0) {
-				merge(a, b);
-				hit[a] = true;
-				hit[b] = true;
-				merged = true;
-
-				if(!task()->incrementProgressValue()) return false;
-			}
-		}
-
+			// Sort edges by merge quality
+			std::sort(graph.begin(), graph.end(), [](GraphEdge e, GraphEdge f) {return e.mergeQuality > f.mergeQuality;});
 time[3] = clock();
 
-		// Contract graph
-		for (size_t i=0;i<graph.size();i++) {
-
-			auto edge = graph[i];
-
-			size_t a = edge.a;
-			size_t b = edge.b;
-			FloatType w = edge.w;
-
-			size_t parentA = findParent(a);
-			size_t parentB = findParent(b);
-			if (parentA == parentB) {
-				// Edge endpoints are now in same cluster
-				// Add the edge weight to the cluster weight
-				weights[parentA] += w;
-
-				// Remove the edge from the graph (not included in contracted graph)
-				graph[i] = graph.back();
-				graph.pop_back();
-				i--;
-			}
-			else {
-				// Edge endpoints are still in different clusters
-				size_t keymin = parentA, keymax = parentB;
-				if (keymin > keymax) {
-					std::swap(keymin, keymax);
-				}
-
-				graph[i].a = keymin;
-				graph[i].b = keymax;
-			}
-		}
-
+			// Perform greedy matching of unmatched vertices
+			std::fill(hit.begin(), hit.end(), 0);
 time[4] = clock();
 
-		// Sort graph such that edges connecting the same pair of clusters are adjacent
-		std::sort(graph.begin(), graph.end(), [](GraphEdge& e, GraphEdge& f) { return e.a == f.a ? e.b < f.b : e.a < f.a; });
+			for (auto edge: graph) {
+
+				size_t a = edge.a;
+				size_t b = edge.b;
+
+				int num_hit = hit[a] + hit[b];
+				if (edge.mergeQuality >= _mergingThreshold && num_hit == 0) {
+					uf.merge(a, b);
+					hit[a] = true;
+					hit[b] = true;
+					merged = true;
+
+					//if(!task()->incrementProgressValue()) return false;
+				}
+			}
 
 time[5] = clock();
 
-		// Combine edges which connect the same pair of clusters
-		std::vector< GraphEdge > temp;
-		for (auto edge: graph) {
+			// Contract graph
+			for (size_t i=0;i<graph.size();i++) {
 
-			bool same = temp.size() > 0 && temp.back().a == edge.a && temp.back().b == edge.b;
-			if (same) {
-				temp.back().w += edge.w;
+				auto edge = graph[i];
+
+				size_t a = edge.a;
+				size_t b = edge.b;
+				FloatType w = edge.w;
+
+				size_t parentA = uf.find(a);
+				size_t parentB = uf.find(b);
+				if (parentA == parentB) {
+					// Edge endpoints are now in same cluster
+					// Add the edge weight to the cluster weight
+					uf.weights[parentA] += w;
+
+					// Remove the edge from the graph (not included in contracted graph)
+					graph[i] = graph.back();
+					graph.pop_back();
+					i--;
+				}
+				else {
+					// Edge endpoints are still in different clusters
+					size_t keymin = parentA, keymax = parentB;
+					if (keymin > keymax) {
+						std::swap(keymin, keymax);
+					}
+
+					graph[i].a = keymin;
+					graph[i].b = keymax;
+				}
 			}
-			else {
-				temp.push_back(edge);
-			}
-		}
-		graph.clear();
-		for (auto edge: temp) {
-			graph.push_back(edge);
-		}
 
 time[6] = clock();
 
-#if 0
-#endif
-for (int i=1;i<7;i++) {
+			// Sort graph such that edges connecting the same pair of clusters are adjacent
+			std::sort(graph.begin(), graph.end(), [](GraphEdge& e, GraphEdge& f) { return e.a == f.a ? e.b < f.b : e.a < f.a; });
 
-	long int clockTicksTaken = time[i] - time[i - 1];
-	double timeInSeconds = clockTicksTaken / (double) CLOCKS_PER_SEC;
-	printf("\ttime taken: %f\n", timeInSeconds);
-}
+time[7] = clock();
+
+			// Combine edges which connect the same pair of clusters
+			std::vector< GraphEdge > temp;
+			for (auto edge: graph) {
+
+				bool same = temp.size() > 0 && temp.back().a == edge.a && temp.back().b == edge.b;
+				if (same) {
+					temp.back().w += edge.w;
+				}
+				else {
+					temp.push_back(edge);
+				}
+			}
+			graph.clear();
+			for (auto edge: temp) {
+				graph.push_back(edge);
+			}
+
+time[8] = clock();
+
+for (int i=0;i<8;i++)
+	total_time[i] += time[i + 1] - time[i];
 
 #if 0
 printf("!\t");
 for(size_t i = 0; i < numAtoms; i++) {
-	printf("%lu ", findParent(i));
+	printf("%lu ", uf.find(i));
 }
 printf("\n");
 #endif
 
-	}
+		}
+	});
+
+#if 0
+#endif
+for (int i=0;i<8;i++) {
+	long int clockTicksTaken = total_time[i];
+	double timeInSeconds = clockTicksTaken / (double) CLOCKS_PER_SEC;
+	printf("\ttime taken: %f\n", timeInSeconds);
+}
 
 	if(task()->isCanceled())
 		return false;
 
 	for(size_t i = 0; i < numAtoms; i++) {
-		_clusterSizes[i] = sizes[i];
+		_clusterSizes[i] = uf.sizes[i];
 	}
 
 	// Relabels the clusters to obtain a contiguous sequence of cluster IDs.
@@ -693,7 +723,7 @@ printf("\n");
 	// Assign new consecutive IDs to root clusters.
 	_numClusters = 1;
 	for(size_t i = 0; i < numAtoms; i++) {
-		if(findParent(i) == i) {
+		if(uf.find(i) == i) {
 			// If the cluster's size is below the threshold, dissolve the cluster.
 			if(_clusterSizes[i] < _minGrainAtomCount) {
 				clusterRemapping[i] = 0;
@@ -708,16 +738,16 @@ printf("\n");
 
 	// Determine new IDs for non-root clusters.
 	for(size_t particleIndex = 0; particleIndex < numAtoms; particleIndex++)
-		clusterRemapping[particleIndex] = clusterRemapping[findParent(particleIndex)];
+		clusterRemapping[particleIndex] = clusterRemapping[uf.find(particleIndex)];
 
 	// Relabel atoms after cluster IDs have changed.
 	_clusterSizes.resize(_numClusters);
 	std::fill(_clusterSizes.begin(), _clusterSizes.end(), 0);
 	for(size_t particleIndex = 0; particleIndex < numAtoms; particleIndex++) {
 
-		size_t grainID = clusterRemapping[particleIndex];
-		atomClusters()->setInt64(particleIndex, grainID);
-		_clusterSizes[grainID]++;
+		size_t gid = clusterRemapping[particleIndex];
+		atomClusters()->setInt64(particleIndex, gid);
+		_clusterSizes[gid]++;
 	}
 
 	// Relabel clusters by size (large to small)
@@ -733,10 +763,15 @@ printf("\n");
 			[](std::tuple< size_t, size_t > a, std::tuple< size_t, size_t > b)
 			{return std::get<1>(b) < std::get<1>(a);});
 
+		std::vector< size_t > indices(_numClusters);
+		for (size_t gid=0;gid<_numClusters;gid++) {
+			indices[std::get<0>(lut[gid])] = gid;
+		}
+
 		for(size_t particleIndex = 0; particleIndex < numAtoms; particleIndex++) {
 
-			size_t grainID = atomClusters()->getInt64(particleIndex);
-			atomClusters()->setInt64(particleIndex, std::get<0>(lut[grainID]));
+			size_t gid = atomClusters()->getInt64(particleIndex);
+			atomClusters()->setInt64(particleIndex, indices[gid]);
 		}
 
 		for (size_t i=0;i<_numClusters;i++) {
