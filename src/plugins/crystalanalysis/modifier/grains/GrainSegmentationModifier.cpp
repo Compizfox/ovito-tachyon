@@ -62,7 +62,7 @@ GrainSegmentationModifier::GrainSegmentationModifier(DataSet* dataset) : Structu
 		_rmsdCutoff(0.1),
 		_minGrainAtomCount(100),
 		_onlySelectedParticles(false),
-		_mergingThreshold(0.1),
+		_mergingThreshold(3.0),
 		_orphanAdoption(true),
 		_outputBonds(false)
 {

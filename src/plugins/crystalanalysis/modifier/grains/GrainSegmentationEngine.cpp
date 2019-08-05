@@ -150,9 +150,10 @@ bool GrainSegmentationEngine::identifyAtomicStructures()
 	task()->setProgressText(GrainSegmentationModifier::tr("Performing polyhedral template matching"));
 
 
+//FILE* out = fopen("graphene_positions.txt", "w");
+
 	// Perform analysis on each particle.
 	parallelForChunks(positions()->size(), *task(), [this, &cachedNeighbors, &_algorithm, &neighFinder](size_t startIndex, size_t count, Task& task) {
-
 		// Create a thread-local kernel for the PTM algorithm.
 		PTMAlgorithm::Kernel kernel(*_algorithm);
 
@@ -185,6 +186,10 @@ bool GrainSegmentationEngine::identifyAtomicStructures()
 			// Store results in the output arrays.
 			structures()->setInt(index, type);
 			rmsd()->setFloat(index, kernel.rmsd());
+
+//fprintf(out, "%f %f %f %f %f %f %f %f\n", positions()->getPoint3(index).x(), positions()->getPoint3(index).y(), positions()->getPoint3(index).z(),
+//					kernel.rmsd(), kernel.orientation().w(), kernel.orientation().x(), kernel.orientation().y(), kernel.orientation().z());
+//fflush(out);
 
 			if(type != PTMAlgorithm::OTHER) {
 				if(orientations()) orientations()->setQuaternion(index, kernel.orientation());
@@ -304,11 +309,10 @@ bool GrainSegmentationEngine::buildNeighborGraph()
 		size_t index1 = latticeNeighborBonds()[bondIndex].index1;
 		size_t index2 = latticeNeighborBonds()[bondIndex].index2;
 		FloatType& disorientationAngle = *(neighborDisorientationAngles()->dataFloat() + bondIndex);
-
 		disorientationAngle = std::numeric_limits<FloatType>::infinity();
+
 		int structureTypeA = structures()->getInt(index1);
 		int structureTypeB = structures()->getInt(index2);
-
 		if(structureTypeA == structureTypeB) {
 
 			int structureType = structureTypeA;
@@ -359,16 +363,17 @@ public:
 	}
 
 	// "Union" part of Union-Find.
-	void merge(size_t index1, size_t index2) {
+	size_t merge(size_t index1, size_t index2) {
 		size_t parentA = find(index1);
 		size_t parentB = find(index2);
-		if(parentA == parentB) return;
+		if(parentA == parentB) return index1;
 
 		// Attach smaller rank tree under root of high rank tree (Union by Rank)
 		if(ranks[parentA] < ranks[parentB]) {
 			parents[parentA] = parentB;
 			sizes[parentB] += sizes[parentA];
 			weights[parentB] += weights[parentA];
+			return index2;
 		}
 		else {
 			parents[parentB] = parentA;
@@ -378,6 +383,8 @@ public:
 			// If ranks are same, then make one as root and increment its rank by one
 			if(ranks[parentA] == ranks[parentB])
 				ranks[parentA]++;
+
+			return index1;
 		}
 	}
 
@@ -472,43 +479,14 @@ printf("\n");
 class GraphEdge
 {
 public:
-	GraphEdge(size_t _a, size_t _b, FloatType _w, FloatType _mergeQuality, size_t _superCluster)
-		: a(_a), b(_b), w(_w), mergeQuality(_mergeQuality), superCluster(_superCluster) {}
+	GraphEdge(size_t _a, size_t _b, FloatType _w, size_t _superCluster)
+		: a(_a), b(_b), w(_w), superCluster(_superCluster) {}
 
 	size_t a;
 	size_t b;
 	FloatType w;
-	FloatType mergeQuality;
 	size_t superCluster;
 };
-
-static FloatType fastPower(FloatType x, int dim) {
-
-	// Computes:	x^(1/2) if dim == 2
-	//		x^(2/3) if dim == 3
-	if (dim == 2) {
-		return std::sqrt(x);
-	}
-	else if (dim == 3) {
-		return std::cbrt(x * x);
-	}
-}
-
-static FloatType mergeQuality(int type, FloatType curWeightA, FloatType curWeightB, FloatType w) {
-
-	//TODO: use number of surface bonds in Wullf construction to calculate a good normalization factor, so threshold values are similar across structures.
-	const int coordinations[PTMAlgorithm::NUM_STRUCTURE_TYPES] = {0, 12, 12, 14, 12, 6, 16, 16, 9};
-	const int dimensions[PTMAlgorithm::NUM_STRUCTURE_TYPES] = {0, 3, 3, 3, 3, 3, 3, 3, 2};
-
-	int dim = dimensions[type];
-	FloatType hc = coordinations[type] / 2.0;
-	FloatType k = 1.0;
-
-	FloatType qualityA = (k * hc + w) / (1 + fastPower(curWeightA / hc, dim)) / coordinations[type];
-	FloatType qualityB = (k * hc + w) / (1 + fastPower(curWeightB / hc, dim)) / coordinations[type];
-	return std::max(qualityA, qualityB);
-}
-
 
 /******************************************************************************
 * Builds grains by iterative region merging
@@ -567,12 +545,11 @@ bool GrainSegmentationEngine::regionMerging()
 
 		// Convert disorientations to graph weights
 		FloatType deg = dis * FloatType(180) / FLOATTYPE_PI;
-		FloatType weight = std::exp(-FloatType(1)/3. * deg * deg);		//this is fairly arbitrary but it works well
 
 		size_t a = bond.index1;
 		size_t b = bond.index2;
 		size_t sc = _atomSuperclusters[a];
-		initial_graph.emplace_back(a, b, weight, -1, sc);
+		initial_graph.emplace_back(a, b, deg, sc);
 	}
 
 	if(task()->isCanceled())
@@ -587,22 +564,19 @@ bool GrainSegmentationEngine::regionMerging()
 		size_t sc = initial_graph[start].superCluster;
 		if (initial_graph[i].superCluster != sc) {
 
-			size_t a = initial_graph[i].a;
-			int type = structures()->getInt(a);
+			int type = structures()->getInt(initial_graph[i].a);
 			bondIntervals[sc] = std::make_tuple(start, i, type);
 			start = i;
 		}
 	}
 
 	{
-		size_t a = initial_graph.back().a;
 		size_t sc = initial_graph.back().superCluster;
-		int type = structures()->getInt(a);
+		int type = structures()->getInt(initial_graph.back().a);
 		bondIntervals[sc] = std::make_tuple(start, initial_graph.size(), type);
 	}
 
 	for (size_t i=0;i<initial_graph.size();i++) {
-
 		size_t a = initial_graph[i].a;
 		size_t b = initial_graph[i].b;
 		initial_graph[i].a = atomMap[a];
@@ -616,17 +590,24 @@ bool GrainSegmentationEngine::regionMerging()
 clock_t total_time[9] = {0};
 
 	std::vector<bool> hit(numAtoms, 0);
-	std::vector<FloatType> curWeights(numAtoms);
 
-	parallelFor(_numSuperclusters, *task(), [this, &numAtoms, &atomIntervals, &bondIntervals, &initial_graph, &uf, &hit, &curWeights, &total_time](size_t sc) {
+	std::vector< Quaternion > qsum(numAtoms);
+	for (size_t particleIndex=0;particleIndex<numAtoms;particleIndex++) {
+		const Quaternion& q = orientations()->getQuaternion(particleIndex);
+		qsum[atomMap[particleIndex]].w() = q.w();
+		qsum[atomMap[particleIndex]].x() = q.x();
+		qsum[atomMap[particleIndex]].y() = q.y();
+		qsum[atomMap[particleIndex]].z() = q.z();
+	}
+
+	parallelFor(_numSuperclusters, *task(), [this, &numAtoms, &atomIntervals, &bondIntervals, &initial_graph, &uf, &hit, &total_time, &qsum](size_t sc) {
 		if (sc == 0) return;
-
 
 		std::map< size_t, std::tuple< size_t, size_t, int > >::iterator it = bondIntervals.find(sc);
 		auto value = it->second;
 		size_t start = std::get<0>(value);
 		size_t end = std::get<1>(value);
-		int type = std::get<2>(value);
+		int structureType = std::get<2>(value);
 
 		std::vector< GraphEdge > graph;
 		for (size_t i=start;i<end;i++) {
@@ -642,65 +623,72 @@ clock_t time[9];
 time[0] = clock();
 			size_t start = std::get<0>(atomIntervals[sc]);
 			size_t end = std::get<1>(atomIntervals[sc]);
-			std::copy(uf.weights.begin() + start, uf.weights.begin() + end, curWeights.begin() + start);
 time[1] = clock();
-
-			for (size_t i=0;i<graph.size();i++) {	//can't use auto since we want to set object elements
-
-				auto edge = graph[i];
-
-				size_t a = edge.a;
-				size_t b = edge.b;
-				FloatType w = edge.w;
-
-				graph[i].mergeQuality = mergeQuality(type, curWeights[a], curWeights[b], w);
-			}
-
 time[2] = clock();
-
 			// Sort edges by merge quality
-			std::sort(graph.begin(), graph.end(), [](GraphEdge e, GraphEdge f) {return e.mergeQuality > f.mergeQuality;});
-time[3] = clock();
+			std::sort(graph.begin(), graph.end(), [](GraphEdge e, GraphEdge f) {return e.w < f.w;});
 
+time[3] = clock();
 			// Perform greedy matching of unmatched vertices
 			std::fill(hit.begin() + start, hit.begin() + end, 0);
-time[4] = clock();
 
+time[4] = clock();
 			for (auto edge: graph) {
 
 				size_t a = edge.a;
 				size_t b = edge.b;
 
 				int num_hit = hit[a] + hit[b];
-				if (edge.mergeQuality >= _mergingThreshold && num_hit == 0) {
-					uf.merge(a, b);
+				if ((edge.w <= _mergingThreshold || iteration == 0) && num_hit < 2) {
+
+					size_t parent = uf.merge(a, b);
 					hit[a] = true;
 					hit[b] = true;
 					merged = true;
+
+					size_t child = a == parent ? b : a;
+					Quaternion na = qsum[parent].normalized();
+					double qtarget[4] = {na.w(), na.x(), na.y(), na.z()};
+
+					Quaternion nb = qsum[child].normalized();
+					double q[4] = {nb.w(), nb.x(), nb.y(), nb.z()};
+
+int type = 0;
+if (structureType == PTMAlgorithm::FCC)			type = PTM_MATCH_FCC;
+else if (structureType == PTMAlgorithm::HCP)		type = PTM_MATCH_HCP;
+else if (structureType == PTMAlgorithm::BCC)		type = PTM_MATCH_BCC;
+else if (structureType == PTMAlgorithm::SC)		type = PTM_MATCH_SC;
+else if (structureType == PTMAlgorithm::CUBIC_DIAMOND)	type = PTM_MATCH_DCUB;
+else if (structureType == PTMAlgorithm::HEX_DIAMOND)	type = PTM_MATCH_DHEX;
+else if (structureType == PTMAlgorithm::GRAPHENE)	type = PTM_MATCH_GRAPHENE;
+
+					double dummy_disorientation = 0;
+					int8_t dummy_mapping[PTM_MAX_POINTS];
+					if (ptm_remap_template(type, true, 0, qtarget, q, &dummy_disorientation, dummy_mapping, NULL) < 0) {
+printf("remap failure\n");
+						//return;
+					}
+
+					FloatType norm = sqrt(qsum[child].dot(qsum[child]));
+					qsum[parent].w() += q[0] * norm;
+					qsum[parent].x() += q[1] * norm;
+					qsum[parent].y() += q[2] * norm;
+					qsum[parent].z() += q[3] * norm;
 
 					//if(!task()->incrementProgressValue()) return false;
 				}
 			}
 
 time[5] = clock();
-
 			// Contract graph
 			for (size_t i=0;i<graph.size();i++) {
 
 				auto edge = graph[i];
-
-				size_t a = edge.a;
-				size_t b = edge.b;
-				FloatType w = edge.w;
-
-				size_t parentA = uf.find(a);
-				size_t parentB = uf.find(b);
+				size_t parentA = uf.find(edge.a);
+				size_t parentB = uf.find(edge.b);
 				if (parentA == parentB) {
-					// Edge endpoints are now in same cluster
-					// Add the edge weight to the cluster weight
-					uf.weights[parentA] += w;
-
-					// Remove the edge from the graph (not included in contracted graph)
+					// Edge endpoints are now in same cluster:
+					//     remove the edge from the graph (not included in contracted graph)
 					graph[i] = graph.back();
 					graph.pop_back();
 					i--;
@@ -718,21 +706,32 @@ time[5] = clock();
 			}
 
 time[6] = clock();
-
 			// Sort graph such that edges connecting the same pair of clusters are adjacent
 			std::sort(graph.begin(), graph.end(), [](GraphEdge& e, GraphEdge& f) { return e.a == f.a ? e.b < f.b : e.a < f.a; });
 
 time[7] = clock();
-
 			// Combine edges which connect the same pair of clusters
 			std::vector< GraphEdge > temp;
 			for (auto edge: graph) {
 
-				bool same = temp.size() > 0 && temp.back().a == edge.a && temp.back().b == edge.b;
-				if (same) {
-					temp.back().w += edge.w;
-				}
-				else {
+				if (temp.size() == 0 || temp.back().a != edge.a || temp.back().b != edge.b) {
+
+					Quaternion qA = qsum[edge.a].normalized();
+					Quaternion qB = qsum[edge.b].normalized();
+
+					double orientA[4] = { qA.w(), qA.x(), qA.y(), qA.z() };
+					double orientB[4] = { qB.w(), qB.x(), qB.y(), qB.z() };
+
+					FloatType disorientationAngle = std::numeric_limits<FloatType>::infinity();
+					if(structureType == PTMAlgorithm::SC || structureType == PTMAlgorithm::FCC || structureType == PTMAlgorithm::BCC || structureType == PTMAlgorithm::CUBIC_DIAMOND)
+						disorientationAngle = (FloatType)ptm::quat_disorientation_cubic(orientA, orientB);
+					else if(structureType == PTMAlgorithm::HCP || structureType == PTMAlgorithm::HEX_DIAMOND || structureType == PTMAlgorithm::GRAPHENE)
+						disorientationAngle = (FloatType)ptm::quat_disorientation_hcp_conventional(orientA, orientB);
+
+					edge.w = disorientationAngle * FloatType(180) / FLOATTYPE_PI;
+
+					//size_t minsize = std::min(uf.sizes[edge.a], uf.sizes[edge.b]);
+					//edge.w -= 3 / minsize;
 					temp.push_back(edge);
 				}
 			}
@@ -740,6 +739,7 @@ time[7] = clock();
 			for (auto edge: temp) {
 				graph.push_back(edge);
 			}
+//exit(3);
 
 time[8] = clock();
 
@@ -753,6 +753,15 @@ for(size_t i = 0; i < numAtoms; i++) {
 }
 printf("\n");
 #endif
+		}
+
+		//printf("sc: %lu\n", sc);
+		for (auto edge: graph) {
+			size_t sa = uf.sizes[edge.a];
+			size_t sb = uf.sizes[edge.b];
+
+			if (sa > 100 && sb > 100)
+				printf("\t%lu %lu %f\n", sa, sb, edge.w);
 		}
 	});
 
