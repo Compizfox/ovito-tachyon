@@ -587,8 +587,6 @@ bool GrainSegmentationEngine::regionMerging()
 	task()->setProgressValue(0);
 	task()->setProgressMaximum(initial_graph.size());
 
-clock_t total_time[9] = {0};
-
 	std::vector<bool> hit(numAtoms, 0);
 
 	std::vector< Quaternion > qsum(numAtoms);
@@ -599,6 +597,8 @@ clock_t total_time[9] = {0};
 		qsum[atomMap[particleIndex]].y() = q.y();
 		qsum[atomMap[particleIndex]].z() = q.z();
 	}
+
+clock_t total_time[9] = {0};
 
 	parallelFor(_numSuperclusters, *task(), [this, &numAtoms, &atomIntervals, &bondIntervals, &initial_graph, &uf, &hit, &total_time, &qsum](size_t sc) {
 		if (sc == 0) return;
@@ -618,21 +618,20 @@ clock_t total_time[9] = {0};
 		bool merged = true;
 		while (merged) {
 			merged = false;
-			printf("iteration: %d %lu\n", iteration++, graph.size());
-clock_t time[9];
-time[0] = clock();
+			//printf("iteration: %d %lu\n", iteration, graph.size());
+
 			size_t start = std::get<0>(atomIntervals[sc]);
 			size_t end = std::get<1>(atomIntervals[sc]);
-time[1] = clock();
-time[2] = clock();
+clock_t time[7];
+time[0] = clock();
 			// Sort edges by merge quality
 			std::sort(graph.begin(), graph.end(), [](GraphEdge e, GraphEdge f) {return e.w < f.w;});
 
-time[3] = clock();
-			// Perform greedy matching of unmatched vertices
+time[1] = clock();
+			// Perform greedy clustering
 			std::fill(hit.begin() + start, hit.begin() + end, 0);
 
-time[4] = clock();
+time[2] = clock();
 			for (auto edge: graph) {
 
 				size_t a = edge.a;
@@ -653,14 +652,15 @@ time[4] = clock();
 					Quaternion nb = qsum[child].normalized();
 					double q[4] = {nb.w(), nb.x(), nb.y(), nb.z()};
 
-int type = 0;
-if (structureType == PTMAlgorithm::FCC)			type = PTM_MATCH_FCC;
-else if (structureType == PTMAlgorithm::HCP)		type = PTM_MATCH_HCP;
-else if (structureType == PTMAlgorithm::BCC)		type = PTM_MATCH_BCC;
-else if (structureType == PTMAlgorithm::SC)		type = PTM_MATCH_SC;
-else if (structureType == PTMAlgorithm::CUBIC_DIAMOND)	type = PTM_MATCH_DCUB;
-else if (structureType == PTMAlgorithm::HEX_DIAMOND)	type = PTM_MATCH_DHEX;
-else if (structureType == PTMAlgorithm::GRAPHENE)	type = PTM_MATCH_GRAPHENE;
+					// Convert structure type back to PTM representation
+					int type = 0;
+					if (structureType == PTMAlgorithm::FCC)			type = PTM_MATCH_FCC;
+					else if (structureType == PTMAlgorithm::HCP)		type = PTM_MATCH_HCP;
+					else if (structureType == PTMAlgorithm::BCC)		type = PTM_MATCH_BCC;
+					else if (structureType == PTMAlgorithm::SC)		type = PTM_MATCH_SC;
+					else if (structureType == PTMAlgorithm::CUBIC_DIAMOND)	type = PTM_MATCH_DCUB;
+					else if (structureType == PTMAlgorithm::HEX_DIAMOND)	type = PTM_MATCH_DHEX;
+					else if (structureType == PTMAlgorithm::GRAPHENE)	type = PTM_MATCH_GRAPHENE;
 
 					double dummy_disorientation = 0;
 					int8_t dummy_mapping[PTM_MAX_POINTS];
@@ -679,7 +679,7 @@ printf("remap failure\n");
 				}
 			}
 
-time[5] = clock();
+time[3] = clock();
 			// Contract graph
 			for (size_t i=0;i<graph.size();i++) {
 
@@ -687,8 +687,8 @@ time[5] = clock();
 				size_t parentA = uf.find(edge.a);
 				size_t parentB = uf.find(edge.b);
 				if (parentA == parentB) {
-					// Edge endpoints are now in same cluster:
-					//     remove the edge from the graph (not included in contracted graph)
+					// Edge endpoints are now in same cluster: remove the edge from the graph
+					// (not included in contracted graph)
 					graph[i] = graph.back();
 					graph.pop_back();
 					i--;
@@ -705,11 +705,11 @@ time[5] = clock();
 				}
 			}
 
-time[6] = clock();
+time[4] = clock();
 			// Sort graph such that edges connecting the same pair of clusters are adjacent
 			std::sort(graph.begin(), graph.end(), [](GraphEdge& e, GraphEdge& f) { return e.a == f.a ? e.b < f.b : e.a < f.a; });
 
-time[7] = clock();
+time[5] = clock();
 			// Combine edges which connect the same pair of clusters
 			std::vector< GraphEdge > temp;
 			for (auto edge: graph) {
@@ -729,7 +729,6 @@ time[7] = clock();
 						disorientationAngle = (FloatType)ptm::quat_disorientation_hcp_conventional(orientA, orientB);
 
 					edge.w = disorientationAngle * FloatType(180) / FLOATTYPE_PI;
-
 					//size_t minsize = std::min(uf.sizes[edge.a], uf.sizes[edge.b]);
 					//edge.w -= 3 / minsize;
 					temp.push_back(edge);
@@ -739,29 +738,21 @@ time[7] = clock();
 			for (auto edge: temp) {
 				graph.push_back(edge);
 			}
-//exit(3);
 
-time[8] = clock();
+			iteration++;
+time[6] = clock();
 
-for (int i=0;i<8;i++)
+for (int i=0;i<5;i++)
 	total_time[i] += time[i + 1] - time[i];
-
-#if 0
-printf("!\t");
-for(size_t i = 0; i < numAtoms; i++) {
-	printf("%lu ", uf.find(i));
-}
-printf("\n");
-#endif
 		}
 
-		//printf("sc: %lu\n", sc);
+		//print statistics about remaining graph edges
 		for (auto edge: graph) {
 			size_t sa = uf.sizes[edge.a];
 			size_t sb = uf.sizes[edge.b];
 
 			if (sa > 100 && sb > 100)
-				printf("\t%lu %lu %f\n", sa, sb, edge.w);
+				printf("\t%lu (%lu) %lu (%lu) %f\n", edge.a, sa, edge.b, sb, edge.w);
 		}
 	});
 
