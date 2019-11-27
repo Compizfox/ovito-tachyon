@@ -6,7 +6,7 @@
 namespace Ovito { namespace Plugins { namespace CrystalAnalysis {
 
 
-bool GrainSegmentationEngine::parisian_clustering(std::vector< GraphEdge >& initial_graph, size_t start, size_t end, FloatType totalWeight, std::vector< DendrogramNode >& dendrogram)
+bool GrainSegmentationEngine::node_pair_sampling_clustering(std::vector< GraphEdge >& initial_graph, size_t start, size_t end, FloatType totalWeight, std::vector< DendrogramNode >& dendrogram)
 {
 	Graph graph;
 	for (size_t i=start;i<end;i++) {

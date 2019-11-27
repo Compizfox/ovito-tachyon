@@ -118,8 +118,8 @@ private:
 	bool mergeOrphanAtoms();
 
 	// Algorithm (linkage) types
-	bool single_linkage(std::vector< GraphEdge >& initial_graph, DisjointSet& uf, size_t start, size_t end, std::vector< DendrogramNode >& dendrogram);
-	bool parisian_clustering(std::vector< GraphEdge >& initial_graph, size_t start, size_t end, FloatType totalWeight, std::vector< DendrogramNode >& dendrogram);
+	bool minimum_spanning_tree_clustering(std::vector< GraphEdge >& initial_graph, DisjointSet& uf, size_t start, size_t end, std::vector< DendrogramNode >& dendrogram);
+	bool node_pair_sampling_clustering(std::vector< GraphEdge >& initial_graph, size_t start, size_t end, FloatType totalWeight, std::vector< DendrogramNode >& dendrogram);
 
 private:
 

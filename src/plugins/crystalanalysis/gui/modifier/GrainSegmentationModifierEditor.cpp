@@ -63,8 +63,8 @@ void GrainSegmentationModifierEditor::createUI(const RolloutInsertionParameters&
 
 	// TODO: display the label text
 	BooleanRadioButtonParameterUI* algorithmTypeUI = new BooleanRadioButtonParameterUI(this, PROPERTY_FIELD(GrainSegmentationModifier::algorithmType));
-	algorithmTypeUI->buttonFalse()->setText(tr("Single"));
-	algorithmTypeUI->buttonTrue()->setText(tr("Parisian"));
+	algorithmTypeUI->buttonFalse()->setText(tr("Min. Span. Tree"));
+	algorithmTypeUI->buttonTrue()->setText(tr("Node Pair Sampling"));
 	//sublayout2->addWidget(algorithmTypeUI->label(), 1, 0);
 	sublayout2->addWidget(algorithmTypeUI->buttonFalse(), 1, 1, 1, -1);
 	sublayout2->addWidget(algorithmTypeUI->buttonTrue(), 2, 1, 1, -1);
@@ -186,7 +186,8 @@ void GrainSegmentationModifierEditor::plotMerges()
 			auto XProperty = mergeSeries->getX();
 			if (XProperty && XProperty->size() > 0) {
 				activeIndicator = true;
-				_mergeRangeIndicator->setInterval(XProperty->getFloat(0), modifier->mergingThreshold());
+				_mergeRangeIndicator->setInterval(XProperty->getFloat(0),	// TODO: this would look nicer if it started at the beginning of the window rather than the first data point
+									modifier->mergingThreshold());
 				_mergeRangeIndicator->show();
 			}
 		}

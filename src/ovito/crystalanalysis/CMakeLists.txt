@@ -47,7 +47,7 @@ SET(SourceFiles
 	modifier/elasticstrain/ElasticStrainEngine.cpp
 	modifier/grains/GrainSegmentationModifier.cpp
 	modifier/grains/GrainSegmentationEngine.cpp
-	modifier/grains/Paris.cpp
+	modifier/grains/NodePairSampling.cpp
 	modifier/microstructure/SimplifyMicrostructureModifier.cpp
 )
 

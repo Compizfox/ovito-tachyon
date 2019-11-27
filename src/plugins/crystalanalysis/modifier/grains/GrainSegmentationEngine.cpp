@@ -408,7 +408,7 @@ bool GrainSegmentationEngine::mergeSuperclusters()
 	return !task()->isCanceled();
 }
 
-bool GrainSegmentationEngine::single_linkage(std::vector< GraphEdge >& initial_graph, DisjointSet& uf, size_t start, size_t end, std::vector< DendrogramNode >& dendrogram)
+bool GrainSegmentationEngine::minimum_spanning_tree_clustering(std::vector< GraphEdge >& initial_graph, DisjointSet& uf, size_t start, size_t end, std::vector< DendrogramNode >& dendrogram)
 {
 	Graph graph;
 	for (size_t i=start;i<end;i++) {
@@ -420,7 +420,7 @@ bool GrainSegmentationEngine::single_linkage(std::vector< GraphEdge >& initial_g
 			uf.merge(a, b);
 			dendrogram.push_back(	DendrogramNode(	std::min(a, b),
 								std::max(a, b),
-								w, 0));
+								w, 1));
 		}
 	}
 
@@ -539,10 +539,10 @@ bool GrainSegmentationEngine::regionMerging()
 		int structureType = std::get<2>(value);
 
 		if (_algorithmType == 0) {
-			single_linkage(initial_graph, uf, start, end, dendrogram);
+			minimum_spanning_tree_clustering(initial_graph, uf, start, end, dendrogram);
 		}
 		else {
-			parisian_clustering(initial_graph, start, end, totalWeight, dendrogram);
+			node_pair_sampling_clustering(initial_graph, start, end, totalWeight, dendrogram);
 		}
 	}
 
@@ -550,27 +550,41 @@ bool GrainSegmentationEngine::regionMerging()
 			[](DendrogramNode& a, DendrogramNode& b)
 			{return a.d < b.d;});
 
-	// Create PropertyStorage output objects
-	_mergeDistance = std::make_shared<PropertyStorage>(dendrogram.size(), PropertyStorage::Float, 1, 0, GrainSegmentationModifier::tr("Log merge distance"), true, DataSeriesObject::XProperty);
-	_mergeSize = std::make_shared<PropertyStorage>(dendrogram.size(), PropertyStorage::Float, 1, 0, GrainSegmentationModifier::tr("Merge size"), true, DataSeriesObject::YProperty);
-
 	// Scan through the entire merge list to determine merge sizes
+	size_t numPlot = 0;
 	uf.clear();
 	for (size_t i=0;i<dendrogram.size();i++) {
 		auto node = dendrogram[i];
 		size_t sa = uf.sizes[uf.find(node.a)];
 		size_t sb = uf.sizes[uf.find(node.b)];
-		uf.merge(node.a, node.b);
 		size_t dsize = std::min(sa, sb);
+		uf.merge(node.a, node.b);
 
-		// output the data
-		_mergeDistance->dataFloat()[i] = log(node.d);
-		_mergeSize->dataFloat()[i] = dsize;
+		// We don't want to plot very small merges - they extend the x-axis by a lot and don't provide much useful information
+		if (dsize < _minGrainAtomCount / 2) {
+			dendrogram[i].size = 0;
+		}
+		else {
+			dendrogram[i].size = dsize;
+			numPlot++;
+		}
 	}
 
-	uf.clear();
+	// Create PropertyStorage output objects
+	_mergeDistance = std::make_shared<PropertyStorage>(numPlot, PropertyStorage::Float, 1, 0, GrainSegmentationModifier::tr("Log merge distance"), true, DataSeriesObject::XProperty);
+	_mergeSize = std::make_shared<PropertyStorage>(numPlot, PropertyStorage::Float, 1, 0, GrainSegmentationModifier::tr("Merge size"), true, DataSeriesObject::YProperty);
+
+	size_t c = 0;
+	for (auto node : dendrogram) {
+		if (node.size > 0) {
+			_mergeDistance->dataFloat()[c] = log(node.d);
+			_mergeSize->dataFloat()[c] = node.size;
+			c++;
+		}
+	}
 
 	// Now iterate through merge list until distance cutoff is met
+	uf.clear();
 	for (auto node : dendrogram) {
 		if (log(node.d) >= _mergingThreshold) {
 			break;
@@ -582,10 +596,6 @@ bool GrainSegmentationEngine::regionMerging()
 	if(task()->isCanceled())
 		return false;
 
-	for(size_t i = 0; i < numAtoms; i++) {
-		_clusterSizes[i] = uf.sizes[i];
-	}
-
 	// Relabels the clusters to obtain a contiguous sequence of cluster IDs.
 	std::vector<size_t> clusterRemapping(numAtoms);
 
@@ -594,12 +604,12 @@ bool GrainSegmentationEngine::regionMerging()
 	for(size_t i = 0; i < numAtoms; i++) {
 		if(uf.find(i) == i) {
 			// If the cluster's size is below the threshold, dissolve the cluster.
-			if(_clusterSizes[i] < _minGrainAtomCount) {
+			if(uf.sizes[i] < _minGrainAtomCount) {
 				clusterRemapping[i] = 0;
 			}
 			else {
 				clusterRemapping[i] = _numClusters;
-				_clusterSizes[_numClusters] = _clusterSizes[i];
+				_clusterSizes[_numClusters] = uf.sizes[i];
 				_numClusters++;
 			}
 		}
