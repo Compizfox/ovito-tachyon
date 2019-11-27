@@ -39,10 +39,11 @@ namespace Ovito { namespace Plugins { namespace CrystalAnalysis {
 GrainSegmentationEngine::GrainSegmentationEngine(
 			ParticleOrderingFingerprint fingerprint, ConstPropertyPtr positions, const SimulationCell& simCell,
 			const QVector<bool>& typesToIdentify, ConstPropertyPtr selection,
-			FloatType rmsdCutoff, FloatType mergingThreshold,
+			FloatType rmsdCutoff, bool algorithmType, FloatType mergingThreshold,
 			int minGrainAtomCount, bool orphanAdoption, bool outputBonds) :
 	StructureIdentificationModifier::StructureIdentificationEngine(std::move(fingerprint), positions, simCell, std::move(typesToIdentify), std::move(selection)),
 	_rmsdCutoff(rmsdCutoff),
+	_algorithmType(algorithmType),
 	_mergingThreshold(mergingThreshold),
 	_minGrainAtomCount(std::max(minGrainAtomCount, 1)),
 	_rmsd(std::make_shared<PropertyStorage>(positions->size(), PropertyStorage::Float, 1, 0, QStringLiteral("RMSD"), false)),
@@ -407,29 +408,24 @@ bool GrainSegmentationEngine::mergeSuperclusters()
 	return !task()->isCanceled();
 }
 
-class GraphEdge
+bool GrainSegmentationEngine::single_linkage(std::vector< GraphEdge >& initial_graph, DisjointSet& uf, size_t start, size_t end, std::vector< DendrogramNode >& dendrogram)
 {
-public:
-	GraphEdge(size_t _a, size_t _b, FloatType _w, size_t _superCluster)
-		: a(_a), b(_b), w(_w), superCluster(_superCluster) {}
+	Graph graph;
+	for (size_t i=start;i<end;i++) {
+		auto edge = initial_graph[i];
+		auto a = edge.a;
+		auto b = edge.b;
+		auto w = edge.w;
+		if (uf.find(a) != uf.find(b)) {
+			uf.merge(a, b);
+			dendrogram.push_back(	DendrogramNode(	std::min(a, b),
+								std::max(a, b),
+								w, 0));
+		}
+	}
 
-	size_t a;
-	size_t b;
-	FloatType w;
-	size_t superCluster;
-};
-
-class DendrogramNode
-{
-public:
-	DendrogramNode(size_t _a, size_t _b, FloatType _d, size_t _size)
-		: a(_a), b(_b), d(_d), size(_size) {}
-
-	size_t a;
-	size_t b;
-	FloatType d;
-	size_t size;
-};
+	return true;
+}
 
 /******************************************************************************
 * Builds grains by iterative region merging
@@ -449,7 +445,6 @@ bool GrainSegmentationEngine::regionMerging()
 	}
 
 	_clusterSizes.resize(numAtoms, 1);
-	DisjointSet uf(numAtoms);
 
 	task()->setProgressText(GrainSegmentationModifier::tr("Grain segmentation - building graph"));
 	task()->setProgressValue(0);
@@ -484,18 +479,24 @@ bool GrainSegmentationEngine::regionMerging()
 
 		// Convert disorientations to graph weights
 		FloatType deg = dis * FloatType(180) / FLOATTYPE_PI;
-		FloatType weight = std::exp(-FloatType(1)/3 * deg * deg);		//this is fairly arbitrary but it works well
-
 		size_t a = bond.index1;
 		size_t b = bond.index2;
 		size_t sc = _atomSuperclusters[a];
-		initial_graph.emplace_back(a, b, weight, sc);
+		initial_graph.emplace_back(a, b, deg, sc);
 	}
 
 	if(task()->isCanceled())
 		return false;
 
-	std::sort(initial_graph.begin(), initial_graph.end(), [](GraphEdge& e, GraphEdge& f) { return e.superCluster < f.superCluster; });
+	std::sort(initial_graph.begin(), initial_graph.end(), [](GraphEdge& e, GraphEdge& f)
+	{
+		if (e.superCluster == f.superCluster) {
+			return e.w < f.w;
+		}
+
+		return e.superCluster < f.superCluster;
+	});
+
 	std::map< size_t, std::tuple< size_t, size_t, int > > bondIntervals;
 
 	size_t start = 0;
@@ -525,6 +526,8 @@ bool GrainSegmentationEngine::regionMerging()
 		totalWeight += edge.w;
 	}
 
+	DisjointSet uf(numAtoms);
+
 	// TODO: parallelize this. Use atomic push_back on dendrogram.
 	//parallelFor(_numSuperclusters, *task(), [this, &numAtoms, &bondIntervals, &initial_graph, &uf](size_t sc) {
 	//	if (sc == 0) return;
@@ -535,98 +538,12 @@ bool GrainSegmentationEngine::regionMerging()
 		size_t end = std::get<1>(value);
 		int structureType = std::get<2>(value);
 
-		Graph graph;
-		for (size_t i=start;i<end;i++) {
-			auto edge = initial_graph[i];
-			graph.add_edge(edge.a, edge.b, edge.w, true);
+		if (_algorithmType == 0) {
+			single_linkage(initial_graph, uf, start, end, dendrogram);
 		}
-		graph.wtotal = totalWeight;
-
-		//std::vector< std::tuple< size_t, size_t > > components;	// connected components
-
-		size_t n = graph.num_nodes();
-		while (graph.num_nodes()) {
-
-			// nearest-neighbor chain
-			size_t node = graph.next_node();
-			if (node == (size_t)(-1)) {
-				printf("node is -1\n");
-				exit(3);
-			}
-
-			std::vector< size_t> chain{node};
-			while (chain.size()) {
-
-				size_t a = chain.back();
-				chain.pop_back();
-				if (a == (size_t)(-1)) {
-					printf("a is -1\n");
-					exit(3);
-				}
-
-				auto result = graph.nearest_neighbor(a);
-				FloatType d = std::get<0>(result);
-				size_t b = std::get<1>(result);
-				if (b == (size_t)(-1)) {
-					if (chain.size() != 0) {
-						printf("non-zero chain size!\n"); fflush(stdout);
-						//exit(3);
-					}
-				}
-
-				if (b == (size_t)(-1)) {
-					// remove the connected component
-					size_t sa = graph.snode[a];
-					//components.push_back(std::make_tuple(graph.rep[a], sa));
-					graph.remove_node(a);
-				}
-				else if (chain.size()) {
-					size_t c = chain.back();
-					chain.pop_back();
-
-					if (b == c) {
-						size_t size = graph.snode[a] + graph.snode[b];
-						//dendrogram.push_back(	DendrogramNode(	std::min(graph.rep[a], graph.rep[b]),
-						//					std::max(graph.rep[a], graph.rep[b]),
-						//					d,
-						//					size)
-						dendrogram.push_back(	DendrogramNode(	std::min(a, b),
-											std::max(a, b),
-											d,
-											size)
-									);
-						if (size == 0) {
-							printf("zero size\n");
-							exit(3);
-						}
-						graph.contract_edge(a, b);
-					}
-					else {
-						chain.push_back(c);
-						chain.push_back(a);
-						chain.push_back(b);
-						if (a == (size_t)(-1)) {printf("!a is -1\n"); exit(3);}
-						if (b == (size_t)(-1)) {printf("!b is -1\n"); exit(3);}
-						if (c == (size_t)(-1)) {printf("!c is -1\n"); exit(3);}
-					}
-				}
-				else if (b != (size_t)(-1)) {
-					chain.push_back(a);
-					chain.push_back(b);
-					if (a == (size_t)(-1)) {printf("#a is -1\n"); exit(3);}
-					if (b == (size_t)(-1)) {printf("#b is -1\n"); exit(3);}
-				}
-			}
+		else {
+			parisian_clustering(initial_graph, start, end, totalWeight, dendrogram);
 		}
-
-		// add connected components to the dendrogram
-		//size_t u = graph.next;
-		//a, s = components.pop()
-		//for b, t in components:
-		//	s += t
-		//	D.append([min(a, b), max(a, b), float("inf"), s])
-		//	a = u
-		//	u += 1
 	}
 
 	std::sort(dendrogram.begin(), dendrogram.end(),
@@ -638,6 +555,7 @@ bool GrainSegmentationEngine::regionMerging()
 	_mergeSize = std::make_shared<PropertyStorage>(dendrogram.size(), PropertyStorage::Float, 1, 0, GrainSegmentationModifier::tr("Merge size"), true, DataSeriesObject::YProperty);
 
 	// Scan through the entire merge list to determine merge sizes
+	uf.clear();
 	for (size_t i=0;i<dendrogram.size();i++) {
 		auto node = dendrogram[i];
 		size_t sa = uf.sizes[uf.find(node.a)];

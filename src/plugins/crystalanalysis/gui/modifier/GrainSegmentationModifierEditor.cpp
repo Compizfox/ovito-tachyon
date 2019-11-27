@@ -26,6 +26,7 @@
 #include <gui/properties/FloatParameterUI.h>
 #include <gui/properties/IntegerParameterUI.h>
 #include <gui/properties/BooleanParameterUI.h>
+#include <gui/properties/BooleanRadioButtonParameterUI.h>
 #include <gui/utilities/concurrent/ProgressDialog.h>
 #include <core/dataset/DataSetContainer.h>
 #include "GrainSegmentationModifierEditor.h"
@@ -60,13 +61,21 @@ void GrainSegmentationModifierEditor::createUI(const RolloutInsertionParameters&
 	sublayout2->addWidget(rmsdCutoffUI->label(), 0, 0);
 	sublayout2->addLayout(rmsdCutoffUI->createFieldLayout(), 0, 1);
 
+	// TODO: make this look nice
+	BooleanRadioButtonParameterUI* algorithmTypeUI = new BooleanRadioButtonParameterUI(this, PROPERTY_FIELD(GrainSegmentationModifier::algorithmType));
+	algorithmTypeUI->buttonFalse()->setText(tr("Single"));
+	algorithmTypeUI->buttonTrue()->setText(tr("Parisian"));
+	sublayout2->addWidget(algorithmTypeUI->buttonFalse(), 1, 2);
+	sublayout2->addWidget(algorithmTypeUI->buttonTrue(), 2, 2);
+	algorithmTypeUI->setEnabled(true);
+
 	FloatParameterUI* mergingThresholdUI = new FloatParameterUI(this, PROPERTY_FIELD(GrainSegmentationModifier::mergingThreshold));
-	sublayout2->addWidget(mergingThresholdUI->label(), 1, 0);
-	sublayout2->addLayout(mergingThresholdUI->createFieldLayout(), 1, 1);
+	sublayout2->addWidget(mergingThresholdUI->label(), 3, 0);
+	sublayout2->addLayout(mergingThresholdUI->createFieldLayout(), 3, 1);
 
 	IntegerParameterUI* minGrainAtomCountUI = new IntegerParameterUI(this, PROPERTY_FIELD(GrainSegmentationModifier::minGrainAtomCount));
-	sublayout2->addWidget(minGrainAtomCountUI->label(), 2, 0);
-	sublayout2->addLayout(minGrainAtomCountUI->createFieldLayout(), 2, 1);
+	sublayout2->addWidget(minGrainAtomCountUI->label(), 4, 0);
+	sublayout2->addLayout(minGrainAtomCountUI->createFieldLayout(), 4, 1);
 
 	QGroupBox* debuggingParamsBox = new QGroupBox(tr("Debugging options"));
 	layout->addWidget(debuggingParamsBox);

@@ -64,6 +64,9 @@ private:
 	/// The RMSD cutoff for the PTM algorithm.
 	DECLARE_MODIFIABLE_PROPERTY_FIELD_FLAGS(FloatType, rmsdCutoff, setRmsdCutoff, PROPERTY_FIELD_MEMORIZE);
 
+	/// The merging algorithm to use.
+	DECLARE_MODIFIABLE_PROPERTY_FIELD(bool, algorithmType, setAlgorithmType);
+
 	/// Controls the amount of noise allowed inside a grain.
 	DECLARE_MODIFIABLE_PROPERTY_FIELD(FloatType, mergingThreshold, setMergingThreshold);
 

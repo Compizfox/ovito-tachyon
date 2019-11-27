@@ -6,6 +6,31 @@
 
 namespace Ovito { namespace Plugins { namespace CrystalAnalysis {
 
+
+class GraphEdge
+{
+public:
+	GraphEdge(size_t _a, size_t _b, FloatType _w, size_t _superCluster)
+		: a(_a), b(_b), w(_w), superCluster(_superCluster) {}
+
+	size_t a;
+	size_t b;
+	FloatType w;
+	size_t superCluster;
+};
+
+class DendrogramNode
+{
+public:
+	DendrogramNode(size_t _a, size_t _b, FloatType _d, size_t _size)
+		: a(_a), b(_b), d(_d), size(_size) {}
+
+	size_t a;
+	size_t b;
+	FloatType d;
+	size_t size;
+};
+
 class Graph
 {
 public:

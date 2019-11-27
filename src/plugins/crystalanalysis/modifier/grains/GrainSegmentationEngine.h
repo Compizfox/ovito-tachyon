@@ -28,6 +28,8 @@
 #include <plugins/particles/objects/BondsObject.h>
 #include <plugins/particles/modifier/analysis/ptm/PTMAlgorithm.h>
 #include <boost/optional/optional.hpp>
+#include "DisjointSet.h"
+#include "Graph.h"
 
 
 namespace Ovito { namespace Plugins { namespace CrystalAnalysis {
@@ -42,7 +44,7 @@ public:
 	GrainSegmentationEngine(
 			ParticleOrderingFingerprint fingerprint, ConstPropertyPtr positions, const SimulationCell& simCell,
 			const QVector<bool>& typesToIdentify, ConstPropertyPtr selection,
-			FloatType rmsdCutoff, FloatType misorientationThreshold,
+			FloatType rmsdCutoff, bool algorithmType, FloatType mergingThreshold,
 			int minGrainAtomCount, bool orphanAdoption, bool outputBonds);
 
 	/// Performs the computation.
@@ -74,9 +76,11 @@ public:
 	/// Returns the histogram of computed RMSD values.
 	const PropertyPtr& rmsdHistogram() const { return _rmsdHistogram; }
 
-/// TODO: add description
-const PropertyPtr& mergeDistance() const { return _mergeDistance; }
-const PropertyPtr& mergeSize() const { return _mergeSize; }
+	// Returns the merge distances for the scatter plot
+	const PropertyPtr& mergeDistance() const { return _mergeDistance; }
+
+	// Returns the merge sizes for the scatter plot
+	const PropertyPtr& mergeSize() const { return _mergeSize; }
 
 	/// Returns the computed per-particle lattice orientations.
 	const PropertyPtr& orientations() const { return _orientations; }
@@ -112,6 +116,10 @@ private:
 
 	/// Merges any orphan atoms into the closest cluster.
 	bool mergeOrphanAtoms();
+
+	// Algorithm (linkage) types
+	bool single_linkage(std::vector< GraphEdge >& initial_graph, DisjointSet& uf, size_t start, size_t end, std::vector< DendrogramNode >& dendrogram);
+	bool parisian_clustering(std::vector< GraphEdge >& initial_graph, size_t start, size_t end, FloatType totalWeight, std::vector< DendrogramNode >& dendrogram);
 
 private:
 
@@ -160,9 +168,14 @@ private:
 	/// The value range of the RMSD histogram.
 	FloatType _rmsdHistogramRange;
 
-/// TODO: add description
-PropertyPtr _mergeDistance;
-PropertyPtr _mergeSize;
+	// The merge distances
+	PropertyPtr _mergeDistance;
+
+	// The merge sizes
+	PropertyPtr _mergeSize;
+
+	// The linkage criterion used in the merge algorithm
+	bool _algorithmType;
 
 	/// The computed per-particle lattice orientations.
 	PropertyPtr _orientations;
