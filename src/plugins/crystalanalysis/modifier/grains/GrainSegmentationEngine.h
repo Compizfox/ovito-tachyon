@@ -74,6 +74,10 @@ public:
 	/// Returns the histogram of computed RMSD values.
 	const PropertyPtr& rmsdHistogram() const { return _rmsdHistogram; }
 
+/// TODO: add description
+const PropertyPtr& mergeDistance() const { return _mergeDistance; }
+const PropertyPtr& mergeSize() const { return _mergeSize; }
+
 	/// Returns the computed per-particle lattice orientations.
 	const PropertyPtr& orientations() const { return _orientations; }
 
@@ -155,6 +159,10 @@ private:
 
 	/// The value range of the RMSD histogram.
 	FloatType _rmsdHistogramRange;
+
+/// TODO: add description
+PropertyPtr _mergeDistance;
+PropertyPtr _mergeSize;
 
 	/// The computed per-particle lattice orientations.
 	PropertyPtr _orientations;

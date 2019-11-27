@@ -24,6 +24,8 @@
 #include <plugins/particles/util/NearestNeighborFinder.h>
 #include "GrainSegmentationEngine.h"
 #include "GrainSegmentationModifier.h"
+#include "DisjointSet.h"
+#include "Graph.h"
 
 #include <ptm/ptm_functions.h>
 #include <ptm/ptm_quat.h>
@@ -67,6 +69,7 @@ void GrainSegmentationEngine::perform()
 	if(!buildNeighborGraph()) return;
 	if(!mergeSuperclusters()) return;
 	if(!regionMerging()) return;
+return;
 
 	//if(!randomizeClusterIDs()) return;
 	if(!calculateAverageClusterOrientations()) return;
@@ -117,8 +120,6 @@ bool GrainSegmentationEngine::identifyAtomicStructures()
 	parallelForChunks(positions()->size(), *task(), [this, &cachedNeighbors, &_algorithm](size_t startIndex, size_t count, Task& task) {
 		// Create a thread-local kernel for the PTM algorithm.
 		PTMAlgorithm::Kernel kernel(*_algorithm);
-
-//size_t startIndex = 0, count = positions()->size();
 
 		// Loop over input particles.
 		size_t endIndex = startIndex + count;
@@ -332,70 +333,6 @@ bool GrainSegmentationEngine::buildNeighborGraph()
 	return !task()->isCanceled();
 }
 
-class DisjointSet
-{
-public:
-	DisjointSet(size_t n)
-	{
-		ranks.resize(n);
-
-		parents.resize(n);
-		std::iota(parents.begin(), parents.end(), (size_t)0);
-
-		sizes.resize(n);
-		std::fill(sizes.begin(), sizes.end(), 1);
-
-		weights.resize(n);
-		std::fill(weights.begin(), weights.end(), 0);
-	}
-
-	// "Find" part of Union-Find.
-	size_t find(size_t index) {
-
-		// Find root and make root as parent of i (path compression)
-		size_t parent = parents[index];
-		while(parent != parents[parent]) {
-			parent = parents[parent];
-		}
-
-		parents[index] = parent;
-		return parent;
-	}
-
-	// "Union" part of Union-Find.
-	size_t merge(size_t index1, size_t index2) {
-		size_t parentA = find(index1);
-		size_t parentB = find(index2);
-		if(parentA == parentB) return index1;
-
-		// Attach smaller rank tree under root of high rank tree (Union by Rank)
-		if(ranks[parentA] < ranks[parentB]) {
-			parents[parentA] = parentB;
-			sizes[parentB] += sizes[parentA];
-			weights[parentB] += weights[parentA];
-			return index2;
-		}
-		else {
-			parents[parentB] = parentA;
-			sizes[parentA] += sizes[parentB];
-			weights[parentA] += weights[parentB];
-
-			// If ranks are same, then make one as root and increment its rank by one
-			if(ranks[parentA] == ranks[parentB])
-				ranks[parentA]++;
-
-			return index1;
-		}
-	}
-
-	std::vector<size_t> sizes;
-	std::vector<FloatType> weights;
-
-private:
-	std::vector<size_t> parents;
-	std::vector<size_t> ranks;
-};
-
 /******************************************************************************
 * Merges adjacent clusters with similar lattice orientations.
 ******************************************************************************/
@@ -467,14 +404,8 @@ bool GrainSegmentationEngine::mergeSuperclusters()
 		if(_atomSuperclusters[particleIndex] == 0)
 			_superclusterSizes[0]++;
 
-printf("supercluster sizes:\n");
-for(size_t i = 0; i < _numSuperclusters; i++)
-	printf("\t%lu\t%lu\n", i, _superclusterSizes[i]);
-printf("\n");
-
 	return !task()->isCanceled();
 }
-
 
 class GraphEdge
 {
@@ -486,6 +417,18 @@ public:
 	size_t b;
 	FloatType w;
 	size_t superCluster;
+};
+
+class DendrogramNode
+{
+public:
+	DendrogramNode(size_t _a, size_t _b, FloatType _d, size_t _size)
+		: a(_a), b(_b), d(_d), size(_size) {}
+
+	size_t a;
+	size_t b;
+	FloatType d;
+	size_t size;
 };
 
 /******************************************************************************
@@ -523,14 +466,10 @@ bool GrainSegmentationEngine::regionMerging()
 		}
 	}
 
-	std::vector< size_t > atomMap(numAtoms);
-	std::vector< size_t > scCounts(_numSuperclusters, 0);
-	for (size_t i=0;i<numAtoms;i++) {
-		size_t sc = _atomSuperclusters[i];
-		size_t index = std::get<0>(atomIntervals[sc]) + scCounts[sc]++;
-		atomMap[i] = index;
-	}
+	if(task()->isCanceled())
+		return false;
 
+	// Calculate a contiguous bond index mapping
 	std::vector< GraphEdge > initial_graph;
 
 	// Build initial graph
@@ -545,18 +484,18 @@ bool GrainSegmentationEngine::regionMerging()
 
 		// Convert disorientations to graph weights
 		FloatType deg = dis * FloatType(180) / FLOATTYPE_PI;
+		FloatType weight = std::exp(-FloatType(1)/3 * deg * deg);		//this is fairly arbitrary but it works well
 
 		size_t a = bond.index1;
 		size_t b = bond.index2;
 		size_t sc = _atomSuperclusters[a];
-		initial_graph.emplace_back(a, b, deg, sc);
+		initial_graph.emplace_back(a, b, weight, sc);
 	}
 
 	if(task()->isCanceled())
 		return false;
 
 	std::sort(initial_graph.begin(), initial_graph.end(), [](GraphEdge& e, GraphEdge& f) { return e.superCluster < f.superCluster; });
-
 	std::map< size_t, std::tuple< size_t, size_t, int > > bondIntervals;
 
 	size_t start = 0;
@@ -576,191 +515,151 @@ bool GrainSegmentationEngine::regionMerging()
 		bondIntervals[sc] = std::make_tuple(start, initial_graph.size(), type);
 	}
 
-	for (size_t i=0;i<initial_graph.size();i++) {
-		size_t a = initial_graph[i].a;
-		size_t b = initial_graph[i].b;
-		initial_graph[i].a = atomMap[a];
-		initial_graph[i].b = atomMap[b];
-	}
-
 	task()->setProgressText(GrainSegmentationModifier::tr("Grain segmentation - region merging"));
 	task()->setProgressValue(0);
 	task()->setProgressMaximum(initial_graph.size());
 
-	std::vector<bool> hit(numAtoms, 0);
-
-	std::vector< Quaternion > qsum(numAtoms);
-	for (size_t particleIndex=0;particleIndex<numAtoms;particleIndex++) {
-		const Quaternion& q = orientations()->getQuaternion(particleIndex);
-		qsum[atomMap[particleIndex]].w() = q.w();
-		qsum[atomMap[particleIndex]].x() = q.x();
-		qsum[atomMap[particleIndex]].y() = q.y();
-		qsum[atomMap[particleIndex]].z() = q.z();
+	std::vector< DendrogramNode > dendrogram;			// dendrogram as list of merges
+	FloatType totalWeight = 0;
+	for (auto edge : initial_graph) {
+		totalWeight += edge.w;
 	}
 
-clock_t total_time[9] = {0};
-
-	parallelFor(_numSuperclusters, *task(), [this, &numAtoms, &atomIntervals, &bondIntervals, &initial_graph, &uf, &hit, &total_time, &qsum](size_t sc) {
-		if (sc == 0) return;
-
+	// TODO: parallelize this. Use atomic push_back on dendrogram.
+	//parallelFor(_numSuperclusters, *task(), [this, &numAtoms, &bondIntervals, &initial_graph, &uf](size_t sc) {
+	//	if (sc == 0) return;
+	for (size_t sc=1;sc<_numSuperclusters;sc++) {
 		std::map< size_t, std::tuple< size_t, size_t, int > >::iterator it = bondIntervals.find(sc);
 		auto value = it->second;
 		size_t start = std::get<0>(value);
 		size_t end = std::get<1>(value);
 		int structureType = std::get<2>(value);
 
-		std::vector< GraphEdge > graph;
+		Graph graph;
 		for (size_t i=start;i<end;i++) {
-			graph.push_back(initial_graph[i]);
+			auto edge = initial_graph[i];
+			graph.add_edge(edge.a, edge.b, edge.w, true);
 		}
+		graph.wtotal = totalWeight;
 
-		int iteration = 0;
-		bool merged = true;
-		while (merged) {
-			merged = false;
-			//printf("iteration: %d %lu\n", iteration, graph.size());
+		//std::vector< std::tuple< size_t, size_t > > components;	// connected components
 
-			size_t start = std::get<0>(atomIntervals[sc]);
-			size_t end = std::get<1>(atomIntervals[sc]);
-clock_t time[7];
-time[0] = clock();
-			// Sort edges by merge quality
-			std::sort(graph.begin(), graph.end(), [](GraphEdge e, GraphEdge f) {return e.w < f.w;});
+		size_t n = graph.num_nodes();
+		while (graph.num_nodes()) {
 
-time[1] = clock();
-			// Perform greedy clustering
-			std::fill(hit.begin() + start, hit.begin() + end, 0);
+			// nearest-neighbor chain
+			size_t node = graph.next_node();
+			if (node == (size_t)(-1)) {
+				printf("node is -1\n");
+				exit(3);
+			}
 
-time[2] = clock();
-			for (auto edge: graph) {
+			std::vector< size_t> chain{node};
+			while (chain.size()) {
 
-				size_t a = edge.a;
-				size_t b = edge.b;
+				size_t a = chain.back();
+				chain.pop_back();
+				if (a == (size_t)(-1)) {
+					printf("a is -1\n");
+					exit(3);
+				}
 
-				int num_hit = hit[a] + hit[b];
-				if ((edge.w <= _mergingThreshold || iteration == 0) && num_hit < 2) {
-
-					size_t parent = uf.merge(a, b);
-					hit[a] = true;
-					hit[b] = true;
-					merged = true;
-
-					size_t child = a == parent ? b : a;
-					Quaternion na = qsum[parent].normalized();
-					double qtarget[4] = {na.w(), na.x(), na.y(), na.z()};
-
-					Quaternion nb = qsum[child].normalized();
-					double q[4] = {nb.w(), nb.x(), nb.y(), nb.z()};
-
-					// Convert structure type back to PTM representation
-					int type = 0;
-					if (structureType == PTMAlgorithm::FCC)			type = PTM_MATCH_FCC;
-					else if (structureType == PTMAlgorithm::HCP)		type = PTM_MATCH_HCP;
-					else if (structureType == PTMAlgorithm::BCC)		type = PTM_MATCH_BCC;
-					else if (structureType == PTMAlgorithm::SC)		type = PTM_MATCH_SC;
-					else if (structureType == PTMAlgorithm::CUBIC_DIAMOND)	type = PTM_MATCH_DCUB;
-					else if (structureType == PTMAlgorithm::HEX_DIAMOND)	type = PTM_MATCH_DHEX;
-					else if (structureType == PTMAlgorithm::GRAPHENE)	type = PTM_MATCH_GRAPHENE;
-
-					double dummy_disorientation = 0;
-					int8_t dummy_mapping[PTM_MAX_POINTS];
-					if (ptm_remap_template(type, true, 0, qtarget, q, &dummy_disorientation, dummy_mapping, NULL) < 0) {
-printf("remap failure\n");
-						//return;
+				auto result = graph.nearest_neighbor(a);
+				FloatType d = std::get<0>(result);
+				size_t b = std::get<1>(result);
+				if (b == (size_t)(-1)) {
+					if (chain.size() != 0) {
+						printf("non-zero chain size!\n"); fflush(stdout);
+						//exit(3);
 					}
-
-					FloatType norm = sqrt(qsum[child].dot(qsum[child]));
-					qsum[parent].w() += q[0] * norm;
-					qsum[parent].x() += q[1] * norm;
-					qsum[parent].y() += q[2] * norm;
-					qsum[parent].z() += q[3] * norm;
-
-					//if(!task()->incrementProgressValue()) return false;
 				}
-			}
 
-time[3] = clock();
-			// Contract graph
-			for (size_t i=0;i<graph.size();i++) {
-
-				auto edge = graph[i];
-				size_t parentA = uf.find(edge.a);
-				size_t parentB = uf.find(edge.b);
-				if (parentA == parentB) {
-					// Edge endpoints are now in same cluster: remove the edge from the graph
-					// (not included in contracted graph)
-					graph[i] = graph.back();
-					graph.pop_back();
-					i--;
+				if (b == (size_t)(-1)) {
+					// remove the connected component
+					size_t sa = graph.snode[a];
+					//components.push_back(std::make_tuple(graph.rep[a], sa));
+					graph.remove_node(a);
 				}
-				else {
-					// Edge endpoints are still in different clusters
-					size_t keymin = parentA, keymax = parentB;
-					if (keymin > keymax) {
-						std::swap(keymin, keymax);
+				else if (chain.size()) {
+					size_t c = chain.back();
+					chain.pop_back();
+
+					if (b == c) {
+						size_t size = graph.snode[a] + graph.snode[b];
+						//dendrogram.push_back(	DendrogramNode(	std::min(graph.rep[a], graph.rep[b]),
+						//					std::max(graph.rep[a], graph.rep[b]),
+						//					d,
+						//					size)
+						dendrogram.push_back(	DendrogramNode(	std::min(a, b),
+											std::max(a, b),
+											d,
+											size)
+									);
+						if (size == 0) {
+							printf("zero size\n");
+							exit(3);
+						}
+						graph.contract_edge(a, b);
 					}
-
-					graph[i].a = keymin;
-					graph[i].b = keymax;
+					else {
+						chain.push_back(c);
+						chain.push_back(a);
+						chain.push_back(b);
+						if (a == (size_t)(-1)) {printf("!a is -1\n"); exit(3);}
+						if (b == (size_t)(-1)) {printf("!b is -1\n"); exit(3);}
+						if (c == (size_t)(-1)) {printf("!c is -1\n"); exit(3);}
+					}
+				}
+				else if (b != (size_t)(-1)) {
+					chain.push_back(a);
+					chain.push_back(b);
+					if (a == (size_t)(-1)) {printf("#a is -1\n"); exit(3);}
+					if (b == (size_t)(-1)) {printf("#b is -1\n"); exit(3);}
 				}
 			}
-
-time[4] = clock();
-			// Sort graph such that edges connecting the same pair of clusters are adjacent
-			std::sort(graph.begin(), graph.end(), [](GraphEdge& e, GraphEdge& f) { return e.a == f.a ? e.b < f.b : e.a < f.a; });
-
-time[5] = clock();
-			// Combine edges which connect the same pair of clusters
-			std::vector< GraphEdge > temp;
-			for (auto edge: graph) {
-
-				if (temp.size() == 0 || temp.back().a != edge.a || temp.back().b != edge.b) {
-
-					Quaternion qA = qsum[edge.a].normalized();
-					Quaternion qB = qsum[edge.b].normalized();
-
-					double orientA[4] = { qA.w(), qA.x(), qA.y(), qA.z() };
-					double orientB[4] = { qB.w(), qB.x(), qB.y(), qB.z() };
-
-					FloatType disorientationAngle = std::numeric_limits<FloatType>::infinity();
-					if(structureType == PTMAlgorithm::SC || structureType == PTMAlgorithm::FCC || structureType == PTMAlgorithm::BCC || structureType == PTMAlgorithm::CUBIC_DIAMOND)
-						disorientationAngle = (FloatType)ptm::quat_disorientation_cubic(orientA, orientB);
-					else if(structureType == PTMAlgorithm::HCP || structureType == PTMAlgorithm::HEX_DIAMOND || structureType == PTMAlgorithm::GRAPHENE)
-						disorientationAngle = (FloatType)ptm::quat_disorientation_hcp_conventional(orientA, orientB);
-
-					edge.w = disorientationAngle * FloatType(180) / FLOATTYPE_PI;
-					//size_t minsize = std::min(uf.sizes[edge.a], uf.sizes[edge.b]);
-					//edge.w -= 3 / minsize;
-					temp.push_back(edge);
-				}
-			}
-			graph.clear();
-			for (auto edge: temp) {
-				graph.push_back(edge);
-			}
-
-			iteration++;
-time[6] = clock();
-
-for (int i=0;i<5;i++)
-	total_time[i] += time[i + 1] - time[i];
 		}
 
-		//print statistics about remaining graph edges
-		for (auto edge: graph) {
-			size_t sa = uf.sizes[edge.a];
-			size_t sb = uf.sizes[edge.b];
+		// add connected components to the dendrogram
+		//size_t u = graph.next;
+		//a, s = components.pop()
+		//for b, t in components:
+		//	s += t
+		//	D.append([min(a, b), max(a, b), float("inf"), s])
+		//	a = u
+		//	u += 1
+	}
 
-			if (sa > 100 && sb > 100)
-				printf("\t%lu (%lu) %lu (%lu) %f\n", edge.a, sa, edge.b, sb, edge.w);
+	std::sort(dendrogram.begin(), dendrogram.end(),
+			[](DendrogramNode& a, DendrogramNode& b)
+			{return a.d < b.d;});
+
+	// Create PropertyStorage output objects
+	_mergeDistance = std::make_shared<PropertyStorage>(dendrogram.size(), PropertyStorage::Float, 1, 0, GrainSegmentationModifier::tr("Log merge distance"), true, DataSeriesObject::XProperty);
+	_mergeSize = std::make_shared<PropertyStorage>(dendrogram.size(), PropertyStorage::Float, 1, 0, GrainSegmentationModifier::tr("Merge size"), true, DataSeriesObject::YProperty);
+
+	// Scan through the entire merge list to determine merge sizes
+	for (size_t i=0;i<dendrogram.size();i++) {
+		auto node = dendrogram[i];
+		size_t sa = uf.sizes[uf.find(node.a)];
+		size_t sb = uf.sizes[uf.find(node.b)];
+		uf.merge(node.a, node.b);
+		size_t dsize = std::min(sa, sb);
+
+		// output the data
+		_mergeDistance->dataFloat()[i] = log(node.d);
+		_mergeSize->dataFloat()[i] = dsize;
+	}
+
+	uf.clear();
+
+	// Now iterate through merge list until distance cutoff is met
+	for (auto node : dendrogram) {
+		if (log(node.d) >= _mergingThreshold) {
+			break;
 		}
-	});
 
-for (int i=0;i<8;i++) {
-	long int clockTicksTaken = total_time[i];
-	double timeInSeconds = clockTicksTaken / (double) CLOCKS_PER_SEC;
-	printf("\ttime taken: %f\n", timeInSeconds);
-}
+		uf.merge(node.a, node.b);
+	}
 
 	if(task()->isCanceled())
 		return false;
@@ -797,7 +696,7 @@ for (int i=0;i<8;i++) {
 	std::fill(_clusterSizes.begin(), _clusterSizes.end(), 0);
 	for(size_t particleIndex = 0; particleIndex < numAtoms; particleIndex++) {
 
-		size_t gid = clusterRemapping[atomMap[particleIndex]];
+		size_t gid = clusterRemapping[particleIndex];
 		atomClusters()->setInt64(particleIndex, gid);
 		_clusterSizes[gid]++;
 	}
@@ -831,6 +730,7 @@ for (int i=0;i<8;i++) {
 		}
 	}
 
+//TODO: output grain sizes as a property
 printf("grain sizes:\n");
 for (int i=0;i<_numClusters;i++) {
 	printf("\t%d\t%lld\n", i, _clusterSizes[i]);

@@ -45,7 +45,7 @@ DEFINE_PROPERTY_FIELD(GrainSegmentationModifier, onlySelectedParticles);
 DEFINE_PROPERTY_FIELD(GrainSegmentationModifier, outputBonds);
 DEFINE_REFERENCE_FIELD(GrainSegmentationModifier, bondsVis);
 SET_PROPERTY_FIELD_LABEL(GrainSegmentationModifier, rmsdCutoff, "RMSD cutoff");
-SET_PROPERTY_FIELD_LABEL(GrainSegmentationModifier, mergingThreshold, "Merging threshold");
+SET_PROPERTY_FIELD_LABEL(GrainSegmentationModifier, mergingThreshold, "Log merge threshold");
 SET_PROPERTY_FIELD_LABEL(GrainSegmentationModifier, minGrainAtomCount, "Minimum grain size (# of atoms)");
 SET_PROPERTY_FIELD_LABEL(GrainSegmentationModifier, orphanAdoption, "Adopt orphan atoms");
 SET_PROPERTY_FIELD_LABEL(GrainSegmentationModifier, onlySelectedParticles, "Use only selected particles");
@@ -62,7 +62,7 @@ GrainSegmentationModifier::GrainSegmentationModifier(DataSet* dataset) : Structu
 		_rmsdCutoff(0.1),
 		_minGrainAtomCount(100),
 		_onlySelectedParticles(false),
-		_mergingThreshold(3.0),
+		_mergingThreshold(0.0),
 		_orphanAdoption(true),
 		_outputBonds(false)
 {
@@ -71,6 +71,7 @@ GrainSegmentationModifier::GrainSegmentationModifier(DataSet* dataset) : Structu
 	createStructureType(PTMAlgorithm::FCC, ParticleType::PredefinedStructureType::FCC);
 	createStructureType(PTMAlgorithm::HCP, ParticleType::PredefinedStructureType::HCP);
 	createStructureType(PTMAlgorithm::BCC, ParticleType::PredefinedStructureType::BCC);
+
 	createStructureType(PTMAlgorithm::ICO, ParticleType::PredefinedStructureType::ICO)->setEnabled(false);
 	createStructureType(PTMAlgorithm::SC, ParticleType::PredefinedStructureType::SC)->setEnabled(false);
 	createStructureType(PTMAlgorithm::CUBIC_DIAMOND, ParticleType::PredefinedStructureType::CUBIC_DIAMOND)->setEnabled(false);
@@ -147,6 +148,13 @@ void GrainSegmentationEngine::emitResults(TimePoint time, ModifierApplication* m
 	seriesObj->setAxisLabelX(GrainSegmentationModifier::tr("RMSD"));
 	seriesObj->setIntervalStart(0);
 	seriesObj->setIntervalEnd(rmsdHistogramRange());
+
+	if (_numClusters > 1) {
+		// Output a data series object with the scatter points.
+		DataSeriesObject* mergeSeriesObj = state.createObject<DataSeriesObject>(QStringLiteral("grains-merge"), modApp, DataSeriesObject::Scatter, GrainSegmentationModifier::tr("Merge size vs. Merge distance"));
+		mergeSeriesObj->createProperty(std::move(mergeDistance()))->setName("Log merge distance");
+		mergeSeriesObj->createProperty(std::move(mergeSize()))->setName("Merge size");
+	}
 
 	size_t numGrains = atomClusters()->size() == 0 ? 0 : (*std::max_element(atomClusters()->constDataInt64(), atomClusters()->constDataInt64() + atomClusters()->size()));
 	state.setStatus(PipelineStatus(PipelineStatus::Success, GrainSegmentationModifier::tr("Found %1 grains").arg(numGrains)));

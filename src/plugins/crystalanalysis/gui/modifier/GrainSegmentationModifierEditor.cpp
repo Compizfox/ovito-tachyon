@@ -109,6 +109,19 @@ void GrainSegmentationModifierEditor::createUI(const RolloutInsertionParameters&
 	layout->addSpacing(10);
 	layout->addWidget(_rmsdPlotWidget);
 	connect(this, &GrainSegmentationModifierEditor::contentsReplaced, this, &GrainSegmentationModifierEditor::plotHistogram);
+
+	// Create plot widget for merge distances
+	_mergePlotWidget = new DataSeriesPlotWidget();
+	_mergePlotWidget->setMinimumHeight(200);
+	_mergePlotWidget->setMaximumHeight(200);
+	_mergeRangeIndicator = new QwtPlotZoneItem();
+	_mergeRangeIndicator->setOrientation(Qt::Vertical);
+	_mergeRangeIndicator->setZ(1);
+	_mergeRangeIndicator->attach(_mergePlotWidget);
+	_mergeRangeIndicator->hide();
+	layout->addSpacing(10);
+	layout->addWidget(_mergePlotWidget);
+	connect(this, &GrainSegmentationModifierEditor::contentsReplaced, this, &GrainSegmentationModifierEditor::plotMerges);
 }
 
 /******************************************************************************
@@ -118,6 +131,7 @@ bool GrainSegmentationModifierEditor::referenceEvent(RefTarget* source, const Re
 {
 	if(source == modifierApplication() && event.type() == ReferenceEvent::PipelineCacheUpdated) {
 		plotHistogramLater(this);
+		plotLater(this);
 	}
 	return ModifierPropertiesEditor::referenceEvent(source, event);
 }
@@ -146,6 +160,41 @@ void GrainSegmentationModifierEditor::plotHistogram()
 	}
 	else {
 		_rmsdPlotWidget->reset();
+	}
+}
+
+void GrainSegmentationModifierEditor::plotMerges()
+{
+	GrainSegmentationModifier* modifier = static_object_cast<GrainSegmentationModifier>(editObject());
+
+	bool activeIndicator = false;
+	if(modifier) {
+		// Request the modifier's pipeline output.
+		const PipelineFlowState& state = getModifierOutput();
+		auto mergeSeries = state.getObjectBy<DataSeriesObject>(modifierApplication(), QStringLiteral("grains-merge"));
+		if (mergeSeries) {
+			auto XProperty = mergeSeries->getX();
+			if (XProperty && XProperty->size() > 0) {
+				activeIndicator = true;
+				_mergeRangeIndicator->setInterval(XProperty->getFloat(0), modifier->mergingThreshold());
+				_mergeRangeIndicator->show();
+			}
+		}
+	}
+
+	if (!activeIndicator) {
+		_mergeRangeIndicator->hide();
+	}
+
+	if(modifierApplication()) {
+		// Request the modifier's pipeline output.
+		const PipelineFlowState& state = getModifierOutput();
+
+		// Look up the data series in the modifier's pipeline output.
+		_mergePlotWidget->setSeries(state.getObjectBy<DataSeriesObject>(modifierApplication(), QStringLiteral("grains-merge")));
+	}
+	else {
+		_mergePlotWidget->reset();
 	}
 }
 

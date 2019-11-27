@@ -49,6 +49,8 @@ protected Q_SLOTS:
 	/// Replots the histogram computed by the modifier.
 	void plotHistogram();
 
+void plotMerges();
+
 	/// Is called when the user clicks the 'Perform grain tracking' button.
 	void onPerformGrainTracking();
 
@@ -70,6 +72,15 @@ private:
 
 	/// For deferred invocation of the plot repaint function.
 	DeferredMethodInvocation<GrainSegmentationModifierEditor, &GrainSegmentationModifierEditor::plotHistogram> plotHistogramLater;
+
+	/// The graph widget to display the merge size scatter plot.
+	DataSeriesPlotWidget* _mergePlotWidget;
+
+	/// Marks the merge distance cutoff in the scatter plot.
+	QwtPlotZoneItem* _mergeRangeIndicator;
+
+	/// For deferred invocation of the plot repaint function.
+	DeferredMethodInvocation<GrainSegmentationModifierEditor, &GrainSegmentationModifierEditor::plotMerges> plotLater;
 };
 
 }	// End of namespace
