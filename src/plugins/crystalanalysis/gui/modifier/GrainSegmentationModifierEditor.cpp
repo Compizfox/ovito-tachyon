@@ -61,12 +61,13 @@ void GrainSegmentationModifierEditor::createUI(const RolloutInsertionParameters&
 	sublayout2->addWidget(rmsdCutoffUI->label(), 0, 0);
 	sublayout2->addLayout(rmsdCutoffUI->createFieldLayout(), 0, 1);
 
-	// TODO: make this look nice
+	// TODO: display the label text
 	BooleanRadioButtonParameterUI* algorithmTypeUI = new BooleanRadioButtonParameterUI(this, PROPERTY_FIELD(GrainSegmentationModifier::algorithmType));
 	algorithmTypeUI->buttonFalse()->setText(tr("Single"));
 	algorithmTypeUI->buttonTrue()->setText(tr("Parisian"));
-	sublayout2->addWidget(algorithmTypeUI->buttonFalse(), 1, 2);
-	sublayout2->addWidget(algorithmTypeUI->buttonTrue(), 2, 2);
+	//sublayout2->addWidget(algorithmTypeUI->label(), 1, 0);
+	sublayout2->addWidget(algorithmTypeUI->buttonFalse(), 1, 1, 1, -1);
+	sublayout2->addWidget(algorithmTypeUI->buttonTrue(), 2, 1, 1, -1);
 	algorithmTypeUI->setEnabled(true);
 
 	FloatParameterUI* mergingThresholdUI = new FloatParameterUI(this, PROPERTY_FIELD(GrainSegmentationModifier::mergingThreshold));
