@@ -408,7 +408,7 @@ bool GrainSegmentationEngine::mergeSuperclusters()
 	return !task()->isCanceled();
 }
 
-bool GrainSegmentationEngine::minimum_spanning_tree_clustering(std::vector< GraphEdge >& initial_graph, DisjointSet& uf, size_t start, size_t end, std::vector< DendrogramNode >& dendrogram)
+bool GrainSegmentationEngine::minimum_spanning_tree_clustering(std::vector< GraphEdge >& initial_graph, DisjointSet& uf, size_t start, size_t end, DendrogramNode* dendrogram)
 {
 	Graph graph;
 	for (size_t i=start;i<end;i++) {
@@ -418,9 +418,10 @@ bool GrainSegmentationEngine::minimum_spanning_tree_clustering(std::vector< Grap
 		auto w = edge.w;
 		if (uf.find(a) != uf.find(b)) {
 			uf.merge(a, b);
-			dendrogram.push_back(	DendrogramNode(	std::min(a, b),
-								std::max(a, b),
-								w, 1));
+			auto node = DendrogramNode(	std::min(a, b),
+							std::max(a, b),
+							w, 1);
+			*dendrogram++ = node;
 		}
 	}
 
@@ -464,87 +465,86 @@ bool GrainSegmentationEngine::regionMerging()
 	if(task()->isCanceled())
 		return false;
 
-	// Calculate a contiguous bond index mapping
-	std::vector< GraphEdge > initial_graph;
-
 	// Build initial graph
+	FloatType totalWeight = 0;
+	std::vector< GraphEdge > initial_graph;
+	std::vector< size_t > bondCount(_numSuperclusters, 0);	// number of bonds in each supercluster
 	const FloatType* disorientation = neighborDisorientationAngles()->constDataFloat();
-	for(const Bond& bond : latticeNeighborBonds()) {
+
+	for (size_t i=0;i<latticeNeighborBonds().size();i++) {
 		if(!task()->incrementProgressValue()) return false;
 
-		FloatType dis = *disorientation++;
-
-		// Skip high-angle edges.
-		if(dis > _misorientationThreshold) continue;
-
-		// Convert disorientations to graph weights
-		FloatType deg = dis * FloatType(180) / FLOATTYPE_PI;
+		const Bond& bond = latticeNeighborBonds()[i];
+		FloatType dis = disorientation[i];
 		size_t a = bond.index1;
 		size_t b = bond.index2;
 		size_t sc = _atomSuperclusters[a];
-		initial_graph.emplace_back(a, b, deg, sc);
+
+		// Skip high-angle edges.
+		if (sc == 0 || dis > _misorientationThreshold) {
+			bondCount[0]++;
+		}
+		else {
+			// Convert disorientations to graph weights
+			FloatType deg = dis * FloatType(180) / FLOATTYPE_PI;
+			initial_graph.emplace_back(a, b, deg, sc);
+			bondCount[sc]++;
+
+			FloatType weight = std::exp(-FloatType(1)/3 * deg * deg);	//this is fairly arbitrary but it works well
+			totalWeight += weight;
+		}
 	}
 
-	if(task()->isCanceled())
-		return false;
+	size_t c = 0;
+	std::vector< size_t > bondStart(_numSuperclusters, 0);
+	for (size_t i=1;i<_numSuperclusters;i++) {
+		bondStart[i] = c;
+		c += bondCount[i];
+	}
 
 	std::sort(initial_graph.begin(), initial_graph.end(), [](GraphEdge& e, GraphEdge& f)
 	{
 		if (e.superCluster == f.superCluster) {
 			return e.w < f.w;
 		}
-
-		return e.superCluster < f.superCluster;
+		else {
+			return e.superCluster < f.superCluster;
+		}
 	});
 
-	std::map< size_t, std::tuple< size_t, size_t, int > > bondIntervals;
-
-	size_t start = 0;
-	for (size_t i=0;i<initial_graph.size();i++) {
-		size_t sc = initial_graph[start].superCluster;
-		if (initial_graph[i].superCluster != sc) {
-
-			int type = structures()->getInt(initial_graph[i].a);
-			bondIntervals[sc] = std::make_tuple(start, i, type);
-			start = i;
-		}
-	}
-
-	{
-		size_t sc = initial_graph.back().superCluster;
-		int type = structures()->getInt(initial_graph.back().a);
-		bondIntervals[sc] = std::make_tuple(start, initial_graph.size(), type);
-	}
+	if(task()->isCanceled())
+		return false;
 
 	task()->setProgressText(GrainSegmentationModifier::tr("Grain segmentation - region merging"));
 	task()->setProgressValue(0);
 	task()->setProgressMaximum(initial_graph.size());
 
-	std::vector< DendrogramNode > dendrogram;			// dendrogram as list of merges
-	FloatType totalWeight = 0;
-	for (auto edge : initial_graph) {
-		totalWeight += edge.w;
+	c = 0;
+	std::vector< size_t > dendrogramOffsets(_numSuperclusters, 0);
+	for (size_t sc=1;sc<_numSuperclusters;sc++) {
+		dendrogramOffsets[sc] = c;
+		if (_superclusterSizes[sc] > 0) {		// this should always be non-zero
+			c += _superclusterSizes[sc] - 1;	// number of edges in a tree = number of vertices - 1
+		}
 	}
 
 	DisjointSet uf(numAtoms);
+	std::vector< DendrogramNode > dendrogram;	// dendrogram as list of merges
+	dendrogram.resize(c);
 
-	// TODO: parallelize this. Use atomic push_back on dendrogram.
-	//parallelFor(_numSuperclusters, *task(), [this, &numAtoms, &bondIntervals, &initial_graph, &uf](size_t sc) {
-	//	if (sc == 0) return;
-	for (size_t sc=1;sc<_numSuperclusters;sc++) {
-		std::map< size_t, std::tuple< size_t, size_t, int > >::iterator it = bondIntervals.find(sc);
-		auto value = it->second;
-		size_t start = std::get<0>(value);
-		size_t end = std::get<1>(value);
-		int structureType = std::get<2>(value);
+	parallelFor(_numSuperclusters, *task(), [this, &initial_graph, &uf, &bondStart, &bondCount, &dendrogram, &dendrogramOffsets, &totalWeight](size_t sc) {
+		if (sc == 0) return;
+		size_t start = bondStart[sc];
+		size_t end = bondStart[sc] + bondCount[sc];
+		size_t index = dendrogramOffsets[sc];
 
 		if (_algorithmType == 0) {
-			minimum_spanning_tree_clustering(initial_graph, uf, start, end, dendrogram);
+			minimum_spanning_tree_clustering(initial_graph, uf, start, end, dendrogram.data() + index);
 		}
 		else {
-			node_pair_sampling_clustering(initial_graph, start, end, totalWeight, dendrogram);
+			node_pair_sampling_clustering(initial_graph, start, end, totalWeight, dendrogram.data() + index);
 		}
-	}
+	});
 
 	std::sort(dendrogram.begin(), dendrogram.end(),
 			[](DendrogramNode& a, DendrogramNode& b)
@@ -574,7 +574,7 @@ bool GrainSegmentationEngine::regionMerging()
 	_mergeDistance = std::make_shared<PropertyStorage>(numPlot, PropertyStorage::Float, 1, 0, GrainSegmentationModifier::tr("Log merge distance"), true, DataSeriesObject::XProperty);
 	_mergeSize = std::make_shared<PropertyStorage>(numPlot, PropertyStorage::Float, 1, 0, GrainSegmentationModifier::tr("Merge size"), true, DataSeriesObject::YProperty);
 
-	size_t c = 0;
+	c = 0;
 	for (auto node : dendrogram) {
 		if (node.size > 0) {
 			_mergeDistance->dataFloat()[c] = log(node.d);

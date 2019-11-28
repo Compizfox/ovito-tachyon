@@ -6,12 +6,11 @@
 namespace Ovito { namespace Plugins { namespace CrystalAnalysis {
 
 
-bool GrainSegmentationEngine::node_pair_sampling_clustering(std::vector< GraphEdge >& initial_graph, size_t start, size_t end, FloatType totalWeight, std::vector< DendrogramNode >& dendrogram)
+bool GrainSegmentationEngine::node_pair_sampling_clustering(std::vector< GraphEdge >& initial_graph, size_t start, size_t end, FloatType totalWeight, DendrogramNode* dendrogram)
 {
 	Graph graph;
 	for (size_t i=start;i<end;i++) {
 		auto edge = initial_graph[i];
-
 		FloatType deg = edge.w;
 		FloatType weight = std::exp(-FloatType(1)/3 * deg * deg);		//this is fairly arbitrary but it works well
 		graph.add_edge(edge.a, edge.b, weight, true);
@@ -66,11 +65,11 @@ bool GrainSegmentationEngine::node_pair_sampling_clustering(std::vector< GraphEd
 					//					std::max(graph.rep[a], graph.rep[b]),
 					//					d,
 					//					size)
-					dendrogram.push_back(	DendrogramNode(	std::min(a, b),
-										std::max(a, b),
-										d,
-										size)
-								);
+					auto node = DendrogramNode(	std::min(a, b),
+									std::max(a, b),
+									d, size);
+					*dendrogram++ = node;
+
 					if (size == 0) {
 						printf("zero size\n");
 						exit(3);

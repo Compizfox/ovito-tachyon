@@ -25,6 +25,9 @@ public:
 	DendrogramNode(size_t _a, size_t _b, FloatType _d, size_t _size)
 		: a(_a), b(_b), d(_d), size(_size) {}
 
+	DendrogramNode()
+		: a(0), b(0), d(-INFINITY), size(0) {}
+
 	size_t a;
 	size_t b;
 	FloatType d;

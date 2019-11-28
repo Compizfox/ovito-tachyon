@@ -118,8 +118,8 @@ private:
 	bool mergeOrphanAtoms();
 
 	// Algorithm (linkage) types
-	bool minimum_spanning_tree_clustering(std::vector< GraphEdge >& initial_graph, DisjointSet& uf, size_t start, size_t end, std::vector< DendrogramNode >& dendrogram);
-	bool node_pair_sampling_clustering(std::vector< GraphEdge >& initial_graph, size_t start, size_t end, FloatType totalWeight, std::vector< DendrogramNode >& dendrogram);
+	bool minimum_spanning_tree_clustering(std::vector< GraphEdge >& initial_graph, DisjointSet& uf, size_t start, size_t end, DendrogramNode* dendrogram);
+	bool node_pair_sampling_clustering(std::vector< GraphEdge >& initial_graph, size_t start, size_t end, FloatType totalWeight, DendrogramNode* dendrogram);
 
 private:
 
@@ -192,7 +192,8 @@ private:
 	/// The computed disorientation angles between neighboring lattice atoms.
 	PropertyPtr _neighborDisorientationAngles;
 
-	FloatType _misorientationThreshold = 4 / FloatType(180) * FLOATTYPE_PI;
+	// A hardcoded cutoff used for defining superclusters
+	const FloatType _misorientationThreshold = 4 / FloatType(180) * FLOATTYPE_PI;
 };
 
 }	// End of namespace
