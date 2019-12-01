@@ -1,38 +1,10 @@
-#ifndef GRAPH_H
-#define GRAPH_H
+#ifndef NODE_PAIR_SAMPLING_H
+#define NODE_PAIR_SAMPLING_H
 
 #include <core/utilities/FloatType.h>
 
 
 namespace Ovito { namespace Plugins { namespace CrystalAnalysis {
-
-
-class GraphEdge
-{
-public:
-	GraphEdge(size_t _a, size_t _b, FloatType _w, size_t _superCluster)
-		: a(_a), b(_b), w(_w), superCluster(_superCluster) {}
-
-	size_t a;
-	size_t b;
-	FloatType w;
-	size_t superCluster;
-};
-
-class DendrogramNode
-{
-public:
-	DendrogramNode(size_t _a, size_t _b, FloatType _d, size_t _size)
-		: a(_a), b(_b), d(_d), size(_size) {}
-
-	DendrogramNode()
-		: a(0), b(0), d(-INFINITY), size(0) {}
-
-	size_t a;
-	size_t b;
-	FloatType d;
-	size_t size;
-};
 
 class Graph
 {
@@ -136,7 +108,7 @@ public:
 		snode.erase(u);
 	}
 
-	void contract_edge(size_t a, size_t b) {
+	size_t contract_edge(size_t a, size_t b) {
 
 		if (adj[b].size() > adj[a].size()) {
 			std::swap(a, b);
@@ -157,6 +129,7 @@ public:
 		wnode[a] += wnode[b];
 		snode[a] += snode[b];
 		remove_node(b);
+		return a;
 	}
 };
 

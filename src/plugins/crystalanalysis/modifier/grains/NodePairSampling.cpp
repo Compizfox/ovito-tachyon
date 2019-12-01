@@ -1,12 +1,13 @@
 #include <core/utilities/FloatType.h>
 #include "GrainSegmentationEngine.h"
-#include "Graph.h"
+#include "NodePairSampling.h"
 
 
 namespace Ovito { namespace Plugins { namespace CrystalAnalysis {
 
 
-bool GrainSegmentationEngine::node_pair_sampling_clustering(std::vector< GraphEdge >& initial_graph, size_t start, size_t end, FloatType totalWeight, DendrogramNode* dendrogram)
+bool GrainSegmentationEngine::node_pair_sampling_clustering(std::vector< GraphEdge >& initial_graph, size_t start, size_t end,
+								FloatType totalWeight, DendrogramNode* dendrogram, int structureType, std::vector< Quaternion >& qsum)
 {
 	Graph graph;
 	for (size_t i=start;i<end;i++) {
@@ -26,7 +27,7 @@ bool GrainSegmentationEngine::node_pair_sampling_clustering(std::vector< GraphEd
 		size_t node = graph.next_node();
 		if (node == (size_t)(-1)) {
 			printf("node is -1\n");
-			exit(3);
+			//exit(3);
 		}
 
 		std::vector< size_t> chain{node};
@@ -36,7 +37,7 @@ bool GrainSegmentationEngine::node_pair_sampling_clustering(std::vector< GraphEd
 			chain.pop_back();
 			if (a == (size_t)(-1)) {
 				printf("a is -1\n");
-				exit(3);
+				//exit(3);
 			}
 
 			auto result = graph.nearest_neighbor(a);
@@ -61,35 +62,45 @@ bool GrainSegmentationEngine::node_pair_sampling_clustering(std::vector< GraphEd
 
 				if (b == c) {
 					size_t size = graph.snode[a] + graph.snode[b];
-					//dendrogram.push_back(	DendrogramNode(	std::min(graph.rep[a], graph.rep[b]),
-					//					std::max(graph.rep[a], graph.rep[b]),
-					//					d,
-					//					size)
-					auto node = DendrogramNode(	std::min(a, b),
-									std::max(a, b),
-									d, size);
-					*dendrogram++ = node;
-
 					if (size == 0) {
 						printf("zero size\n");
-						exit(3);
+						//exit(3);
 					}
-					graph.contract_edge(a, b);
+					size_t parent = graph.contract_edge(a, b);
+
+					double disorientation = INFINITY;
+					if (parent == a) {
+						disorientation = calculate_disorientation(structureType, qsum, a, b);
+					}
+					else {
+						disorientation = calculate_disorientation(structureType, qsum, b, a);
+					}
+
+					//dendrogram.push_back(	DendrogramNode(	std::min(graph.rep[a], graph.rep[b]),
+					//					std::max(graph.rep[a], graph.rep[b]),
+					//					d, disorientation,
+					//					size)
+
+					auto node = DendrogramNode(	std::min(a, b),
+									std::max(a, b),
+									d, disorientation,
+									size);
+					*dendrogram++ = node;
 				}
 				else {
 					chain.push_back(c);
 					chain.push_back(a);
 					chain.push_back(b);
-					if (a == (size_t)(-1)) {printf("!a is -1\n"); exit(3);}
-					if (b == (size_t)(-1)) {printf("!b is -1\n"); exit(3);}
-					if (c == (size_t)(-1)) {printf("!c is -1\n"); exit(3);}
+					if (a == (size_t)(-1)) {printf("!a is -1\n"); /*exit(3);*/}
+					if (b == (size_t)(-1)) {printf("!b is -1\n"); /*exit(3);*/}
+					if (c == (size_t)(-1)) {printf("!c is -1\n"); /*exit(3);*/}
 				}
 			}
 			else if (b != (size_t)(-1)) {
 				chain.push_back(a);
 				chain.push_back(b);
-				if (a == (size_t)(-1)) {printf("#a is -1\n"); exit(3);}
-				if (b == (size_t)(-1)) {printf("#b is -1\n"); exit(3);}
+				if (a == (size_t)(-1)) {printf("#a is -1\n"); /*exit(3);*/}
+				if (b == (size_t)(-1)) {printf("#b is -1\n"); /*exit(3);*/}
 			}
 		}
 	}

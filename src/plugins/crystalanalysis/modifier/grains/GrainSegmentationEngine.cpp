@@ -24,8 +24,8 @@
 #include <plugins/particles/util/NearestNeighborFinder.h>
 #include "GrainSegmentationEngine.h"
 #include "GrainSegmentationModifier.h"
+#include "NodePairSampling.h"
 #include "DisjointSet.h"
-#include "Graph.h"
 
 #include <ptm/ptm_functions.h>
 #include <ptm/ptm_quat.h>
@@ -408,7 +408,40 @@ bool GrainSegmentationEngine::mergeSuperclusters()
 	return !task()->isCanceled();
 }
 
-bool GrainSegmentationEngine::minimum_spanning_tree_clustering(std::vector< GraphEdge >& initial_graph, DisjointSet& uf, size_t start, size_t end, DendrogramNode* dendrogram)
+double GrainSegmentationEngine::calculate_disorientation(int structureType, std::vector< Quaternion >& qsum, size_t a, size_t b) {
+
+	Quaternion na = qsum[a].normalized();
+	double qtarget[4] = {na.w(), na.x(), na.y(), na.z()};
+
+	Quaternion nb = qsum[b].normalized();
+	double q[4] = {nb.w(), nb.x(), nb.y(), nb.z()};
+
+	// Convert structure type back to PTM representation
+	int type = 0;
+	if (structureType == PTMAlgorithm::FCC)			type = PTM_MATCH_FCC;
+	else if (structureType == PTMAlgorithm::HCP)		type = PTM_MATCH_HCP;
+	else if (structureType == PTMAlgorithm::BCC)		type = PTM_MATCH_BCC;
+	else if (structureType == PTMAlgorithm::SC)		type = PTM_MATCH_SC;
+	else if (structureType == PTMAlgorithm::CUBIC_DIAMOND)	type = PTM_MATCH_DCUB;
+	else if (structureType == PTMAlgorithm::HEX_DIAMOND)	type = PTM_MATCH_DHEX;
+	else if (structureType == PTMAlgorithm::GRAPHENE)	type = PTM_MATCH_GRAPHENE;
+
+	double disorientation = 0;
+	int8_t dummy_mapping[PTM_MAX_POINTS];
+	if (ptm_remap_template(type, true, 0, qtarget, q, &disorientation, dummy_mapping, NULL) < 0) {
+		printf("remap failure\n");
+	}
+
+	FloatType norm = qsum[b].norm();
+	qsum[a].w() += q[0] * norm;
+	qsum[a].x() += q[1] * norm;
+	qsum[a].y() += q[2] * norm;
+	qsum[a].z() += q[3] * norm;
+	return disorientation;
+}
+
+bool GrainSegmentationEngine::minimum_spanning_tree_clustering(std::vector< GraphEdge >& initial_graph, DisjointSet& uf, size_t start, size_t end,
+								DendrogramNode* dendrogram, int structureType, std::vector< Quaternion >& qsum)
 {
 	Graph graph;
 	for (size_t i=start;i<end;i++) {
@@ -417,10 +450,18 @@ bool GrainSegmentationEngine::minimum_spanning_tree_clustering(std::vector< Grap
 		auto b = edge.b;
 		auto w = edge.w;
 		if (uf.find(a) != uf.find(b)) {
-			uf.merge(a, b);
+			size_t parent = uf.merge(a, b);
+			double disorientation = INFINITY;
+			if (parent == a) {
+				disorientation = calculate_disorientation(structureType, qsum, a, b);
+			}
+			else {
+				disorientation = calculate_disorientation(structureType, qsum, b, a);
+			}
+
 			auto node = DendrogramNode(	std::min(a, b),
 							std::max(a, b),
-							w, 1);
+							w, disorientation, 1);
 			*dendrogram++ = node;
 		}
 	}
@@ -532,23 +573,33 @@ bool GrainSegmentationEngine::regionMerging()
 	std::vector< DendrogramNode > dendrogram;	// dendrogram as list of merges
 	dendrogram.resize(c);
 
-	parallelFor(_numSuperclusters, *task(), [this, &initial_graph, &uf, &bondStart, &bondCount, &dendrogram, &dendrogramOffsets, &totalWeight](size_t sc) {
+	std::vector< Quaternion > qsum(numAtoms);
+	for (size_t particleIndex=0;particleIndex<numAtoms;particleIndex++) {
+		const Quaternion& q = orientations()->getQuaternion(particleIndex);
+		qsum[particleIndex].w() = q.w();
+		qsum[particleIndex].x() = q.x();
+		qsum[particleIndex].y() = q.y();
+		qsum[particleIndex].z() = q.z();
+	}
+
+	parallelFor(_numSuperclusters, *task(), [this, &initial_graph, &uf, &bondStart, &bondCount, &dendrogram, &dendrogramOffsets, &totalWeight, &qsum](size_t sc) {
 		if (sc == 0) return;
 		size_t start = bondStart[sc];
 		size_t end = bondStart[sc] + bondCount[sc];
 		size_t index = dendrogramOffsets[sc];
+		int structureType = structures()->getInt(initial_graph[start].a);
 
 		if (_algorithmType == 0) {
-			minimum_spanning_tree_clustering(initial_graph, uf, start, end, dendrogram.data() + index);
+			minimum_spanning_tree_clustering(initial_graph, uf, start, end, dendrogram.data() + index, structureType, qsum);
 		}
 		else {
-			node_pair_sampling_clustering(initial_graph, start, end, totalWeight, dendrogram.data() + index);
+			node_pair_sampling_clustering(initial_graph, start, end, totalWeight, dendrogram.data() + index, structureType, qsum);
 		}
 	});
 
 	std::sort(dendrogram.begin(), dendrogram.end(),
 			[](DendrogramNode& a, DendrogramNode& b)
-			{return a.d < b.d;});
+			{return a.distance < b.distance;});
 
 	// Scan through the entire merge list to determine merge sizes
 	size_t numPlot = 0;
@@ -559,6 +610,7 @@ bool GrainSegmentationEngine::regionMerging()
 		size_t sb = uf.sizes[uf.find(node.b)];
 		size_t dsize = std::min(sa, sb);
 		uf.merge(node.a, node.b);
+		dendrogram[i].disorientation *= FloatType(180) / FLOATTYPE_PI;
 
 		// We don't want to plot very small merges - they extend the x-axis by a lot and don't provide much useful information
 		if (dsize < _minGrainAtomCount / 2) {
@@ -576,8 +628,8 @@ bool GrainSegmentationEngine::regionMerging()
 
 	c = 0;
 	for (auto node : dendrogram) {
-		if (node.size > 0) {
-			_mergeDistance->dataFloat()[c] = log(node.d);
+		if (node.size > 0) {	// keep only those which we want to plot
+			_mergeDistance->dataFloat()[c] = log(node.distance);
 			_mergeSize->dataFloat()[c] = node.size;
 			c++;
 		}
@@ -586,7 +638,7 @@ bool GrainSegmentationEngine::regionMerging()
 	// Now iterate through merge list until distance cutoff is met
 	uf.clear();
 	for (auto node : dendrogram) {
-		if (log(node.d) >= _mergingThreshold) {
+		if (log(node.distance) >= _mergingThreshold) {
 			break;
 		}
 

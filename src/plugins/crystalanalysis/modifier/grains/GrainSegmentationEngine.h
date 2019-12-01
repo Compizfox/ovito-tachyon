@@ -28,11 +28,40 @@
 #include <plugins/particles/objects/BondsObject.h>
 #include <plugins/particles/modifier/analysis/ptm/PTMAlgorithm.h>
 #include <boost/optional/optional.hpp>
+#include "NodePairSampling.h"
 #include "DisjointSet.h"
-#include "Graph.h"
 
 
 namespace Ovito { namespace Plugins { namespace CrystalAnalysis {
+
+class GraphEdge
+{
+public:
+	GraphEdge(size_t _a, size_t _b, FloatType _w, size_t _superCluster)
+		: a(_a), b(_b), w(_w), superCluster(_superCluster) {}
+
+	size_t a;
+	size_t b;
+	FloatType w;
+	size_t superCluster;
+};
+
+class DendrogramNode
+{
+public:
+	DendrogramNode(size_t _a, size_t _b, FloatType _distance, FloatType _disorientation, size_t _size)
+		: a(_a), b(_b), distance(_distance), disorientation(_disorientation), size(_size) {}
+
+	DendrogramNode()
+		: a(0), b(0), distance(-INFINITY), disorientation(-INFINITY), size(0) {}
+
+	size_t a;
+	size_t b;
+	FloatType distance;
+	FloatType disorientation;
+	size_t size;
+};
+
 
 /*
  * Computation engine of the GrainSegmentationModifier, which decomposes a polycrystalline microstructure into individual grains.
@@ -117,9 +146,10 @@ private:
 	/// Merges any orphan atoms into the closest cluster.
 	bool mergeOrphanAtoms();
 
-	// Algorithm (linkage) types
-	bool minimum_spanning_tree_clustering(std::vector< GraphEdge >& initial_graph, DisjointSet& uf, size_t start, size_t end, DendrogramNode* dendrogram);
-	bool node_pair_sampling_clustering(std::vector< GraphEdge >& initial_graph, size_t start, size_t end, FloatType totalWeight, DendrogramNode* dendrogram);
+	// Algorithm types
+	double calculate_disorientation(int structureType, std::vector< Quaternion >& qsum, size_t a, size_t b);
+	bool minimum_spanning_tree_clustering(std::vector< GraphEdge >& initial_graph, DisjointSet& uf, size_t start, size_t end, DendrogramNode* dendrogram, int structureType, std::vector< Quaternion >& qsum);
+	bool node_pair_sampling_clustering(std::vector< GraphEdge >& initial_graph, size_t start, size_t end, FloatType totalWeight, DendrogramNode* dendrogram, int structureType, std::vector< Quaternion >& qsum);
 
 private:
 
