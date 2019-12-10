@@ -35,10 +35,9 @@ bool GrainSegmentationEngine::node_pair_sampling_clustering(std::vector< GraphEd
 	for (size_t i=start;i<end;i++) {
 		auto edge = initial_graph[i];
 		FloatType deg = edge.w;
-		FloatType weight = std::exp(-FloatType(1)/3 * deg * deg);		//this is fairly arbitrary but it works well
-		graph.add_edge(edge.a, edge.b, weight, true);
+		FloatType weight = std::exp(-FloatType(1)/3 * deg * deg);	//this is fairly arbitrary but it works well
+		graph.add_edge(edge.a, edge.b, weight);
 	}
-	graph.wtotal = totalWeight;
 
 	//std::vector< std::tuple< size_t, size_t > > components;	// connected components
 
@@ -63,7 +62,7 @@ bool GrainSegmentationEngine::node_pair_sampling_clustering(std::vector< GraphEd
 			}
 
 			auto result = graph.nearest_neighbor(a);
-			FloatType d = std::get<0>(result);
+			FloatType d = std::get<0>(result) / totalWeight / totalWeight;
 			size_t b = std::get<1>(result);
 			if (b == (size_t)(-1)) {
 				if (chain.size() != 0) {

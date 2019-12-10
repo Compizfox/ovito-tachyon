@@ -31,7 +31,6 @@ class Graph
 {
 public:
 	size_t next = 0;
-	double wtotal = 0;
 	std::map<size_t, std::map<size_t, double> > adj;
 	std::map<size_t, double> wnode;
 	std::map<size_t, size_t> snode;
@@ -75,13 +74,13 @@ public:
 			}
 		}
 
-		double check = dmin * wnode[a] / wtotal;
+		double check = dmin * wnode[a];
 		if (check != check) {
-			printf("e. bad number: %lu %lu %e %e %e\n", a, vmin, dmin, wnode[a], wtotal);
+			printf("e. bad number: %lu %lu %e %e\n", a, vmin, dmin, wnode[a]);
 			exit(3);
 		}
 
-		return std::make_tuple(dmin * wnode[a] / wtotal, vmin);
+		return std::make_tuple(dmin * wnode[a], vmin);
 	}
 
 	void add_node(size_t u) {
@@ -91,30 +90,23 @@ public:
 		wnode[u] = 0;
 	}
 
-	void add_edge(size_t u, size_t v, double w, bool update) {
+	void add_edge(size_t u, size_t v, double w) {
 
 		auto it = adj.find(u);
 		if (it == adj.end()) {
-			if (!update) {printf("update error\n"); exit(3);}
 			add_node(u);
 		}
 
 		it = adj.find(v);
 		if (it == adj.end()) {
-			if (!update) {printf("update error\n"); exit(3);}
 			add_node(v);
 		}
 
 		(adj[u])[v] = w;
 		(adj[v])[u] = w;
 
-		if (update) {
-			wnode[u] += w;
-			wnode[v] += w;
-			if (u != v) {
-				wtotal += w;
-			}
-		}
+		wnode[u] += w;
+		wnode[v] += w;
 	}
 
 	void remove_node(size_t u) {
