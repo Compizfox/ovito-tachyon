@@ -1,23 +1,25 @@
-///////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Copyright (2018) Alexander Stukowski
+//  Copyright 2019 Alexander Stukowski
+//  Copyright 2019 Peter Mahler Larsen
 //
 //  This file is part of OVITO (Open Visualization Tool).
 //
-//  OVITO is free software; you can redistribute it and/or modify
-//  it under the terms of the GNU General Public License as published by
-//  the Free Software Foundation; either version 2 of the License, or
-//  (at your option) any later version.
+//  OVITO is free software; you can redistribute it and/or modify it either under the
+//  terms of the GNU General Public License version 3 as published by the Free Software
+//  Foundation (the "GPL") or, at your option, under the terms of the MIT License.
+//  If you do not alter this notice, a recipient may use your version of this
+//  file under either the GPL or the MIT License.
 //
-//  OVITO is distributed in the hope that it will be useful,
-//  but WITHOUT ANY WARRANTY; without even the implied warranty of
-//  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-//  GNU General Public License for more details.
+//  You should have received a copy of the GPL along with this program in a
+//  file LICENSE.GPL.txt.  You should have received a copy of the MIT License along
+//  with this program in a file LICENSE.MIT.txt
 //
-//  You should have received a copy of the GNU General Public License
-//  along with this program.  If not, see <http://www.gnu.org/licenses/>.
+//  This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND,
+//  either express or implied. See the GPL or the MIT License for the specific language
+//  governing rights and limitations.
 //
-///////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////
 
 #include <plugins/crystalanalysis/CrystalAnalysis.h>
 #include <plugins/crystalanalysis/modifier/grains/GrainSegmentationEngine.h>
@@ -91,12 +93,6 @@ void GrainSegmentationModifierEditor::createUI(const RolloutInsertionParameters&
 
 	BooleanParameterUI* outputBondsUI = new BooleanParameterUI(this, PROPERTY_FIELD(GrainSegmentationModifier::outputBonds));
 	sublayout2->addWidget(outputBondsUI->checkBox(), 1, 0, 1, 2);
-
-#if 0
-	QPushButton* grainTrackingButton = new QPushButton(tr("Perform grain tracking..."));
-	layout->addWidget(grainTrackingButton);
-	connect(grainTrackingButton, &QPushButton::clicked, this, &GrainSegmentationModifierEditor::onPerformGrainTracking);
-#endif
 
 	// Status label.
 	layout->addWidget(statusLabel());
@@ -207,29 +203,6 @@ void GrainSegmentationModifierEditor::plotMerges()
 	else {
 		_mergePlotWidget->reset();
 	}
-}
-
-/******************************************************************************
-* Is called when the user clicks the 'Perform grain tracking' button.
-******************************************************************************/
-void GrainSegmentationModifierEditor::onPerformGrainTracking()
-{
-#if 0
-	GrainSegmentationModifier* modifier = static_object_cast<GrainSegmentationModifier>(editObject());
-	GrainSegmentationModifierApplication* modApp = dynamic_object_cast<GrainSegmentationModifierApplication>(someModifierApplication());
-	if(!modifier || !modApp) return;
-
-	undoableTransaction(tr("Grain tracking"), [this,modifier,modApp]() {
-		ProgressDialog progressDialog(container(), modifier->dataset()->container()->taskManager(), tr("Grain tracking"));
-		modifier->trackGrains(progressDialog.taskManager(), modApp);
-	});
-#endif
-	GrainSegmentationModifier* modifier = static_object_cast<GrainSegmentationModifier>(editObject());
-	if(!modifier) return;
-
-	undoableTransaction(tr("Grain tracking"), [this,modifier]() {
-		ProgressDialog progressDialog(container(), modifier->dataset()->container()->taskManager(), tr("Grain tracking"));
-	});
 }
 
 }	// End of namespace

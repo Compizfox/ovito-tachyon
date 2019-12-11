@@ -1,23 +1,25 @@
-///////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Copyright (2018) Alexander Stukowski
+//  Copyright 2019 Alexander Stukowski
+//  Copyright 2019 Peter Mahler Larsen
 //
 //  This file is part of OVITO (Open Visualization Tool).
 //
-//  OVITO is free software; you can redistribute it and/or modify
-//  it under the terms of the GNU General Public License as published by
-//  the Free Software Foundation; either version 2 of the License, or
-//  (at your option) any later version.
+//  OVITO is free software; you can redistribute it and/or modify it either under the
+//  terms of the GNU General Public License version 3 as published by the Free Software
+//  Foundation (the "GPL") or, at your option, under the terms of the MIT License.
+//  If you do not alter this notice, a recipient may use your version of this
+//  file under either the GPL or the MIT License.
 //
-//  OVITO is distributed in the hope that it will be useful,
-//  but WITHOUT ANY WARRANTY; without even the implied warranty of
-//  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-//  GNU General Public License for more details.
+//  You should have received a copy of the GPL along with this program in a
+//  file LICENSE.GPL.txt.  You should have received a copy of the MIT License along
+//  with this program in a file LICENSE.MIT.txt
 //
-//  You should have received a copy of the GNU General Public License
-//  along with this program.  If not, see <http://www.gnu.org/licenses/>.
+//  This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND,
+//  either express or implied. See the GPL or the MIT License for the specific language
+//  governing rights and limitations.
 //
-///////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////
 
 #pragma once
 
@@ -25,8 +27,6 @@
 #include <plugins/crystalanalysis/CrystalAnalysis.h>
 #include <plugins/particles/modifier/analysis/StructureIdentificationModifier.h>
 #include <plugins/particles/objects/BondsVis.h>
-#include <plugins/particles/objects/ParticlesObject.h>
-#include <plugins/stdobj/series/DataSeriesObject.h>
 
 namespace Ovito { namespace Plugins { namespace CrystalAnalysis {
 
@@ -48,10 +48,18 @@ public:
 	/// Constructor.
 	Q_INVOKABLE GrainSegmentationModifier(DataSet* dataset);
 
-	/// Performs grain tracking over the whole simulation trajectory.
-	bool trackGrains(TaskManager& taskManager, ModifierApplication* modApp);
+	/// This method indicates whether cached computation results of the modifier should be discarded whenever
+	/// a parameter of the modifier changes.
+	virtual bool discardResultsOnModifierChange(const PropertyFieldEvent& event) const override {
+		// Avoid a recomputation from scratch if just the threshold value is changed.
+		if(event.field() == &PROPERTY_FIELD(mergingThreshold)) return false;
+		return StructureIdentificationModifier::discardResultsOnModifierChange(event);
+	}
 
 protected:
+
+	/// Is called when the value of a property of this object has changed.
+	virtual void propertyChanged(const PropertyFieldDescriptor& field) override;
 
 	/// Creates a computation engine that finds the grains in a single frame.
 	std::shared_ptr<GrainSegmentationEngine> createSegmentationEngine(TimePoint time, ModifierApplication* modApp, const PipelineFlowState& input);

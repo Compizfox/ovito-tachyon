@@ -1,31 +1,32 @@
-///////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Copyright (2018) Alexander Stukowski
+//  Copyright 2019 Alexander Stukowski
+//  Copyright 2019 Peter Mahler Larsen
 //
 //  This file is part of OVITO (Open Visualization Tool).
 //
-//  OVITO is free software; you can redistribute it and/or modify
-//  it under the terms of the GNU General Public License as published by
-//  the Free Software Foundation; either version 2 of the License, or
-//  (at your option) any later version.
+//  OVITO is free software; you can redistribute it and/or modify it either under the
+//  terms of the GNU General Public License version 3 as published by the Free Software
+//  Foundation (the "GPL") or, at your option, under the terms of the MIT License.
+//  If you do not alter this notice, a recipient may use your version of this
+//  file under either the GPL or the MIT License.
 //
-//  OVITO is distributed in the hope that it will be useful,
-//  but WITHOUT ANY WARRANTY; without even the implied warranty of
-//  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-//  GNU General Public License for more details.
+//  You should have received a copy of the GPL along with this program in a
+//  file LICENSE.GPL.txt.  You should have received a copy of the MIT License along
+//  with this program in a file LICENSE.MIT.txt
 //
-//  You should have received a copy of the GNU General Public License
-//  along with this program.  If not, see <http://www.gnu.org/licenses/>.
+//  This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND,
+//  either express or implied. See the GPL or the MIT License for the specific language
+//  governing rights and limitations.
 //
-///////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////
 
 #include <plugins/crystalanalysis/CrystalAnalysis.h>
 #include <plugins/particles/objects/BondsVis.h>
+#include <plugins/particles/objects/ParticlesObject.h>
 #include <plugins/stdobj/simcell/SimulationCellObject.h>
 #include <plugins/stdobj/properties/PropertyStorage.h>
 #include <plugins/stdobj/series/DataSeriesObject.h>
-#include <core/utilities/concurrent/Promise.h>
-#include <core/utilities/concurrent/TaskManager.h>
 #include <core/utilities/units/UnitsManager.h>
 #include <core/dataset/pipeline/ModifierApplication.h>
 #include <core/dataset/DataSet.h>
@@ -55,7 +56,6 @@ SET_PROPERTY_FIELD_LABEL(GrainSegmentationModifier, outputBonds, "Output bonds")
 SET_PROPERTY_FIELD_LABEL(GrainSegmentationModifier, bondsVis, "Bonds display");
 SET_PROPERTY_FIELD_UNITS_AND_MINIMUM(GrainSegmentationModifier, rmsdCutoff, FloatParameterUnit, 0);
 SET_PROPERTY_FIELD_UNITS_AND_MINIMUM(GrainSegmentationModifier, minGrainAtomCount, IntegerParameterUnit, 1);
-SET_PROPERTY_FIELD_UNITS_AND_MINIMUM(GrainSegmentationModifier, mergingThreshold, FloatParameterUnit, -INFINITY);
 
 /******************************************************************************
 * Constructs the modifier object.
@@ -83,6 +83,18 @@ GrainSegmentationModifier::GrainSegmentationModifier(DataSet* dataset) : Structu
 
 	// Create the visual element for the bonds.
 	setBondsVis(new BondsVis(dataset));
+}
+
+/******************************************************************************
+* Is called when the value of a property of this object has changed.
+******************************************************************************/
+void GrainSegmentationModifier::propertyChanged(const PropertyFieldDescriptor& field)
+{
+	if(field == PROPERTY_FIELD(mergingThreshold)) {
+		// Immediately update viewports when threshold parameter is changed by the user.
+		notifyDependents(ReferenceEvent::PreliminaryStateAvailable);
+	}
+	StructureIdentificationModifier::propertyChanged(field);
 }
 
 /******************************************************************************
@@ -162,73 +174,6 @@ void GrainSegmentationEngine::emitResults(TimePoint time, ModifierApplication* m
 	size_t numGrains = atomClusters()->size() == 0 ? 0 : (*std::max_element(atomClusters()->constDataInt64(), atomClusters()->constDataInt64() + atomClusters()->size()));
 	state.setStatus(PipelineStatus(PipelineStatus::Success, GrainSegmentationModifier::tr("Found %1 grains").arg(numGrains)));
 }
-
-#if 0
-/******************************************************************************
-* Performs grain tracking over the whole simulation trajectory.
-******************************************************************************/
-bool GrainSegmentationModifier::trackGrains(TaskManager& taskManager, ModifierApplication* modApp)
-{
-	Promise<> task = Promise<>::createSynchronous(&taskManager, true, true);
-
-	// Determine the time interval over which grain tracking is performed.
-	TimeInterval interval = dataset()->animationSettings()->animationInterval();
-	if(interval.duration() <= 0)
-		throwException(tr("Loaded simulation sequence consists only of a single frame. Grain tracking is not possible."));
-
-	// Generate list of animation times which will be processed.
-	std::vector<TimePoint> frames;
-	for(TimePoint frameTime = interval.start(); frameTime <= interval.end(); frameTime += dataset()->animationSettings()->ticksPerFrame()) {
-		frames.push_back(frameTime);
-	}
-
-	// Stage I: Perform grain segmentation on each frame:
-	task.setProgressMaximum(frames.size());
-	task.setProgressValue(0);
-
-	// This is where we'll store the segmentation results for each grain.
-	std::vector<std::shared_ptr<GrainSegmentationEngine>> grainSegmentationResults;
-
-	// Step through the frames one by one.
-	for(TimePoint frameTime : frames) {
-		task.setProgressText(tr("Evaluating input pipeline (frame %1 of %2)").arg(task.progressValue()+1).arg(task.progressMaximum()));
-
-		// Request frame data from input pipeline.
-		SharedFuture<PipelineFlowState> stateFuture = modApp->evaluateInput(frameTime);
-		if(!taskManager.waitForTask(stateFuture))
-			return false;
-		const PipelineFlowState& state = stateFuture.result();
-
-		// Run regular grain segmentation algorithm for one frame.
-		std::shared_ptr<GrainSegmentationEngine> grainSegmentationEngine = createSegmentationEngine(frameTime, modApp, state);
-		if(!taskManager.waitForTask(taskManager.runTaskAsync(grainSegmentationEngine->task())))
-			return false;
-		// Release working data structures that are no longer needed.
-		grainSegmentationEngine->cleanup();
-
-		// Stash away the per-frame results for later use in the grain tracking stage below.
-		grainSegmentationResults.push_back(std::move(grainSegmentationEngine));
-
-		// Update progress display.
-		task.setProgressValue(task.progressValue() + 1);
-		if(task.isCanceled())
-			return false;
-	}
-
-	task.setProgressText(tr("Tracking grains"));
-
-	// Stage II: Spawn the grain tracking engine.
-	// Pass the per-frame outputs of the grain segmentation step.
-	auto grainTrackingEngine = std::make_shared<GrainTrackingEngine>(std::move(grainSegmentationResults));
-	if(!taskManager.waitForTask(taskManager.runTaskAsync(grainTrackingEngine->task())))
-		return false;
-
-	// Release working data structures that are no longer needed.
-	grainTrackingEngine->cleanup();
-
-	return true;
-}
-#endif
 
 }	// End of namespace
 }	// End of namespace

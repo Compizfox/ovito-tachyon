@@ -1,27 +1,30 @@
-///////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Copyright (2018) Alexander Stukowski
+//  Copyright 2019 Alexander Stukowski
+//  Copyright 2019 Peter Mahler Larsen
 //
 //  This file is part of OVITO (Open Visualization Tool).
 //
-//  OVITO is free software; you can redistribute it and/or modify
-//  it under the terms of the GNU General Public License as published by
-//  the Free Software Foundation; either version 2 of the License, or
-//  (at your option) any later version.
+//  OVITO is free software; you can redistribute it and/or modify it either under the
+//  terms of the GNU General Public License version 3 as published by the Free Software
+//  Foundation (the "GPL") or, at your option, under the terms of the MIT License.
+//  If you do not alter this notice, a recipient may use your version of this
+//  file under either the GPL or the MIT License.
 //
-//  OVITO is distributed in the hope that it will be useful,
-//  but WITHOUT ANY WARRANTY; without even the implied warranty of
-//  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-//  GNU General Public License for more details.
+//  You should have received a copy of the GPL along with this program in a
+//  file LICENSE.GPL.txt.  You should have received a copy of the MIT License along
+//  with this program in a file LICENSE.MIT.txt
 //
-//  You should have received a copy of the GNU General Public License
-//  along with this program.  If not, see <http://www.gnu.org/licenses/>.
+//  This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND,
+//  either express or implied. See the GPL or the MIT License for the specific language
+//  governing rights and limitations.
 //
-///////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////
 
 #include <plugins/crystalanalysis/CrystalAnalysis.h>
-#include <core/utilities/concurrent/ParallelFor.h>
+#include <plugins/stdobj/series/DataSeriesObject.h>
 #include <plugins/particles/util/NearestNeighborFinder.h>
+#include <core/utilities/concurrent/ParallelFor.h>
 #include "GrainSegmentationEngine.h"
 #include "GrainSegmentationModifier.h"
 #include "NodePairSampling.h"
@@ -29,7 +32,6 @@
 
 #include <ptm/ptm_functions.h>
 #include <ptm/ptm_quat.h>
-
 
 namespace Ovito { namespace Plugins { namespace CrystalAnalysis {
 
@@ -93,16 +95,15 @@ return;
 bool GrainSegmentationEngine::identifyAtomicStructures()
 {
 	// Initialize the PTMAlgorithm object.
-	boost::optional<PTMAlgorithm> _algorithm;
-	_algorithm.emplace();
-	_algorithm->setRmsdCutoff(0.0); // Note: We do our own RMSD threshold filtering in postProcessStructureTypes().
+	PTMAlgorithm algorithm;
+	algorithm.setRmsdCutoff(0.0); // Note: We'll do our own RMSD threshold filtering below.
 
 	// Specify the structure types the PTM should look for.
 	for(int i = 0; i < typesToIdentify().size() && i < PTMAlgorithm::NUM_STRUCTURE_TYPES; i++) {
-		_algorithm->setStructureTypeIdentification(static_cast<PTMAlgorithm::StructureType>(i), typesToIdentify()[i]);
+		algorithm.setStructureTypeIdentification(static_cast<PTMAlgorithm::StructureType>(i), typesToIdentify()[i]);
 	}
 
-	if(!_algorithm->prepare(*positions(), cell(), selection().get(), task().get()))
+	if(!algorithm.prepare(*positions(), cell(), selection().get(), task().get()))
 		return false;
 
 	// Initialize the neighbor finder for disordered atoms
@@ -118,9 +119,9 @@ bool GrainSegmentationEngine::identifyAtomicStructures()
 
 	// Pre-order neighbors of each particle
 	std::vector< uint64_t > cachedNeighbors(positions()->size());
-	parallelForChunks(positions()->size(), *task(), [this, &cachedNeighbors, &_algorithm](size_t startIndex, size_t count, Task& task) {
+	parallelForChunks(positions()->size(), *task(), [this, &cachedNeighbors, &algorithm](size_t startIndex, size_t count, Task& task) {
 		// Create a thread-local kernel for the PTM algorithm.
-		PTMAlgorithm::Kernel kernel(*_algorithm);
+		PTMAlgorithm::Kernel kernel(algorithm);
 
 		// Loop over input particles.
 		size_t endIndex = startIndex + count;
@@ -155,9 +156,9 @@ bool GrainSegmentationEngine::identifyAtomicStructures()
 //FILE* out = fopen("graphene_positions.txt", "w");
 
 	// Perform analysis on each particle.
-	parallelForChunks(positions()->size(), *task(), [this, &cachedNeighbors, &_algorithm, &neighFinder](size_t startIndex, size_t count, Task& task) {
+	parallelForChunks(positions()->size(), *task(), [this, &cachedNeighbors, &algorithm, &neighFinder](size_t startIndex, size_t count, Task& task) {
 		// Create a thread-local kernel for the PTM algorithm.
-		PTMAlgorithm::Kernel kernel(*_algorithm);
+		PTMAlgorithm::Kernel kernel(algorithm);
 
 		// Create a neighbor query for disordered atoms
 		NearestNeighborFinder::Query<MAX_DISORDERED_NEIGHBORS> neighQuery(neighFinder);
@@ -175,7 +176,7 @@ bool GrainSegmentationEngine::identifyAtomicStructures()
 			if(task.isCanceled())
 				break;
 
-			// Skip particles that are not included in the analysis.
+			// Skip particles that were excluded from the analysis.
 			if(selection() && !selection()->getInt(index)) {
 				structures()->setInt(index, PTMAlgorithm::OTHER);
 				rmsd()->setFloat(index, 0);
@@ -282,9 +283,6 @@ bool GrainSegmentationEngine::buildNeighborGraph()
 		for(size_t c = 0; c < _neighborLists->componentCount(); c++) {
 			auto neighborIndex = _neighborLists->getInt64Component(index, c);
 			if(neighborIndex == -1) break;
-
-			// Skip every other atom pair so that we don't create the same bond twice.
-			if(_neighborLists->getInt64Component(index, c) < index) continue;
 
 			Bond bond;
 			bond.index1 = index;
@@ -408,8 +406,8 @@ bool GrainSegmentationEngine::mergeSuperclusters()
 	return !task()->isCanceled();
 }
 
-double GrainSegmentationEngine::calculate_disorientation(int structureType, std::vector< Quaternion >& qsum, size_t a, size_t b) {
-
+FloatType GrainSegmentationEngine::calculate_disorientation(int structureType, std::vector< Quaternion >& qsum, size_t a, size_t b) 
+{
 	Quaternion na = qsum[a].normalized();
 	double qtarget[4] = {na.w(), na.x(), na.y(), na.z()};
 
@@ -451,7 +449,7 @@ bool GrainSegmentationEngine::minimum_spanning_tree_clustering(std::vector< Grap
 		auto w = edge.w;
 		if (uf.find(a) != uf.find(b)) {
 			size_t parent = uf.merge(a, b);
-			double disorientation = INFINITY;
+			FloatType disorientation;
 			if (parent == a) {
 				disorientation = calculate_disorientation(structureType, qsum, a, b);
 			}
@@ -590,10 +588,10 @@ bool GrainSegmentationEngine::regionMerging()
 		int structureType = structures()->getInt(initial_graph[start].a);
 
 		if (_algorithmType == 0) {
-			minimum_spanning_tree_clustering(initial_graph, uf, start, end, dendrogram.data() + index, structureType, qsum);
+			minimum_spanning_tree_clustering(initial_graph, uf, start, end, &dendrogram[index], structureType, qsum);
 		}
 		else {
-			node_pair_sampling_clustering(initial_graph, start, end, totalWeight, dendrogram.data() + index, structureType, qsum);
+			node_pair_sampling_clustering(initial_graph, start, end, totalWeight, &dendrogram[index], structureType, qsum);
 		}
 	});
 
@@ -605,42 +603,41 @@ bool GrainSegmentationEngine::regionMerging()
 	size_t numPlot = 0;
 	uf.clear();
 	for (size_t i=0;i<dendrogram.size();i++) {
-		auto node = dendrogram[i];
+		auto& node = dendrogram[i];
 		size_t sa = uf.sizes[uf.find(node.a)];
 		size_t sb = uf.sizes[uf.find(node.b)];
 		size_t dsize = std::min(sa, sb);
 		uf.merge(node.a, node.b);
-		dendrogram[i].disorientation *= FloatType(180) / FLOATTYPE_PI;
+		node.disorientation = qRadiansToDegrees(node.disorientation);
 
 		// We don't want to plot very small merges - they extend the x-axis by a lot and don't provide much useful information
 		if (dsize < _minGrainAtomCount / 2) {
-			dendrogram[i].size = 0;
+			node.size = 0;
 		}
 		else {
-			dendrogram[i].size = dsize;
+			node.size = dsize;
 			numPlot++;
 		}
 	}
 
 	// Create PropertyStorage output objects
-	_mergeDistance = std::make_shared<PropertyStorage>(numPlot, PropertyStorage::Float, 1, 0, GrainSegmentationModifier::tr("Log merge distance"), true, DataSeriesObject::XProperty);
-	_mergeSize = std::make_shared<PropertyStorage>(numPlot, PropertyStorage::Float, 1, 0, GrainSegmentationModifier::tr("Merge size"), true, DataSeriesObject::YProperty);
+	_mergeDistance = std::make_shared<PropertyStorage>(numPlot, PropertyStorage::Float, 1, 0, GrainSegmentationModifier::tr("Log merge distance"), false, DataSeriesObject::XProperty);
+	_mergeSize = std::make_shared<PropertyStorage>(numPlot, PropertyStorage::Float, 1, 0, GrainSegmentationModifier::tr("Merge size"), false, DataSeriesObject::YProperty);
 
 	c = 0;
-	for (auto node : dendrogram) {
+	for (const auto& node : dendrogram) {
 		if (node.size > 0) {	// keep only those which we want to plot
-			_mergeDistance->dataFloat()[c] = log(node.distance);
-			_mergeSize->dataFloat()[c] = node.size;
+			_mergeDistance->setFloat(c, log(node.distance));
+			_mergeSize->setFloat(c, node.size);
 			c++;
 		}
 	}
 
 	// Now iterate through merge list until distance cutoff is met
 	uf.clear();
-	for (auto node : dendrogram) {
-		if (log(node.distance) >= _mergingThreshold) {
+	for (const auto& node : dendrogram) {
+		if (log(node.distance) >= _mergingThreshold)
 			break;
-		}
 
 		uf.merge(node.a, node.b);
 	}

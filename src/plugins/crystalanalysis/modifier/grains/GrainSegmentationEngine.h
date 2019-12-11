@@ -1,23 +1,25 @@
-///////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Copyright (2018) Alexander Stukowski
+//  Copyright 2019 Alexander Stukowski
+//  Copyright 2019 Peter Mahler Larsen
 //
 //  This file is part of OVITO (Open Visualization Tool).
 //
-//  OVITO is free software; you can redistribute it and/or modify
-//  it under the terms of the GNU General Public License as published by
-//  the Free Software Foundation; either version 2 of the License, or
-//  (at your option) any later version.
+//  OVITO is free software; you can redistribute it and/or modify it either under the
+//  terms of the GNU General Public License version 3 as published by the Free Software
+//  Foundation (the "GPL") or, at your option, under the terms of the MIT License.
+//  If you do not alter this notice, a recipient may use your version of this
+//  file under either the GPL or the MIT License.
 //
-//  OVITO is distributed in the hope that it will be useful,
-//  but WITHOUT ANY WARRANTY; without even the implied warranty of
-//  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-//  GNU General Public License for more details.
+//  You should have received a copy of the GPL along with this program in a
+//  file LICENSE.GPL.txt.  You should have received a copy of the MIT License along
+//  with this program in a file LICENSE.MIT.txt
 //
-//  You should have received a copy of the GNU General Public License
-//  along with this program.  If not, see <http://www.gnu.org/licenses/>.
+//  This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND,
+//  either express or implied. See the GPL or the MIT License for the specific language
+//  governing rights and limitations.
 //
-///////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////
 
 #pragma once
 
@@ -30,7 +32,6 @@
 #include <boost/optional/optional.hpp>
 #include "NodePairSampling.h"
 #include "DisjointSet.h"
-
 
 namespace Ovito { namespace Plugins { namespace CrystalAnalysis {
 
@@ -49,17 +50,16 @@ public:
 class DendrogramNode
 {
 public:
+	DendrogramNode() = default;
+
 	DendrogramNode(size_t _a, size_t _b, FloatType _distance, FloatType _disorientation, size_t _size)
 		: a(_a), b(_b), distance(_distance), disorientation(_disorientation), size(_size) {}
 
-	DendrogramNode()
-		: a(0), b(0), distance(-INFINITY), disorientation(-INFINITY), size(0) {}
-
-	size_t a;
-	size_t b;
-	FloatType distance;
-	FloatType disorientation;
-	size_t size;
+	size_t a = 0;
+	size_t b = 0;
+	FloatType distance = std::numeric_limits<FloatType>::lowest();
+	FloatType disorientation = std::numeric_limits<FloatType>::lowest();
+	size_t size = 0;
 };
 
 
@@ -147,7 +147,7 @@ private:
 	bool mergeOrphanAtoms();
 
 	// Algorithm types
-	double calculate_disorientation(int structureType, std::vector< Quaternion >& qsum, size_t a, size_t b);
+	FloatType calculate_disorientation(int structureType, std::vector< Quaternion >& qsum, size_t a, size_t b);
 	bool minimum_spanning_tree_clustering(std::vector< GraphEdge >& initial_graph, DisjointSet& uf, size_t start, size_t end, DendrogramNode* dendrogram, int structureType, std::vector< Quaternion >& qsum);
 	bool node_pair_sampling_clustering(std::vector< GraphEdge >& initial_graph, size_t start, size_t end, FloatType totalWeight, DendrogramNode* dendrogram, int structureType, std::vector< Quaternion >& qsum);
 
@@ -169,10 +169,10 @@ private:
 	FloatType _mergingThreshold;
 
 	/// The minimum number of crystalline atoms per grain.
-	int _minGrainAtomCount;
+	size_t _minGrainAtomCount;
 
 	/// Whether to adopt orphan atoms.
-	int _orphanAdoption;
+	bool _orphanAdoption;
 
 	/// Stores the list of neighbors of each lattice atom.
 	PropertyPtr _neighborLists;
@@ -223,7 +223,7 @@ private:
 	PropertyPtr _neighborDisorientationAngles;
 
 	// A hardcoded cutoff used for defining superclusters
-	const FloatType _misorientationThreshold = 4 / FloatType(180) * FLOATTYPE_PI;
+	const FloatType _misorientationThreshold = qDegreesToRadians(4.0);
 };
 
 }	// End of namespace
