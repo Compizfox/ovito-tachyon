@@ -73,7 +73,7 @@ public:
 	GrainSegmentationEngine(
 			ParticleOrderingFingerprint fingerprint, ConstPropertyPtr positions, const SimulationCell& simCell,
 			const QVector<bool>& typesToIdentify, ConstPropertyPtr selection,
-			FloatType rmsdCutoff, bool algorithmType, FloatType mergingThreshold,
+			FloatType rmsdCutoff, bool algorithmType,
 			int minGrainAtomCount, bool orphanAdoption, bool outputBonds);
 
 	/// Performs the computation.
@@ -85,7 +85,6 @@ public:
 		_neighborLists.reset();
 		decltype(_distanceSortedAtoms){}.swap(_distanceSortedAtoms);
 		decltype(_clusterOrientations){}.swap(_clusterOrientations);
-		decltype(_clusterSizes){}.swap(_clusterSizes);
 		if(!_outputBonds) {
 			decltype(_latticeNeighborBonds){}.swap(_latticeNeighborBonds);
 			_neighborDisorientationAngles.reset();
@@ -134,19 +133,24 @@ private:
 	/// Merges adjacent clusters with similar lattice orientations.
 	bool mergeSuperclusters();
 
+	/// Builds grains by iterative region merging.
+	bool determineMergeSequence();
+
+	/// Executes precomputed merge steps up to the threshold value set by the user.
+	void executeMergeSequence(FloatType mergingThreshold);
+
+#if 0
 	/// Computes the average lattice orientation of each cluster.
 	bool calculateAverageClusterOrientations();
 
-	/// Builds grains by iterative region merging
-	bool regionMerging();
-
 	/// Randomizes cluster IDs for testing purposes (giving more color contrast).
 	bool randomizeClusterIDs();
+#endif
 
 	/// Merges any orphan atoms into the closest cluster.
 	bool mergeOrphanAtoms();
 
-	// Algorithm types
+	// Algorithm types:
 	FloatType calculate_disorientation(int structureType, std::vector< Quaternion >& qsum, size_t a, size_t b);
 	bool minimum_spanning_tree_clustering(std::vector< GraphEdge >& initial_graph, DisjointSet& uf, size_t start, size_t end, DendrogramNode* dendrogram, int structureType, std::vector< Quaternion >& qsum);
 	bool node_pair_sampling_clustering(std::vector< GraphEdge >& initial_graph, size_t start, size_t end, FloatType totalWeight, DendrogramNode* dendrogram, int structureType, std::vector< Quaternion >& qsum);
@@ -165,9 +169,6 @@ private:
 	/// The cutoff parameter used by the PTM algorithm.
 	FloatType _rmsdCutoff;
 
-	/// The merging criterion threshold.
-	FloatType _mergingThreshold;
-
 	/// The minimum number of crystalline atoms per grain.
 	size_t _minGrainAtomCount;
 
@@ -185,9 +186,6 @@ private:
 
 	/// Stores the average lattice orientation of each cluster.
 	std::vector<Quaternion> _clusterOrientations;
-
-	/// Stores the number of atoms in each cluster.
-	std::vector<qlonglong> _clusterSizes;
 
 	/// The per-atom RMSD values computed by the PTM algorithm.
 	const PropertyPtr _rmsd;
@@ -224,6 +222,9 @@ private:
 
 	// A hardcoded cutoff used for defining superclusters
 	const FloatType _misorientationThreshold = qDegreesToRadians(4.0);
+
+	// Dendrogram as list of cluster merges.
+	std::vector<DendrogramNode> _dendrogram;
 };
 
 }	// End of namespace

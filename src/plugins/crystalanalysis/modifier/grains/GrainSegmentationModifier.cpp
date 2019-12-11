@@ -123,7 +123,7 @@ std::shared_ptr<GrainSegmentationEngine> GrainSegmentationModifier::createSegmen
 	// Create engine object. Pass all relevant modifier parameters to the engine as well as the input data.
 	return std::make_shared<GrainSegmentationEngine>(particles, posProperty->storage(), simCell->data(),
 			getTypesToIdentify(PTMAlgorithm::NUM_STRUCTURE_TYPES), std::move(selectionProperty),
-			rmsdCutoff(), algorithmType(), mergingThreshold(), minGrainAtomCount(), orphanAdoption(), outputBonds());
+			rmsdCutoff(), algorithmType(), minGrainAtomCount(), orphanAdoption(), outputBonds());
 }
 
 /******************************************************************************
@@ -143,6 +143,10 @@ void GrainSegmentationEngine::emitResults(TimePoint time, ModifierApplication* m
 
 	GrainSegmentationModifier* modifier = static_object_cast<GrainSegmentationModifier>(modApp->modifier());
 	OVITO_ASSERT(modifier);
+
+	// Complete the segmentation by executing the merge steps up to the cutoff set by the user.
+	executeMergeSequence(modifier->mergingThreshold());
+
 	ParticlesObject* particles = state.expectMutableObject<ParticlesObject>();
 
 	// Output per-particle properties.
@@ -164,7 +168,7 @@ void GrainSegmentationEngine::emitResults(TimePoint time, ModifierApplication* m
 	seriesObj->setIntervalStart(0);
 	seriesObj->setIntervalEnd(rmsdHistogramRange());
 
-	if (_numClusters > 1) {
+	if(_numClusters > 1) {
 		// Output a data series object with the scatter points.
 		DataSeriesObject* mergeSeriesObj = state.createObject<DataSeriesObject>(QStringLiteral("grains-merge"), modApp, DataSeriesObject::Scatter, GrainSegmentationModifier::tr("Merge size vs. Merge distance"));
 		mergeSeriesObj->createProperty(std::move(mergeDistance()))->setName("Log merge distance");
