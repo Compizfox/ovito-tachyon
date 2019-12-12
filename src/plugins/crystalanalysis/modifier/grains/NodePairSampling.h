@@ -31,39 +31,37 @@ class Graph
 {
 public:
 	size_t next = 0;
-	std::map<size_t, std::map<size_t, double> > adj;
-	std::map<size_t, double> wnode;
+	std::map<size_t, std::map<size_t, FloatType>> adj;
+	std::map<size_t, FloatType> wnode;
 	std::map<size_t, size_t> snode;
 	std::map<size_t, size_t> rep;
 
-	Graph() {}
-
-	size_t num_nodes() {
+	size_t num_nodes() const {
 		return adj.size();
 	}
 
-	size_t next_node() {
+	size_t next_node() const {
 		return adj.begin()->first;
 	}
 
-	std::tuple< double, size_t> nearest_neighbor(size_t a) {
-		double dmin = INFINITY;
-		size_t vmin = (size_t)(-1);
+	std::tuple<FloatType, size_t> nearest_neighbor(size_t a) const {
+		FloatType dmin = std::numeric_limits<FloatType>::max();
+		size_t vmin = std::numeric_limits<size_t>::max();
 
-		for (auto const& x: adj[a]) {
+		OVITO_ASSERT(adj.find(a) != adj.end());
+		for (const auto& x : adj.find(a)->second) {
 			size_t v = x.first;
-			double weight = x.second;
+			FloatType weight = x.second;
 
-			if (v == a) {
-				printf("graph has self loops\n");
+			OVITO_ASSERT(v != a); // Graph has self loops.
+			if(v == a) {
+				qWarning() << "Graph has self loops";
 				exit(3);
 			}
 
-			double d = wnode[v] / weight;
-			if (d != d) {
-				printf("bad number: %lu %lu %e %e\n", a, v, d, weight);
-				exit(3);
-			}
+			OVITO_ASSERT(wnode.find(v) != wnode.end());
+			FloatType d = wnode.find(v)->second / weight;
+			OVITO_ASSERT(!std::isnan(d));
 
 			if (d < dmin) {
 				dmin = d;
@@ -74,23 +72,21 @@ public:
 			}
 		}
 
-		double check = dmin * wnode[a];
-		if (check != check) {
-			printf("e. bad number: %lu %lu %e %e\n", a, vmin, dmin, wnode[a]);
-			exit(3);
-		}
+		OVITO_ASSERT(wnode.find(a) != wnode.end());
+		FloatType check = dmin * wnode.find(a)->second;
+		OVITO_ASSERT(!std::isnan(check));
 
-		return std::make_tuple(dmin * wnode[a], vmin);
+		return std::make_tuple(dmin * wnode.find(a)->second, vmin);
 	}
 
 	void add_node(size_t u) {
-		rep[u] = u;//next++;
+		rep[u] = u;
 		next = u + 1;
 		snode[u] = 1;
 		wnode[u] = 0;
 	}
 
-	void add_edge(size_t u, size_t v, double w) {
+	void add_edge(size_t u, size_t v, FloatType w) {
 
 		auto it = adj.find(u);
 		if (it == adj.end()) {
@@ -133,7 +129,7 @@ public:
 
 		for (auto const& x: adj[b]) {
 			size_t v = x.first;
-			double w = x.second;
+			FloatType w = x.second;
 
 			(adj[a])[v] += w;
 			(adj[v])[a] += w;

@@ -32,8 +32,8 @@ bool GrainSegmentationEngine::node_pair_sampling_clustering(std::vector< GraphEd
 								FloatType totalWeight, DendrogramNode* dendrogram, int structureType, std::vector< Quaternion >& qsum)
 {
 	Graph graph;
-	for (size_t i=start;i<end;i++) {
-		auto edge = initial_graph[i];
+	for(size_t i = start; i < end; i++) {
+		const auto& edge = initial_graph[i];
 		FloatType deg = edge.w;
 		FloatType weight = std::exp(-FloatType(1)/3 * deg * deg);	//this is fairly arbitrary but it works well
 		graph.add_edge(edge.a, edge.b, weight);
@@ -46,50 +46,34 @@ bool GrainSegmentationEngine::node_pair_sampling_clustering(std::vector< GraphEd
 
 		// nearest-neighbor chain
 		size_t node = graph.next_node();
-		if (node == (size_t)(-1)) {
-			printf("node is -1\n");
-			//exit(3);
-		}
+		OVITO_ASSERT(node != std::numeric_limits<size_t>::max());
 
-		std::vector< size_t> chain{node};
+		std::vector<size_t> chain{node};
 		while (chain.size()) {
 
 			size_t a = chain.back();
 			chain.pop_back();
-			if (a == (size_t)(-1)) {
-				printf("a is -1\n");
-				//exit(3);
-			}
+			OVITO_ASSERT(a != std::numeric_limits<size_t>::max());
 
-			auto result = graph.nearest_neighbor(a);
-			FloatType d = std::get<0>(result) / totalWeight / totalWeight;
-			size_t b = std::get<1>(result);
-			if (b == (size_t)(-1)) {
-				if (chain.size() != 0) {
-					printf("non-zero chain size!\n"); fflush(stdout);
-					//exit(3);
-				}
-			}
-
-			if (b == (size_t)(-1)) {
-				// remove the connected component
+			FloatType d;
+			size_t b;
+			std::tie(d, b) = graph.nearest_neighbor(a);
+			if(b == std::numeric_limits<size_t>::max()) {
+				OVITO_ASSERT(chain.size() == 0);
+				// Remove the connected component
 				size_t sa = graph.snode[a];
-				//components.push_back(std::make_tuple(graph.rep[a], sa));
 				graph.remove_node(a);
 			}
-			else if (chain.size()) {
+			else if(chain.size()) {
 				size_t c = chain.back();
 				chain.pop_back();
 
 				if (b == c) {
 					size_t size = graph.snode[a] + graph.snode[b];
-					if (size == 0) {
-						printf("zero size\n");
-						//exit(3);
-					}
+					OVITO_ASSERT(size != 0);
 					size_t parent = graph.contract_edge(a, b);
 
-					double disorientation = INFINITY;
+					FloatType disorientation;
 					if (parent == a) {
 						disorientation = calculate_disorientation(structureType, qsum, a, b);
 					}
@@ -97,31 +81,22 @@ bool GrainSegmentationEngine::node_pair_sampling_clustering(std::vector< GraphEd
 						disorientation = calculate_disorientation(structureType, qsum, b, a);
 					}
 
-					//dendrogram.push_back(	DendrogramNode(	std::min(graph.rep[a], graph.rep[b]),
-					//					std::max(graph.rep[a], graph.rep[b]),
-					//					d, disorientation,
-					//					size)
-
-					auto node = DendrogramNode(	std::min(a, b),
-									std::max(a, b),
-									d, disorientation,
-									size);
-					*dendrogram++ = node;
+					*dendrogram++ = DendrogramNode(std::min(a, b), std::max(a, b), d / totalWeight / totalWeight, disorientation, size);
 				}
 				else {
+					OVITO_ASSERT(a != std::numeric_limits<size_t>::max());
+					OVITO_ASSERT(b != std::numeric_limits<size_t>::max());
+					OVITO_ASSERT(c != std::numeric_limits<size_t>::max());
 					chain.push_back(c);
 					chain.push_back(a);
 					chain.push_back(b);
-					if (a == (size_t)(-1)) {printf("!a is -1\n"); /*exit(3);*/}
-					if (b == (size_t)(-1)) {printf("!b is -1\n"); /*exit(3);*/}
-					if (c == (size_t)(-1)) {printf("!c is -1\n"); /*exit(3);*/}
 				}
 			}
-			else if (b != (size_t)(-1)) {
+			else {
+				OVITO_ASSERT(a != std::numeric_limits<size_t>::max());
+				OVITO_ASSERT(b != std::numeric_limits<size_t>::max());
 				chain.push_back(a);
 				chain.push_back(b);
-				if (a == (size_t)(-1)) {printf("#a is -1\n"); /*exit(3);*/}
-				if (b == (size_t)(-1)) {printf("#b is -1\n"); /*exit(3);*/}
 			}
 		}
 	}

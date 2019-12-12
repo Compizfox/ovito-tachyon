@@ -426,8 +426,9 @@ FloatType GrainSegmentationEngine::calculate_disorientation(int structureType, s
 
 	double disorientation = 0;
 	int8_t dummy_mapping[PTM_MAX_POINTS];
-	if (ptm_remap_template(type, true, 0, qtarget, q, &disorientation, dummy_mapping, NULL) < 0) {
-		printf("remap failure\n");
+	if (ptm_remap_template(type, true, 0, qtarget, q, &disorientation, dummy_mapping, nullptr) < 0) {
+		qWarning() << "remap failure";
+		OVITO_ASSERT(false); // remap failure
 	}
 
 	FloatType norm = qsum[b].norm();
@@ -438,29 +439,25 @@ FloatType GrainSegmentationEngine::calculate_disorientation(int structureType, s
 	return disorientation;
 }
 
-bool GrainSegmentationEngine::minimum_spanning_tree_clustering(std::vector< GraphEdge >& initial_graph, DisjointSet& uf, size_t start, size_t end,
-								DendrogramNode* dendrogram, int structureType, std::vector< Quaternion >& qsum)
+bool GrainSegmentationEngine::minimum_spanning_tree_clustering(std::vector<GraphEdge>& initial_graph, DisjointSet& uf, size_t start, size_t end,
+								DendrogramNode* dendrogram, int structureType, std::vector<Quaternion>& qsum)
 {
 	Graph graph;
-	for (size_t i=start;i<end;i++) {
-		auto edge = initial_graph[i];
+	for(size_t i = start; i < end; i++) {
+		const auto& edge = initial_graph[i];
 		auto a = edge.a;
 		auto b = edge.b;
 		auto w = edge.w;
-		if (uf.find(a) != uf.find(b)) {
+		if(uf.find(a) != uf.find(b)) {
 			size_t parent = uf.merge(a, b);
 			FloatType disorientation;
-			if (parent == a) {
+			if(parent == a) {
 				disorientation = calculate_disorientation(structureType, qsum, a, b);
 			}
 			else {
 				disorientation = calculate_disorientation(structureType, qsum, b, a);
 			}
-
-			auto node = DendrogramNode(	std::min(a, b),
-							std::max(a, b),
-							w, disorientation, 1);
-			*dendrogram++ = node;
+			*dendrogram++ = DendrogramNode(std::min(a, b), std::max(a, b), w, disorientation, 1);
 		}
 	}
 
@@ -476,7 +473,7 @@ bool GrainSegmentationEngine::determineMergeSequence()
 
 	if(_numSuperclusters == 1) {
 		_numClusters = 1;
-		for(size_t particleIndex=0; particleIndex < numAtoms; particleIndex++) {
+		for(size_t particleIndex = 0; particleIndex < numAtoms; particleIndex++) {
 			atomClusters()->setInt64(particleIndex, _atomSuperclusters[particleIndex]);
 		}
 		return true;
@@ -488,13 +485,10 @@ bool GrainSegmentationEngine::determineMergeSequence()
 
 	// Calculate a contiguous atom index mapping
 	std::vector< std::tuple< size_t, size_t > > atomIntervals(_numSuperclusters);
-	{
-		size_t start = 0;
-		for (size_t i=0;i<_numSuperclusters;i++) {
-			std::get<0>(atomIntervals[i]) = start;
-			std::get<1>(atomIntervals[i]) = start + _superclusterSizes[i];
-			start += _superclusterSizes[i];
-		}
+	for(size_t i = 0, start = 0; i < _numSuperclusters; i++) {
+		std::get<0>(atomIntervals[i]) = start;
+		std::get<1>(atomIntervals[i]) = start + _superclusterSizes[i];
+		start += _superclusterSizes[i];
 	}
 
 	if(task()->isCanceled())
@@ -506,7 +500,7 @@ bool GrainSegmentationEngine::determineMergeSequence()
 	std::vector< size_t > bondCount(_numSuperclusters, 0);	// number of bonds in each supercluster
 	const FloatType* disorientation = neighborDisorientationAngles()->constDataFloat();
 
-	for (size_t i=0;i<latticeNeighborBonds().size();i++) {
+	for(size_t i = 0; i < latticeNeighborBonds().size(); i++) {
 		if(!task()->incrementProgressValue()) return false;
 
 		const Bond& bond = latticeNeighborBonds()[i];
@@ -521,7 +515,7 @@ bool GrainSegmentationEngine::determineMergeSequence()
 		}
 		else {
 			// Convert disorientations to graph weights
-			FloatType deg = dis * FloatType(180) / FLOATTYPE_PI;
+			FloatType deg = qRadiansToDegrees(dis);
 			initial_graph.emplace_back(a, b, deg, sc);
 			bondCount[sc]++;
 
