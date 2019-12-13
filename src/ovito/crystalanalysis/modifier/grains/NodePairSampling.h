@@ -23,9 +23,9 @@
 
 #pragma once
 
-#include <plugins/crystalanalysis/CrystalAnalysis.h>
+#include <ovito/crystalanalysis/CrystalAnalysis.h>
 
-namespace Ovito { namespace Plugins { namespace CrystalAnalysis {
+namespace Ovito { namespace CrystalAnalysis {
 
 class Graph
 {
@@ -143,6 +143,5 @@ public:
 };
 
 
-}	// End of namespace
 }	// End of namespace
 }	// End of namespace

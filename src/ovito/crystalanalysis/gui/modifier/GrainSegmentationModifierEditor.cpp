@@ -21,21 +21,21 @@
 //
 ////////////////////////////////////////////////////////////////////////////////////////
 
-#include <plugins/crystalanalysis/CrystalAnalysis.h>
-#include <plugins/crystalanalysis/modifier/grains/GrainSegmentationEngine.h>
-#include <plugins/crystalanalysis/modifier/grains/GrainSegmentationModifier.h>
-#include <plugins/particles/gui/modifier/analysis/StructureListParameterUI.h>
-#include <gui/properties/FloatParameterUI.h>
-#include <gui/properties/IntegerParameterUI.h>
-#include <gui/properties/BooleanParameterUI.h>
-#include <gui/properties/BooleanRadioButtonParameterUI.h>
-#include <gui/utilities/concurrent/ProgressDialog.h>
-#include <core/dataset/DataSetContainer.h>
+#include <ovito/crystalanalysis/CrystalAnalysis.h>
+#include <ovito/crystalanalysis/modifier/grains/GrainSegmentationEngine.h>
+#include <ovito/crystalanalysis/modifier/grains/GrainSegmentationModifier.h>
+#include <ovito/particles/gui/modifier/analysis/StructureListParameterUI.h>
+#include <ovito/gui/properties/FloatParameterUI.h>
+#include <ovito/gui/properties/IntegerParameterUI.h>
+#include <ovito/gui/properties/BooleanParameterUI.h>
+#include <ovito/gui/properties/BooleanRadioButtonParameterUI.h>
+#include <ovito/gui/utilities/concurrent/ProgressDialog.h>
+#include <ovito/core/dataset/DataSetContainer.h>
 #include "GrainSegmentationModifierEditor.h"
 
 #include <3rdparty/qwt/qwt_plot_zoneitem.h>
 
-namespace Ovito { namespace Plugins { namespace CrystalAnalysis {
+namespace Ovito { namespace CrystalAnalysis {
 
 IMPLEMENT_OVITO_CLASS(GrainSegmentationModifierEditor);
 SET_OVITO_OBJECT_EDITOR(GrainSegmentationModifier, GrainSegmentationModifierEditor);
@@ -205,6 +205,5 @@ void GrainSegmentationModifierEditor::plotMerges()
 	}
 }
 
-}	// End of namespace
 }	// End of namespace
 }	// End of namespace

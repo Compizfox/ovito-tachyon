@@ -21,10 +21,10 @@
 //
 ////////////////////////////////////////////////////////////////////////////////////////
 
-#include <plugins/crystalanalysis/CrystalAnalysis.h>
-#include <plugins/stdobj/series/DataSeriesObject.h>
-#include <plugins/particles/util/NearestNeighborFinder.h>
-#include <core/utilities/concurrent/ParallelFor.h>
+#include <ovito/crystalanalysis/CrystalAnalysis.h>
+#include <ovito/stdobj/series/DataSeriesObject.h>
+#include <ovito/particles/util/NearestNeighborFinder.h>
+#include <ovito/core/utilities/concurrent/ParallelFor.h>
 #include "GrainSegmentationEngine.h"
 #include "GrainSegmentationModifier.h"
 #include "NodePairSampling.h"
@@ -33,7 +33,7 @@
 #include <ptm/ptm_functions.h>
 #include <ptm/ptm_quat.h>
 
-namespace Ovito { namespace Plugins { namespace CrystalAnalysis {
+namespace Ovito { namespace CrystalAnalysis {
 
 /******************************************************************************
 * Constructor.
@@ -846,6 +846,5 @@ bool GrainSegmentationEngine::calculateAverageClusterOrientations()
 }
 #endif
 
-}	// End of namespace
 }	// End of namespace
 }	// End of namespace

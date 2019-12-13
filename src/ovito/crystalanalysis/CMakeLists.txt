@@ -65,7 +65,7 @@ OVITO_STANDARD_PLUGIN(CrystalAnalysis
 		CrystalAnalysis.cpp
 		${SourceFiles}
 	PLUGIN_DEPENDENCIES Particles Mesh StdObj Grid Delaunay
-	PRIVATE_LIB_DEPENDENCIES NetCDFIntegration
+	PRIVATE_LIB_DEPENDENCIES NetCDFIntegration PolyhedralTemplateMatching
 	OPTIONAL_PLUGIN_DEPENDENCIES StdMod
 )
 

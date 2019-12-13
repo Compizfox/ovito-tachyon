@@ -24,14 +24,14 @@
 #pragma once
 
 
-#include <plugins/crystalanalysis/CrystalAnalysis.h>
-#include <plugins/stdobj/gui/widgets/DataSeriesPlotWidget.h>
-#include <gui/properties/ModifierPropertiesEditor.h>
-#include <core/utilities/DeferredMethodInvocation.h>
+#include <ovito/crystalanalysis/CrystalAnalysis.h>
+#include <ovito/stdobj/gui/widgets/DataSeriesPlotWidget.h>
+#include <ovito/gui/properties/ModifierPropertiesEditor.h>
+#include <ovito/core/utilities/DeferredMethodInvocation.h>
 
 class QwtPlotZoneItem;
 
-namespace Ovito { namespace Plugins { namespace CrystalAnalysis {
+namespace Ovito { namespace CrystalAnalysis {
 
 /**
  * Properties editor for the GrainSegmentationModifier class.
@@ -82,6 +82,5 @@ private:
 	DeferredMethodInvocation<GrainSegmentationModifierEditor, &GrainSegmentationModifierEditor::plotMerges> plotLater;
 };
 
-}	// End of namespace
 }	// End of namespace
 }	// End of namespace

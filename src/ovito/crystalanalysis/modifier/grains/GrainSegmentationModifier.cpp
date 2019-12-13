@@ -21,21 +21,21 @@
 //
 ////////////////////////////////////////////////////////////////////////////////////////
 
-#include <plugins/crystalanalysis/CrystalAnalysis.h>
-#include <plugins/particles/objects/BondsVis.h>
-#include <plugins/particles/objects/ParticlesObject.h>
-#include <plugins/stdobj/simcell/SimulationCellObject.h>
-#include <plugins/stdobj/properties/PropertyStorage.h>
-#include <plugins/stdobj/series/DataSeriesObject.h>
-#include <core/utilities/units/UnitsManager.h>
-#include <core/dataset/pipeline/ModifierApplication.h>
-#include <core/dataset/DataSet.h>
+#include <ovito/crystalanalysis/CrystalAnalysis.h>
+#include <ovito/particles/objects/BondsVis.h>
+#include <ovito/particles/objects/ParticlesObject.h>
+#include <ovito/stdobj/simcell/SimulationCellObject.h>
+#include <ovito/stdobj/properties/PropertyStorage.h>
+#include <ovito/stdobj/series/DataSeriesObject.h>
+#include <ovito/core/utilities/units/UnitsManager.h>
+#include <ovito/core/dataset/pipeline/ModifierApplication.h>
+#include <ovito/core/dataset/DataSet.h>
 #include "GrainSegmentationModifier.h"
 #include "GrainSegmentationEngine.h"
 
 #include <ptm/ptm_functions.h>
 
-namespace Ovito { namespace Plugins { namespace CrystalAnalysis {
+namespace Ovito { namespace CrystalAnalysis {
 
 IMPLEMENT_OVITO_CLASS(GrainSegmentationModifier);
 DEFINE_PROPERTY_FIELD(GrainSegmentationModifier, rmsdCutoff);
@@ -179,6 +179,5 @@ void GrainSegmentationEngine::emitResults(TimePoint time, ModifierApplication* m
 	state.setStatus(PipelineStatus(PipelineStatus::Success, GrainSegmentationModifier::tr("Found %1 grains").arg(numGrains)));
 }
 
-}	// End of namespace
 }	// End of namespace
 }	// End of namespace

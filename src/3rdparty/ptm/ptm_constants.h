@@ -217,20 +217,9 @@ const double ptm_template_graphene[PTM_NUM_POINTS_GRAPHENE][3] = {
 
 typedef struct
 {
-<<<<<<< HEAD
-<<<<<<< HEAD
 	int num;
 	int8_t correspondences[PTM_MAX_INPUT_POINTS];
 	size_t atom_indices[PTM_MAX_INPUT_POINTS];
-=======
-	int ordering[PTM_MAX_INPUT_POINTS];
-	size_t nbr_indices[PTM_MAX_INPUT_POINTS];
->>>>>>> more work on reintegration
-=======
-	int num;
-	int8_t correspondences[PTM_MAX_INPUT_POINTS];
-	size_t atom_indices[PTM_MAX_INPUT_POINTS];
->>>>>>> PTM atomicenv output
 	int32_t numbers[PTM_MAX_INPUT_POINTS];
 	double points[PTM_MAX_INPUT_POINTS][3];
 } ptm_atomicenv_t;

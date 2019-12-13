@@ -24,11 +24,11 @@
 #pragma once
 
 
-#include <plugins/crystalanalysis/CrystalAnalysis.h>
-#include <plugins/particles/modifier/analysis/StructureIdentificationModifier.h>
-#include <plugins/particles/objects/BondsVis.h>
+#include <ovito/crystalanalysis/CrystalAnalysis.h>
+#include <ovito/particles/modifier/analysis/StructureIdentificationModifier.h>
+#include <ovito/particles/objects/BondsVis.h>
 
-namespace Ovito { namespace Plugins { namespace CrystalAnalysis {
+namespace Ovito { namespace CrystalAnalysis {
 
 class GrainSegmentationEngine;  // defined in GrainSegmentationEngine.h
 
@@ -94,6 +94,5 @@ private:
 	DECLARE_MODIFIABLE_PROPERTY_FIELD(bool, outputBonds, setOutputBonds);
 };
 
-}	// End of namespace
 }	// End of namespace
 }	// End of namespace

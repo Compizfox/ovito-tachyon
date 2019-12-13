@@ -24,16 +24,17 @@
 #pragma once
 
 
-#include <plugins/crystalanalysis/CrystalAnalysis.h>
-#include <plugins/particles/modifier/analysis/StructureIdentificationModifier.h>
-#include <plugins/particles/objects/ParticlesObject.h>
-#include <plugins/particles/objects/BondsObject.h>
-#include <plugins/particles/modifier/analysis/ptm/PTMAlgorithm.h>
-#include <boost/optional/optional.hpp>
+#include <ovito/crystalanalysis/CrystalAnalysis.h>
+#include <ovito/particles/modifier/analysis/StructureIdentificationModifier.h>
+#include <ovito/particles/objects/ParticlesObject.h>
+#include <ovito/particles/objects/BondsObject.h>
+#include <ovito/particles/modifier/analysis/ptm/PTMAlgorithm.h>
 #include "NodePairSampling.h"
 #include "DisjointSet.h"
 
-namespace Ovito { namespace Plugins { namespace CrystalAnalysis {
+#include <boost/optional/optional.hpp>
+
+namespace Ovito { namespace CrystalAnalysis {
 
 class GraphEdge
 {
@@ -227,6 +228,5 @@ private:
 	std::vector<DendrogramNode> _dendrogram;
 };
 
-}	// End of namespace
 }	// End of namespace
 }	// End of namespace

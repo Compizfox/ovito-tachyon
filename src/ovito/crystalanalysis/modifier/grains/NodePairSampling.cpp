@@ -21,11 +21,11 @@
 //
 ////////////////////////////////////////////////////////////////////////////////////////
 
-#include <plugins/crystalanalysis/CrystalAnalysis.h>
+#include <ovito/crystalanalysis/CrystalAnalysis.h>
 #include "GrainSegmentationEngine.h"
 #include "NodePairSampling.h"
 
-namespace Ovito { namespace Plugins { namespace CrystalAnalysis {
+namespace Ovito { namespace CrystalAnalysis {
 
 
 bool GrainSegmentationEngine::node_pair_sampling_clustering(std::vector< GraphEdge >& initial_graph, size_t start, size_t end,
@@ -113,6 +113,5 @@ bool GrainSegmentationEngine::node_pair_sampling_clustering(std::vector< GraphEd
 	return true;
 }
 
-}	// End of namespace
 }	// End of namespace
 }	// End of namespace
