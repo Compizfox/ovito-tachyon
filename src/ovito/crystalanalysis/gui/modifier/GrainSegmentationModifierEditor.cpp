@@ -65,8 +65,8 @@ void GrainSegmentationModifierEditor::createUI(const RolloutInsertionParameters&
 
 	// TODO: display the label text
 	BooleanRadioButtonParameterUI* algorithmTypeUI = new BooleanRadioButtonParameterUI(this, PROPERTY_FIELD(GrainSegmentationModifier::algorithmType));
-	algorithmTypeUI->buttonFalse()->setText(tr("Min. Span. Tree"));
-	algorithmTypeUI->buttonTrue()->setText(tr("Node Pair Sampling"));
+	algorithmTypeUI->buttonFalse()->setText(tr("Node Pair Sampling"));
+	algorithmTypeUI->buttonTrue()->setText(tr("Min. Span. Tree"));
 	//sublayout2->addWidget(algorithmTypeUI->label(), 1, 0);
 	sublayout2->addWidget(algorithmTypeUI->buttonFalse(), 1, 1, 1, -1);
 	sublayout2->addWidget(algorithmTypeUI->buttonTrue(), 2, 1, 1, -1);

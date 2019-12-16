@@ -577,10 +577,10 @@ bool GrainSegmentationEngine::determineMergeSequence()
 		int structureType = structures()->getInt(initial_graph[start].a);
 
 		if (_algorithmType == 0) {
-			minimum_spanning_tree_clustering(initial_graph, uf, start, end, &_dendrogram[index], structureType, qsum);
+			node_pair_sampling_clustering(initial_graph, start, end, totalWeight, &_dendrogram[index], structureType, qsum);
 		}
 		else {
-			node_pair_sampling_clustering(initial_graph, start, end, totalWeight, &_dendrogram[index], structureType, qsum);
+			minimum_spanning_tree_clustering(initial_graph, uf, start, end, &_dendrogram[index], structureType, qsum);
 		}
 	});
 
