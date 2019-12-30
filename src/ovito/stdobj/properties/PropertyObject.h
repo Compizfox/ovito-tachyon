@@ -41,7 +41,7 @@ class OVITO_STDOBJ_EXPORT PropertyObject : public DataObject
 public:
 
 	/// \brief Creates a property object.
-	Q_INVOKABLE PropertyObject(DataSet* dataset, const PropertyPtr& storage = nullptr);
+	Q_INVOKABLE PropertyObject(DataSet* dataset, PropertyPtr storage = {});
 
 	/// \brief Gets the property's name.
 	/// \return The name of property, which is shown to the user.
@@ -109,374 +109,49 @@ public:
 		notifyTargetChanged();
 	}
 
-	/// \brief Returns a read-only pointer to the raw elements stored in this property object.
-	const void* constData() const {
-		return storage()->constData();
+	/// \brief Sets all array elements to the given uniform value.
+	template<typename T>
+	void fill(const T& value) {
+		modifiableStorage()->fill(value);
 	}
 
-	/// \brief Returns a read-only pointer to the first integer element stored in this object.
-	/// \note This method may only be used if this property is of data type integer.
-	const int* constDataInt() const {
-		return storage()->constDataInt();
+	/// \brief Sets all array elements for which the corresponding entries in the 
+	///        selection array are non-zero to the given uniform value.
+	template<typename T>
+	void fillSelected(const T& value, const PropertyStorage& selectionProperty) {
+		modifiableStorage()->fillSelected(value, selectionProperty);
 	}
 
-	/// \brief Returns a read-only pointer to the first integer element stored in this object.
-	/// \note This method may only be used if this property is of data type 64-bit integer.
-	const qlonglong* constDataInt64() const {
-		return storage()->constDataInt64();
+	/// \brief Sets all array elements for which the corresponding entries in the 
+	///        selection array are non-zero to the given uniform value.
+	template<typename T>
+	void fillSelected(const T& value, const PropertyObject* selectionProperty) {
+		if(selectionProperty)
+			modifiableStorage()->fillSelected(value, *selectionProperty->storage());
+		else
+			modifiableStorage()->fill(value);
 	}
 
-	/// \brief Returns a read-only pointer to the first float element in the property storage.
-	/// \note This method may only be used if this property is of data type float.
-	const FloatType* constDataFloat() const {
-		return storage()->constDataFloat();
+	/// Copies the elements from the given source into this property array using a element mapping.
+	void mappedCopyFrom(const PropertyObject* source, const std::vector<size_t>& mapping) {
+		modifiableStorage()->mappedCopyFrom(*source->storage(), mapping);
 	}
 
-	/// \brief Returns a read-only pointer to the first vector element in the property storage.
-	/// \note This method may only be used if this property is of data type Vector3 or a FloatType channel with 3 components.
-	const Vector3* constDataVector3() const {
-		return storage()->constDataVector3();
+	/// Copies the elements from this property array into the given destination array using an index mapping.
+	void mappedCopyTo(PropertyObject* destination, const std::vector<size_t>& mapping) const {
+		storage()->mappedCopyTo(*destination->modifiableStorage(), mapping);
 	}
 
-	/// \brief Returns a read-only pointer to the first point element in the property storage.
-	/// \note This method may only be used if this property is of data type Point3 or a FloatType channel with 3 components.
-	const Point3* constDataPoint3() const {
-		return storage()->constDataPoint3();
+	/// Copies the data elements from the given source array into this array. 
+	/// Array size, component count and data type of source and destination must match exactly.
+	void copyFrom(const PropertyObject* source) {
+		modifiableStorage()->copyFrom(*source->storage());
 	}
 
-	/// \brief Returns a read-only pointer to the first point element in the property storage.
-	/// \note This method may only be used if this property is of data type Vector3I or an integer channel with 3 components.
-	const Vector3I* constDataVector3I() const {
-		return storage()->constDataVector3I();
-	}
-
-	/// \brief Returns a read-only pointer to the first point element in the property storage.
-	/// \note This method may only be used if this property is of data type Point3I or an integer channel with 3 components.
-	const Point3I* constDataPoint3I() const {
-		return storage()->constDataPoint3I();
-	}
-
-	/// \brief Returns a read-only pointer to the first point element in the property storage.
-	/// \note This method may only be used if this property is of data type Color or a FloatType channel with 3 components.
-	const Color* constDataColor() const {
-		return storage()->constDataColor();
-	}
-
-	/// \brief Returns a read-only pointer to the first symmetric tensor element in the property storage.
-	/// \note This method may only be used if this property is of data type SymmetricTensor2 or a FloatType channel with 6 components.
-	const SymmetricTensor2* constDataSymmetricTensor2() const {
-		return storage()->constDataSymmetricTensor2();
-	}
-
-	/// \brief Returns a read-only pointer to the first quaternion element in the property storage.
-	/// \note This method may only be used if this property is of data type Quaternion or a FloatType channel with 4 components.
-	const Quaternion* constDataQuaternion() const {
-		return storage()->constDataQuaternion();
-	}
-
-	/// \brief Returns a range of const iterators over the elements stored in this object.
-	boost::iterator_range<const int*> constIntRange() const {
-		return storage()->constIntRange();
-	}
-
-	/// \brief Returns a range of const iterators over the elements stored in this object.
-	boost::iterator_range<const qlonglong*> constInt64Range() const {
-		return storage()->constInt64Range();
-	}
-
-	/// \brief Returns a range of const iterators over the elements stored in this object.
-	boost::iterator_range<const FloatType*> constFloatRange() const {
-		return storage()->constFloatRange();
-	}
-
-	/// \brief Returns a range of const iterators over the elements stored in this object.
-	boost::iterator_range<const Point3*> constPoint3Range() const {
-		return storage()->constPoint3Range();
-	}
-
-	/// \brief Returns a range of const iterators over the elements stored in this object.
-	boost::iterator_range<const Vector3*> constVector3Range() const {
-		return storage()->constVector3Range();
-	}
-
-	/// \brief Returns a range of const iterators over the elements stored in this object.
-	boost::iterator_range<const Color*> constColorRange() const {
-		return storage()->constColorRange();
-	}
-
-	/// \brief Returns a range of const iterators over the elements stored in this object.
-	boost::iterator_range<const Vector3I*> constVector3IRange() const {
-		return storage()->constVector3IRange();
-	}
-
-	/// \brief Returns a range of const iterators over the elements stored in this object.
-	boost::iterator_range<const Point3I*> constPoint3IRange() const {
-		return storage()->constPoint3IRange();
-	}
-
-	/// \brief Returns a range of const iterators over the elements stored in this object.
-	boost::iterator_range<const SymmetricTensor2*> constSymmetricTensor2Range() const {
-		return storage()->constSymmetricTensor2Range();
-	}
-
-	/// \brief Returns a range of const iterators over the elements stored in this object.
-	boost::iterator_range<const Quaternion*> constQuaternionRange() const {
-		return storage()->constQuaternionRange();
-	}
-
-	/// Returns a read-write pointer to the raw elements in the property storage.
-	void* data() {
-		return modifiableStorage()->data();
-	}
-
-	/// \brief Returns a read-write pointer to the first integer element stored in this object.
-	/// \note This method may only be used if this property is of data type integer.
-	int* dataInt() {
-		return modifiableStorage()->dataInt();
-	}
-
-	/// \brief Returns a read-write pointer to the first integer element stored in this object.
-	/// \note This method may only be used if this property is of data type 64-bit integer.
-	qlonglong* dataInt64() {
-		return modifiableStorage()->dataInt64();
-	}
-
-	/// \brief Returns a read-only pointer to the first float element in the property storage.
-	/// \note This method may only be used if this property is of data type float.
-	FloatType* dataFloat() {
-		return modifiableStorage()->dataFloat();
-	}
-
-	/// \brief Returns a read-write pointer to the first vector element in the property storage.
-	/// \note This method may only be used if this property is of data type Vector3 or a FloatType channel with 3 components.
-	Vector3* dataVector3() {
-		return modifiableStorage()->dataVector3();
-	}
-
-	/// \brief Returns a read-write pointer to the first point element in the property storage.
-	/// \note This method may only be used if this property is of data type Point3 or a FloatType channel with 3 components.
-	Point3* dataPoint3() {
-		return modifiableStorage()->dataPoint3();
-	}
-
-	/// \brief Returns a read-write pointer to the first point element in the property storage.
-	/// \note This method may only be used if this property is of data type Vector3I or an integer channel with 3 components.
-	Vector3I* dataVector3I() {
-		return modifiableStorage()->dataVector3I();
-	}
-
-	/// \brief Returns a read-write pointer to the first point element in the property storage.
-	/// \note This method may only be used if this property is of data type Point3I or an integer channel with 3 components.
-	Point3I* dataPoint3I() {
-		return modifiableStorage()->dataPoint3I();
-	}
-
-	/// \brief Returns a read-write pointer to the first point element in the property storage.
-	/// \note This method may only be used if this property is of data type Color or a FloatType channel with 3 components.
-	Color* dataColor() {
-		return modifiableStorage()->dataColor();
-	}
-
-	/// \brief Returns a read-write pointer to the first symmetric tensor element in the property storage.
-	/// \note This method may only be used if this property is of data type SymmetricTensor2 or a FloatType channel with 6 components.
-	SymmetricTensor2* dataSymmetricTensor2() {
-		return modifiableStorage()->dataSymmetricTensor2();
-	}
-
-	/// \brief Returns a read-write pointer to the first quaternion element in the property storage.
-	/// \note This method may only be used if this property is of data type Quaternion or a FloatType channel with 4 components.
-	Quaternion* dataQuaternion() {
-		return modifiableStorage()->dataQuaternion();
-	}
-
-	/// \brief Returns a range of iterators over the elements stored in this object.
-	boost::iterator_range<int*> intRange() {
-		return modifiableStorage()->intRange();
-	}
-
-	/// \brief Returns a range of iterators over the elements stored in this object.
-	boost::iterator_range<qlonglong*> int64Range() {
-		return modifiableStorage()->int64Range();
-	}
-
-	/// \brief Returns a range of iterators over the elements stored in this object.
-	boost::iterator_range<FloatType*> floatRange() {
-		return modifiableStorage()->floatRange();
-	}
-
-	/// \brief Returns a range of iterators over the elements stored in this object.
-	boost::iterator_range<Point3*> point3Range() {
-		return modifiableStorage()->point3Range();
-	}
-
-	/// \brief Returns a range of iterators over the elements stored in this object.
-	boost::iterator_range<Vector3*> vector3Range() {
-		return modifiableStorage()->vector3Range();
-	}
-
-	/// \brief Returns a range of const iterators over the elements stored in this object.
-	boost::iterator_range<Color*> colorRange() {
-		return modifiableStorage()->colorRange();
-	}
-
-	/// \brief Returns a range of iterators over the elements stored in this object.
-	boost::iterator_range<Vector3I*> vector3IRange() {
-		return modifiableStorage()->vector3IRange();
-	}
-
-	/// \brief Returns a range of iterators over the elements stored in this object.
-	boost::iterator_range<Point3I*> point3IRange() {
-		return modifiableStorage()->point3IRange();
-	}
-
-	/// \brief Returns a range of iterators over the elements stored in this object.
-	boost::iterator_range<SymmetricTensor2*> symmetricTensor2Range() {
-		return modifiableStorage()->symmetricTensor2Range();
-	}
-
-	/// \brief Returns a range of iterators over the elements stored in this object.
-	boost::iterator_range<Quaternion*> quaternionRange() {
-		return modifiableStorage()->quaternionRange();
-	}
-
-	/// \brief Returns an integer element at the given index (if this is an integer property).
-	int getInt(size_t index) const {
-		return storage()->getInt(index);
-	}
-
-	/// \brief Returns an integer element at the given index (if this is a 64-bit integer property).
-	qlonglong getInt64(size_t index) const {
-		return storage()->getInt64(index);
-	}
-
-	/// Returns a float element at the given index (if this is a float property).
-	FloatType getFloat(size_t index) const {
-		return storage()->getFloat(index);
-	}
-
-	/// Returns an integer element at the given index (if this is an integer property).
-	int getIntComponent(size_t index, size_t componentIndex) const {
-		return storage()->getIntComponent(index, componentIndex);
-	}
-
-	/// Returns an integer element at the given index (if this is a 64-bit integer property).
-	qlonglong getInt64Component(size_t index, size_t componentIndex) const {
-		return storage()->getInt64Component(index, componentIndex);
-	}
-
-	/// Returns a float element at the given index (if this is a float property).
-	FloatType getFloatComponent(size_t index, size_t componentIndex) const {
-		return storage()->getFloatComponent(index, componentIndex);
-	}
-
-	/// Returns a Vector3 element at the given index (if this is a vector property).
-	const Vector3& getVector3(size_t index) const {
-		return storage()->getVector3(index);
-	}
-
-	/// Returns a Point3 element at the given index (if this is a point property).
-	const Point3& getPoint3(size_t index) const {
-		return storage()->getPoint3(index);
-	}
-
-	/// Returns a Vector3I element at the given index (if this is a point property).
-	const Vector3I& getVector3I(size_t index) const {
-		return storage()->getVector3I(index);
-	}
-
-	/// Returns a Point3I element at the given index (if this is a point property).
-	const Point3I& getPoint3I(size_t index) const {
-		return storage()->getPoint3I(index);
-	}
-
-	/// Returns a Color element at the given index (if this is a point property).
-	const Color& getColor(size_t index) const {
-		return storage()->getColor(index);
-	}
-
-	/// Returns the given element's value of a SymmetricTensor2 property.
-	const SymmetricTensor2& getSymmetricTensor2(size_t index) const {
-		return storage()->getSymmetricTensor2(index);
-	}
-
-	/// Returns the given element's value of a Matrix3 property.
-	const Matrix3& getMatrix3(size_t index) const {
-		return storage()->getMatrix3(index);
-	}
-
-	/// Returns the given element's value of a Quaternion property.
-	const Quaternion& getQuaternion(size_t index) const {
-		return storage()->getQuaternion(index);
-	}
-
-	/// Sets the value of an integer element at the given index (if this is an integer property).
-	void setInt(size_t index, int newValue) {
-		modifiableStorage()->setInt(index, newValue);
-	}
-
-	/// Sets the value of an integer element at the given index (if this is a 64-bit integer property).
-	void setInt64(size_t index, qlonglong newValue) {
-		modifiableStorage()->setInt64(index, newValue);
-	}
-
-	/// Sets the value of a float element at the given index (if this is a float property).
-	void setFloat(size_t index, FloatType newValue) {
-		modifiableStorage()->setFloat(index, newValue);
-	}
-
-	/// Sets the value of an integer element at the given index (if this is an integer property).
-	void setIntComponent(size_t index, size_t componentIndex, int newValue) {
-		modifiableStorage()->setIntComponent(index, componentIndex, newValue);
-	}
-
-	/// Sets the value of an integer element at the given index (if this is a 64-bit integer property).
-	void setInt64Component(size_t index, size_t componentIndex, qlonglong newValue) {
-		modifiableStorage()->setInt64Component(index, componentIndex, newValue);
-	}
-
-	/// Sets the value of a float element at the given index (if this is a float property).
-	void setFloatComponent(size_t index, size_t componentIndex, FloatType newValue) {
-		modifiableStorage()->setFloatComponent(index, componentIndex, newValue);
-	}
-
-	/// Sets the value of a Vector3 element at the given index (if this is a vector property).
-	void setVector3(size_t index, const Vector3& newValue) {
-		modifiableStorage()->setVector3(index, newValue);
-	}
-
-	/// Sets the value of a Point3 element at the given index (if this is a point property).
-	void setPoint3(size_t index, const Point3& newValue) {
-		modifiableStorage()->setPoint3(index, newValue);
-	}
-
-	/// Sets the value of a Vector3I element at the given index (if this is a point property).
-	void setVector3I(size_t index, const Vector3I& newValue) {
-		modifiableStorage()->setVector3I(index, newValue);
-	}
-
-	/// Sets the value of a Point3I element at the given index (if this is a point property).
-	void setPoint3I(size_t index, const Point3I& newValue) {
-		modifiableStorage()->setPoint3I(index, newValue);
-	}
-
-	/// Sets the value of a Color element at the given index (if this is a point property).
-	void setColor(size_t index, const Color& newValue) {
-		modifiableStorage()->setColor(index, newValue);
-	}
-
-	/// Sets the given element's value of a SymmetricTensor2 property.
-	void setSymmetricTensor2(size_t index, const SymmetricTensor2& newValue) {
-		modifiableStorage()->setSymmetricTensor2(index, newValue);
-	}
-
-	/// Sets the given element's value of a Matrix3 property.
-	void setMatrix3(size_t index, const Matrix3& newValue) {
-		modifiableStorage()->setMatrix3(index, newValue);
-	}
-
-	/// Sets the given element's value of a Quaternion property.
-	void setQuaternion(size_t index, const Quaternion& newValue) {
-		modifiableStorage()->setQuaternion(index, newValue);
+	/// Copies a range of data elements from the given source array into this array. 
+	/// Component count and data type of source and destination must be compatible.
+	void copyRangeFrom(const PropertyObject* source, size_t sourceIndex, size_t destIndex, size_t count) {
+		modifiableStorage()->copyRangeFrom(*source->storage(), sourceIndex, destIndex, count);
 	}
 
 	//////////////////////////////// Element types //////////////////////////////

@@ -73,7 +73,7 @@ DislocationVis::DislocationVis(DataSet* dataset) : TransformingDataVis(dataset),
 /******************************************************************************
 * Lets the vis element transform a data object in preparation for rendering.
 ******************************************************************************/
-Future<PipelineFlowState> DislocationVis::transformDataImpl(TimePoint time, const DataObject* dataObject, PipelineFlowState&& flowState, const PipelineFlowState& cachedState, const PipelineSceneNode* contextNode)
+Future<PipelineFlowState> DislocationVis::transformDataImpl(const PipelineEvaluationRequest& request, const DataObject* dataObject, PipelineFlowState&& flowState, const PipelineFlowState& cachedState)
 {
 	// Get the input object.
 	const PeriodicDomainDataObject* periodicDomainObj = dynamic_object_cast<PeriodicDomainDataObject>(dataObject);
@@ -317,6 +317,9 @@ void DislocationVis::render(TimePoint time, const std::vector<const DataObject*>
 		primitives.corners = renderer->createParticlePrimitive(cornerShadingMode, ParticlePrimitive::HighQuality);
 		primitives.burgersArrows.reset();
 
+		ConstPropertyAccess<int> phaseArray(phaseProperty);
+		ConstPropertyAccess<Matrix3> correspondenceArray(correspondenceProperty);
+
 		SimulationCell cellData = cellObject->data();
 		// First determine number of corner vertices/segments that are going to be rendered.
 		int lineSegmentCount = renderableLines->lineSegments().size();
@@ -352,11 +355,11 @@ void DislocationVis::render(TimePoint time, const std::vector<const DataObject*>
 					normalizedBurgersVector = ClusterVector(lineSegment.burgersVector, cluster).toSpatialVector();
 					normalizedBurgersVector.normalizeSafely();
 				}
-				else if(phaseProperty && lineSegment.region >= 0 && lineSegment.region < phaseProperty->size()) {
-					int phaseId = phaseProperty->getInt(lineSegment.region);
+				else if(phaseArray && lineSegment.region >= 0 && lineSegment.region < phaseProperty->size()) {
+					int phaseId = phaseArray[lineSegment.region];
 					phase = dynamic_object_cast<MicrostructurePhase>(phaseProperty->elementType(phaseId));
-					if(correspondenceProperty) {
-						normalizedBurgersVector = correspondenceProperty->getMatrix3(lineSegment.region) * lineSegment.burgersVector;
+					if(correspondenceArray) {
+						normalizedBurgersVector = correspondenceArray[lineSegment.region] * lineSegment.burgersVector;
 						normalizedBurgersVector.normalizeSafely();
 					}
 					else {
@@ -749,21 +752,22 @@ QString DislocationPickInfo::infoString(PipelineSceneNode* objectNode, quint32 s
 		}
 	}
 	else if(microstructureObj()) {
-		const PropertyObject* burgersVectorProperty = microstructureObj()->faces()->getProperty(SurfaceMeshFaces::BurgersVectorProperty);
-		const PropertyObject* faceRegionProperty = microstructureObj()->faces()->getProperty(SurfaceMeshFaces::RegionProperty);
+		ConstPropertyAccess<Vector3> burgersVectorProperty = microstructureObj()->faces()->getProperty(SurfaceMeshFaces::BurgersVectorProperty);
+		ConstPropertyAccess<int> faceRegionProperty = microstructureObj()->faces()->getProperty(SurfaceMeshFaces::RegionProperty);
 		const PropertyObject* phaseProperty = microstructureObj()->regions()->getProperty(SurfaceMeshRegions::PhaseProperty);
-		if(burgersVectorProperty && faceRegionProperty && phaseProperty && segmentIndex >= 0 && segmentIndex < burgersVectorProperty->size()) {
+		ConstPropertyAccess<int> phaseArray(phaseProperty);
+		if(burgersVectorProperty && faceRegionProperty && phaseProperty && segmentIndex >= 0 && segmentIndex < burgersVectorProperty.size()) {
 			const MicrostructurePhase* phase = nullptr;
-			int region = faceRegionProperty->getInt(segmentIndex);
-			if(region >= 0 && region < phaseProperty->size()) {
-				int phaseId = phaseProperty->getInt(region);
+			int region = faceRegionProperty[segmentIndex];
+			if(region >= 0 && region < phaseArray.size()) {
+				int phaseId = phaseArray[region];
 				if(const MicrostructurePhase* phase = dynamic_object_cast<MicrostructurePhase>(phaseProperty->elementType(phaseId))) {
-					const Vector3& burgersVector = burgersVectorProperty->getVector3(segmentIndex);
+					const Vector3& burgersVector = burgersVectorProperty[segmentIndex];
 					QString formattedBurgersVector = DislocationVis::formatBurgersVector(burgersVector, phase);
 					str = tr("True Burgers vector: %1").arg(formattedBurgersVector);
-					const PropertyObject* correspondenceProperty = microstructureObj()->regions()->getProperty(SurfaceMeshRegions::LatticeCorrespondenceProperty);
+					ConstPropertyAccess<Matrix3> correspondenceProperty = microstructureObj()->regions()->getProperty(SurfaceMeshRegions::LatticeCorrespondenceProperty);
 					if(correspondenceProperty) {
-						Vector3 transformedVector = correspondenceProperty->getMatrix3(region) * burgersVector;
+						Vector3 transformedVector = correspondenceProperty[region] * burgersVector;
 						str += tr(" | Spatial Burgers vector: [%1 %2 %3]")
 								.arg(QLocale::c().toString(transformedVector.x(), 'f', 4), 7)
 								.arg(QLocale::c().toString(transformedVector.y(), 'f', 4), 7)

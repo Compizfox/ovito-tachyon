@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Copyright 2017 Alexander Stukowski
+//  Copyright 2019 Alexander Stukowski
 //
 //  This file is part of OVITO (Open Visualization Tool).
 //
@@ -24,6 +24,7 @@
 #include <ovito/stdobj/properties/PropertyStorage.h>
 #include <ovito/stdobj/properties/PropertyObject.h>
 #include <ovito/stdobj/properties/PropertyContainer.h>
+#include <ovito/stdobj/properties/PropertyAccess.h>
 #include <ovito/core/dataset/DataSet.h>
 #include <ovito/core/dataset/pipeline/ModifierApplication.h>
 #include <ovito/core/dataset/animation/controller/Controller.h>
@@ -86,17 +87,18 @@ PipelineStatus AssignColorModifierDelegate::apply(Modifier* modifier, PipelineFl
 		return PipelineStatus::Success;
 
 	// Look up the property container object and make sure we can safely modify it.
-   	DataObjectPath objectPath = state.expectMutableObject(subject());
+   	DataObjectPath objectPath = state.expectMutableObject(inputContainerRef());
 	PropertyContainer* container = static_object_cast<PropertyContainer>(objectPath.back());
 
 	// Get the input selection property.
-	ConstPropertyPtr selProperty;
-	if(const PropertyObject* selPropertyObj = container->getProperty(PropertyStorage::GenericSelectionProperty)) {
-		selProperty = selPropertyObj->storage();
+	ConstPropertyAccessAndRef<int> selProperty;
+	if(container->getOOMetaClass().isValidStandardPropertyId(PropertyStorage::GenericSelectionProperty)) {
+		if(const PropertyObject* selPropertyObj = container->getProperty(PropertyStorage::GenericSelectionProperty)) {
+			selProperty = selPropertyObj;
 
-		// Clear selection if requested.
-		if(!mod->keepSelection()) {
-			container->removeProperty(selPropertyObj);
+			// Clear selection if requested.
+			if(!mod->keepSelection())
+				container->removeProperty(selPropertyObj);
 		}
 	}
 
@@ -105,18 +107,9 @@ PipelineStatus AssignColorModifierDelegate::apply(Modifier* modifier, PipelineFl
 	mod->colorController()->getColorValue(time, color, state.mutableStateValidity());
 
 	// Create the color output property.
-    PropertyObject* colorProperty = container->createProperty(outputColorPropertyId(), (bool)selProperty, objectPath);
-	if(!selProperty) {
-		// Assign color to all elements.
-		std::fill(colorProperty->dataColor(), colorProperty->dataColor() + colorProperty->size(), color);
-	}
-	else {
-		// Assign color only to selected elements.
-		const int* sel = selProperty->constDataInt();
-		for(Color& c : colorProperty->colorRange()) {
-			if(*sel++) c = color;
-		}
-	}
+    PropertyAccess<Color> colorProperty = container->createProperty(outputColorPropertyId(), (bool)selProperty, objectPath);
+	// Assign color to selected elements (or all elements if there is no selection).
+	colorProperty.fillSelected(color, selProperty);
 
 	return PipelineStatus::Success;
 }

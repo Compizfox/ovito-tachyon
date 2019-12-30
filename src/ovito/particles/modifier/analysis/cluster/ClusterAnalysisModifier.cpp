@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Copyright 2017 Alexander Stukowski
+//  Copyright 2019 Alexander Stukowski
 //
 //  This file is part of OVITO (Open Visualization Tool).
 //
@@ -24,6 +24,7 @@
 #include <ovito/particles/objects/BondsObject.h>
 #include <ovito/particles/objects/ParticlesObject.h>
 #include <ovito/particles/objects/ParticleBondMap.h>
+#include <ovito/stdobj/properties/PropertyAccess.h>
 #include <ovito/stdobj/simcell/SimulationCellObject.h>
 #include <ovito/core/dataset/pipeline/ModifierApplication.h>
 #include <ovito/core/utilities/units/UnitsManager.h>
@@ -98,7 +99,7 @@ void ClusterAnalysisModifier::ClusterAnalysisEngine::perform()
 	task()->setProgressText(tr("Performing cluster analysis"));
 
 	// Initialize.
-	std::fill(particleClusters()->dataInt64(), particleClusters()->dataInt64() + particleClusters()->size(), -1);
+	particleClusters()->fill<qlonglong>(-1);
 
 	// Perform the actual clustering.
 	doClustering();
@@ -107,10 +108,11 @@ void ClusterAnalysisModifier::ClusterAnalysisEngine::perform()
 
 	// Sort clusters by size.
 	if(_sortBySize && numClusters() != 0) {
+		PropertyAccess<qlonglong> particleClusters(this->particleClusters());
 
 		// Determine cluster sizes.
 		std::vector<size_t> clusterSizes(numClusters() + 1, 0);
-		for(auto id : particleClusters()->constInt64Range()) {
+		for(auto id : particleClusters) {
 			clusterSizes[id]++;
 		}
 
@@ -128,7 +130,7 @@ void ClusterAnalysisModifier::ClusterAnalysisEngine::perform()
 		std::vector<size_t> inverseMapping(numClusters() + 1);
 		for(size_t i = 0; i <= numClusters(); i++)
 			inverseMapping[mapping[i]] = i;
-		for(auto& id : particleClusters()->int64Range())
+		for(auto& id : particleClusters)
 			id = inverseMapping[id];
 	}
 }
@@ -140,32 +142,33 @@ void ClusterAnalysisModifier::CutoffClusterAnalysisEngine::doClustering()
 {
 	// Prepare the neighbor finder.
 	CutoffNeighborFinder neighborFinder;
-	if(!neighborFinder.prepare(cutoff(), *positions(), cell(), selection().get(), task().get()))
+	if(!neighborFinder.prepare(cutoff(), positions(), cell(), selection(), task().get()))
 		return;
 
 	size_t particleCount = positions()->size();
 	task()->setProgressValue(0);
 	task()->setProgressMaximum(particleCount);
 
-	PropertyStorage& particleClusters = *this->particleClusters();
+	PropertyAccess<qlonglong> particleClusters(this->particleClusters());
+	ConstPropertyAccess<int> selectionData(selection());
 
 	std::deque<size_t> toProcess;
 	for(size_t seedParticleIndex = 0; seedParticleIndex < particleCount; seedParticleIndex++) {
 
 		// Skip unselected particles that are not included in the analysis.
-		if(selection() && !selection()->getInt(seedParticleIndex)) {
-			particleClusters.setInt64(seedParticleIndex, 0);
+		if(selectionData && !selectionData[seedParticleIndex]) {
+			particleClusters[seedParticleIndex] = 0;
 			continue;
 		}
 
 		// Skip particles that have already been assigned to a cluster.
-		if(particleClusters.getInt64(seedParticleIndex) != -1)
+		if(particleClusters[seedParticleIndex] != -1)
 			continue;
 
 		// Start a new cluster.
 		setNumClusters(numClusters() + 1);
 		qlonglong cluster = numClusters();
-		particleClusters.setInt64(seedParticleIndex, cluster);
+		particleClusters[seedParticleIndex] = cluster;
 
 		// Now recursively iterate over all neighbors of the seed particle and add them to the cluster too.
 		OVITO_ASSERT(toProcess.empty());
@@ -180,8 +183,8 @@ void ClusterAnalysisModifier::CutoffClusterAnalysisEngine::doClustering()
 			toProcess.pop_front();
 			for(CutoffNeighborFinder::Query neighQuery(neighborFinder, currentParticle); !neighQuery.atEnd(); neighQuery.next()) {
 				size_t neighborIndex = neighQuery.current();
-				if(particleClusters.getInt64(neighborIndex) == -1) {
-					particleClusters.setInt64(neighborIndex, cluster);
+				if(particleClusters[neighborIndex] == -1) {
+					particleClusters[neighborIndex] = cluster;
 					toProcess.push_back(neighborIndex);
 				}
 			}
@@ -202,25 +205,27 @@ void ClusterAnalysisModifier::BondClusterAnalysisEngine::doClustering()
 	// Prepare particle bond map.
 	ParticleBondMap bondMap(bondTopology());
 
-	PropertyStorage& particleClusters = *this->particleClusters();
+	PropertyAccess<qlonglong> particleClusters(this->particleClusters());
+	ConstPropertyAccess<int> selectionData(this->selection());
+	ConstPropertyAccess<ParticleIndexPair> bondTopology(this->bondTopology());
 
 	std::deque<size_t> toProcess;
 	for(size_t seedParticleIndex = 0; seedParticleIndex < particleCount; seedParticleIndex++) {
 
 		// Skip unselected particles that are not included in the analysis.
-		if(selection() && !selection()->getInt(seedParticleIndex)) {
-			particleClusters.setInt64(seedParticleIndex, 0);
+		if(selectionData && !selectionData[seedParticleIndex]) {
+			particleClusters[seedParticleIndex] = 0;
 			continue;
 		}
 
 		// Skip particles that have already been assigned to a cluster.
-		if(particleClusters.getInt64(seedParticleIndex) != -1)
+		if(particleClusters[seedParticleIndex] != -1)
 			continue;
 
 		// Start a new cluster.
 		setNumClusters(numClusters() + 1);
 		qlonglong cluster = numClusters();
-		particleClusters.setInt64(seedParticleIndex, cluster);
+		particleClusters[seedParticleIndex] = cluster;
 
 		// Now recursively iterate over all neighbors of the seed particle and add them to the cluster too.
 		OVITO_ASSERT(toProcess.empty());
@@ -236,17 +241,18 @@ void ClusterAnalysisModifier::BondClusterAnalysisEngine::doClustering()
 
 			// Iterate over all bonds of the current particle.
 			for(size_t neighborBondIndex : bondMap.bondIndicesOfParticle(currentParticle)) {
-				OVITO_ASSERT(bondTopology()->getInt64Component(neighborBondIndex, 0) == currentParticle || bondTopology()->getInt64Component(neighborBondIndex, 1) == currentParticle);
-				size_t neighborIndex = bondTopology()->getInt64Component(neighborBondIndex, 0);
-				if(neighborIndex == currentParticle) neighborIndex = bondTopology()->getInt64Component(neighborBondIndex, 1);
+				OVITO_ASSERT(bondTopology[neighborBondIndex][0] == currentParticle || bondTopology[neighborBondIndex][1] == currentParticle);
+				size_t neighborIndex = bondTopology[neighborBondIndex][0];
+				if(neighborIndex == currentParticle)
+					neighborIndex = bondTopology[neighborBondIndex][1];
 				if(neighborIndex >= particleCount)
 					continue;
-				if(particleClusters.getInt64(neighborIndex) != -1)
+				if(particleClusters[neighborIndex] != -1)
 					continue;
-				if(selection() && !selection()->getInt(neighborIndex))
+				if(selectionData && !selectionData[neighborIndex])
 					continue;
 
-				particleClusters.setInt64(neighborIndex, cluster);
+				particleClusters[neighborIndex] = cluster;
 				toProcess.push_back(neighborIndex);
 			}
 		}

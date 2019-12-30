@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Copyright 2017 Alexander Stukowski
+//  Copyright 2019 Alexander Stukowski
 //
 //  This file is part of OVITO (Open Visualization Tool).
 //
@@ -120,10 +120,11 @@ void StructureIdentificationModifier::StructureIdentificationEngine::emitResults
 	PropertyPtr outputStructures = postProcessStructureTypes(time, modApp, structures());
 	OVITO_ASSERT(outputStructures->size() == particles->elementCount());
 	PropertyObject* structureProperty = particles->createProperty(outputStructures);
+	ConstPropertyAccess<int> structureData(structureProperty);
 
 	// Attach structure types to output particle property.
 	structureProperty->setElementTypes(modifier->structureTypes());
-
+	
 	if(modifier->colorByType()) {
 
 		// Build structure type-to-color map.
@@ -137,15 +138,13 @@ void StructureIdentificationModifier::StructureIdentificationEngine::emitResults
 		}
 
 		// Assign colors to particles based on their structure type.
-		PropertyObject* colorProperty = particles->createProperty(ParticlesObject::ColorProperty, false);
-		const int* s = structureProperty->constDataInt();
-		for(Color& c : colorProperty->colorRange()) {
-			if(*s >= 0 && *s < structureTypeColors.size()) {
-				c = structureTypeColors[*s];
-			}
-			else c.setWhite();
-			++s;
-		}
+		PropertyAccess<Color> colorProperty = particles->createProperty(ParticlesObject::ColorProperty, false);
+		boost::transform(structureData, colorProperty.begin(), [&](int s) {
+			if(s >= 0 && s < structureTypeColors.size())
+				return structureTypeColors[s];
+			else 
+				return Color(1,1,1);
+		});
 	}
 
 	// Count the number of particles of each identified type.
@@ -154,31 +153,28 @@ void StructureIdentificationModifier::StructureIdentificationEngine::emitResults
 		OVITO_ASSERT(stype->numericId() >= 0);
 		maxTypeId = std::max(maxTypeId, stype->numericId());
 	}
-	_typeCounts = std::make_shared<PropertyStorage>(maxTypeId + 1, PropertyStorage::Int64, 1, 0, tr("Count"), true, DataSeriesObject::YProperty);
-	auto typeCountsData = _typeCounts->dataInt64();
-	for(int t : structureProperty->constIntRange()) {
+	_typeCounts.resize(maxTypeId + 1);
+	boost::fill(_typeCounts, 0);
+	for(int t : structureData) {
 		if(t >= 0 && t <= maxTypeId)
-			typeCountsData[t]++;
+			_typeCounts[t]++;
 	}
-	PropertyPtr typeIds = std::make_shared<PropertyStorage>(maxTypeId + 1, PropertyStorage::Int, 1, 0, tr("Structure type"), false, DataSeriesObject::XProperty);
-	std::iota(typeIds->dataInt(), typeIds->dataInt() + typeIds->size(), 0);
 
-	// Output a data series object with the type counts.
-	DataSeriesObject* seriesObj = state.createObject<DataSeriesObject>(QStringLiteral("structures"), modApp, DataSeriesObject::BarChart, tr("Structure counts"), _typeCounts, std::move(typeIds));
-#if 0
-	PropertyObject* yProperty = seriesObj->expectMutableProperty(DataSeriesObject::YProperty);
-	for(const ElementType* type : modifier->structureTypes()) {
-		if(type->enabled())
-			yProperty->addElementType(type);
-	}
-	seriesObj->setAxisLabelX(tr("Structure type"));
-#else
+	// Create the property arrays for the bar chart.
+	PropertyPtr typeCounts = std::make_shared<PropertyStorage>(maxTypeId + 1, PropertyStorage::Int64, 1, 0, tr("Count"), false, DataSeriesObject::YProperty);
+	boost::copy(_typeCounts, PropertyAccess<qlonglong>(typeCounts).begin());
+	PropertyPtr typeIds = std::make_shared<PropertyStorage>(maxTypeId + 1, PropertyStorage::Int, 1, 0, tr("Structure type"), false, DataSeriesObject::XProperty);
+	boost::algorithm::iota_n(PropertyAccess<int>(typeIds).begin(), 0, typeIds->size());
+
+	// Output a bar chart with the type counts.
+	DataSeriesObject* seriesObj = state.createObject<DataSeriesObject>(QStringLiteral("structures"), modApp, DataSeriesObject::BarChart, tr("Structure counts"), std::move(typeCounts), std::move(typeIds));
+
+	// Use the structure types as labels for the output bar chart.
 	PropertyObject* xProperty = seriesObj->expectMutableProperty(DataSeriesObject::XProperty);
 	for(const ElementType* type : modifier->structureTypes()) {
 		if(type->enabled())
 			xProperty->addElementType(type);
 	}
-#endif
 }
 
 OVITO_END_INLINE_NAMESPACE

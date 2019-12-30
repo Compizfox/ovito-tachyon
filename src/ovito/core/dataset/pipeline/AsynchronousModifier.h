@@ -107,9 +107,6 @@ public:
 	/// Constructor.
 	AsynchronousModifier(DataSet* dataset);
 
-	/// Asks the object for the result of the data pipeline.
-	virtual Future<PipelineFlowState> evaluate(TimePoint time, ModifierApplication* modApp, const PipelineFlowState& input) override;
-
 	/// Modifies the input data in an immediate, preliminary way.
 	virtual void evaluatePreliminary(TimePoint time, ModifierApplication* modApp, PipelineFlowState& state) override;
 
@@ -132,16 +129,18 @@ protected:
 
 	/// Saves the class' contents to the given stream.
 	virtual void saveToStream(ObjectSaveStream& stream, bool excludeRecomputableData) override;
-
 	/// Loads the class' contents from the given stream.
 	virtual void loadFromStream(ObjectLoadStream& stream) override;
+
+	/// Asks the object for the result of the data pipeline.
+	virtual Future<PipelineFlowState> evaluate(const PipelineEvaluationRequest& request, ModifierApplication* modApp, const PipelineFlowState& input) override;
 
 	/// Creates a computation engine that will compute the modifier's results.
 	virtual Future<ComputeEnginePtr> createEngine(TimePoint time, ModifierApplication* modApp, const PipelineFlowState& input) = 0;
 };
 
 // Export this class template specialization from the DLL under Windows.
-template class OVITO_CORE_EXPORT Future<AsynchronousModifier::ComputeEnginePtr>;
+extern template class OVITO_CORE_EXPORT Future<AsynchronousModifier::ComputeEnginePtr>;
 
 OVITO_END_INLINE_NAMESPACE
 OVITO_END_INLINE_NAMESPACE

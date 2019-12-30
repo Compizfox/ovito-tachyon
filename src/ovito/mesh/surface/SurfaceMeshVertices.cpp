@@ -21,7 +21,9 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 
 #include <ovito/mesh/Mesh.h>
+#include <ovito/stdobj/properties/PropertyAccess.h>
 #include "SurfaceMeshVertices.h"
+#include "SurfaceMeshVis.h"
 
 namespace Ovito { namespace Mesh {
 
@@ -43,6 +45,11 @@ PropertyPtr SurfaceMeshVertices::OOMetaClass::createStandardStorage(size_t verte
 		stride = componentCount * sizeof(FloatType);
 		OVITO_ASSERT(stride == sizeof(Point3));
 		break;
+	case SelectionProperty:
+		dataType = PropertyStorage::Int;
+		componentCount = 1;
+		stride = sizeof(int);
+		break;
 	case ColorProperty:
 		dataType = PropertyStorage::Float;
 		componentCount = 3;
@@ -61,9 +68,22 @@ PropertyPtr SurfaceMeshVertices::OOMetaClass::createStandardStorage(size_t verte
 	PropertyPtr property = std::make_shared<PropertyStorage>(vertexCount, dataType, componentCount, stride,
 								propertyName, false, type, componentNames);
 
+	// Initialize memory if requested.
+	if(initializeMemory && containerPath.size() >= 2) {
+		// Certain standard properties need to be initialized with default values determined by the attached visual elements.
+		if(type == ColorProperty) {
+			if(const SurfaceMesh* surfaceMesh = dynamic_object_cast<SurfaceMesh>(containerPath[containerPath.size()-2])) {
+				if(SurfaceMeshVis* vis = surfaceMesh->visElement<SurfaceMeshVis>()) {
+					PropertyAccess<Color>(property).fill(vis->surfaceColor());
+					initializeMemory = false;
+				}
+			}
+		}
+	}
+
 	if(initializeMemory) {
 		// Default-initialize property values with zeros.
-		std::memset(property->data(), 0, property->size() * property->stride());
+		property->fillZero();
 	}
 
 	return property;
@@ -84,6 +104,7 @@ void SurfaceMeshVertices::OOMetaClass::initialize()
 	const QStringList xyzList = QStringList() << "X" << "Y" << "Z";
 	const QStringList rgbList = QStringList() << "R" << "G" << "B";
 
+	registerStandardProperty(SelectionProperty, tr("Selection"), PropertyStorage::Int, emptyList);
 	registerStandardProperty(ColorProperty, tr("Color"), PropertyStorage::Float, rgbList, tr("Vertex colors"));
 	registerStandardProperty(PositionProperty, tr("Position"), PropertyStorage::Float, xyzList, tr("Vertex positions"));
 }

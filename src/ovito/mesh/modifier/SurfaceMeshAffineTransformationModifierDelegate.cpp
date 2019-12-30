@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Copyright 2017 Alexander Stukowski
+//  Copyright 2019 Alexander Stukowski
 //
 //  This file is part of OVITO (Open Visualization Tool).
 //
@@ -22,6 +22,7 @@
 
 #include <ovito/mesh/Mesh.h>
 #include <ovito/stdobj/simcell/SimulationCellObject.h>
+#include <ovito/stdobj/properties/PropertyAccess.h>
 #include <ovito/core/dataset/DataSet.h>
 #include <ovito/core/dataset/pipeline/ModifierApplication.h>
 #include "SurfaceMeshAffineTransformationModifierDelegate.h"
@@ -36,8 +37,6 @@ IMPLEMENT_OVITO_CLASS(SurfaceMeshAffineTransformationModifierDelegate);
 PipelineStatus SurfaceMeshAffineTransformationModifierDelegate::apply(Modifier* modifier, PipelineFlowState& state, TimePoint time, ModifierApplication* modApp, const std::vector<std::reference_wrapper<const PipelineFlowState>>& additionalInputs)
 {
 	AffineTransformationModifier* mod = static_object_cast<AffineTransformationModifier>(modifier);
-	if(mod->selectionOnly())
-		return PipelineStatus::Success;
 
 	AffineTransformation tm;
 	if(mod->relativeMode())
@@ -47,15 +46,31 @@ PipelineStatus SurfaceMeshAffineTransformationModifierDelegate::apply(Modifier* 
 
 	for(const DataObject* obj : state.data()->objects()) {
 		if(const SurfaceMesh* existingSurface = dynamic_object_cast<SurfaceMesh>(obj)) {
+			// Make sure the input mesh data structure is valid. 
+			existingSurface->verifyMeshIntegrity();
 			// Create a copy of the SurfaceMesh.
 			SurfaceMesh* newSurface = state.makeMutable(existingSurface);
 			// Create a copy of the vertices sub-object (no need to copy the topology when only moving vertices).
 			SurfaceMeshVertices* newVertices = newSurface->makeVerticesMutable();
 			// Create a copy of the vertex coordinates array.
-			PropertyObject* positionProperty = newVertices->expectMutableProperty(SurfaceMeshVertices::PositionProperty);
-			// Apply transformation to the vertices coordinates.
-			for(Point3& p : positionProperty->point3Range())
-				p = tm * p;
+			PropertyAccess<Point3> positionProperty = newVertices->expectMutableProperty(SurfaceMeshVertices::PositionProperty);
+
+			if(!mod->selectionOnly()) {
+				// Apply transformation to the vertices coordinates.
+				for(Point3& p : positionProperty)
+					p = tm * p;
+			}
+			else {
+				if(ConstPropertyAccess<int> selectionProperty = newVertices->getProperty(SurfaceMeshVertices::SelectionProperty)) {
+					// Apply transformation only to the selected vertices.
+					const int* s = selectionProperty.cbegin();
+					for(Point3& p : positionProperty) {
+						if(*s++)
+							p = tm * p;
+					}
+				}
+			}
+
 			// Apply transformation to the cutting planes attached to the surface mesh.
 			QVector<Plane3> cuttingPlanes = newSurface->cuttingPlanes();
 			for(Plane3& plane : cuttingPlanes)

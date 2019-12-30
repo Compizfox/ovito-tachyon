@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Copyright 2018 Alexander Stukowski
+//  Copyright 2019 Alexander Stukowski
 //
 //  This file is part of OVITO (Open Visualization Tool).
 //
@@ -41,7 +41,7 @@ StaticSource::StaticSource(DataSet* dataset, DataCollection* data) : PipelineObj
 /******************************************************************************
 * Asks the object for the result of the data pipeline.
 ******************************************************************************/
-SharedFuture<PipelineFlowState> StaticSource::evaluate(TimePoint time, bool breakOnError)
+SharedFuture<PipelineFlowState> StaticSource::evaluate(const PipelineEvaluationRequest& request)
 {
     // Note that the PipelineFlowState constructor creates deep copy of the data collection.
     // We always pass a copy of the data to the pipeline to avoid unexpected side effects when

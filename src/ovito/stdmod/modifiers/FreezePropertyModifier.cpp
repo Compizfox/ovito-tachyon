@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Copyright 2018 Alexander Stukowski
+//  Copyright 2019 Alexander Stukowski
 //
 //  This file is part of OVITO (Open Visualization Tool).
 //
@@ -23,6 +23,7 @@
 #include <ovito/stdmod/StdMod.h>
 #include <ovito/stdobj/properties/PropertyObject.h>
 #include <ovito/stdobj/properties/PropertyContainer.h>
+#include <ovito/stdobj/properties/PropertyAccess.h>
 #include <ovito/core/dataset/DataSet.h>
 #include <ovito/core/dataset/animation/AnimationSettings.h>
 #include <ovito/core/dataset/pipeline/ModifierApplication.h>
@@ -94,21 +95,21 @@ void FreezePropertyModifier::propertyChanged(const PropertyFieldDescriptor& fiel
 /******************************************************************************
 * Modifies the input data.
 ******************************************************************************/
-Future<PipelineFlowState> FreezePropertyModifier::evaluate(TimePoint time, ModifierApplication* modApp, const PipelineFlowState& input)
+Future<PipelineFlowState> FreezePropertyModifier::evaluate(const PipelineEvaluationRequest& request, ModifierApplication* modApp, const PipelineFlowState& input)
 {
 	// Check if we already have the frozen property available.
 	if(FreezePropertyModifierApplication* myModApp = dynamic_object_cast<FreezePropertyModifierApplication>(modApp)) {
 		if(myModApp->hasFrozenState(freezeTime())) {
 			// Perform replacement of the property in the input pipeline state.
 			PipelineFlowState output = input;
-			evaluatePreliminary(time, modApp, output);
+			evaluatePreliminary(request.time(), modApp, output);
 			return std::move(output);
 		}
 	}
 
 	// Request the frozen state from the pipeline.
-	return modApp->evaluateInput(freezeTime())
-		.then(executor(), [this, time, modApp = QPointer<ModifierApplication>(modApp), state = input](const PipelineFlowState& frozenState) mutable {
+	return modApp->evaluateInput(PipelineEvaluationRequest(freezeTime(), request))
+		.then(executor(), [this, time = request.time(), modApp = QPointer<ModifierApplication>(modApp), state = input](const PipelineFlowState& frozenState) mutable {
 			UndoSuspender noUndo(this);
 
 			// Extract the input property.
@@ -182,33 +183,33 @@ void FreezePropertyModifier::evaluatePreliminary(TimePoint time, ModifierApplica
 
 	// Check if particle IDs are present and if the order of particles has changed
 	// since we took the snapshot of the property values.
-	const PropertyObject* idProperty = container->getOOMetaClass().isValidStandardPropertyId(PropertyStorage::GenericIdentifierProperty)
+	ConstPropertyAccess<qlonglong> idProperty = container->getOOMetaClass().isValidStandardPropertyId(PropertyStorage::GenericIdentifierProperty)
 		? container->getProperty(PropertyStorage::GenericIdentifierProperty)
 		: nullptr;
-	if(myModApp->identifiers() && idProperty &&
-			(idProperty->size() != myModApp->identifiers()->size() ||
-			!std::equal(idProperty->constDataInt64(), idProperty->constDataInt64() + idProperty->size(), myModApp->identifiers()->constDataInt64()))) {
+	ConstPropertyAccess<qlonglong> storedIds = myModApp->identifiers();
+	if(storedIds && idProperty && (idProperty.size() != storedIds.size() || !boost::equal(idProperty, storedIds))) {
 
 		// Build ID-to-index map.
 		std::unordered_map<qlonglong,size_t> idmap;
 		size_t index = 0;
-		for(auto id : myModApp->identifiers()->constInt64Range()) {
-			if(!idmap.insert(std::make_pair(id,index)).second)
+		for(auto id : storedIds) {
+			if(!idmap.insert(std::make_pair(id, index)).second)
 				throwException(tr("Detected duplicate element ID %1 in saved snapshot. Cannot apply saved property values.").arg(id));
 			index++;
 		}
 
-		// Copy and reorder property data.
-		auto id = idProperty->constDataInt64();
-		char* dest = static_cast<char*>(outputProperty->data());
-		const char* src = static_cast<const char*>(myModApp->property()->constData());
-		size_t stride = outputProperty->stride();
-		for(size_t index = 0; index < outputProperty->size(); index++, ++id, dest += stride) {
-			auto mapEntry = idmap.find(*id);
+		// Build index-to-index map.
+		std::vector<size_t> mapping(outputProperty->size());
+		auto id = idProperty.cbegin();
+		for(size_t& mappedIndex : mapping) {
+			auto mapEntry = idmap.find(*id++);
 			if(mapEntry == idmap.end())
 				throwException(tr("Detected new element ID %1, which didn't exist when the snapshot was created. Cannot restore saved property values.").arg(*id));
-			std::memcpy(dest, src + stride * mapEntry->second, stride);
+			mappedIndex = mapEntry->second;
 		}
+
+		// Copy and reorder property data.
+		myModApp->property()->mappedCopyTo(outputProperty, mapping);
 	}
 	else {
 		// Make sure the number of elements didn't change when no IDs are defined.
@@ -221,12 +222,9 @@ void FreezePropertyModifier::evaluatePreliminary(TimePoint time, ModifierApplica
 			// Make shallow data copy if input and output property are the same.
 			outputProperty->setStorage(myModApp->property()->storage());
 		}
-		else {
+		else if(outputProperty->stride() == myModApp->property()->stride()) {
 			// Make a full data copy otherwise.
-			OVITO_ASSERT(outputProperty->dataType() == myModApp->property()->dataType());
-			OVITO_ASSERT(outputProperty->stride() == myModApp->property()->stride());
-			OVITO_ASSERT(outputProperty->size() == myModApp->property()->size());
-			std::memcpy(outputProperty->data(), myModApp->property()->constData(), outputProperty->stride() * outputProperty->size());
+			outputProperty->copyFrom(myModApp->property());
 		}
 	}
 

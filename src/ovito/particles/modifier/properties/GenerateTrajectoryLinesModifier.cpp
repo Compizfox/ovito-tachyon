@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Copyright 2018 Alexander Stukowski
+//  Copyright 2019 Alexander Stukowski
 //
 //  This file is part of OVITO (Open Visualization Tool).
 //
@@ -24,7 +24,9 @@
 #include <ovito/particles/objects/ParticlesObject.h>
 #include <ovito/particles/objects/TrajectoryObject.h>
 #include <ovito/stdobj/simcell/SimulationCellObject.h>
+#include <ovito/stdobj/properties/PropertyAccess.h>
 #include <ovito/core/dataset/animation/AnimationSettings.h>
+#include <ovito/core/dataset/pipeline/PipelineEvaluation.h>
 #include <ovito/core/dataset/DataSet.h>
 #include <ovito/core/app/Application.h>
 #include <ovito/core/viewport/ViewportConfiguration.h>
@@ -106,7 +108,7 @@ bool GenerateTrajectoryLinesModifier::generateTrajectories(AsyncOperation&& oper
 		if(!myModApp) continue;
 
 		// Get input particles.
-		SharedFuture<PipelineFlowState> stateFuture = myModApp->evaluateInput(currentTime);
+		SharedFuture<PipelineFlowState> stateFuture = myModApp->evaluateInput(PipelineEvaluationRequest(currentTime));
 		if(!operation.waitForFuture(stateFuture))
 			return false;
 
@@ -114,23 +116,21 @@ bool GenerateTrajectoryLinesModifier::generateTrajectories(AsyncOperation&& oper
 		const ParticlesObject* particles = state.getObject<ParticlesObject>();
 		if(!particles)
 			throwException(tr("Cannot generate trajectory lines. The pipeline data contains no particles."));
-		const PropertyObject* posProperty = particles->expectProperty(ParticlesObject::PositionProperty);
-		const PropertyObject* selectionProperty = particles->getProperty(ParticlesObject::SelectionProperty);
-		const PropertyObject* identifierProperty = particles->getProperty(ParticlesObject::IdentifierProperty);
 
 		// Determine set of input particles in the current frame.
 		std::vector<size_t> selectedIndices;
 		std::set<qlonglong> selectedIdentifiers;
 		if(onlySelectedParticles()) {
-			if(selectionProperty) {
-				if(identifierProperty && identifierProperty->size() == selectionProperty->size()) {
-					const int* s = selectionProperty->constDataInt();
-					for(auto id : identifierProperty->constInt64Range())
+			if(ConstPropertyAccess<int> selectionProperty = particles->getProperty(ParticlesObject::SelectionProperty)) {
+				ConstPropertyAccess<qlonglong> identifierProperty = particles->getProperty(ParticlesObject::IdentifierProperty);
+				if(identifierProperty && identifierProperty.size() == selectionProperty.size()) {
+					const int* s = selectionProperty.cbegin();
+					for(auto id : identifierProperty)
 						if(*s++) selectedIdentifiers.insert(id);
 				}
 				else {
-					const int* s = selectionProperty->constDataInt();
-					for(size_t index = 0; index < selectionProperty->size(); index++)
+					const int* s = selectionProperty.cbegin();
+					for(size_t index = 0; index < selectionProperty.size(); index++)
 						if(*s++) selectedIndices.push_back(index);
 				}
 			}
@@ -166,7 +166,7 @@ bool GenerateTrajectoryLinesModifier::generateTrajectories(AsyncOperation&& oper
 		for(TimePoint time : sampleTimes) {
 			operation.setProgressText(tr("Generating trajectory lines (frame %1 of %2)").arg(operation.progressValue()+1).arg(operation.progressMaximum()));
 
-			SharedFuture<PipelineFlowState> stateFuture = myModApp->evaluateInput(time);
+			SharedFuture<PipelineFlowState> stateFuture = myModApp->evaluateInput(PipelineEvaluationRequest(time));
 			if(!operation.waitForFuture(stateFuture))
 				return false;
 
@@ -174,24 +174,25 @@ bool GenerateTrajectoryLinesModifier::generateTrajectories(AsyncOperation&& oper
 			const ParticlesObject* particles = state.getObject<ParticlesObject>();
 			if(!particles)
 				throwException(tr("Input data contains no particles at frame %1.").arg(dataset()->animationSettings()->timeToFrame(time)));
-			const PropertyObject* posProperty = particles->expectProperty(ParticlesObject::PositionProperty);
+			particles->verifyIntegrity();
+			ConstPropertyAccess<Point3> posProperty = particles->expectProperty(ParticlesObject::PositionProperty);
 
 			if(onlySelectedParticles()) {
 				if(!selectedIdentifiers.empty()) {
-					const PropertyObject* identifierProperty = particles->getProperty(ParticlesObject::IdentifierProperty);
-					if(!identifierProperty || identifierProperty->size() != posProperty->size())
+					ConstPropertyAccess<qlonglong> identifierProperty = particles->getProperty(ParticlesObject::IdentifierProperty);
+					if(!identifierProperty || identifierProperty.size() != posProperty.size())
 						throwException(tr("Input particles do not possess identifiers at frame %1.").arg(dataset()->animationSettings()->timeToFrame(time)));
 
 					// Create a mapping from IDs to indices.
 					std::map<qlonglong,size_t> idmap;
 					size_t index = 0;
-					for(auto id : identifierProperty->constInt64Range())
+					for(auto id : identifierProperty)
 						idmap.insert(std::make_pair(id, index++));
 
 					for(auto id : selectedIdentifiers) {
 						auto entry = idmap.find(id);
 						if(entry != idmap.end()) {
-							pointData.push_back(posProperty->getPoint3(entry->second));
+							pointData.push_back(posProperty[entry->second]);
 							timeData.push_back(timeIndex);
 							idData.push_back(id);
 						}
@@ -200,8 +201,8 @@ bool GenerateTrajectoryLinesModifier::generateTrajectories(AsyncOperation&& oper
 				else {
 					// Add coordinates of selected particles by index.
 					for(auto index : selectedIndices) {
-						if(index < posProperty->size()) {
-							pointData.push_back(posProperty->getPoint3(index));
+						if(index < posProperty.size()) {
+							pointData.push_back(posProperty[index]);
 							timeData.push_back(timeIndex);
 							idData.push_back(index);
 						}
@@ -210,19 +211,19 @@ bool GenerateTrajectoryLinesModifier::generateTrajectories(AsyncOperation&& oper
 			}
 			else {
 				// Add coordinates of all particles.
-				const PropertyObject* identifierProperty = particles->getProperty(ParticlesObject::IdentifierProperty);
-				if(identifierProperty && identifierProperty->size() == posProperty->size()) {
+				ConstPropertyAccess<qlonglong> identifierProperty = particles->getProperty(ParticlesObject::IdentifierProperty);
+				if(identifierProperty && identifierProperty.size() == posProperty.size()) {
 					// Particles with IDs.
-					pointData.insert(pointData.end(), posProperty->constDataPoint3(), posProperty->constDataPoint3() + posProperty->size());
-					idData.insert(idData.end(), identifierProperty->constDataInt64(), identifierProperty->constDataInt64() + identifierProperty->size());
-					timeData.resize(timeData.size() + posProperty->size(), timeIndex);
+					pointData.insert(pointData.end(), posProperty.cbegin(), posProperty.cend());
+					idData.insert(idData.end(), identifierProperty.cbegin(), identifierProperty.cend());
+					timeData.resize(timeData.size() + posProperty.size(), timeIndex);
 				}
 				else {
 					// Particles without IDs.
-					pointData.insert(pointData.end(), posProperty->constDataPoint3(), posProperty->constDataPoint3() + posProperty->size());
-					idData.resize(idData.size() + posProperty->size());
+					pointData.insert(pointData.end(), posProperty.cbegin(), posProperty.cend());
+					idData.resize(idData.size() + posProperty.size());
 					std::iota(idData.begin() + timeData.size(), idData.end(), 0);
-					timeData.resize(timeData.size() + posProperty->size(), timeIndex);
+					timeData.resize(timeData.size() + posProperty.size(), timeIndex);
 				}
 			}
 
@@ -262,23 +263,24 @@ bool GenerateTrajectoryLinesModifier::generateTrajectories(AsyncOperation&& oper
 		OORef<TrajectoryObject> trajObj = new TrajectoryObject(dataset());
 
 		// Copy re-ordered trajectory points.
-		PropertyObject* trajPosProperty = trajObj->createProperty(TrajectoryObject::PositionProperty, false, {}, pointData.size());
+		trajObj->setElementCount(pointData.size());
+		PropertyAccess<Point3> trajPosProperty = trajObj->createProperty(TrajectoryObject::PositionProperty, false);
 		auto piter = permutation.cbegin();
-		for(Point3& p : trajPosProperty->point3Range()) {
+		for(Point3& p : trajPosProperty) {
 			p = pointData[*piter++];
 		}
 
 		// Copy re-ordered trajectory time stamps.
-		PropertyObject* trajTimeProperty = trajObj->createProperty(TrajectoryObject::SampleTimeProperty, false);
+		PropertyAccess<int> trajTimeProperty = trajObj->createProperty(TrajectoryObject::SampleTimeProperty, false);
 		piter = permutation.cbegin();
-		for(int& t : trajTimeProperty->intRange()) {
+		for(int& t : trajTimeProperty) {
 			t = sampleFrames[timeData[*piter++]];
 		}
 
 		// Copy re-ordered trajectory ids.
-		PropertyObject* trajIdProperty = trajObj->createProperty(TrajectoryObject::ParticleIdentifierProperty, false);
+		PropertyAccess<qlonglong> trajIdProperty = trajObj->createProperty(TrajectoryObject::ParticleIdentifierProperty, false);
 		piter = permutation.cbegin();
-		for(qlonglong& id : trajIdProperty->int64Range()) {
+		for(qlonglong& id : trajIdProperty) {
 			id = idData[*piter++];
 		}
 
@@ -288,11 +290,11 @@ bool GenerateTrajectoryLinesModifier::generateTrajectories(AsyncOperation&& oper
 		// Unwrap trajectory vertices at periodic boundaries of the simulation cell.
 		if(unwrapTrajectories() && pointData.size() >= 2 && !cells.empty() && cells.front().pbcFlags() != std::array<bool,3>{false, false, false}) {
 			operation.setProgressText(tr("Unwrapping trajectory lines"));
-			operation.setProgressMaximum(trajPosProperty->size() - 1);
-			Point3* pos = trajPosProperty->dataPoint3();
+			operation.setProgressMaximum(trajPosProperty.size() - 1);
+			Point3* pos = trajPosProperty.begin();
 			piter = permutation.cbegin();
-			const qlonglong* id = trajIdProperty->constDataInt64();
-			for(auto pos_end = pos + trajPosProperty->size() - 1; pos != pos_end; ++pos, ++piter, ++id) {
+			const qlonglong* id = trajIdProperty.cbegin();
+			for(auto pos_end = pos + trajPosProperty.size() - 1; pos != pos_end; ++pos, ++piter, ++id) {
 				if(!operation.incrementProgressValue())
 					return false;
 				if(id[0] == id[1]) {

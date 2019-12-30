@@ -71,9 +71,14 @@ void SurfaceMeshData::transferTo(SurfaceMesh* sm) const
 	sm->setTopology(topology());
     sm->setSpaceFillingRegion(spaceFillingRegion());
 
-	sm->makeVerticesMutable()->setContent(vertexCount(), _vertexProperties);
-	sm->makeFacesMutable()->setContent(faceCount(), _faceProperties);
-	sm->makeRegionsMutable()->setContent(regionCount(), _regionProperties);
+	OVITO_STATIC_ASSERT(sizeof(PropertyPtr) == sizeof(decltype(_vertexProperties)::value_type));
+	const std::vector<PropertyPtr>& vertexProperties = reinterpret_cast<const std::vector<PropertyPtr>&>(_vertexProperties);
+	const std::vector<PropertyPtr>& faceProperties = reinterpret_cast<const std::vector<PropertyPtr>&>(_faceProperties);
+	const std::vector<PropertyPtr>& regionProperties = reinterpret_cast<const std::vector<PropertyPtr>&>(_regionProperties);
+
+	sm->makeVerticesMutable()->setContent(vertexCount(), vertexProperties);
+	sm->makeFacesMutable()->setContent(faceCount(), faceProperties);
+	sm->makeRegionsMutable()->setContent(regionCount(), regionProperties);
 }
 
 /******************************************************************************
@@ -167,16 +172,14 @@ bool SurfaceMeshData::smoothMesh(int numIterations, Task& task, FloatType k_PB, 
 * Signed Distance Computation Using the Angle Weighted Pseudonormal
 * IEEE Transactions on Visualization and Computer Graphics 11 (2005), Page 243
 ******************************************************************************/
-int SurfaceMeshData::locatePoint(const Point3& location, FloatType epsilon, const boost::dynamic_bitset<>& faceSubset)
+boost::optional<SurfaceMeshData::region_index> SurfaceMeshData::locatePoint(const Point3& location, FloatType epsilon, const boost::dynamic_bitset<>& faceSubset) const
 {
-	OVITO_ASSERT(spaceFillingRegion() >= 0);
-
 	// Determine which vertex is closest to the test point.
 	FloatType closestDistanceSq = FLOATTYPE_MAX;
 	vertex_index closestVertex = HalfEdgeMesh::InvalidIndex;
 	edge_index closestVertexFirstEdge = HalfEdgeMesh::InvalidIndex;
 	Vector3 closestNormal, closestVector;
-	int closestRegion = spaceFillingRegion();
+	region_index closestRegion = spaceFillingRegion();
     size_type vcount = vertexCount();
 	for(vertex_index vindex = 0; vindex < vcount; vindex++) {
 		edge_index firstEdge = firstVertexEdge(vindex);
@@ -203,7 +206,7 @@ int SurfaceMeshData::locatePoint(const Point3& location, FloatType epsilon, cons
 	size_type edgeCount = this->edgeCount();
 	for(edge_index edge = 0; edge < edgeCount; edge++) {
 		if(!faceSubset.empty() && !faceSubset[adjacentFace(edge)]) continue;
-		OVITO_ASSERT_MSG(hasOppositeEdge(edge), "SurfaceMeshData::locatePoint", "Surface mesh is not fully closed. This should not happen.");
+		OVITO_ASSERT_MSG(hasOppositeEdge(edge), "SurfaceMeshData::locatePoint()", "Surface mesh is not fully closed. This should not happen.");
 		const Point3& p1 = vertexPosition(vertex1(edge));
 		const Point3& p2 = vertexPosition(vertex2(edge));
 		Vector3 edgeDir = cell().wrapVector(p2 - p1);
@@ -224,10 +227,7 @@ int SurfaceMeshData::locatePoint(const Point3& location, FloatType epsilon, cons
 			Vector3 e1 = cell().wrapVector(p1a - p1);
 			Vector3 e2 = cell().wrapVector(p1b - p1);
 			closestNormal = edgeDir.cross(e1).safelyNormalized() + e2.cross(edgeDir).safelyNormalized();
-			if(_faceRegions) {
-				closestRegion = _faceRegions[adjacentFace(edge)];
-			}
-			else closestRegion = 1;
+			closestRegion = _faceRegions ? _faceRegions[adjacentFace(edge)] : 0;
 		}
 	}
 
@@ -266,10 +266,7 @@ int SurfaceMeshData::locatePoint(const Point3& location, FloatType epsilon, cons
 				closestVector = normal * planeDist;
 				closestVertex = HalfEdgeMesh::InvalidIndex;
 				closestNormal = normal;
-				if(_faceRegions) {
-					closestRegion = _faceRegions[face];
-				}
-				else closestRegion = 1;
+				closestRegion = _faceRegions ? _faceRegions[face] : 0;
 			}
 		}
 	}
@@ -294,17 +291,13 @@ int SurfaceMeshData::locatePoint(const Point3& location, FloatType epsilon, cons
 			edge1v = edge2v;
 		}
 		while(edge != closestVertexFirstEdge);
-		if(_faceRegions) {
-			closestRegion = _faceRegions[adjacentFace(edge)];
-		}
-		else closestRegion = 1;
+		closestRegion = _faceRegions ? _faceRegions[adjacentFace(edge)] : 0;
 	}
-	OVITO_ASSERT(closestRegion >= 0);
 
 	FloatType dot = closestNormal.dot(closestVector);
 	if(dot >= epsilon) return closestRegion;
 	if(dot <= -epsilon) return spaceFillingRegion();
-	return -1;
+	return {};
 }
 
 /******************************************************************************
@@ -478,7 +471,7 @@ void SurfaceMeshData::constructConvexHull(std::vector<Point3> vecs)
 /******************************************************************************
 * Triangulates the polygonal faces of this mesh and outputs the results as a TriMesh object.
 ******************************************************************************/
-void SurfaceMeshData::convertToTriMesh(TriMesh& outputMesh, bool smoothShading, const boost::dynamic_bitset<>& faceSubset, std::vector<size_t>* originalFaceMap) const
+void SurfaceMeshData::convertToTriMesh(TriMesh& outputMesh, bool smoothShading, const boost::dynamic_bitset<>& faceSubset, std::vector<size_t>* originalFaceMap, bool autoGenerateOppositeFaces) const
 {
 	const HalfEdgeMesh& topology = *this->topology();
 	HalfEdgeMesh::size_type faceCount = topology.faceCount();
@@ -494,11 +487,12 @@ void SurfaceMeshData::convertToTriMesh(TriMesh& outputMesh, bool smoothShading, 
 	for(HalfEdgeMesh::face_index face = 0; face < faceCount; face++) {
 		if(!faceSubset.empty() && !faceSubset[face]) continue;
 
-		// Go around the edges of the face to triangulate the general polygon.
+		// Go around the edges of the face to triangulate the general polygon (assuming it is convex).
 		HalfEdgeMesh::edge_index faceEdge = topology.firstFaceEdge(face);
 		HalfEdgeMesh::vertex_index baseVertex = topology.vertex2(faceEdge);
 		HalfEdgeMesh::edge_index edge1 = topology.nextFaceEdge(faceEdge);
 		HalfEdgeMesh::edge_index edge2 = topology.nextFaceEdge(edge1);
+		bool createOppositeFace = autoGenerateOppositeFaces && (!topology.hasOppositeFace(face) || (!faceSubset.empty() && !faceSubset[topology.oppositeFace(face)])) ;
 		while(edge2 != faceEdge) {
 			TriMeshFace& outputFace = outputMesh.addFace();
 			outputFace.setVertices(baseVertex, topology.vertex2(edge1), topology.vertex2(edge2));
@@ -509,6 +503,14 @@ void SurfaceMeshData::convertToTriMesh(TriMesh& outputMesh, bool smoothShading, 
 			edge2 = topology.nextFaceEdge(edge2);
 			if(edge2 == faceEdge)
 				outputFace.setEdgeVisible(2);
+			if(createOppositeFace) {
+				TriMeshFace& oppositeFace = outputMesh.addFace();
+				const TriMeshFace& thisFace = outputMesh.face(outputMesh.faceCount()-2);
+				oppositeFace.setVertices(thisFace.vertex(2), thisFace.vertex(1), thisFace.vertex(0));
+				oppositeFace.setEdgeVisibility(thisFace.edgeVisible(1), thisFace.edgeVisible(0), thisFace.edgeVisible(2));
+				if(originalFaceMap)
+					originalFaceMap->push_back(face);
+			}
 		}
 	}
 

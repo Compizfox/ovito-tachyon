@@ -97,6 +97,14 @@
 * Boost Library
 ******************************************************************************/
 #include <boost/dynamic_bitset.hpp>
+#include <boost/optional/optional.hpp>
+#include <boost/range/algorithm.hpp>
+#include <boost/algorithm/algorithm.hpp>
+#include <boost/algorithm/cxx11/all_of.hpp>
+#include <boost/algorithm/cxx11/any_of.hpp>
+#include <boost/algorithm/cxx11/none_of.hpp>
+#include <boost/algorithm/cxx11/one_of.hpp>
+#include <boost/algorithm/cxx11/iota.hpp>
 
 /*! \namespace Ovito
     \brief The root namespace of OVITO.

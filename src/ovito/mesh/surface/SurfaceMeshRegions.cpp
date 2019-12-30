@@ -21,7 +21,9 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 
 #include <ovito/mesh/Mesh.h>
+#include <ovito/stdobj/properties/PropertyAccess.h>
 #include "SurfaceMeshRegions.h"
+#include "SurfaceMeshVis.h"
 
 namespace Ovito { namespace Mesh {
 
@@ -37,6 +39,11 @@ PropertyPtr SurfaceMeshRegions::OOMetaClass::createStandardStorage(size_t region
 	size_t stride;
 
 	switch(type) {
+	case SelectionProperty:
+		dataType = PropertyStorage::Int;
+		componentCount = 1;
+		stride = sizeof(int);
+		break;
 	case ColorProperty:
 		dataType = PropertyStorage::Float;
 		componentCount = 3;
@@ -71,9 +78,22 @@ PropertyPtr SurfaceMeshRegions::OOMetaClass::createStandardStorage(size_t region
 	PropertyPtr property = std::make_shared<PropertyStorage>(regionCount, dataType, componentCount, stride,
 								propertyName, false, type, componentNames);
 
+	// Initialize memory if requested.
+	if(initializeMemory && containerPath.size() >= 2) {
+		// Certain standard properties need to be initialized with default values determined by the attached visual elements.
+		if(type == ColorProperty) {
+			if(const SurfaceMesh* surfaceMesh = dynamic_object_cast<SurfaceMesh>(containerPath[containerPath.size()-2])) {
+				if(SurfaceMeshVis* vis = surfaceMesh->visElement<SurfaceMeshVis>()) {
+					PropertyAccess<Color>(property).fill(vis->surfaceColor());
+					initializeMemory = false;
+				}
+			}
+		}
+	}
+
 	if(initializeMemory) {
 		// Default-initialize property values with zeros.
-		std::memset(property->data(), 0, property->size() * property->stride());
+		property->fillZero();
 	}
 
 	return property;
@@ -94,10 +114,11 @@ void SurfaceMeshRegions::OOMetaClass::initialize()
 	const QStringList rgbList = QStringList() << "R" << "G" << "B";
 	const QStringList tensorList = QStringList() << "XX" << "YX" << "ZX" << "XY" << "YY" << "ZY" << "XZ" << "YZ" << "ZZ";
 
+	registerStandardProperty(SelectionProperty, tr("Selection"), PropertyStorage::Int, emptyList);
 	registerStandardProperty(ColorProperty, tr("Color"), PropertyStorage::Float, rgbList, tr("Region colors"));
 	registerStandardProperty(PhaseProperty, tr("Phase"), PropertyStorage::Int, emptyList, tr("Phases"));
 	registerStandardProperty(VolumeProperty, tr("Volume"), PropertyStorage::Float, emptyList);
-	registerStandardProperty(SurfaceAreaProperty, tr("Surface area"), PropertyStorage::Float, emptyList);
+	registerStandardProperty(SurfaceAreaProperty, tr("Surface Area"), PropertyStorage::Float, emptyList);
 	registerStandardProperty(LatticeCorrespondenceProperty, tr("Lattice Correspondence"), PropertyStorage::Float, tensorList);
 }
 

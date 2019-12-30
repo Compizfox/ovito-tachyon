@@ -47,6 +47,13 @@ public:
 #else
 	SharedFuture() noexcept {}
 #endif
+
+	/// Move constructor.
+	SharedFuture(SharedFuture&& other) noexcept = default;
+
+	/// Copy constructor.
+	SharedFuture(const SharedFuture& other) noexcept = default;
+
 	/// Constructor that constructs a shared future from a normal future.
 	SharedFuture(Future<R...>&& other) noexcept : FutureBase(std::move(other)) {}
 
@@ -59,10 +66,16 @@ public:
 	SharedFuture(R2&&... val) noexcept : FutureBase(std::move(promise_type::createImmediate(std::forward<R2>(val)...)._task)) {}
 
 	/// Cancels the shared state associated with this Future.
-	/// The Future is no longer valid after calling this function.
+	/// The SharedFuture is no longer valid after calling this function.
 	void cancelRequest() {
 		reset();
 	}
+
+	/// Move assignment operator.
+	SharedFuture& operator=(SharedFuture&& other) noexcept = default;
+
+	/// Copy assignment operator.
+	SharedFuture& operator=(const SharedFuture& other) noexcept = default;
 
 	/// Returns the results computed by the associated Promise.
 	/// This function may only be called after the Promise was fulfilled (and not canceled).
@@ -84,12 +97,12 @@ public:
 	/// Returns a new future that, upon the fulfillment of this future, will
     /// be fulfilled by the specified continuation function.
 	template<typename FC, class Executor>
-	typename detail::resulting_future_type<FC,std::add_lvalue_reference_t<const tuple_type>>::type then(Executor&& executor, FC&& cont);
+	typename Ovito::detail::resulting_future_type<FC,std::add_lvalue_reference_t<const tuple_type>>::type then(Executor&& executor, FC&& cont);
 
 	/// Version of the function above, which uses the default inline executor.
 	template<typename FC>
-	typename detail::resulting_future_type<FC,std::add_lvalue_reference_t<const tuple_type>>::type then(FC&& cont) {
-		return then(detail::InlineExecutor(), std::forward<FC>(cont));
+	typename Ovito::detail::resulting_future_type<FC,std::add_lvalue_reference_t<const tuple_type>>::type then(FC&& cont) {
+		return then(Ovito::detail::InlineExecutor(), std::forward<FC>(cont));
 	}
 
 	/// Runs the given function once this future has reached the 'finished' state.
@@ -99,7 +112,7 @@ public:
 
 	/// Version of the function above, which uses the default inline executor.
 	template<typename FC>
-	void finally_future(FC&& cont) { finally_future(detail::InlineExecutor(), std::forward<FC>(cont)); }
+	void finally_future(FC&& cont) { finally_future(Ovito::detail::InlineExecutor(), std::forward<FC>(cont)); }
 
 protected:
 
@@ -113,11 +126,11 @@ protected:
 /// be fulfilled by the specified continuation function.
 template<typename... R>
 template<typename FC, class Executor>
-typename detail::resulting_future_type<FC,std::add_lvalue_reference_t<const typename SharedFuture<R...>::tuple_type>>::type SharedFuture<R...>::then(Executor&& executor, FC&& cont)
+typename Ovito::detail::resulting_future_type<FC,std::add_lvalue_reference_t<const typename SharedFuture<R...>::tuple_type>>::type SharedFuture<R...>::then(Executor&& executor, FC&& cont)
 {
 	// The future type returned by then():
-	using ResultFutureType = typename detail::resulting_future_type<FC, std::add_lvalue_reference_t<const tuple_type>>::type;
-	using ContinuationStateType = typename detail::continuation_state_type<FC,std::add_lvalue_reference_t<const tuple_type>>::type;
+	using ResultFutureType = typename Ovito::detail::resulting_future_type<FC, std::add_lvalue_reference_t<const tuple_type>>::type;
+	using ContinuationStateType = typename Ovito::detail::continuation_state_type<FC,std::add_lvalue_reference_t<const tuple_type>>::type;
 
 	// This future must be valid for then() to work.
 	OVITO_ASSERT_MSG(isValid(), "SharedFuture::then()", "Future must be valid.");

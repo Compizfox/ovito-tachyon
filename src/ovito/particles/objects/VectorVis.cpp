@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Copyright 2018 Alexander Stukowski
+//  Copyright 2019 Alexander Stukowski
 //
 //  This file is part of OVITO (Open Visualization Tool).
 //
@@ -22,6 +22,7 @@
 
 #include <ovito/particles/Particles.h>
 #include <ovito/particles/objects/ParticlesObject.h>
+#include <ovito/stdobj/properties/PropertyAccess.h>
 #include <ovito/core/utilities/units/UnitsManager.h>
 #include <ovito/core/utilities/concurrent/ParallelFor.h>
 #include <ovito/core/dataset/DataSet.h>
@@ -116,19 +117,19 @@ Box3 VectorVis::arrowBoundingBox(const PropertyObject* vectorProperty, const Pro
 
 	// Compute bounding box of particle positions (only those with non-zero vector).
 	Box3 bbox;
-	const Point3* p = positionProperty->constDataPoint3();
-	const Point3* p_end = p + positionProperty->size();
-	const Vector3* v = vectorProperty->constDataVector3();
-	for(; p != p_end; ++p, ++v) {
-		if((*v) != Vector3::Zero())
+	ConstPropertyAccess<Point3> positions(positionProperty);
+	ConstPropertyAccess<Vector3> vectorData(vectorProperty);
+	const Point3* p = positions.cbegin();
+	for(const Vector3& v : vectorData) {
+		if(v != Vector3::Zero())
 			bbox.addPoint(*p);
+		++p;
 	}
 
 	// Find largest vector magnitude.
 	FloatType maxMagnitude = 0;
-	const Vector3* v_end = vectorProperty->constDataVector3() + vectorProperty->size();
-	for(v = vectorProperty->constDataVector3(); v != v_end; ++v) {
-		FloatType m = v->squaredLength();
+	for(const Vector3& v : vectorData) {
+		FloatType m = v.squaredLength();
 		if(m > maxMagnitude) maxMagnitude = m;
 	}
 
@@ -198,8 +199,9 @@ void VectorVis::render(TimePoint time, const std::vector<const DataObject*>& obj
 
 		// Determine number of non-zero vectors.
 		int vectorCount = 0;
+		ConstPropertyAccess<Vector3> vectorData(vectorProperty);
 		if(vectorProperty && positionProperty) {
-			for(const Vector3& v : vectorProperty->constVector3Range()) {
+			for(const Vector3& v : vectorData) {
 				if(v != Vector3::Zero())
 					vectorCount++;
 			}
@@ -213,10 +215,12 @@ void VectorVis::render(TimePoint time, const std::vector<const DataObject*>& obj
 			ColorA color(arrowColor());
 			FloatType width = arrowWidth();
 			ArrowPrimitive* buffer = arrowPrimitive.get();
-			const Point3* pos = positionProperty->constDataPoint3();
-			const Color* pcol = vectorColorProperty ? vectorColorProperty->constDataColor() : nullptr;
+			ConstPropertyAccess<Point3> positions(positionProperty);
+			const Point3* pos = positions.cbegin();
+			ConstPropertyAccess<Color> vectorColorData(vectorColorProperty);
+			const Color* pcol = vectorColorData ? vectorColorData.cbegin() : nullptr;
 			int index = 0;
-			for(const Vector3& vec : vectorProperty->constVector3Range()) {
+			for(const Vector3& vec : vectorData) {
 				if(vec != Vector3::Zero()) {
 					Vector3 v = vec * scalingFac;
 					Point3 base = *pos;
@@ -225,14 +229,14 @@ void VectorVis::render(TimePoint time, const std::vector<const DataObject*>& obj
 					else if(arrowPosition() == Center)
 						base -= v * FloatType(0.5);
 					if(pcol)
-						color = ColorA(*pcol);
+						color = *pcol;
 					buffer->setElement(index++, base, v, color, width);
 				}
 				++pos;
 				if(pcol) ++pcol;
 			}
-			OVITO_ASSERT(pos == positionProperty->constDataPoint3() + positionProperty->size());
-			OVITO_ASSERT(!pcol || pcol == vectorColorProperty->constDataColor() + vectorColorProperty->size());
+			OVITO_ASSERT(pos == positions.cend());
+			OVITO_ASSERT(!pcol || pcol == vectorColorData.cend());
 			OVITO_ASSERT(index == vectorCount);
 		}
 		arrowPrimitive->endSetElements();
@@ -256,7 +260,8 @@ size_t VectorPickInfo::particleIndexFromSubObjectID(quint32 subobjID) const
 {
 	if(_vectorProperty) {
 		size_t particleIndex = 0;
-		for(const Vector3& v : _vectorProperty->constVector3Range()) {
+		ConstPropertyAccess<Vector3> vectorData(_vectorProperty);
+		for(const Vector3& v : vectorData) {
 			if(v != Vector3::Zero()) {
 				if(subobjID == 0) return particleIndex;
 				subobjID--;

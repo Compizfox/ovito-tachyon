@@ -22,6 +22,7 @@
 
 #include <ovito/stdmod/StdMod.h>
 #include <ovito/stdobj/properties/PropertyObject.h>
+#include <ovito/stdobj/properties/PropertyAccess.h>
 #include <ovito/core/dataset/pipeline/ModifierApplication.h>
 #include <ovito/core/dataset/data/AttributeDataObject.h>
 #include <ovito/core/dataset/io/FileSource.h>
@@ -54,17 +55,17 @@ CombineDatasetsModifier::CombineDatasetsModifier(DataSet* dataset) : MultiDelega
 /******************************************************************************
 * Modifies the input data.
 ******************************************************************************/
-Future<PipelineFlowState> CombineDatasetsModifier::evaluate(TimePoint time, ModifierApplication* modApp, const PipelineFlowState& input)
+Future<PipelineFlowState> CombineDatasetsModifier::evaluate(const PipelineEvaluationRequest& request, ModifierApplication* modApp, const PipelineFlowState& input)
 {
 	// Get the secondary data source.
 	if(!secondaryDataSource())
 		throwException(tr("No dataset to be merged has been provided."));
 
 	// Get the state.
-	SharedFuture<PipelineFlowState> secondaryStateFuture = secondaryDataSource()->evaluate(time);
+	SharedFuture<PipelineFlowState> secondaryStateFuture = secondaryDataSource()->evaluate(request);
 
 	// Wait for the data to become available.
-	return secondaryStateFuture.then(executor(), [this, state = input, time, modApp = OORef<ModifierApplication>(modApp)](const PipelineFlowState& secondaryState) mutable {
+	return secondaryStateFuture.then(executor(), [this, state = input, time = request.time(), modApp = OORef<ModifierApplication>(modApp)](const PipelineFlowState& secondaryState) mutable {
 
 		UndoSuspender noUndo(this);
 
@@ -198,8 +199,9 @@ void CombineDatasetsModifierDelegate::mergeElementTypes(PropertyObject* property
 	}
 	// Remap particle property values.
 	if(typeMap.empty() == false) {
-		int* p = property1->dataInt() + (property1->size() - property2->size());
-		int* p_end = property1->dataInt() + property1->size();
+		PropertyAccess<int> selectionArray1 = property1;
+		auto p = selectionArray1.begin() + (property1->size() - property2->size());
+		auto p_end = selectionArray1.end();
 		for(; p != p_end; ++p) {
 			auto iter = typeMap.find(*p);
 			if(iter != typeMap.end()) *p = iter->second;

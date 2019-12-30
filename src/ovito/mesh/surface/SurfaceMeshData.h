@@ -29,6 +29,7 @@
 #include <ovito/mesh/surface/SurfaceMeshFaces.h>
 #include <ovito/mesh/surface/SurfaceMeshRegions.h>
 #include <ovito/stdobj/properties/PropertyStorage.h>
+#include <ovito/stdobj/properties/PropertyAccess.h>
 #include <ovito/stdobj/simcell/SimulationCell.h>
 
 namespace Ovito { namespace Mesh {
@@ -175,8 +176,8 @@ public:
         OVITO_ASSERT(isTopologyMutable());
         OVITO_ASSERT(areVertexPropertiesMutable());
         vertex_index vidx = topology()->createVertex();
-        for(const auto& prop : _vertexProperties) {
-            if(prop->grow(1))
+        for(auto& prop : _vertexProperties) {
+            if(prop.storage()->grow(1))
                 updateVertexPropertyPointers(prop);
         }
         vertexCoords()[vidx] = pos;
@@ -191,8 +192,8 @@ public:
         size_type oldVertexCount = vertexCount();
         auto nverts = std::distance(begin, end);
         topology()->createVertices(nverts);
-        for(const auto& prop : _vertexProperties) {
-            if(prop->grow(nverts))
+        for(auto& prop : _vertexProperties) {
+            if(prop.storage()->grow(nverts))
                 updateVertexPropertyPointers(prop);
         }
 	    std::copy(begin, end, vertexCoords() + oldVertexCount);
@@ -205,33 +206,33 @@ public:
         OVITO_ASSERT(areVertexPropertiesMutable());
         if(vertex < vertexCount() - 1) {
             // Move the last vertex to the index of the vertex being deleted.
-            for(const auto& prop : _vertexProperties) {
-                OVITO_ASSERT(prop->size() == vertexCount());
-                std::memcpy(prop->dataAt(vertex), prop->constDataAt(prop->size() - 1), prop->stride());
+            for(auto& prop : _vertexProperties) {
+                OVITO_ASSERT(prop.size() == vertexCount());
+                std::memcpy(prop.data(vertex, 0), prop.cdata(prop.size() - 1, 0), prop.stride());
             }
         }
         // Truncate the vertex property arrays.
         for(const auto& prop : _vertexProperties) {
-            prop->truncate(1);
+            prop.storage()->truncate(1);
         }
         topology()->deleteVertex(vertex);
     }
 
     /// Creates a new face, and optionally also the half-edges surrounding it.
     /// Returns the index of the new face.
-    face_index createFace(std::initializer_list<vertex_index> vertices, region_index faceRegion = 1) {
+    face_index createFace(std::initializer_list<vertex_index> vertices, region_index faceRegion = HalfEdgeMesh::InvalidIndex) {
         return createFace(vertices.begin(), vertices.end(), faceRegion);
     }
 
     /// Creates a new face, and optionally also the half-edges surrounding it.
     /// Returns the index of the new face.
     template<typename VertexIterator>
-    face_index createFace(VertexIterator begin, VertexIterator end, region_index faceRegion = 1) {
+    face_index createFace(VertexIterator begin, VertexIterator end, region_index faceRegion = HalfEdgeMesh::InvalidIndex) {
         OVITO_ASSERT(isTopologyMutable());
         OVITO_ASSERT(areFacePropertiesMutable());
         face_index fidx = (begin == end) ? topology()->createFace() : topology()->createFaceAndEdges(begin, end);
-        for(const auto& prop : _faceProperties) {
-            if(prop->grow(1))
+        for(auto& prop : _faceProperties) {
+            if(prop.storage()->grow(1))
                 updateFacePropertyPointers(prop);
         }
         if(_faceRegions) {
@@ -248,16 +249,17 @@ public:
     /// The half-edges of the face are also disconnected from their respective opposite half-edges and deleted by this method.
     void deleteFace(face_index face) {
         OVITO_ASSERT(isTopologyMutable());
+        OVITO_ASSERT(areFacePropertiesMutable());
         if(face < faceCount() - 1) {
             // Move the last face to the index of the face being deleted.
-            for(const auto& prop : _faceProperties) {
-                OVITO_ASSERT(prop->size() == faceCount());
-                std::memcpy(prop->dataAt(face), prop->constDataAt(prop->size() - 1), prop->stride());
+            for(auto& prop : _faceProperties) {
+                OVITO_ASSERT(prop.size() == faceCount());
+                std::memcpy(prop.data(face, 0), prop.cdata(prop.size() - 1, 0), prop.stride());
             }
         }
         // Truncate the face property arrays.
         for(const auto& prop : _faceProperties) {
-            prop->truncate(1);
+            prop.storage()->truncate(1);
         }
         topology()->deleteFace(face);
     }
@@ -288,8 +290,8 @@ public:
     region_index createRegion(int phase = 0, FloatType volume = 0, FloatType surfaceArea = 0) {
         OVITO_ASSERT(areRegionPropertiesMutable());
         vertex_index ridx = _regionCount++;
-        for(const auto& prop : _regionProperties) {
-            if(prop->grow(1))
+        for(auto& prop : _regionProperties) {
+            if(prop.storage()->grow(1))
                 updateRegionPropertyPointers(prop);
         }
         if(_regionPhases) {
@@ -302,6 +304,43 @@ public:
             _regionSurfaceAreas[ridx] = surfaceArea;
         }
         return ridx;
+    }
+
+    /// Defines an array of new spatial regions.
+    region_index createRegions(size_type numRegions) {
+        OVITO_ASSERT(areRegionPropertiesMutable());
+        vertex_index ridx = _regionCount;
+        _regionCount += numRegions;
+        for(auto& prop : _regionProperties) {
+            if(prop.storage()->grow(numRegions))
+                updateRegionPropertyPointers(prop);
+        }
+        return ridx;
+    }
+
+    /// Deletes a region from the mesh.
+    /// This method assumes that the region is not referenced by any other part of the mesh.
+    void deleteRegion(region_index region) {
+        OVITO_ASSERT(isTopologyMutable());
+        OVITO_ASSERT(areRegionPropertiesMutable());
+        OVITO_ASSERT(areFacePropertiesMutable());
+        OVITO_ASSERT(region >= 0 && region < regionCount());
+        OVITO_ASSERT(std::none_of(topology()->begin_faces(), topology()->end_faces(), [&](auto face) { return faceRegion(face) == region; } ));
+        if(region < regionCount() - 1) {
+            // Move the last region to the index of the region being deleted.
+            for(auto& prop : _regionProperties) {
+                OVITO_ASSERT(prop.size() == regionCount());
+                std::memcpy(prop.data(region, 0), prop.cdata(prop.size() - 1, 0), prop.stride());
+            }
+            // Update the faces that belong to the moved region.
+            if(hasFaceRegions())
+                std::replace(_faceRegions, _faceRegions + faceCount(), regionCount() - 1, region);
+        }
+        // Truncate the region property arrays.
+        for(const auto& prop : _regionProperties) {
+            prop.storage()->truncate(1);
+        }
+        _regionCount--;
     }
 
     /// Links two opposite half-edges together.
@@ -351,10 +390,10 @@ public:
         OVITO_ASSERT(areVertexPropertiesMutable());
         return topology()->makeManifold([this](HalfEdgeMesh::vertex_index copiedVertex) {
             // Duplicate the property data of the copied vertex.
-            for(const auto& prop : _vertexProperties) {
-                if(prop->grow(1))
+            for(auto& prop : _vertexProperties) {
+                if(prop.storage()->grow(1))
                     updateVertexPropertyPointers(prop);
-                std::memcpy(prop->dataAt(prop->size() - 1), prop->constDataAt(copiedVertex), prop->stride());
+                std::memcpy(prop.data(prop.size() - 1, 0), prop.cdata(copiedVertex, 0), prop.stride());
             }
         });
     }
@@ -363,30 +402,30 @@ public:
 	bool smoothMesh(int numIterations, Task& task, FloatType k_PB = FloatType(0.1), FloatType lambda = FloatType(0.5));
 
 	/// Determines which spatial region contains the given point in space.
-	/// Returns -1 if the point is exactly on a region boundary.
-	int locatePoint(const Point3& location, FloatType epsilon = FLOATTYPE_EPSILON, const boost::dynamic_bitset<>& faceSubset = boost::dynamic_bitset<>());
+	/// Returns no result if the point is exactly on a region boundary.
+	boost::optional<region_index> locatePoint(const Point3& location, FloatType epsilon = FLOATTYPE_EPSILON, const boost::dynamic_bitset<>& faceSubset = boost::dynamic_bitset<>()) const;
 
     /// Returns one of the standard vertex properties (or null if the property is not defined).
     PropertyPtr vertexProperty(SurfaceMeshVertices::Type ptype) const {
         for(const auto& property : _vertexProperties)
-            if(property->type() == ptype)
-                return property;
+            if(property.storage()->type() == ptype)
+                return property.storage();
         return {};
     }
 
     /// Returns one of the standard face properties (or null if the property is not defined).
     PropertyPtr faceProperty(SurfaceMeshFaces::Type ptype) const {
         for(const auto& property : _faceProperties)
-            if(property->type() == ptype)
-                return property;
+            if(property.storage()->type() == ptype)
+                return property.storage();
         return {};
     }
 
     /// Returns one of the standard spatial region properties (or null if the property is not defined).
     PropertyPtr regionProperty(SurfaceMeshRegions::Type ptype) const {
         for(const auto& property : _regionProperties)
-            if(property->type() == ptype)
-                return property;
+            if(property.storage()->type() == ptype)
+                return property.storage();
         return {};
     }
 
@@ -421,6 +460,23 @@ public:
         return prop;
     }
 
+	/// Adds a new user property to the mesh faces.
+	PropertyPtr createFaceProperty(int dataType, size_t componentCount, size_t stride, const QString& name, bool initializeMemory, QStringList componentNames = QStringList(), SurfaceMeshFaces::Type type = SurfaceMeshFaces::UserProperty) {
+        PropertyPtr prop = std::make_shared<PropertyStorage>(faceCount(), dataType, componentCount, stride, name, initializeMemory, type, std::move(componentNames));
+        addFaceProperty(prop);
+        return prop;
+    }
+
+    /// Removes a property from the faces of this mesh.
+    void removeFaceProperty(const PropertyStorage* property) {
+        OVITO_ASSERT(property);
+        auto iter = boost::find_if(_faceProperties, [&](const auto& p) { return p.storage().get() == property; });
+        OVITO_ASSERT(iter != _faceProperties.end());
+        OVITO_ASSERT(property->size() == faceCount());
+        updateFacePropertyPointers(*iter, false);
+        _faceProperties.erase(iter);
+    }
+
     /// Adds a new standard property to the spatial regions of the mesh.
     PropertyPtr createRegionProperty(SurfaceMeshRegions::Type ptype, bool initialize = false) {
         OVITO_ASSERT(ptype != SurfaceMeshRegions::UserProperty);
@@ -433,34 +489,41 @@ public:
         return prop;
     }
 
+	/// Adds a new user property to the mesh regions.
+	PropertyPtr createRegionProperty(int dataType, size_t componentCount, size_t stride, const QString& name, bool initializeMemory, QStringList componentNames = QStringList(), SurfaceMeshRegions::Type type = SurfaceMeshRegions::UserProperty) {
+        PropertyPtr prop = std::make_shared<PropertyStorage>(regionCount(), dataType, componentCount, stride, name, initializeMemory, type, std::move(componentNames));
+        addRegionProperty(prop);
+        return prop;
+    }
+
     /// Adds a mesh vertex property array to the list of vertex properties.
     void addVertexProperty(PropertyPtr property) {
         OVITO_ASSERT(property);
-        OVITO_ASSERT(std::find(_vertexProperties.cbegin(), _vertexProperties.cend(), property) == _vertexProperties.cend());
-        OVITO_ASSERT(property->type() == SurfaceMeshVertices::UserProperty || std::none_of(_vertexProperties.cbegin(), _vertexProperties.cend(), [t = property->type()](const PropertyPtr& p) { return p->type() == t; }));
+        OVITO_ASSERT(boost::find_if(_vertexProperties, [&](const auto& p) { return p.storage() == property; }) == _vertexProperties.end());
+        OVITO_ASSERT(property->type() == SurfaceMeshVertices::UserProperty || std::none_of(_vertexProperties.cbegin(), _vertexProperties.cend(), [t = property->type()](const auto& p) { return p.storage()->type() == t; }));
         OVITO_ASSERT(property->size() == vertexCount());
-        updateVertexPropertyPointers(property);
         _vertexProperties.push_back(std::move(property));
+        updateVertexPropertyPointers(_vertexProperties.back());
     }
 
     /// Adds a mesh face property array to the list of face properties.
     void addFaceProperty(PropertyPtr property) {
         OVITO_ASSERT(property);
-        OVITO_ASSERT(std::find(_faceProperties.cbegin(), _faceProperties.cend(), property) == _faceProperties.cend());
-        OVITO_ASSERT(property->type() == SurfaceMeshFaces::UserProperty || std::none_of(_faceProperties.cbegin(), _faceProperties.cend(), [t = property->type()](const PropertyPtr& p) { return p->type() == t; }));
+        OVITO_ASSERT(boost::find_if(_faceProperties, [&](const auto& p) { return p.storage() == property; }) == _faceProperties.end());
+        OVITO_ASSERT(property->type() == SurfaceMeshFaces::UserProperty || std::none_of(_faceProperties.cbegin(), _faceProperties.cend(), [t = property->type()](const auto& p) { return p.storage()->type() == t; }));
         OVITO_ASSERT(property->size() == faceCount());
-        updateFacePropertyPointers(property);
         _faceProperties.push_back(std::move(property));
+        updateFacePropertyPointers(_faceProperties.back());
     }
 
     /// Adds a property array to the list of region properties.
     void addRegionProperty(PropertyPtr property) {
         OVITO_ASSERT(property);
-        OVITO_ASSERT(std::find(_regionProperties.cbegin(), _regionProperties.cend(), property) == _regionProperties.cend());
-        OVITO_ASSERT(property->type() == SurfaceMeshRegions::UserProperty || std::none_of(_regionProperties.cbegin(), _regionProperties.cend(), [t = property->type()](const PropertyPtr& p) { return p->type() == t; }));
+        OVITO_ASSERT(boost::find_if(_regionProperties, [&](const auto& p) { return p.storage() == property; }) == _regionProperties.end());
+        OVITO_ASSERT(property->type() == SurfaceMeshRegions::UserProperty || boost::algorithm::none_of(_regionProperties, [t = property->type()](const auto& p) { return p.storage()->type() == t; }));
         OVITO_ASSERT(property->size() == regionCount());
-        updateRegionPropertyPointers(property);
         _regionProperties.push_back(std::move(property));
+        updateRegionPropertyPointers(_regionProperties.back());
     }
 
     /// Constructs the convex hull from a set of points and adds the resulting polyhedron to the mesh.
@@ -470,7 +533,7 @@ public:
     void joinCoplanarFaces(FloatType thresholdAngle = qDegreesToRadians(0.01));
 
     /// Triangulates the polygonal faces of this mesh and outputs the results as a TriMesh object.
-    void convertToTriMesh(TriMesh& outputMesh, bool smoothShading, const boost::dynamic_bitset<>& faceSubset = boost::dynamic_bitset<>{}, std::vector<size_t>* originalFaceMap = nullptr) const;
+    void convertToTriMesh(TriMesh& outputMesh, bool smoothShading, const boost::dynamic_bitset<>& faceSubset = boost::dynamic_bitset<>{}, std::vector<size_t>* originalFaceMap = nullptr, bool autoGenerateOppositeFaces = false) const;
 
     /// Swaps the contents of two surface meshes.
     void swap(SurfaceMeshData& other);
@@ -478,37 +541,79 @@ public:
     /// Computes the unit normal vector of a mesh face.
     Vector3 computeFaceNormal(face_index face) const;
 
-protected:
-
-    void updateVertexPropertyPointers(const PropertyPtr& property) {
-        if(property->type() == SurfaceMeshVertices::PositionProperty)
-            _vertexCoords = property->dataPoint3();
+    /// Makes a copy of the topology data structure if it is currently referenced by other owners. 
+    void makeTopologyMutable() {
+        if(!isTopologyMutable())
+            _topology = std::make_shared<HalfEdgeMesh>(*topology());
+        OVITO_ASSERT(isTopologyMutable());
     }
 
-    void updateFacePropertyPointers(const PropertyPtr& property) {
-        switch(property->type()) {
-        case SurfaceMeshFaces::RegionProperty:
-            _faceRegions = property->dataInt();
-            break;
-        case SurfaceMeshFaces::BurgersVectorProperty:
-            _burgersVectors = property->dataVector3();
-            break;
-        case SurfaceMeshFaces::CrystallographicNormalProperty:
-            _crystallographicNormals = property->dataVector3();
-            break;
-        case SurfaceMeshFaces::FaceTypeProperty:
-            _faceTypes = property->dataInt();
+    /// Makes a deep copy of every vertex property array that is are currently referenced by other owners. 
+    void makeVertexPropertiesMutable() {
+        for(auto& property : _vertexProperties) {
+            property.makeMutable();
+            updateVertexPropertyPointers(property);
+        }
+        OVITO_ASSERT(areVertexPropertiesMutable());
+    }
+
+    /// Makes a deep copy of every face property array that is are currently referenced by other owners. 
+    void makeFacePropertiesMutable() {
+        for(auto& property : _faceProperties) {
+            property.makeMutable();
+            updateFacePropertyPointers(property);
+        }
+        OVITO_ASSERT(areFacePropertiesMutable());
+    }
+
+    /// Makes a deep copy of every region property array that is are currently referenced by other owners. 
+    void makeRegionPropertiesMutable() {
+        for(auto& property : _regionProperties) {
+            property.makeMutable();
+            updateRegionPropertyPointers(property);
+        }
+        OVITO_ASSERT(areRegionPropertiesMutable());
+    }
+
+protected:
+
+    void updateVertexPropertyPointers(PropertyAccessAndRef<void,true>& property, bool inserted = true) {
+        switch(property.storage()->type()) {
+        case SurfaceMeshVertices::PositionProperty:
+            _vertexCoords = inserted ? reinterpret_cast<Point3*>(property.data()) : nullptr;
             break;
         }
     }
 
-    void updateRegionPropertyPointers(const PropertyPtr& property) {
-        if(property->type() == SurfaceMeshRegions::PhaseProperty)
-            _regionPhases = property->dataInt();
-        else if(property->type() == SurfaceMeshRegions::VolumeProperty)
-            _regionVolumes = property->dataFloat();
-        else if(property->type() == SurfaceMeshRegions::SurfaceAreaProperty)
-            _regionSurfaceAreas = property->dataFloat();
+    void updateFacePropertyPointers(PropertyAccessAndRef<void,true>& property, bool inserted = true) {
+        switch(property.storage()->type()) {
+        case SurfaceMeshFaces::RegionProperty:
+            _faceRegions = inserted ? reinterpret_cast<int*>(property.data()) : nullptr;
+            break;
+        case SurfaceMeshFaces::BurgersVectorProperty:
+            _burgersVectors = inserted ? reinterpret_cast<Vector3*>(property.data()) : nullptr;
+            break;
+        case SurfaceMeshFaces::CrystallographicNormalProperty:
+            _crystallographicNormals = inserted ? reinterpret_cast<Vector3*>(property.data()) : nullptr;
+            break;
+        case SurfaceMeshFaces::FaceTypeProperty:
+            _faceTypes = inserted ? reinterpret_cast<int*>(property.data()) : nullptr;
+            break;
+        }
+    }
+
+    void updateRegionPropertyPointers(PropertyAccessAndRef<void,true>& property, bool inserted = true) {
+        switch(property.storage()->type()) {
+        case SurfaceMeshRegions::PhaseProperty:
+            _regionPhases = inserted ? reinterpret_cast<int*>(property.data()) : nullptr;
+            break;
+        case SurfaceMeshRegions::VolumeProperty:
+            _regionVolumes = inserted ? reinterpret_cast<FloatType*>(property.data()) : nullptr;
+            break;
+        case SurfaceMeshRegions::SurfaceAreaProperty:
+            _regionSurfaceAreas = inserted ? reinterpret_cast<FloatType*>(property.data()) : nullptr;
+            break;
+        }
     }
 
     /// Returns whether the mesh topology may be safely modified without unwanted side effects.
@@ -518,40 +623,40 @@ protected:
 
     /// Returns whether the properties of the mesh vertices may be safely modified without unwanted side effects.
     bool areVertexPropertiesMutable() const {
-        return std::all_of(_vertexProperties.begin(), _vertexProperties.end(), [](const PropertyPtr& p) { return p.use_count() == 1; });
+        return std::all_of(_vertexProperties.begin(), _vertexProperties.end(), [](const auto& p) { return p.storage().use_count() == 1; });
     }
 
     /// Returns whether the properties of the mesh faces may be safely modified without unwanted side effects.
     bool areFacePropertiesMutable() const {
-        return std::all_of(_faceProperties.begin(), _faceProperties.end(), [](const PropertyPtr& p) { return p.use_count() == 1; });
+        return std::all_of(_faceProperties.begin(), _faceProperties.end(), [](const auto& p) { return p.storage().use_count() == 1; });
     }
 
     /// Returns whether the properties of the mesh regions may be safely modified without unwanted side effects.
     bool areRegionPropertiesMutable() const {
-        return std::all_of(_regionProperties.begin(), _regionProperties.end(), [](const PropertyPtr& p) { return p.use_count() == 1; });
+        return std::all_of(_regionProperties.begin(), _regionProperties.end(), [](const auto& p) { return p.storage().use_count() == 1; });
     }
 
     /// Returns whether the given property of the mesh vertices may be safely modified without unwanted side effects.
     bool isVertexPropertyMutable(SurfaceMeshVertices::Type ptype) const {
         for(const auto& property : _vertexProperties)
-            if(property->type() == ptype)
-                return property.use_count() == 1;
+            if(property.storage()->type() == ptype)
+                return property.storage().use_count() == 1;
         return false;
     }
 
     /// Returns whether the given property of the mesh faces may be safely modified without unwanted side effects.
     bool isFacePropertyMutable(SurfaceMeshFaces::Type ptype) const {
         for(const auto& property : _faceProperties)
-            if(property->type() == ptype)
-                return property.use_count() == 1;
+            if(property.storage()->type() == ptype)
+                return property.storage().use_count() == 1;
         return false;
     }
 
     /// Returns whether the given property of the spatial regions may be safely modified without unwanted side effects.
     bool isRegionPropertyMutable(SurfaceMeshRegions::Type ptype) const {
         for(const auto& property : _regionProperties)
-            if(property->type() == ptype)
-                return property.use_count() == 1;
+            if(property.storage()->type() == ptype)
+                return property.storage().use_count() == 1;
         return false;
     }
 
@@ -575,21 +680,21 @@ protected:
 
 private:
 
-    HalfEdgeMeshPtr _topology;		///< Holds the mesh topology of the surface mesh.
-    SimulationCell _cell;			///< The simulation cell the microstructure is embedded in.
-    std::vector<PropertyPtr> _vertexProperties;	///< List of all property arrays associated with the vertices of the mesh.
-    std::vector<PropertyPtr> _faceProperties;	///< List of all property arrays associated with the faces of the mesh.
-    std::vector<PropertyPtr> _regionProperties;	///< List of all property arrays associated with the volumetric domains of the mesh.
-    size_type _regionCount = 0;             ///< The number of sptial regions that have been defined.
-    region_index _spaceFillingRegion = 0;	///< The index of the space-filling spatial region.
-    Point3* _vertexCoords = nullptr;	        ///< Pointer to the per-vertex mesh coordinates.
-    int* _faceRegions = nullptr;	            ///< Pointer to the per-face region information.
-	Vector3* _burgersVectors = nullptr;	        ///< Pointer to the per-face Burgers vector information.
+    HalfEdgeMeshPtr _topology;                  ///< Holds the mesh topology of the surface mesh.
+    SimulationCell _cell;                       ///< The simulation cell the microstructure is embedded in.
+    std::vector<PropertyAccessAndRef<void,true>> _vertexProperties;  ///< List of all property arrays associated with the vertices of the mesh.
+    std::vector<PropertyAccessAndRef<void,true>> _faceProperties;    ///< List of all property arrays associated with the faces of the mesh.
+    std::vector<PropertyAccessAndRef<void,true>> _regionProperties;  ///< List of all property arrays associated with the volumetric domains of the mesh.
+    size_type _regionCount = 0;                 ///< The number of spatial regions that have been defined.
+    region_index _spaceFillingRegion = HalfEdgeMesh::InvalidIndex;      ///< The index of the space-filling spatial region.
+    Point3* _vertexCoords = nullptr;            ///< Pointer to the per-vertex mesh coordinates.
+    int* _faceRegions = nullptr;                ///< Pointer to the per-face region information.
+	Vector3* _burgersVectors = nullptr;         ///< Pointer to the per-face Burgers vector information.
 	Vector3* _crystallographicNormals = nullptr;///< Pointer to the per-face crystallographic normal information.
-	int* _faceTypes = nullptr;			        ///< Pointer to the per-face type information.
-	int* _regionPhases = nullptr;			    ///< Pointer to the per-region phase information.
-	FloatType* _regionVolumes = nullptr;	    ///< Pointer to the per-region volume information.
-	FloatType* _regionSurfaceAreas = nullptr;	///< Pointer to the per-region surface area information.
+	int* _faceTypes = nullptr;                  ///< Pointer to the per-face type information.
+	int* _regionPhases = nullptr;               ///< Pointer to the per-region phase information.
+	FloatType* _regionVolumes = nullptr;        ///< Pointer to the per-region volume information.
+	FloatType* _regionSurfaceAreas = nullptr;   ///< Pointer to the per-region surface area information.
 };
 
 }	// End of namespace

@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Copyright 2017 Alexander Stukowski
+//  Copyright 2019 Alexander Stukowski
 //
 //  This file is part of OVITO (Open Visualization Tool).
 //
@@ -23,7 +23,9 @@
 #include <ovito/particles/Particles.h>
 #include <ovito/particles/objects/ParticlesObject.h>
 #include <ovito/stdobj/properties/PropertyStorage.h>
+#include <ovito/stdobj/properties/PropertyAccess.h>
 #include <ovito/core/dataset/pipeline/ModifierApplication.h>
+#include <ovito/core/dataset/pipeline/PipelineEvaluation.h>
 #include <ovito/core/dataset/animation/AnimationSettings.h>
 #include <ovito/core/utilities/units/UnitsManager.h>
 #include "ReferenceConfigurationModifier.h"
@@ -107,7 +109,7 @@ Future<AsynchronousModifier::ComputeEnginePtr> ReferenceConfigurationModifier::c
 	if(!refState.isValid()) {
 		if(!referenceConfiguration()) {
 			// Convert frame to animation time.
-			refState = modApp->evaluateInput(modApp->sourceFrameToAnimationTime(referenceFrame));
+			refState = modApp->evaluateInput(PipelineEvaluationRequest(modApp->sourceFrameToAnimationTime(referenceFrame)));
 		}
 		else {
 			if(referenceConfiguration()->numberOfSourceFrames() > 0) {
@@ -118,7 +120,7 @@ Future<AsynchronousModifier::ComputeEnginePtr> ReferenceConfigurationModifier::c
 					else
 						throwException(tr("Requested reference frame %1 is out of range. Cannot perform calculation at the current animation time.").arg(referenceFrame));
 				}
-				refState = referenceConfiguration()->evaluate(referenceConfiguration()->sourceFrameToAnimationTime(referenceFrame));
+				refState = referenceConfiguration()->evaluate(PipelineEvaluationRequest(referenceConfiguration()->sourceFrameToAnimationTime(referenceFrame)));
 			}
 			else {
 				// Create an empty state for the reference configuration if it is yet to be specified by the user.
@@ -218,7 +220,8 @@ bool ReferenceConfigurationModifier::RefConfigEngineBase::buildParticleMapping(b
 		// Build map of particle identifiers in reference configuration.
 		std::map<qlonglong, size_t> refMap;
 		size_t index = 0;
-		for(auto id : refIdentifiers()->constInt64Range()) {
+		ConstPropertyAccess<qlonglong> refIdentifiersArray(refIdentifiers());
+		for(auto id : refIdentifiersArray) {
 			if(refMap.insert(std::make_pair(id, index)).second == false)
 				throw Exception(tr("Particles with duplicate identifiers detected in reference configuration."));
 			index++;
@@ -230,7 +233,8 @@ bool ReferenceConfigurationModifier::RefConfigEngineBase::buildParticleMapping(b
 		// Check for duplicate identifiers in current configuration
 		std::map<qlonglong, size_t> currentMap;
 		index = 0;
-		for(auto id : identifiers()->constInt64Range()) {
+		ConstPropertyAccess<qlonglong> identifiersArray(identifiers());
+		for(auto id : identifiersArray) {
 			if(currentMap.insert(std::make_pair(id, index)).second == false)
 				throw Exception(tr("Particles with duplicate identifiers detected in current configuration."));
 			index++;
@@ -240,7 +244,7 @@ bool ReferenceConfigurationModifier::RefConfigEngineBase::buildParticleMapping(b
 			return false;
 
 		// Build index maps.
-		auto id = identifiers()->constDataInt64();
+		auto id = identifiersArray.cbegin();
 		for(auto& mappedIndex : _currentToRefIndexMap) {
 			auto iter = refMap.find(*id);
 			if(iter != refMap.end())
@@ -255,7 +259,7 @@ bool ReferenceConfigurationModifier::RefConfigEngineBase::buildParticleMapping(b
 		if(task()->isCanceled())
 			return false;
 
-		id = refIdentifiers()->constDataInt64();
+		id = refIdentifiersArray.cbegin();
 		for(auto& mappedIndex : _refToCurrentIndexMap) {
 			auto iter = currentMap.find(*id);
 			if(iter != currentMap.end())

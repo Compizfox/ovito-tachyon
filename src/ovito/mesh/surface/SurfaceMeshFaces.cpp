@@ -21,7 +21,9 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 
 #include <ovito/mesh/Mesh.h>
+#include <ovito/stdobj/properties/PropertyAccess.h>
 #include "SurfaceMeshFaces.h"
+#include "SurfaceMeshVis.h"
 
 namespace Ovito { namespace Mesh {
 
@@ -37,6 +39,7 @@ PropertyPtr SurfaceMeshFaces::OOMetaClass::createStandardStorage(size_t faceCoun
 	size_t stride;
 
 	switch(type) {
+	case SelectionProperty:
 	case RegionProperty:
 	case FaceTypeProperty:
 		dataType = PropertyStorage::Int;
@@ -68,9 +71,31 @@ PropertyPtr SurfaceMeshFaces::OOMetaClass::createStandardStorage(size_t faceCoun
 	PropertyPtr property = std::make_shared<PropertyStorage>(faceCount, dataType, componentCount, stride,
 								propertyName, false, type, componentNames);
 
+	// Initialize memory if requested.
+	if(initializeMemory && containerPath.size() >= 2) {
+		// Certain standard properties need to be initialized with default values determined by the attached visual elements.
+		if(type == ColorProperty) {
+			if(const SurfaceMesh* surfaceMesh = dynamic_object_cast<SurfaceMesh>(containerPath[containerPath.size()-2])) {
+				ConstPropertyAccess<Color> regionColorProperty = surfaceMesh->regions()->getProperty(SurfaceMeshRegions::ColorProperty);
+				ConstPropertyAccess<int> faceRegionProperty = surfaceMesh->faces()->getProperty(SurfaceMeshFaces::RegionProperty);
+				if(regionColorProperty && faceRegionProperty && faceRegionProperty.size() == faceCount) {
+					// Inherit face colors from regions.
+					boost::transform(faceRegionProperty, PropertyAccess<Color>(property).begin(), 
+						[&](int region) { return (region >= 0 && region) < regionColorProperty.size() ? regionColorProperty[region] : Color(1,1,1); });
+					initializeMemory = false;
+				}
+				else if(SurfaceMeshVis* vis = surfaceMesh->visElement<SurfaceMeshVis>()) {
+					// Initialize face colors from uniform color set in SurfaceMeshVis.
+					PropertyAccess<Color>(property).fill(vis->surfaceColor());
+					initializeMemory = false;
+				}
+			}
+		}
+	}
+
 	if(initializeMemory) {
 		// Default-initialize property values with zeros.
-		std::memset(property->data(), 0, property->size() * property->stride());
+		property->fillZero();
 	}
 
 	return property;
@@ -91,11 +116,12 @@ void SurfaceMeshFaces::OOMetaClass::initialize()
 	const QStringList xyzList = QStringList() << "X" << "Y" << "Z";
 	const QStringList rgbList = QStringList() << "R" << "G" << "B";
 
+	registerStandardProperty(SelectionProperty, tr("Selection"), PropertyStorage::Int, emptyList);
 	registerStandardProperty(ColorProperty, tr("Color"), PropertyStorage::Float, rgbList, tr("Face colors"));
 	registerStandardProperty(FaceTypeProperty, tr("Type"), PropertyStorage::Int, emptyList);
 	registerStandardProperty(RegionProperty, tr("Region"), PropertyStorage::Int, emptyList);
-	registerStandardProperty(BurgersVectorProperty, tr("Burgers vector"), PropertyStorage::Float, xyzList, tr("Burgers vectors"));
-	registerStandardProperty(CrystallographicNormalProperty, tr("Crystallographic normal"), PropertyStorage::Float, xyzList);
+	registerStandardProperty(BurgersVectorProperty, tr("Burgers Vector"), PropertyStorage::Float, xyzList, tr("Burgers vectors"));
+	registerStandardProperty(CrystallographicNormalProperty, tr("Crystallographic Normal"), PropertyStorage::Float, xyzList);
 }
 
 }	// End of namespace
