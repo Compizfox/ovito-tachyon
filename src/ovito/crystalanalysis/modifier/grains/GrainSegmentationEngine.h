@@ -70,6 +70,14 @@ public:
 class GrainSegmentationEngine : public StructureIdentificationModifier::StructureIdentificationEngine
 {
 public:
+
+	/// Represents a single bond connecting two neighboring lattice atoms.
+	struct NeighborBond {
+		size_t a;
+		size_t b;
+		FloatType disorientation;
+	};
+
 	/// Constructor.
 	GrainSegmentationEngine(
 			ParticleOrderingFingerprint fingerprint, ConstPropertyPtr positions, const SimulationCell& simCell,
@@ -83,13 +91,11 @@ public:
 	/// This method is called by the system to free memory and release any working data after the
 	/// computation has been successfully completed.
 	virtual void cleanup() override {
-		_neighborLists.reset();
+		decltype(_neighborLists){}.swap(_neighborLists);
 		decltype(_distanceSortedAtoms){}.swap(_distanceSortedAtoms);
 		decltype(_clusterOrientations){}.swap(_clusterOrientations);
-		if(!_outputBonds) {
-			decltype(_latticeNeighborBonds){}.swap(_latticeNeighborBonds);
-			_neighborDisorientationAngles.reset();
-		}
+		if(!_outputBondsToPipeline)
+			decltype(_neighborBonds){}.swap(_neighborBonds);
 		StructureIdentificationEngine::cleanup();
 	}
 
@@ -114,16 +120,13 @@ public:
 	/// Returns the computed per-particle lattice orientations.
 	const PropertyPtr& orientations() const { return _orientations; }
 
-	/// Returns the particle to cluster assignment.
+	/// Returns the array storing the cluster ID of each particle.
 	const PropertyPtr& atomClusters() const { return _atomClusters; }
 
-	/// Returns the bonds generated between neighboring lattice atoms.
-	const std::vector<Bond>& latticeNeighborBonds() const { return _latticeNeighborBonds; }
-
-	/// Returns the computed disorientation angles between neighboring lattice atoms.
-	const PropertyPtr& neighborDisorientationAngles() const { return _neighborDisorientationAngles; }
-
 private:
+
+	/// Returns the list of bonds connecting neighboring lattice atoms.
+	const std::vector<NeighborBond>& neighborBonds() const { return _neighborBonds; }
 
 	/// Performs the PTM algorithm. Determines the local structure type and the local lattice orientation.
 	bool identifyAtomicStructures();
@@ -158,6 +161,9 @@ private:
 
 private:
 
+	/// The number of input particles.
+	size_t _numParticles;
+
 	/// Supercluster IDs
 	std::vector<size_t> _atomSuperclusters;
 
@@ -177,7 +183,7 @@ private:
 	bool _orphanAdoption;
 
 	/// Stores the list of neighbors of each lattice atom.
-	PropertyPtr _neighborLists;
+	std::vector<std::array<size_t,PTM_MAX_NBRS>> _neighborLists;
 
 	/// Stores indices of crystalline atoms sorted by value of distance transform.
 	std::vector<size_t> _distanceSortedAtoms;
@@ -212,14 +218,11 @@ private:
 	/// The particle to cluster assignment.
 	PropertyPtr _atomClusters;
 
-	/// Flag controlling the output of generated bonds to the data pipeline.
-	bool _outputBonds;
+	/// The bonds connecting neighboring lattice atoms.
+	std::vector<NeighborBond> _neighborBonds;
 
-	/// The bonds generated between neighboring lattice atoms.
-	std::vector<Bond> _latticeNeighborBonds;
-
-	/// The computed disorientation angles between neighboring lattice atoms.
-	PropertyPtr _neighborDisorientationAngles;
+	/// Controls the output of neighbor bonds to the data pipeline for visualization purposes.
+	bool _outputBondsToPipeline;
 
 	// A hardcoded cutoff used for defining superclusters
 	const FloatType _misorientationThreshold = qDegreesToRadians(4.0);

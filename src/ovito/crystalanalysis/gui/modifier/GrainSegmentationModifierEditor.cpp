@@ -179,10 +179,10 @@ void GrainSegmentationModifierEditor::plotMerges()
 		const PipelineFlowState& state = getModifierOutput();
 		auto mergeSeries = state.getObjectBy<DataSeriesObject>(modifierApplication(), QStringLiteral("grains-merge"));
 		if (mergeSeries) {
-			auto XProperty = mergeSeries->getX();
-			if (XProperty && XProperty->size() > 0) {
+			ConstPropertyAccess<FloatType> XProperty = mergeSeries->getX();
+			if (XProperty && XProperty.size() > 0) {
 				activeIndicator = true;
-				_mergeRangeIndicator->setInterval(XProperty->getFloat(0),	// TODO: this would look nicer if it started at the beginning of the window rather than the first data point
+				_mergeRangeIndicator->setInterval(XProperty[0],	// TODO: this would look nicer if it started at the beginning of the window rather than the first data point
 									modifier->mergingThreshold());
 				_mergeRangeIndicator->show();
 			}

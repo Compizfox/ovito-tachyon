@@ -158,8 +158,31 @@ void GrainSegmentationEngine::emitResults(TimePoint time, ModifierApplication* m
 		particles->createProperty(atomClusters());
 
 	// Output the edges of the neighbor graph.
-	if(_outputBonds && modifier->outputBonds()) {
-		particles->addBonds(latticeNeighborBonds(), modifier->bondsVis(), { neighborDisorientationAngles() });
+	if(_outputBondsToPipeline && modifier->outputBonds()) {
+
+		// Output disorientation angles as a bond property.
+		PropertyAccessAndRef<FloatType> neighborDisorientationAngles = std::make_shared<PropertyStorage>(neighborBonds().size(), PropertyStorage::Float, 1, 0, QStringLiteral("Disorientation"), false);
+		// Allocate the bonds array.
+		std::vector<Bond> bonds(neighborBonds().size());
+
+		ConstPropertyAccess<Point3> positionsArray(particles->expectProperty(ParticlesObject::PositionProperty));
+		for(size_t i = 0; i < bonds.size(); i++) {
+			Bond& bond = bonds[i];
+			bond.index1 = neighborBonds()[i].a;
+			bond.index2 = neighborBonds()[i].b;
+			neighborDisorientationAngles[i] = neighborBonds()[i].disorientation;
+
+			// Determine PBC bond shift using minimum image convention.
+			Vector3 delta = positionsArray[bond.index1] - positionsArray[bond.index2];
+			for(size_t dim = 0; dim < 3; dim++) {
+				if(cell().pbcFlags()[dim])
+					bond.pbcShift[dim] = (int)std::floor(cell().inverseMatrix().prodrow(delta, dim) + FloatType(0.5));
+				else
+					bond.pbcShift[dim] = 0;
+			}
+		}
+
+		particles->addBonds(bonds, modifier->bondsVis(), { neighborDisorientationAngles.takeStorage() });
 	}
 
 	// Output RMSD histogram.
@@ -170,12 +193,12 @@ void GrainSegmentationEngine::emitResults(TimePoint time, ModifierApplication* m
 
 	if(_numClusters > 1) {
 		// Output a data series object with the scatter points.
-		DataSeriesObject* mergeSeriesObj = state.createObject<DataSeriesObject>(QStringLiteral("grains-merge"), modApp, DataSeriesObject::Scatter, GrainSegmentationModifier::tr("Merge size vs. Merge distance"));
-		mergeSeriesObj->createProperty(std::move(mergeDistance()))->setName("Log merge distance");
-		mergeSeriesObj->createProperty(std::move(mergeSize()))->setName("Merge size");
+		DataSeriesObject* mergeSeriesObj = state.createObject<DataSeriesObject>(QStringLiteral("grains-merge"), modApp, DataSeriesObject::Scatter, GrainSegmentationModifier::tr("Merge size vs. Merge distance"), mergeSize(), mergeDistance());
 	}
 
-	size_t numGrains = atomClusters()->size() == 0 ? 0 : (*std::max_element(atomClusters()->constDataInt64(), atomClusters()->constDataInt64() + atomClusters()->size()));
+	size_t numGrains = 0;
+	if(atomClusters()->size() != 0)
+		numGrains = *boost::max_element(ConstPropertyAccess<qlonglong>(atomClusters()));
 	state.setStatus(PipelineStatus(PipelineStatus::Success, GrainSegmentationModifier::tr("Found %1 grains").arg(numGrains)));
 }
 
