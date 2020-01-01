@@ -286,7 +286,7 @@ int PTMAlgorithm::Kernel::precacheNeighbors(size_t particleIndex, uint64_t* res)
 /******************************************************************************
 * Returns the number of neighbors for the PTM structure found for the current particle.
 ******************************************************************************/
-int PTMAlgorithm::Kernel::numStructureNeighbors() const
+int PTMAlgorithm::Kernel::numTemplateNeighbors() const
 {
 	return ptm_num_nbrs[_structureType];
 }
@@ -295,13 +295,12 @@ int PTMAlgorithm::Kernel::numStructureNeighbors() const
 * Returns the neighbor information corresponding to the i-th neighbor in the
 * PTM template identified for the current particle.
 ******************************************************************************/
-const NearestNeighborFinder::Neighbor& PTMAlgorithm::Kernel::getNeighborInfo(int index) const
+const NearestNeighborFinder::Neighbor& PTMAlgorithm::Kernel::getTemplateNeighbor(int index) const
 {
 	OVITO_ASSERT(_structureType != OTHER);
-	OVITO_ASSERT(index >= 0 && index < numStructureNeighbors());
+	OVITO_ASSERT(index >= 0 && index < numTemplateNeighbors());
 	int mappedIndex = _env.correspondences[index + 1] - 1;
-	OVITO_ASSERT(mappedIndex >= 0 && mappedIndex < results().size());
-	return results()[mappedIndex];
+	return getNearestNeighbor(mappedIndex);
 }
 
 /******************************************************************************
@@ -311,7 +310,7 @@ const NearestNeighborFinder::Neighbor& PTMAlgorithm::Kernel::getNeighborInfo(int
 const Vector_3<double>& PTMAlgorithm::Kernel::getIdealNeighborVector(int index) const
 {
 	OVITO_ASSERT(_structureType != OTHER);
-	OVITO_ASSERT(index >= 0 && index < numStructureNeighbors());
+	OVITO_ASSERT(index >= 0 && index < numTemplateNeighbors());
 	OVITO_ASSERT(_bestTemplate != nullptr);
 	return *reinterpret_cast<const Vector_3<double>*>(_bestTemplate[index + 1]);
 }

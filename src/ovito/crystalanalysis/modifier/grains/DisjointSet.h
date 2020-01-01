@@ -35,14 +35,12 @@ public:
 		ranks.resize(n);
 		parents.resize(n);
 		sizes.resize(n);
-		weights.resize(n);
 		clear();
 	}
 
 	void clear() {
 		std::iota(parents.begin(), parents.end(), (size_t)0);
 		std::fill(sizes.begin(), sizes.end(), 1);
-		std::fill(weights.begin(), weights.end(), 0);
 	}
 
 	// "Find" part of Union-Find.
@@ -68,13 +66,11 @@ public:
 		if(ranks[parentA] < ranks[parentB]) {
 			parents[parentA] = parentB;
 			sizes[parentB] += sizes[parentA];
-			weights[parentB] += weights[parentA];
 			return index2;
 		}
 		else {
 			parents[parentB] = parentA;
 			sizes[parentA] += sizes[parentB];
-			weights[parentA] += weights[parentB];
 
 			// If ranks are same, then make one as root and increment its rank by one
 			if(ranks[parentA] == ranks[parentB])
@@ -84,12 +80,13 @@ public:
 		}
 	}
 
-	std::vector<size_t> sizes;
-	std::vector<FloatType> weights;
+	size_t nodesize(size_t index) const { return sizes[index]; }
 
 private:
+
 	std::vector<size_t> parents;
 	std::vector<size_t> ranks;
+	std::vector<size_t> sizes;
 };
 
 

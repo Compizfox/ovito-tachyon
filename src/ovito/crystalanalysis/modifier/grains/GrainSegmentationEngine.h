@@ -29,24 +29,9 @@
 #include <ovito/particles/objects/ParticlesObject.h>
 #include <ovito/particles/objects/BondsObject.h>
 #include <ovito/particles/modifier/analysis/ptm/PTMAlgorithm.h>
-#include "NodePairSampling.h"
 #include "DisjointSet.h"
 
-#include <boost/optional/optional.hpp>
-
 namespace Ovito { namespace CrystalAnalysis {
-
-class GraphEdge
-{
-public:
-	GraphEdge(size_t _a, size_t _b, FloatType _w, size_t _superCluster)
-		: a(_a), b(_b), w(_w), superCluster(_superCluster) {}
-
-	size_t a;
-	size_t b;
-	FloatType w;
-	size_t superCluster;
-};
 
 class DendrogramNode
 {
@@ -76,6 +61,8 @@ public:
 		size_t a;
 		size_t b;
 		FloatType disorientation;
+		FloatType weight;
+		size_t superCluster;
 	};
 
 	/// Constructor.
@@ -91,7 +78,6 @@ public:
 	/// This method is called by the system to free memory and release any working data after the
 	/// computation has been successfully completed.
 	virtual void cleanup() override {
-		decltype(_neighborLists){}.swap(_neighborLists);
 		decltype(_distanceSortedAtoms){}.swap(_distanceSortedAtoms);
 		decltype(_clusterOrientations){}.swap(_clusterOrientations);
 		if(!_outputBondsToPipeline)
@@ -126,16 +112,16 @@ public:
 private:
 
 	/// Returns the list of bonds connecting neighboring lattice atoms.
-	const std::vector<NeighborBond>& neighborBonds() const { return _neighborBonds; }
+	std::vector<NeighborBond>& neighborBonds() { return _neighborBonds; }
 
 	/// Performs the PTM algorithm. Determines the local structure type and the local lattice orientation.
 	bool identifyAtomicStructures();
 
-	/// Builds the graph of neighbor atoms and calculates the misorientation angle for each graph edge (i.e. bond).
-	bool buildNeighborGraph();
+	/// Calculates the disorientation angle for each graph edge (i.e. bond).
+	bool computeDisorientationAngles();
 
-	/// Merges adjacent clusters with similar lattice orientations.
-	bool mergeSuperclusters();
+	/// Groups lattice atoms with similar orientations into superclusters.
+	bool formSuperclusters();
 
 	/// Builds grains by iterative region merging.
 	bool determineMergeSequence();
@@ -149,28 +135,32 @@ private:
 
 	/// Randomizes cluster IDs for testing purposes (giving more color contrast).
 	bool randomizeClusterIDs();
-#endif
 
 	/// Merges any orphan atoms into the closest cluster.
 	bool mergeOrphanAtoms();
+#endif
+
+	/// Computes the disorientation angle between two crystal clusters of the given lattice type. 
+	/// Furthermore, the function computes the weighted average of the two cluster orientations. 
+	/// The norm of the two input quaternions and the output quaternion represents the size of the clusters.
+	static FloatType calculate_disorientation(int structureType, Quaternion& qa, const Quaternion& qb);
 
 	// Algorithm types:
-	FloatType calculate_disorientation(int structureType, std::vector< Quaternion >& qsum, size_t a, size_t b);
-	bool minimum_spanning_tree_clustering(std::vector< GraphEdge >& initial_graph, DisjointSet& uf, size_t start, size_t end, DendrogramNode* dendrogram, int structureType, std::vector< Quaternion >& qsum);
-	bool node_pair_sampling_clustering(std::vector< GraphEdge >& initial_graph, size_t start, size_t end, FloatType totalWeight, DendrogramNode* dendrogram, int structureType, std::vector< Quaternion >& qsum);
+	bool minimum_spanning_tree_clustering(boost::iterator_range<std::vector<NeighborBond>::iterator> edgeRange, DendrogramNode* dendrogram, int structureType, std::vector<Quaternion>& qsum, DisjointSet& uf);
+	bool node_pair_sampling_clustering(boost::iterator_range<std::vector<NeighborBond>::const_iterator> edgeRange, DendrogramNode* dendrogram, int structureType, std::vector<Quaternion>& qsum, FloatType totalWeight);
 
 private:
 
 	/// The number of input particles.
 	size_t _numParticles;
 
-	/// Supercluster IDs
+	/// Supercluster ID of each particle.
 	std::vector<size_t> _atomSuperclusters;
 
-	/// Counts the number of superclusters
+	/// Counts the number of superclusters.
 	size_t _numSuperclusters = 0;
 
-	/// Stores the number of atoms in each supercluster.
+	/// Stores the number of particle in each supercluster.
 	std::vector<size_t> _superclusterSizes;
 
 	/// The cutoff parameter used by the PTM algorithm.
@@ -181,9 +171,6 @@ private:
 
 	/// Whether to adopt orphan atoms.
 	bool _orphanAdoption;
-
-	/// Stores the list of neighbors of each lattice atom.
-	std::vector<std::array<size_t,PTM_MAX_NBRS>> _neighborLists;
 
 	/// Stores indices of crystalline atoms sorted by value of distance transform.
 	std::vector<size_t> _distanceSortedAtoms;

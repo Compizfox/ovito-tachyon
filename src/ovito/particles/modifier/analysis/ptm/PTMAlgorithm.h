@@ -62,20 +62,20 @@ public:
     };
     Q_ENUMS(StructureType);
 
-	/// The lattice ordering types known by the PTM routine.
-	enum OrderingType {
-		ORDERING_NONE = 0,
-		ORDERING_PURE = 1,
-		ORDERING_L10 = 2,
-		ORDERING_L12_A = 3,
-		ORDERING_L12_B = 4,
-		ORDERING_B2 = 5,
-		ORDERING_ZINCBLENDE_WURTZITE = 6,
-		ORDERING_BORON_NITRIDE = 7,
+    /// The lattice ordering types known by the PTM routine.
+    enum OrderingType {
+        ORDERING_NONE = 0,
+        ORDERING_PURE = 1,
+        ORDERING_L10 = 2,
+        ORDERING_L12_A = 3,
+        ORDERING_L12_B = 4,
+        ORDERING_B2 = 5,
+        ORDERING_ZINCBLENDE_WURTZITE = 6,
+        ORDERING_BORON_NITRIDE = 7,
 
-		NUM_ORDERING_TYPES 	//< This just counts the number of defined ordering types.
-	};
-	Q_ENUMS(OrderingType);
+        NUM_ORDERING_TYPES 	//< This just counts the number of defined ordering types.
+    };
+    Q_ENUMS(OrderingType);
 
 #ifndef Q_CC_MSVC
     /// Maximum number of input nearest neighbors needed for the PTM analysis.
@@ -162,7 +162,7 @@ public:
         /// Identifies the local structure of the given particle and builds the list of nearest neighbors
         /// that form that structure. Subsequently, in case of a successful match, additional outputs of the calculation
         /// can be retrieved with the query methods below.
-        StructureType identifyStructure(size_t particleIndex, std::vector< uint64_t >& precachedNeighbors, Quaternion* qtarget);
+        StructureType identifyStructure(size_t particleIndex, std::vector<uint64_t>& precachedNeighbors, Quaternion* qtarget);
 
         // Calculates the topological ordering of a particle's neighbors.
         int precacheNeighbors(size_t particleIndex, uint64_t* res);
@@ -188,21 +188,30 @@ public:
         }
 
         /// The index of the best-matching structure template.
-    	int bestTemplateIndex() const { return _bestTemplateIndex; }
+        int bestTemplateIndex() const { return _bestTemplateIndex; }
 
         /// Returns the number of neighbors for the PTM structure found for the current particle.
-        int numStructureNeighbors() const;
+        int numTemplateNeighbors() const;
+
+        /// Returns the number of nearest neighbors found for the current particle.
+        int numNearestNeighbors() const { return results().size(); }
+
+        /// Returns the neighbor information for the i-th nearest neighbor of the current particle.
+        const NearestNeighborFinder::Neighbor& getNearestNeighbor(int index) const {
+            OVITO_ASSERT(index >= 0 && index < results().size());
+            return results()[index];
+        }
 
         /// Returns the neighbor information corresponding to the i-th neighbor in the PTM template
         /// identified for the current particle.
-        const NearestNeighborFinder::Neighbor& getNeighborInfo(int index) const;
+        const NearestNeighborFinder::Neighbor& getTemplateNeighbor(int index) const;
 
         /// Returns the ideal vector corresponding to the i-th neighbor in the PTM template
         /// identified for the current particle.
         const Vector_3<double>& getIdealNeighborVector(int index) const;
 
 //TODO: don't leave this public
-    	ptm_atomicenv_t _env;
+        ptm_atomicenv_t _env;
 
     private:
         /// Reference to the parent algorithm object.
@@ -213,16 +222,16 @@ public:
 
         // Output quantities computed by the PTM routine during the last call to identifyStructure():
         double _rmsd;
-    	double _scale;
+        double _scale;
         double _interatomicDistance;
-    	double _q[4];
+        double _q[4];
         Matrix_3<double> _F{Matrix_3<double>::Zero()};
         StructureType _structureType = OTHER;
-    	int32_t _orderingType = ORDERING_NONE;
-    	int _bestTemplateIndex;
-    	const double (*_bestTemplate)[3] = nullptr;
-    	//int8_t _correspondences[MAX_INPUT_NEIGHBORS+1];
-	std::vector<uint64_t> _cachedNeighbors;
+        int32_t _orderingType = ORDERING_NONE;
+        int _bestTemplateIndex;
+        const double (*_bestTemplate)[3] = nullptr;
+        //int8_t _correspondences[MAX_INPUT_NEIGHBORS+1];
+        std::vector<uint64_t> _cachedNeighbors;
     };
 
 private:

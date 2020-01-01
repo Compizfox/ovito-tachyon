@@ -40,7 +40,7 @@ class OVITO_CRYSTALANALYSIS_EXPORT GrainSegmentationModifier : public StructureI
 	Q_OBJECT
 	OVITO_CLASS(GrainSegmentationModifier)
 
-	Q_CLASSINFO("DisplayName", "Grain segmentation");
+	Q_CLASSINFO("DisplayName", "Grain segmentation (experimental)");
 	Q_CLASSINFO("ModifierCategory", "Analysis");
 
 public:
@@ -52,7 +52,7 @@ public:
 	/// a parameter of the modifier changes.
 	virtual bool discardResultsOnModifierChange(const PropertyFieldEvent& event) const override {
 		// Avoid a recomputation from scratch if just the threshold value is changed.
-		if(event.field() == &PROPERTY_FIELD(mergingThreshold)) return false;
+		if(event.field() == &PROPERTY_FIELD(mergingThreshold) || event.field() == &PROPERTY_FIELD(colorParticlesByGrain)) return false;
 		return StructureIdentificationModifier::discardResultsOnModifierChange(event);
 	}
 
@@ -92,6 +92,9 @@ private:
 
 	/// Controls the output of bonds by the modifier.
 	DECLARE_MODIFIABLE_PROPERTY_FIELD(bool, outputBonds, setOutputBonds);
+
+	/// Controls the coloring of particles by the modifier.
+	DECLARE_MODIFIABLE_PROPERTY_FIELD_FLAGS(bool, colorParticlesByGrain, setColorParticlesByGrain, PROPERTY_FIELD_MEMORIZE);
 };
 
 }	// End of namespace

@@ -59,26 +59,29 @@ void GrainSegmentationModifierEditor::createUI(const RolloutInsertionParameters&
 	sublayout2->setSpacing(4);
 	sublayout2->setColumnStretch(1, 1);
 
-	FloatParameterUI* rmsdCutoffUI = new FloatParameterUI(this, PROPERTY_FIELD(GrainSegmentationModifier::rmsdCutoff));
-	sublayout2->addWidget(rmsdCutoffUI->label(), 0, 0);
-	sublayout2->addLayout(rmsdCutoffUI->createFieldLayout(), 0, 1);
-
-	// TODO: display the label text
 	BooleanRadioButtonParameterUI* algorithmTypeUI = new BooleanRadioButtonParameterUI(this, PROPERTY_FIELD(GrainSegmentationModifier::algorithmType));
 	algorithmTypeUI->buttonFalse()->setText(tr("Node Pair Sampling"));
-	algorithmTypeUI->buttonTrue()->setText(tr("Min. Span. Tree"));
-	//sublayout2->addWidget(algorithmTypeUI->label(), 1, 0);
-	sublayout2->addWidget(algorithmTypeUI->buttonFalse(), 1, 1, 1, -1);
-	sublayout2->addWidget(algorithmTypeUI->buttonTrue(), 2, 1, 1, -1);
-	algorithmTypeUI->setEnabled(true);
+	algorithmTypeUI->buttonTrue()->setText(tr("Minimum Spanning Tree"));
+	QGridLayout* sublayout3 = new QGridLayout();
+	sublayout3->setContentsMargins(0,0,0,0);
+	sublayout3->setSpacing(4);
+	sublayout2->setColumnStretch(1, 1);
+	sublayout3->addWidget(new QLabel(tr("Algorithm:")), 0, 0);
+	sublayout3->addWidget(algorithmTypeUI->buttonFalse(), 0, 1);
+	sublayout3->addWidget(algorithmTypeUI->buttonTrue(), 1, 1);
+	sublayout2->addLayout(sublayout3, 0, 0, 1, 2);
 
 	FloatParameterUI* mergingThresholdUI = new FloatParameterUI(this, PROPERTY_FIELD(GrainSegmentationModifier::mergingThreshold));
-	sublayout2->addWidget(mergingThresholdUI->label(), 3, 0);
-	sublayout2->addLayout(mergingThresholdUI->createFieldLayout(), 3, 1);
+	sublayout2->addWidget(mergingThresholdUI->label(), 1, 0);
+	sublayout2->addLayout(mergingThresholdUI->createFieldLayout(), 1, 1);
 
 	IntegerParameterUI* minGrainAtomCountUI = new IntegerParameterUI(this, PROPERTY_FIELD(GrainSegmentationModifier::minGrainAtomCount));
-	sublayout2->addWidget(minGrainAtomCountUI->label(), 4, 0);
-	sublayout2->addLayout(minGrainAtomCountUI->createFieldLayout(), 4, 1);
+	sublayout2->addWidget(minGrainAtomCountUI->label(), 2, 0);
+	sublayout2->addLayout(minGrainAtomCountUI->createFieldLayout(), 2, 1);
+
+	FloatParameterUI* rmsdCutoffUI = new FloatParameterUI(this, PROPERTY_FIELD(GrainSegmentationModifier::rmsdCutoff));
+	sublayout2->addWidget(rmsdCutoffUI->label(), 3, 0);
+	sublayout2->addLayout(rmsdCutoffUI->createFieldLayout(), 3, 1);
 
 	QGroupBox* debuggingParamsBox = new QGroupBox(tr("Debugging options"));
 	layout->addWidget(debuggingParamsBox);
@@ -91,8 +94,11 @@ void GrainSegmentationModifierEditor::createUI(const RolloutInsertionParameters&
 	BooleanParameterUI* orphanAdoptionUI = new BooleanParameterUI(this, PROPERTY_FIELD(GrainSegmentationModifier::orphanAdoption));
 	sublayout2->addWidget(orphanAdoptionUI->checkBox(), 0, 0, 1, 2);
 
+	BooleanParameterUI* colorParticlesByGrainUI = new BooleanParameterUI(this, PROPERTY_FIELD(GrainSegmentationModifier::colorParticlesByGrain));
+	sublayout2->addWidget(colorParticlesByGrainUI->checkBox(), 1, 0, 1, 2);
+
 	BooleanParameterUI* outputBondsUI = new BooleanParameterUI(this, PROPERTY_FIELD(GrainSegmentationModifier::outputBonds));
-	sublayout2->addWidget(outputBondsUI->checkBox(), 1, 0, 1, 2);
+	sublayout2->addWidget(outputBondsUI->checkBox(), 2, 0, 1, 2);
 
 	// Status label.
 	layout->addWidget(statusLabel());
@@ -102,19 +108,6 @@ void GrainSegmentationModifierEditor::createUI(const RolloutInsertionParameters&
 	layout->addSpacing(10);
 	layout->addWidget(new QLabel(tr("Structure types:")));
 	layout->addWidget(structureTypesPUI->tableWidget());
-
-	// Create plot widget for RMSD distribution.
-	_rmsdPlotWidget = new DataSeriesPlotWidget();
-	_rmsdPlotWidget->setMinimumHeight(200);
-	_rmsdPlotWidget->setMaximumHeight(200);
-	_rmsdRangeIndicator = new QwtPlotZoneItem();
-	_rmsdRangeIndicator->setOrientation(Qt::Vertical);
-	_rmsdRangeIndicator->setZ(1);
-	_rmsdRangeIndicator->attach(_rmsdPlotWidget);
-	_rmsdRangeIndicator->hide();
-	layout->addSpacing(10);
-	layout->addWidget(_rmsdPlotWidget);
-	connect(this, &GrainSegmentationModifierEditor::contentsReplaced, this, &GrainSegmentationModifierEditor::plotHistogram);
 
 	// Create plot widget for merge distances
 	_mergePlotWidget = new DataSeriesPlotWidget();
@@ -128,6 +121,19 @@ void GrainSegmentationModifierEditor::createUI(const RolloutInsertionParameters&
 	layout->addSpacing(10);
 	layout->addWidget(_mergePlotWidget);
 	connect(this, &GrainSegmentationModifierEditor::contentsReplaced, this, &GrainSegmentationModifierEditor::plotMerges);
+
+	// Create plot widget for RMSD distribution.
+	_rmsdPlotWidget = new DataSeriesPlotWidget();
+	_rmsdPlotWidget->setMinimumHeight(200);
+	_rmsdPlotWidget->setMaximumHeight(200);
+	_rmsdRangeIndicator = new QwtPlotZoneItem();
+	_rmsdRangeIndicator->setOrientation(Qt::Vertical);
+	_rmsdRangeIndicator->setZ(1);
+	_rmsdRangeIndicator->attach(_rmsdPlotWidget);
+	_rmsdRangeIndicator->hide();
+	layout->addSpacing(10);
+	layout->addWidget(_rmsdPlotWidget);
+	connect(this, &GrainSegmentationModifierEditor::contentsReplaced, this, &GrainSegmentationModifierEditor::plotHistogram);
 }
 
 /******************************************************************************
@@ -173,35 +179,20 @@ void GrainSegmentationModifierEditor::plotMerges()
 {
 	GrainSegmentationModifier* modifier = static_object_cast<GrainSegmentationModifier>(editObject());
 
-	bool activeIndicator = false;
-	if(modifier) {
-		// Request the modifier's pipeline output.
-		const PipelineFlowState& state = getModifierOutput();
-		auto mergeSeries = state.getObjectBy<DataSeriesObject>(modifierApplication(), QStringLiteral("grains-merge"));
-		if (mergeSeries) {
-			ConstPropertyAccess<FloatType> XProperty = mergeSeries->getX();
-			if (XProperty && XProperty.size() > 0) {
-				activeIndicator = true;
-				_mergeRangeIndicator->setInterval(XProperty[0],	// TODO: this would look nicer if it started at the beginning of the window rather than the first data point
-									modifier->mergingThreshold());
-				_mergeRangeIndicator->show();
-			}
-		}
-	}
-
-	if (!activeIndicator) {
-		_mergeRangeIndicator->hide();
-	}
-
-	if(modifierApplication()) {
+	if(modifier && modifierApplication()) {
 		// Request the modifier's pipeline output.
 		const PipelineFlowState& state = getModifierOutput();
 
 		// Look up the data series in the modifier's pipeline output.
 		_mergePlotWidget->setSeries(state.getObjectBy<DataSeriesObject>(modifierApplication(), QStringLiteral("grains-merge")));
+
+		// Indicate the current merge threshold in the plot.
+		_mergeRangeIndicator->setInterval(std::numeric_limits<double>::lowest(), modifier->mergingThreshold());
+		_mergeRangeIndicator->show();
 	}
 	else {
 		_mergePlotWidget->reset();
+		_mergeRangeIndicator->hide();
 	}
 }
 

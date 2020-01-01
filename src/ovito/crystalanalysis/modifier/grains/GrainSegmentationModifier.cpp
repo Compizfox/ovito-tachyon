@@ -45,6 +45,7 @@ DEFINE_PROPERTY_FIELD(GrainSegmentationModifier, minGrainAtomCount);
 DEFINE_PROPERTY_FIELD(GrainSegmentationModifier, orphanAdoption);
 DEFINE_PROPERTY_FIELD(GrainSegmentationModifier, onlySelectedParticles);
 DEFINE_PROPERTY_FIELD(GrainSegmentationModifier, outputBonds);
+DEFINE_PROPERTY_FIELD(GrainSegmentationModifier, colorParticlesByGrain);
 DEFINE_REFERENCE_FIELD(GrainSegmentationModifier, bondsVis);
 SET_PROPERTY_FIELD_LABEL(GrainSegmentationModifier, rmsdCutoff, "RMSD cutoff");
 SET_PROPERTY_FIELD_LABEL(GrainSegmentationModifier, algorithmType, "Linkage type");
@@ -53,6 +54,7 @@ SET_PROPERTY_FIELD_LABEL(GrainSegmentationModifier, minGrainAtomCount, "Minimum 
 SET_PROPERTY_FIELD_LABEL(GrainSegmentationModifier, orphanAdoption, "Adopt orphan atoms");
 SET_PROPERTY_FIELD_LABEL(GrainSegmentationModifier, onlySelectedParticles, "Use only selected particles");
 SET_PROPERTY_FIELD_LABEL(GrainSegmentationModifier, outputBonds, "Output bonds");
+SET_PROPERTY_FIELD_LABEL(GrainSegmentationModifier, colorParticlesByGrain, "Color particles by grain");
 SET_PROPERTY_FIELD_LABEL(GrainSegmentationModifier, bondsVis, "Bonds display");
 SET_PROPERTY_FIELD_UNITS_AND_MINIMUM(GrainSegmentationModifier, rmsdCutoff, FloatParameterUnit, 0);
 SET_PROPERTY_FIELD_UNITS_AND_MINIMUM(GrainSegmentationModifier, minGrainAtomCount, IntegerParameterUnit, 1);
@@ -67,7 +69,8 @@ GrainSegmentationModifier::GrainSegmentationModifier(DataSet* dataset) : Structu
 		_onlySelectedParticles(false),
 		_mergingThreshold(0.0),
 		_orphanAdoption(true),
-		_outputBonds(false)
+		_outputBonds(false),
+		_colorParticlesByGrain(true)
 {
 	// Define the structure types.
 	createStructureType(PTMAlgorithm::OTHER, ParticleType::PredefinedStructureType::OTHER);
@@ -154,8 +157,27 @@ void GrainSegmentationEngine::emitResults(TimePoint time, ModifierApplication* m
 		particles->createProperty(rmsd());
 	if(orientations())
 		particles->createProperty(orientations());
-	if(atomClusters())
+	if(atomClusters()) {
 		particles->createProperty(atomClusters());
+
+		if(modifier->colorParticlesByGrain()) {
+			// Assign random colors to grains.
+			std::vector<Color> grainColors(_numClusters);
+			std::default_random_engine rng(1);
+			std::uniform_real_distribution<FloatType> uniform_dist(0, 1);
+			boost::generate(grainColors, [&]() { return Color::fromHSV(uniform_dist(rng), 1, 1); });
+			// Special color for non-crystalline particles not part of any grain:
+			grainColors[0] = Color(0.8, 0.8, 0.8);
+
+			// Assign colors to particles according to the grains they belong to.
+			PropertyAccess<Color> colorsArray = particles->createProperty(ParticlesObject::ColorProperty, false);
+			boost::transform(ConstPropertyAccess<qlonglong>(atomClusters()), colorsArray.begin(), [&](qlonglong cluster) { 
+				OVITO_ASSERT(cluster >= 0 && cluster < grainColors.size());
+				return grainColors[cluster];
+			});
+		}
+	}
+
 
 	// Output the edges of the neighbor graph.
 	if(_outputBondsToPipeline && modifier->outputBonds()) {
@@ -191,10 +213,9 @@ void GrainSegmentationEngine::emitResults(TimePoint time, ModifierApplication* m
 	seriesObj->setIntervalStart(0);
 	seriesObj->setIntervalEnd(rmsdHistogramRange());
 
-	if(_numClusters > 1) {
-		// Output a data series object with the scatter points.
+	// Output a data series object with the dendrogram points.
+	if(mergeSize() && mergeDistance())
 		DataSeriesObject* mergeSeriesObj = state.createObject<DataSeriesObject>(QStringLiteral("grains-merge"), modApp, DataSeriesObject::Scatter, GrainSegmentationModifier::tr("Merge size vs. Merge distance"), mergeSize(), mergeDistance());
-	}
 
 	size_t numGrains = 0;
 	if(atomClusters()->size() != 0)
