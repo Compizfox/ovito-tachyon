@@ -165,7 +165,7 @@ void GrainSegmentationEngine::emitResults(TimePoint time, ModifierApplication* m
 			std::vector<Color> grainColors(_numClusters);
 			std::default_random_engine rng(1);
 			std::uniform_real_distribution<FloatType> uniform_dist(0, 1);
-			boost::generate(grainColors, [&]() { return Color::fromHSV(uniform_dist(rng), 1, 1); });
+			boost::generate(grainColors, [&]() { return Color::fromHSV(uniform_dist(rng), 1.0 - uniform_dist(rng) * 0.5, 1.0 - uniform_dist(rng) * 0.3); });
 			// Special color for non-crystalline particles not part of any grain:
 			grainColors[0] = Color(0.8, 0.8, 0.8);
 
@@ -220,6 +220,8 @@ void GrainSegmentationEngine::emitResults(TimePoint time, ModifierApplication* m
 	size_t numGrains = 0;
 	if(atomClusters()->size() != 0)
 		numGrains = *boost::max_element(ConstPropertyAccess<qlonglong>(atomClusters()));
+
+	state.addAttribute(QStringLiteral("GrainSegmentation.grain_count"), QVariant::fromValue(numGrains), modApp);
 	state.setStatus(PipelineStatus(PipelineStatus::Success, GrainSegmentationModifier::tr("Found %1 grains").arg(numGrains)));
 }
 
