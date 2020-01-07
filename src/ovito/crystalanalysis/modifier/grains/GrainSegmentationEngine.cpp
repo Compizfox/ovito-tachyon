@@ -450,6 +450,9 @@ bool GrainSegmentationEngine::determineMergeSequence()
 		bondCount[bond.superCluster]++;
 	}
 
+	// setting the total weight to 1 is an effective multi-frame normalization
+	totalWeight = 1;
+
 	// Group graph edges by supercluster.
 	boost::sort(neighborBonds(), [](NeighborBond& a, NeighborBond& b) {
 		return a.superCluster < b.superCluster;
