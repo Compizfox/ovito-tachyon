@@ -52,7 +52,7 @@ public:
 	/// a parameter of the modifier changes.
 	virtual bool discardResultsOnModifierChange(const PropertyFieldEvent& event) const override {
 		// Avoid a recomputation from scratch if just the threshold value is changed.
-		if(event.field() == &PROPERTY_FIELD(mergingThreshold) || event.field() == &PROPERTY_FIELD(colorParticlesByGrain)) return false;
+		if(event.field() == &PROPERTY_FIELD(mergingThreshold) || event.field() == &PROPERTY_FIELD(minGrainAtomCount) || event.field() == &PROPERTY_FIELD(colorParticlesByGrain)) return false;
 		return StructureIdentificationModifier::discardResultsOnModifierChange(event);
 	}
 

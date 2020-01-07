@@ -93,7 +93,7 @@ GrainSegmentationModifier::GrainSegmentationModifier(DataSet* dataset) : Structu
 ******************************************************************************/
 void GrainSegmentationModifier::propertyChanged(const PropertyFieldDescriptor& field)
 {
-	if(field == PROPERTY_FIELD(mergingThreshold)) {
+	if(field == PROPERTY_FIELD(mergingThreshold) || field == PROPERTY_FIELD(minGrainAtomCount)) {
 		// Immediately update viewports when threshold parameter is changed by the user.
 		notifyDependents(ReferenceEvent::PreliminaryStateAvailable);
 	}
@@ -148,7 +148,7 @@ void GrainSegmentationEngine::emitResults(TimePoint time, ModifierApplication* m
 	OVITO_ASSERT(modifier);
 
 	// Complete the segmentation by executing the merge steps up to the cutoff set by the user.
-	executeMergeSequence(modifier->mergingThreshold());
+	executeMergeSequence(modifier->minGrainAtomCount(), modifier->mergingThreshold());
 
 	ParticlesObject* particles = state.expectMutableObject<ParticlesObject>();
 

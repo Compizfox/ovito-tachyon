@@ -127,7 +127,7 @@ private:
 	bool determineMergeSequence();
 
 	/// Executes precomputed merge steps up to the threshold value set by the user.
-	void executeMergeSequence(FloatType mergingThreshold);
+	void executeMergeSequence(int minGrainAtomCount, FloatType mergingThreshold);
 
 #if 0
 	/// Computes the average lattice orientation of each cluster.

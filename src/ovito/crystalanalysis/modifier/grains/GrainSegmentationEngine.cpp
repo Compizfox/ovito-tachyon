@@ -312,14 +312,8 @@ bool GrainSegmentationEngine::formSuperclusters()
 	// Assign new consecutive IDs to root superclusters.
 	for(size_t i = 0; i < _numParticles; i++) {
 		if(uf.find(i) == i) {
-			// If the cluster's size is below the threshold, dissolve the cluster.
-			if(uf.nodesize(i) < _minGrainAtomCount) {
-				superclusterRemapping[i] = 0;
-			}
-			else {
-				superclusterRemapping[i] = _superclusterSizes.size();
-				_superclusterSizes.push_back(uf.nodesize(i));
-			}
+			superclusterRemapping[i] = _superclusterSizes.size();
+			_superclusterSizes.push_back(uf.nodesize(i));
 		}
 	}
 	_numSuperclusters = _superclusterSizes.size();
@@ -492,20 +486,22 @@ bool GrainSegmentationEngine::determineMergeSequence()
 	// Parallelize dendrogram computation over superclusters.
 	parallelFor(_numSuperclusters - 1, [&](size_t sc) {
 		sc++;
-		size_t start = bondStart[sc];
-		size_t count = bondCount[sc];
-		size_t index = dendrogramOffsets[sc];
-		int structureType = structuresArray[neighborBonds()[start].a];
+		if(_superclusterSizes[sc] >= _minGrainAtomCount) {
+			size_t start = bondStart[sc];
+			size_t count = bondCount[sc];
+			size_t index = dendrogramOffsets[sc];
+			int structureType = structuresArray[neighborBonds()[start].a];
 
-		if(_algorithmType == 0) {
-			node_pair_sampling_clustering(
-				boost::make_iterator_range_n(neighborBonds().cbegin() + start, count), 
-				&_dendrogram[index], structureType, qsum, totalWeight);
-		}
-		else {
-			minimum_spanning_tree_clustering(
-				boost::make_iterator_range_n(neighborBonds().begin() + start, count), 
-				&_dendrogram[index], structureType, qsum, uf);
+			if(_algorithmType == 0) {
+				node_pair_sampling_clustering(
+					boost::make_iterator_range_n(neighborBonds().cbegin() + start, count), 
+					&_dendrogram[index], structureType, qsum, totalWeight);
+			}
+			else {
+				minimum_spanning_tree_clustering(
+					boost::make_iterator_range_n(neighborBonds().begin() + start, count), 
+					&_dendrogram[index], structureType, qsum, uf);
+			}
 		}
 	});
 	if(task()->isCanceled())
@@ -557,7 +553,7 @@ bool GrainSegmentationEngine::determineMergeSequence()
 /******************************************************************************
 * Executes precomputed merge steps up to the threshold value set by the user.
 ******************************************************************************/
-void GrainSegmentationEngine::executeMergeSequence(FloatType mergingThreshold)
+void GrainSegmentationEngine::executeMergeSequence(int minGrainAtomCount, FloatType mergingThreshold)
 {
 	PropertyAccess<qlonglong> atomClustersArray(atomClusters());
 
@@ -578,7 +574,7 @@ void GrainSegmentationEngine::executeMergeSequence(FloatType mergingThreshold)
 	for(size_t i = 0; i < _numParticles; i++) {
 		if(uf.find(i) == i) {
 			// If the cluster's size is below the threshold, dissolve the cluster.
-			if(uf.nodesize(i) < _minGrainAtomCount) {
+			if(uf.nodesize(i) < minGrainAtomCount) {
 				clusterRemapping[i] = 0;
 			}
 			else {
