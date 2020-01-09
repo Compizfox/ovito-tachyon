@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Copyright 2017 Alexander Stukowski
+//  Copyright 2020 Alexander Stukowski
 //
 //  This file is part of OVITO (Open Visualization Tool).
 //
@@ -80,11 +80,18 @@ private:
 	public:
 
 		/// Constructor.
-		ClusterAnalysisEngine(ParticleOrderingFingerprint fingerprint, ConstPropertyPtr positions, const SimulationCell& simCell, bool sortBySize, ConstPropertyPtr selection) :
+		ClusterAnalysisEngine(ParticleOrderingFingerprint fingerprint, ConstPropertyPtr positions, const SimulationCell& simCell, bool sortBySize, bool unwrapParticleCoordinates, bool computeCentersOfMass, ConstPropertyPtr selection, const ConstPropertyPtr& periodicImageBondProperty, ConstPropertyPtr bondTopology) :
 			_positions(positions),
 			_simCell(simCell),
 			_sortBySize(sortBySize),
+			_unwrapParticleCoordinates(unwrapParticleCoordinates),
+			_computeCentersOfMass(computeCentersOfMass),
+			_unwrappedPositions((unwrapParticleCoordinates || computeCentersOfMass) ? std::make_shared<PropertyStorage>(*positions) : nullptr),
+			_centersOfMass(computeCentersOfMass ? std::make_shared<PropertyStorage>(0, PropertyStorage::Float, 3, 0, QStringLiteral("Center of Mass"), true, 
+				0, QStringList() << QStringLiteral("X") << QStringLiteral("Y") << QStringLiteral("Z")) : nullptr),
 			_selection(std::move(selection)),
+			_periodicImageBondProperty(periodicImageBondProperty ? std::make_shared<PropertyStorage>(*periodicImageBondProperty) : nullptr),
+			_bondTopology(bondTopology),
 			_particleClusters(ParticlesObject::OOClass().createStandardStorage(fingerprint.particleCount(), ParticlesObject::ClusterProperty, false)),
 			_inputFingerprint(std::move(fingerprint)) {}
 
@@ -92,6 +99,9 @@ private:
 		virtual void cleanup() override {
 			_positions.reset();
 			_selection.reset();
+			_bondTopology.reset();
+			if(!_unwrapParticleCoordinates) 
+				_unwrappedPositions.reset();
 			ComputeEngine::cleanup();
 		}
 
@@ -128,15 +138,26 @@ private:
 		/// Returns the property storage that contains the particle selection (optional).
 		const ConstPropertyPtr& selection() const { return _selection; }
 
+		/// Returns the list of input bonds.
+		const ConstPropertyPtr& bondTopology() const { return _bondTopology; }
+
 	protected:
 
 		const SimulationCell _simCell;
 		const bool _sortBySize;
+		const bool _unwrapParticleCoordinates;
+		const bool _computeCentersOfMass;
 		ConstPropertyPtr _positions;
 		ConstPropertyPtr _selection;
+		ConstPropertyPtr _bondTopology;
 		size_t _numClusters = 0;
 		size_t _largestClusterSize = 0;
 		const PropertyPtr _particleClusters;
+		PropertyPtr _clusterIds;
+		PropertyPtr _clusterSizes;
+		PropertyPtr _unwrappedPositions;
+		PropertyPtr _periodicImageBondProperty;
+		PropertyPtr _centersOfMass;
 		ParticleOrderingFingerprint _inputFingerprint;
 	};
 
@@ -146,8 +167,8 @@ private:
 	public:
 
 		/// Constructor.
-		CutoffClusterAnalysisEngine(ParticleOrderingFingerprint fingerprint, ConstPropertyPtr positions, const SimulationCell& simCell, bool sortBySize, ConstPropertyPtr selection, FloatType cutoff) :
-			ClusterAnalysisEngine(std::move(fingerprint), std::move(positions), simCell, sortBySize, std::move(selection)),
+		CutoffClusterAnalysisEngine(ParticleOrderingFingerprint fingerprint, ConstPropertyPtr positions, const SimulationCell& simCell, bool sortBySize, bool unwrapParticleCoordinates, bool computeCentersOfMass, ConstPropertyPtr selection, const ConstPropertyPtr& periodicImageBondProperty, ConstPropertyPtr bondTopology, FloatType cutoff) :
+			ClusterAnalysisEngine(std::move(fingerprint), std::move(positions), simCell, sortBySize, unwrapParticleCoordinates, computeCentersOfMass, std::move(selection), periodicImageBondProperty, std::move(bondTopology)),
 			_cutoff(cutoff) {}
 
 		/// Performs the actual clustering algorithm.
@@ -167,25 +188,11 @@ private:
 	public:
 
 		/// Constructor.
-		BondClusterAnalysisEngine(ParticleOrderingFingerprint fingerprint, ConstPropertyPtr positions, const SimulationCell& simCell, bool sortBySize, ConstPropertyPtr selection, ConstPropertyPtr bondTopology) :
-			ClusterAnalysisEngine(std::move(fingerprint), std::move(positions), simCell, sortBySize, std::move(selection)),
-			_bondTopology(std::move(bondTopology)) {}
-
-		/// This method is called by the system after the computation was successfully completed.
-		virtual void cleanup() override {
-			_bondTopology.reset();
-			ClusterAnalysisEngine::cleanup();
-		}
+		BondClusterAnalysisEngine(ParticleOrderingFingerprint fingerprint, ConstPropertyPtr positions, const SimulationCell& simCell, bool sortBySize, bool unwrapParticleCoordinates, bool computeCentersOfMass, ConstPropertyPtr selection, const ConstPropertyPtr& periodicImageBondProperty, ConstPropertyPtr bondTopology) :
+			ClusterAnalysisEngine(std::move(fingerprint), std::move(positions), simCell, sortBySize, unwrapParticleCoordinates, computeCentersOfMass, std::move(selection), periodicImageBondProperty, std::move(bondTopology)) {}
 
 		/// Performs the actual clustering algorithm.
 		virtual void doClustering() override;
-
-		/// Returns the list of input bonds.
-		const ConstPropertyPtr& bondTopology() const { return _bondTopology; }
-
-	private:
-
-		ConstPropertyPtr _bondTopology;
 	};
 
 	/// The neighbor mode.
@@ -198,12 +205,19 @@ private:
 	DECLARE_MODIFIABLE_PROPERTY_FIELD(bool, onlySelectedParticles, setOnlySelectedParticles);
 
 	/// Controls the sorting of cluster IDs by cluster size.
-	DECLARE_MODIFIABLE_PROPERTY_FIELD(bool, sortBySize, setSortBySize);
+	DECLARE_MODIFIABLE_PROPERTY_FIELD_FLAGS(bool, sortBySize, setSortBySize, PROPERTY_FIELD_MEMORIZE);
+
+	/// Controls the unwrapping of the particle coordinates that make up a cluster.
+	DECLARE_MODIFIABLE_PROPERTY_FIELD_FLAGS(bool, unwrapParticleCoordinates, setUnwrapParticleCoordinates, PROPERTY_FIELD_MEMORIZE);
+
+	/// Controls the computation of cluster centers of mass.
+	DECLARE_MODIFIABLE_PROPERTY_FIELD_FLAGS(bool, computeCentersOfMass, setComputeCentersOfMass, PROPERTY_FIELD_MEMORIZE);
+
+	/// Controls the coloring of particles by cluster ID.
+	DECLARE_MODIFIABLE_PROPERTY_FIELD_FLAGS(bool, colorParticlesByCluster, setColorParticlesByCluster, PROPERTY_FIELD_MEMORIZE);
 };
 
 OVITO_END_INLINE_NAMESPACE
 OVITO_END_INLINE_NAMESPACE
 }	// End of namespace
 }	// End of namespace
-
-
