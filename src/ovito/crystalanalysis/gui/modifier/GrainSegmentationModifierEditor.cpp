@@ -107,7 +107,7 @@ void GrainSegmentationModifierEditor::createUI(const RolloutInsertionParameters&
 	QPushButton* btn = new QPushButton(tr("Show list of grains"));
 	connect(btn, &QPushButton::clicked, this, [this]() {
 		if(modifierApplication())
-			mainWindow()->openDataInspector(modifierApplication(), QStringLiteral("grains"), 1); // Note: Mode hint "1" switches to the data table view.
+			mainWindow()->openDataInspector(modifierApplication(), QStringLiteral("grains"), 1); // Note: Mode hint "1" switches to table view.
 	});
 	layout->addWidget(btn);
 
@@ -118,7 +118,7 @@ void GrainSegmentationModifierEditor::createUI(const RolloutInsertionParameters&
 	layout->addWidget(structureTypesPUI->tableWidget());
 
 	// Create plot widget for merge distances
-	_mergePlotWidget = new DataSeriesPlotWidget();
+	_mergePlotWidget = new DataTablePlotWidget();
 	_mergePlotWidget->setMinimumHeight(200);
 	_mergePlotWidget->setMaximumHeight(200);
 	_mergeRangeIndicator = new QwtPlotZoneItem();
@@ -131,7 +131,7 @@ void GrainSegmentationModifierEditor::createUI(const RolloutInsertionParameters&
 	connect(this, &GrainSegmentationModifierEditor::contentsReplaced, this, &GrainSegmentationModifierEditor::plotMerges);
 
 	// Create plot widget for RMSD distribution.
-	_rmsdPlotWidget = new DataSeriesPlotWidget();
+	_rmsdPlotWidget = new DataTablePlotWidget();
 	_rmsdPlotWidget->setMinimumHeight(200);
 	_rmsdPlotWidget->setMaximumHeight(200);
 	_rmsdRangeIndicator = new QwtPlotZoneItem();
@@ -175,8 +175,8 @@ void GrainSegmentationModifierEditor::plotHistogram()
 		// Request the modifier's pipeline output.
 		const PipelineFlowState& state = getModifierOutput();
 
-		// Look up the data series in the modifier's pipeline output.
-		_rmsdPlotWidget->setSeries(state.getObjectBy<DataSeriesObject>(modifierApplication(), QStringLiteral("grains-rmsd")));
+		// Look up the data table in the modifier's pipeline output.
+		_rmsdPlotWidget->setTable(state.getObjectBy<DataTable>(modifierApplication(), QStringLiteral("grains-rmsd")));
 	}
 	else {
 		_rmsdPlotWidget->reset();
@@ -191,8 +191,8 @@ void GrainSegmentationModifierEditor::plotMerges()
 		// Request the modifier's pipeline output.
 		const PipelineFlowState& state = getModifierOutput();
 
-		// Look up the data series in the modifier's pipeline output.
-		_mergePlotWidget->setSeries(state.getObjectBy<DataSeriesObject>(modifierApplication(), QStringLiteral("grains-merge")));
+		// Look up the data table in the modifier's pipeline output.
+		_mergePlotWidget->setTable(state.getObjectBy<DataTable>(modifierApplication(), QStringLiteral("grains-merge")));
 
 		// Indicate the current merge threshold in the plot.
 		_mergeRangeIndicator->setInterval(std::numeric_limits<double>::lowest(), modifier->mergingThreshold());

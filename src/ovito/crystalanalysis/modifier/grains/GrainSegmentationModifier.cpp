@@ -26,7 +26,7 @@
 #include <ovito/particles/objects/ParticlesObject.h>
 #include <ovito/stdobj/simcell/SimulationCellObject.h>
 #include <ovito/stdobj/properties/PropertyStorage.h>
-#include <ovito/stdobj/series/DataSeriesObject.h>
+#include <ovito/stdobj/table/DataTable.h>
 #include <ovito/core/utilities/units/UnitsManager.h>
 #include <ovito/core/dataset/pipeline/ModifierApplication.h>
 #include <ovito/core/dataset/DataSet.h>
@@ -204,22 +204,22 @@ void GrainSegmentationEngine::emitResults(TimePoint time, ModifierApplication* m
 	}
 
 	// Output RMSD histogram.
-	DataSeriesObject* seriesObj = state.createObject<DataSeriesObject>(QStringLiteral("grains-rmsd"), modApp, DataSeriesObject::Line, GrainSegmentationModifier::tr("RMSD distribution"), rmsdHistogram());
-	seriesObj->setAxisLabelX(GrainSegmentationModifier::tr("RMSD"));
-	seriesObj->setIntervalStart(0);
-	seriesObj->setIntervalEnd(rmsdHistogramRange());
+	DataTable* rmsdTable = state.createObject<DataTable>(QStringLiteral("grains-rmsd"), modApp, DataTable::Line, GrainSegmentationModifier::tr("RMSD distribution"), rmsdHistogram());
+	rmsdTable->setAxisLabelX(GrainSegmentationModifier::tr("RMSD"));
+	rmsdTable->setIntervalStart(0);
+	rmsdTable->setIntervalEnd(rmsdHistogramRange());
 
-	// Output a data series object with the dendrogram points.
+	// Output a data plot with the dendrogram points.
 	if(mergeSize() && mergeDistance())
-		state.createObject<DataSeriesObject>(QStringLiteral("grains-merge"), modApp, DataSeriesObject::Scatter, GrainSegmentationModifier::tr("Merge size vs. Merge distance"), mergeSize(), mergeDistance());
+		state.createObject<DataTable>(QStringLiteral("grains-merge"), modApp, DataTable::Scatter, GrainSegmentationModifier::tr("Merge size vs. Merge distance"), mergeSize(), mergeDistance());
 
-	// Output a data series object with the list of grains.
+	// Output a data table with the list of grains.
 	// The X-column consists of the grain IDs, the Y-column contains the grain sizes. 
-	DataSeriesObject* grainListObj = state.createObject<DataSeriesObject>(QStringLiteral("grains"), modApp, DataSeriesObject::Scatter, GrainSegmentationModifier::tr("Grains"), _grainSizes, _grainIds);
+	DataTable* grainTable = state.createObject<DataTable>(QStringLiteral("grains"), modApp, DataTable::Scatter, GrainSegmentationModifier::tr("Grain list"), _grainSizes, _grainIds);
 	// Add extra columns to the table containing other per-grain data.
-	grainListObj->createProperty(_grainColors);
-	PropertyObject* grainStructureTypesProperty = grainListObj->createProperty(_grainStructureTypes);
-	grainListObj->createProperty(_grainOrientations);
+	grainTable->createProperty(_grainColors);
+	PropertyObject* grainStructureTypesProperty = grainTable->createProperty(_grainStructureTypes);
+	grainTable->createProperty(_grainOrientations);
 
 	// Transfer the set of crystal structure types to the structure column of the grain table. 
 	for(const ElementType* type : modifier->structureTypes()) {

@@ -25,7 +25,7 @@
 
 
 #include <ovito/crystalanalysis/CrystalAnalysis.h>
-#include <ovito/stdobj/gui/widgets/DataSeriesPlotWidget.h>
+#include <ovito/stdobj/gui/widgets/DataTablePlotWidget.h>
 #include <ovito/gui/properties/ModifierPropertiesEditor.h>
 #include <ovito/core/utilities/DeferredMethodInvocation.h>
 
@@ -64,7 +64,7 @@ protected:
 private:
 
 	/// The graph widget to display the RMSD histogram.
-	DataSeriesPlotWidget* _rmsdPlotWidget;
+	DataTablePlotWidget* _rmsdPlotWidget;
 
 	/// Marks the RMSD cutoff in the histogram plot.
 	QwtPlotZoneItem* _rmsdRangeIndicator;
@@ -73,7 +73,7 @@ private:
 	DeferredMethodInvocation<GrainSegmentationModifierEditor, &GrainSegmentationModifierEditor::plotHistogram> plotHistogramLater;
 
 	/// The graph widget to display the merge size scatter plot.
-	DataSeriesPlotWidget* _mergePlotWidget;
+	DataTablePlotWidget* _mergePlotWidget;
 
 	/// Marks the merge distance cutoff in the scatter plot.
 	QwtPlotZoneItem* _mergeRangeIndicator;
