@@ -161,19 +161,15 @@ void GrainSegmentationEngine::emitResults(TimePoint time, ModifierApplication* m
 		particles->createProperty(atomClusters());
 
 		if(modifier->colorParticlesByGrain()) {
-			// Assign random colors to grains.
-			std::vector<Color> grainColors(_numClusters);
-			std::default_random_engine rng(1);
-			std::uniform_real_distribution<FloatType> uniform_dist(0, 1);
-			boost::generate(grainColors, [&]() { return Color::fromHSV(uniform_dist(rng), 1.0 - uniform_dist(rng) * 0.5, 1.0 - uniform_dist(rng) * 0.3); });
-			// Special color for non-crystalline particles not part of any grain:
-			grainColors[0] = Color(0.8, 0.8, 0.8);
-
+			
 			// Assign colors to particles according to the grains they belong to.
-			PropertyAccess<Color> colorsArray = particles->createProperty(ParticlesObject::ColorProperty, false);
-			boost::transform(ConstPropertyAccess<qlonglong>(atomClusters()), colorsArray.begin(), [&](qlonglong cluster) { 
-				OVITO_ASSERT(cluster >= 0 && cluster < grainColors.size());
-				return grainColors[cluster];
+			ConstPropertyAccess<Color> grainColorsArray(_grainColors);
+			PropertyAccess<Color> particleColorsArray = particles->createProperty(ParticlesObject::ColorProperty, false);
+			boost::transform(ConstPropertyAccess<qlonglong>(atomClusters()), particleColorsArray.begin(), [&](qlonglong cluster) { 
+				if(cluster != 0)
+					return grainColorsArray[cluster - 1];
+				else
+					return Color(0.8, 0.8, 0.8); // Special color for non-crystalline particles not part of any grain.
 			});
 		}
 	}
@@ -215,7 +211,21 @@ void GrainSegmentationEngine::emitResults(TimePoint time, ModifierApplication* m
 
 	// Output a data series object with the dendrogram points.
 	if(mergeSize() && mergeDistance())
-		DataSeriesObject* mergeSeriesObj = state.createObject<DataSeriesObject>(QStringLiteral("grains-merge"), modApp, DataSeriesObject::Scatter, GrainSegmentationModifier::tr("Merge size vs. Merge distance"), mergeSize(), mergeDistance());
+		state.createObject<DataSeriesObject>(QStringLiteral("grains-merge"), modApp, DataSeriesObject::Scatter, GrainSegmentationModifier::tr("Merge size vs. Merge distance"), mergeSize(), mergeDistance());
+
+	// Output a data series object with the list of grains.
+	// The X-column consists of the grain IDs, the Y-column contains the grain sizes. 
+	DataSeriesObject* grainListObj = state.createObject<DataSeriesObject>(QStringLiteral("grains"), modApp, DataSeriesObject::Scatter, GrainSegmentationModifier::tr("Grains"), _grainSizes, _grainIds);
+	// Add extra columns to the table containing other per-grain data.
+	grainListObj->createProperty(_grainColors);
+	PropertyObject* grainStructureTypesProperty = grainListObj->createProperty(_grainStructureTypes);
+	grainListObj->createProperty(_grainOrientations);
+
+	// Transfer the set of crystal structure types to the structure column of the grain table. 
+	for(const ElementType* type : modifier->structureTypes()) {
+		if(type->enabled())
+			grainStructureTypesProperty->addElementType(type);
+	}
 
 	size_t numGrains = 0;
 	if(atomClusters()->size() != 0)

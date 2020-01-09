@@ -79,7 +79,6 @@ public:
 	/// computation has been successfully completed.
 	virtual void cleanup() override {
 		decltype(_distanceSortedAtoms){}.swap(_distanceSortedAtoms);
-		decltype(_clusterOrientations){}.swap(_clusterOrientations);
 		if(!_outputBondsToPipeline)
 			decltype(_neighborBonds){}.swap(_neighborBonds);
 		StructureIdentificationEngine::cleanup();
@@ -178,9 +177,6 @@ private:
 	/// Counts the number of clusters
 	size_t _numClusters = 0;
 
-	/// Stores the average lattice orientation of each cluster.
-	std::vector<Quaternion> _clusterOrientations;
-
 	/// The per-atom RMSD values computed by the PTM algorithm.
 	const PropertyPtr _rmsd;
 
@@ -216,6 +212,21 @@ private:
 
 	// Dendrogram as list of cluster merges.
 	std::vector<DendrogramNode> _dendrogram;
+
+	// The output list of grain IDs.
+	PropertyPtr _grainIds;
+
+	// The output list of grain sizes.
+	PropertyPtr _grainSizes;
+
+	/// The output list of per-grain structure types.
+	PropertyPtr _grainStructureTypes;
+
+	/// The output list of colors assigned to grains.
+	PropertyPtr _grainColors;
+
+	/// The output list of mean grain orientations.
+	PropertyPtr _grainOrientations;
 };
 
 }	// End of namespace

@@ -251,7 +251,7 @@ class ReadWritePropertyAccessBase : public ReadOnlyPropertyAccessBase<T, Pointer
 public:
 
 	using iterator = T*;
-	using const_iterator = const T*;
+	using const_iterator = T*;
 
 	/// \brief Sets the value of the i-th element in the array.
 	void set(size_t i, const T& v) {
@@ -322,7 +322,7 @@ class ReadWritePropertyAccessBaseTable : public ReadOnlyPropertyAccessBaseTable<
 public:
 
 	using iterator = T*;
-	using const_iterator = const T*;
+	using const_iterator = T*;
 
 	/// \brief Returns a pointer to the first element of the property array.
 	T* begin() const {

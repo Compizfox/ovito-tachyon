@@ -66,6 +66,11 @@ protected:
 	/// Is called when the user selects a different property container object in the list.
 	virtual void currentContainerChanged() override;
 
+	/// Determines whether the given property represents a color.
+	virtual bool isColorProperty(PropertyObject* property) const override {
+		return property->dataType() == PropertyStorage::Float && property->componentCount() == 3 && property->name().contains(QStringLiteral("Color"));
+	}
+
 private Q_SLOTS:
 
 	/// Action handler.

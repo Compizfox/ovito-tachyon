@@ -362,7 +362,7 @@ FloatType GrainSegmentationEngine::calculate_disorientation(int structureType, Q
 	double disorientation = 0;
 	int8_t dummy_mapping[PTM_MAX_POINTS];
 	if(ptm_remap_template(type, true, 0, qtarget, q, &disorientation, dummy_mapping, nullptr) < 0) {
-		qWarning() << "remap failure";
+		qWarning() << "Grain segmentation: remap failure";
 		OVITO_ASSERT(false); // remap failure
 	}
 
@@ -558,8 +558,6 @@ bool GrainSegmentationEngine::determineMergeSequence()
 ******************************************************************************/
 void GrainSegmentationEngine::executeMergeSequence(int minGrainAtomCount, FloatType mergingThreshold)
 {
-	PropertyAccess<qlonglong> atomClustersArray(atomClusters());
-
 	// Iterate through merge list until distance cutoff is met.
 	DisjointSet uf(_numParticles);
 	for(const DendrogramNode& node : _dendrogram) {
@@ -574,6 +572,8 @@ void GrainSegmentationEngine::executeMergeSequence(int minGrainAtomCount, FloatT
 
 	// Assign new consecutive IDs to root clusters.
 	_numClusters = 1;
+	ConstPropertyAccess<int> structuresArray(structures());
+	std::vector<int> clusterStructureTypes;
 	for(size_t i = 0; i < _numParticles; i++) {
 		if(uf.find(i) == i) {
 			// If the cluster's size is below the threshold, dissolve the cluster.
@@ -583,47 +583,81 @@ void GrainSegmentationEngine::executeMergeSequence(int minGrainAtomCount, FloatT
 			else {
 				clusterRemapping[i] = _numClusters;
 				_numClusters++;
+				clusterStructureTypes.push_back(structuresArray[i]);
 			}
 		}
 	}
+
+	// Allocate and fill output array storing the grain IDs (1-based identifiers). 
+	_grainIds =  std::make_shared<PropertyStorage>(_numClusters - 1, PropertyStorage::Int64, 1, 0, QStringLiteral("Grain Identifier"), false, DataSeriesObject::XProperty);
+	boost::algorithm::iota_n(PropertyAccess<qlonglong>(_grainIds).begin(), size_t(1), _grainIds->size());
+
+	// Allocate output array storing the grain sizes.
+	_grainSizes = std::make_shared<PropertyStorage>(_numClusters - 1, PropertyStorage::Int64, 1, 0, QStringLiteral("Grain Size"), true, DataSeriesObject::YProperty);
+
+	// Allocate output array storing the structure type of grains.
+	_grainStructureTypes = std::make_shared<PropertyStorage>(_numClusters - 1, PropertyStorage::Int, 1, 0, QStringLiteral("Structure Type"), false);
+	boost::copy(clusterStructureTypes, PropertyAccess<int>(_grainStructureTypes).begin());
+
+	// Allocate output array with each grain's unique color.
+	// Fill it with random color values (using constant random seed to keep it reproducible).
+	_grainColors = std::make_shared<PropertyStorage>(_numClusters - 1, PropertyStorage::Float, 3, 0, QStringLiteral("Color"), false);
+	std::default_random_engine rng(1);
+	std::uniform_real_distribution<FloatType> uniform_dist(0, 1);
+	boost::generate(PropertyAccess<Color>(_grainColors), [&]() { return Color::fromHSV(uniform_dist(rng), 1.0 - uniform_dist(rng) * 0.5, 1.0 - uniform_dist(rng) * 0.3); });
+
+	// Allocate output array storing the mean lattice orientation of grains (represented by a quaternion).
+	_grainOrientations = std::make_shared<PropertyStorage>(_numClusters - 1, PropertyStorage::Float, 4, 0, QStringLiteral("Orientation"), true);
 
 	// Determine new IDs for non-root clusters.
 	for(size_t particleIndex = 0; particleIndex < _numParticles; particleIndex++)
 		clusterRemapping[particleIndex] = clusterRemapping[uf.find(particleIndex)];
 
 	// Relabel atoms after cluster IDs have changed.
-	std::vector<qlonglong> clusterSizes(_numClusters, 0);
+	// Also count the number of atoms in each cluster.
+	PropertyAccess<qlonglong> atomClustersArray(atomClusters());
+	PropertyAccess<qlonglong> grainSizeArray(_grainSizes);
 	for(size_t particleIndex = 0; particleIndex < _numParticles; particleIndex++) {
 		size_t gid = clusterRemapping[particleIndex];
 		atomClustersArray[particleIndex] = gid;
-		clusterSizes[gid]++;
+		if(gid != 0) grainSizeArray[gid - 1]++;
 	}
 
-	// Relabel clusters by size (large to small)
+	// Reorder grains by size (large to small).
 	if(_numClusters > 1) {
-		std::vector<std::tuple<size_t, size_t>> lut;
 
-		for(size_t i = 0; i < _numClusters; i++) {
-			lut.emplace_back(std::make_tuple(i, clusterSizes[i]));
-		}
+		// Determine the index remapping for reordering the grain list by size.
+		std::vector<size_t> mapping(_numClusters - 1);
+		std::iota(mapping.begin(), mapping.end(), size_t(0));
+		std::sort(mapping.begin(), mapping.end(), [&](size_t a, size_t b) {
+			return grainSizeArray[a] > grainSizeArray[b];
+		});
 
-		// Sort by size, leaving zeroth cluster in place
-		std::sort(lut.begin() + 1, lut.end(),
-			[](const std::tuple<size_t, size_t>& a, const std::tuple<size_t, size_t>& b)
-			{ return std::get<1>(b) < std::get<1>(a); });
+		// Use index map to reorder grain data arrays.
 
-		std::vector<size_t> indices(_numClusters);
-		for(size_t gid = 0; gid < _numClusters; gid++) {
-			indices[std::get<0>(lut[gid])] = gid;
-		}
+		PropertyPtr originalGrainSizes = _grainSizes;
+		PropertyStorage::makeMutable(_grainSizes);
+		originalGrainSizes->mappedCopyTo(*_grainSizes, mapping);
 
-		for(size_t particleIndex = 0; particleIndex < _numParticles; particleIndex++) {
-			atomClustersArray[particleIndex] = indices[atomClustersArray[particleIndex]];
-		}
+		PropertyPtr originalGrainStructureTypes = _grainStructureTypes;
+		PropertyStorage::makeMutable(_grainStructureTypes);
+		originalGrainStructureTypes->mappedCopyTo(*_grainStructureTypes, mapping);
 
-		for(size_t i = 0; i < _numClusters; i++) {
-			clusterSizes[i] = std::get<1>(lut[i]);
-		}
+		PropertyPtr originalGrainOrientations = _grainOrientations;
+		PropertyStorage::makeMutable(_grainOrientations);
+		originalGrainOrientations->mappedCopyTo(*_grainOrientations, mapping);
+
+		// Invert the grain index map. 
+
+		std::vector<size_t> inverseMapping(_numClusters);
+		inverseMapping[0] = 0; // Keep cluster ID 0 in place.
+		for(size_t i = 1; i < _numClusters; i++)
+			inverseMapping[mapping[i-1]+1] = i;
+
+		// Remap per-particle grain IDs.
+
+		for(auto& id : atomClustersArray)
+			id = inverseMapping[id];
 	}
 }
 

@@ -30,6 +30,7 @@
 #include <ovito/gui/properties/BooleanParameterUI.h>
 #include <ovito/gui/properties/BooleanRadioButtonParameterUI.h>
 #include <ovito/gui/utilities/concurrent/ProgressDialog.h>
+#include <ovito/gui/mainwin/MainWindow.h>
 #include <ovito/core/dataset/DataSetContainer.h>
 #include "GrainSegmentationModifierEditor.h"
 
@@ -102,6 +103,13 @@ void GrainSegmentationModifierEditor::createUI(const RolloutInsertionParameters&
 
 	// Status label.
 	layout->addWidget(statusLabel());
+
+	QPushButton* btn = new QPushButton(tr("Show list of grains"));
+	connect(btn, &QPushButton::clicked, this, [this]() {
+		if(modifierApplication())
+			mainWindow()->openDataInspector(modifierApplication(), QStringLiteral("grains"), 1); // Note: Mode hint "1" switches to the data table view.
+	});
+	layout->addWidget(btn);
 
 	// Structure list.
 	StructureListParameterUI* structureTypesPUI = new StructureListParameterUI(this, true);

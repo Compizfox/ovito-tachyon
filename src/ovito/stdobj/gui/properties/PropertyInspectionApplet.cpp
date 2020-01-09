@@ -180,7 +180,7 @@ bool PropertyInspectionApplet::selectDataObject(PipelineObject* dataSource, cons
 		const ConstDataObjectPath& objectPath = item->data(Qt::UserRole).value<ConstDataObjectPath>();
 		if(!objectPath.empty()) {
 			if(objectPath.back()->dataSource() == dataSource) {
-				if(objectIdentifierHint.isEmpty() || objectPath.back()->identifier().startsWith(objectIdentifierHint)) {
+				if(objectIdentifierHint.isEmpty() || objectPath.back()->identifier() == objectIdentifierHint || objectPath.back()->identifier().startsWith(objectIdentifierHint + QChar('.'))) {
 					containerSelectionWidget()->setCurrentRow(i);
 					return true;
 				}
