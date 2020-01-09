@@ -192,9 +192,9 @@ bool GrainSegmentationEngine::node_pair_sampling_clustering(
 					size_t parent = graph.contract_edge(a, b);
 					size_t child = (parent == a) ? b : a;
 
-					FloatType disorientation  = calculate_disorientation(structureType, qsum[parent], qsum[child]);
-		
-					*dendrogram++ = DendrogramNode(std::min(a, b), std::max(a, b), d / totalWeight / totalWeight, disorientation, size);
+					FloatType disorientation = calculate_disorientation(structureType, qsum[parent], qsum[child]);
+
+					*dendrogram++ = DendrogramNode(std::min(a, b), std::max(a, b), d / totalWeight, disorientation, size, qsum[parent]);
 
 					// Update progress indicator.
 					if((progress++ % 1024) == 0) {

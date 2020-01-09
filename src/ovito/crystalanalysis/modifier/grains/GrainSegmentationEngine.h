@@ -38,14 +38,15 @@ class DendrogramNode
 public:
 	DendrogramNode() = default;
 
-	DendrogramNode(size_t _a, size_t _b, FloatType _distance, FloatType _disorientation, size_t _size)
-		: a(_a), b(_b), distance(_distance), disorientation(_disorientation), size(_size) {}
+	DendrogramNode(size_t _a, size_t _b, FloatType _distance, FloatType _disorientation, size_t _size, Quaternion _orientation)
+		: a(_a), b(_b), distance(_distance), disorientation(_disorientation), size(_size), orientation(_orientation) {}
 
 	size_t a = 0;
 	size_t b = 0;
 	FloatType distance = std::numeric_limits<FloatType>::lowest();
 	FloatType disorientation = std::numeric_limits<FloatType>::lowest();
 	size_t size = 0;
+	Quaternion orientation;
 };
 
 

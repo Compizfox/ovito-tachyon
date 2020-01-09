@@ -389,11 +389,13 @@ bool GrainSegmentationEngine::minimum_spanning_tree_clustering(
 	size_t progress = 0;
 	for(const NeighborBond& edge : edgeRange) {
 		if(uf.find(edge.a) != uf.find(edge.b)) {
-			size_t parent = uf.merge(edge.a, edge.b);
-			size_t child = (parent == edge.a) ? edge.b : edge.a;
-			FloatType disorientation  = calculate_disorientation(structureType, qsum[parent], qsum[child]);
+			size_t pa = uf.find(edge.a);
+			size_t pb = uf.find(edge.b);
+			size_t parent = uf.merge(pa, pb);
+			size_t child = (parent == pa) ? pb : pa;
+			FloatType disorientation = calculate_disorientation(structureType, qsum[parent], qsum[child]);
 			OVITO_ASSERT(edge.a < edge.b);
-			*dendrogram++ = DendrogramNode(edge.a, edge.b, edge.weight, disorientation, 1);
+			*dendrogram++ = DendrogramNode(edge.a, edge.b, edge.weight, disorientation, 1, qsum[parent]);
 
 			// Update progress indicator.
 			if((progress++ % 1024) == 0) {
@@ -558,6 +560,9 @@ bool GrainSegmentationEngine::determineMergeSequence()
 ******************************************************************************/
 void GrainSegmentationEngine::executeMergeSequence(int minGrainAtomCount, FloatType mergingThreshold)
 {
+	PropertyAccess<Quaternion> orientationsArray(orientations());
+	std::vector<Quaternion> meanOrientation(orientationsArray.cbegin(), orientationsArray.cend());
+
 	// Iterate through merge list until distance cutoff is met.
 	DisjointSet uf(_numParticles);
 	for(const DendrogramNode& node : _dendrogram) {
@@ -565,6 +570,8 @@ void GrainSegmentationEngine::executeMergeSequence(int minGrainAtomCount, FloatT
 			break;
 
 		uf.merge(node.a, node.b);
+		size_t parent = uf.find(node.a);
+		meanOrientation[parent] = node.orientation;
 	}
 
 	// Relabels the clusters to obtain a contiguous sequence of cluster IDs.
@@ -574,6 +581,7 @@ void GrainSegmentationEngine::executeMergeSequence(int minGrainAtomCount, FloatT
 	_numClusters = 1;
 	ConstPropertyAccess<int> structuresArray(structures());
 	std::vector<int> clusterStructureTypes;
+	std::vector<Quaternion> clusterOrientations;
 	for(size_t i = 0; i < _numParticles; i++) {
 		if(uf.find(i) == i) {
 			// If the cluster's size is below the threshold, dissolve the cluster.
@@ -584,6 +592,7 @@ void GrainSegmentationEngine::executeMergeSequence(int minGrainAtomCount, FloatT
 				clusterRemapping[i] = _numClusters;
 				_numClusters++;
 				clusterStructureTypes.push_back(structuresArray[i]);
+				clusterOrientations.push_back(meanOrientation[i]);
 			}
 		}
 	}
@@ -608,6 +617,10 @@ void GrainSegmentationEngine::executeMergeSequence(int minGrainAtomCount, FloatT
 
 	// Allocate output array storing the mean lattice orientation of grains (represented by a quaternion).
 	_grainOrientations = std::make_shared<PropertyStorage>(_numClusters - 1, PropertyStorage::Float, 4, 0, QStringLiteral("Orientation"), true);
+	PropertyAccess<Quaternion> grainOrientationsArray(_grainOrientations);
+	for (size_t i=0;i<_numClusters - 1;i++) {
+		grainOrientationsArray[i] = clusterOrientations[i].normalized();
+	}
 
 	// Determine new IDs for non-root clusters.
 	for(size_t particleIndex = 0; particleIndex < _numParticles; particleIndex++)
