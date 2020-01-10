@@ -40,19 +40,17 @@ namespace Ovito { namespace CrystalAnalysis {
 GrainSegmentationEngine::GrainSegmentationEngine(
 			ParticleOrderingFingerprint fingerprint, ConstPropertyPtr positions, const SimulationCell& simCell,
 			const QVector<bool>& typesToIdentify, ConstPropertyPtr selection,
-			FloatType rmsdCutoff, bool algorithmType,
-			int minGrainAtomCount, bool orphanAdoption, bool outputBonds) :
+			FloatType rmsdCutoff, bool algorithmType, bool outputBonds) :
 	StructureIdentificationModifier::StructureIdentificationEngine(std::move(fingerprint), positions, simCell, std::move(typesToIdentify), std::move(selection)),
 	_numParticles(positions->size()),
 	_rmsdCutoff(rmsdCutoff),
 	_algorithmType(algorithmType),
-	_minGrainAtomCount(std::max(minGrainAtomCount, 1)),
 	_rmsd(std::make_shared<PropertyStorage>(_numParticles, PropertyStorage::Float, 1, 0, QStringLiteral("RMSD"), false)),
 	_orientations(ParticlesObject::OOClass().createStandardStorage(_numParticles, ParticlesObject::OrientationProperty, true)),
 	_atomClusters(ParticlesObject::OOClass().createStandardStorage(_numParticles, ParticlesObject::ClusterProperty, true)),
 	_atomSuperclusters(_numParticles),
-	_orphanAdoption(orphanAdoption),
-	_outputBondsToPipeline(outputBonds)
+	_outputBondsToPipeline(outputBonds),
+	_orphanParentAtoms(positions->size())
 {
 }
 
@@ -79,10 +77,6 @@ void GrainSegmentationEngine::perform()
 		for(FloatType& angle : neighborDisorientationAngles()->floatRange())
 			angle *= FloatType(180) / FLOATTYPE_PI;
 	}
-
-	if (_orphanAdoption) {
-		if(!mergeOrphanAtoms()) return;
-	}
 #endif
 }
 
@@ -108,7 +102,7 @@ bool GrainSegmentationEngine::identifyAtomicStructures()
 	task()->setProgressMaximum(_numParticles);
 	task()->setProgressText(GrainSegmentationModifier::tr("Pre-calculating neighbor ordering"));
 
-	// Pre-order neighbors of each particle
+	// Pre-order neighbors of each particle.
 	std::vector<uint64_t> cachedNeighbors(_numParticles);
 	parallelForChunks(_numParticles, *task(), [this, &cachedNeighbors, &algorithm](size_t startIndex, size_t count, Task& task) {
 		// Create a thread-local kernel for the PTM algorithm.
@@ -491,22 +485,21 @@ bool GrainSegmentationEngine::determineMergeSequence()
 	// Parallelize dendrogram computation over superclusters.
 	parallelFor(_numSuperclusters - 1, [&](size_t sc) {
 		sc++;
-		if(_superclusterSizes[sc] >= _minGrainAtomCount) {
-			size_t start = bondStart[sc];
-			size_t count = bondCount[sc];
-			size_t index = dendrogramOffsets[sc];
-			int structureType = structuresArray[neighborBonds()[start].a];
+		size_t start = bondStart[sc];
+		size_t count = bondCount[sc];
+		if(count == 0) return;
+		size_t index = dendrogramOffsets[sc];
+		int structureType = structuresArray[neighborBonds()[start].a];
 
-			if(_algorithmType == 0) {
-				node_pair_sampling_clustering(
-					boost::make_iterator_range_n(neighborBonds().cbegin() + start, count), 
-					&_dendrogram[index], structureType, qsum, totalWeight);
-			}
-			else {
-				minimum_spanning_tree_clustering(
-					boost::make_iterator_range_n(neighborBonds().begin() + start, count), 
-					&_dendrogram[index], structureType, qsum, uf);
-			}
+		if(_algorithmType == 0) {
+			node_pair_sampling_clustering(
+				boost::make_iterator_range_n(neighborBonds().cbegin() + start, count), 
+				&_dendrogram[index], structureType, qsum, totalWeight);
+		}
+		else {
+			minimum_spanning_tree_clustering(
+				boost::make_iterator_range_n(neighborBonds().begin() + start, count), 
+				&_dendrogram[index], structureType, qsum, uf);
 		}
 	});
 	if(task()->isCanceled())
@@ -529,7 +522,7 @@ bool GrainSegmentationEngine::determineMergeSequence()
 		node.disorientation = qRadiansToDegrees(node.disorientation);
 
 		// We don't want to plot very small merges - they extend the x-axis by a lot and don't provide much useful information
-		if(dsize < _minGrainAtomCount / 2) {
+		if(dsize < 20) {
 			node.size = 0;
 		}
 		else {
@@ -558,7 +551,7 @@ bool GrainSegmentationEngine::determineMergeSequence()
 /******************************************************************************
 * Executes precomputed merge steps up to the threshold value set by the user.
 ******************************************************************************/
-void GrainSegmentationEngine::executeMergeSequence(int minGrainAtomCount, FloatType mergingThreshold)
+void GrainSegmentationEngine::executeMergeSequence(int minGrainAtomCount, FloatType mergingThreshold, bool adoptOrphanAtoms)
 {
 	PropertyAccess<Quaternion> orientationsArray(orientations());
 	std::vector<Quaternion> meanOrientation(orientationsArray.cbegin(), orientationsArray.cend());
@@ -592,7 +585,7 @@ void GrainSegmentationEngine::executeMergeSequence(int minGrainAtomCount, FloatT
 				clusterRemapping[i] = _numClusters;
 				_numClusters++;
 				clusterStructureTypes.push_back(structuresArray[i]);
-				clusterOrientations.push_back(meanOrientation[i]);
+				clusterOrientations.push_back(meanOrientation[i].normalized());
 			}
 		}
 	}
@@ -610,17 +603,14 @@ void GrainSegmentationEngine::executeMergeSequence(int minGrainAtomCount, FloatT
 
 	// Allocate output array with each grain's unique color.
 	// Fill it with random color values (using constant random seed to keep it reproducible).
-	_grainColors = std::make_shared<PropertyStorage>(_numClusters - 1, PropertyStorage::Float, 3, 0, QStringLiteral("Color"), false);
+	_grainColors = std::make_shared<PropertyStorage>(_numClusters - 1, PropertyStorage::Float, 3, 0, QStringLiteral("Color"), false, 0, QStringList() << QStringLiteral("R") << QStringLiteral("G") << QStringLiteral("B"));
 	std::default_random_engine rng(1);
 	std::uniform_real_distribution<FloatType> uniform_dist(0, 1);
 	boost::generate(PropertyAccess<Color>(_grainColors), [&]() { return Color::fromHSV(uniform_dist(rng), 1.0 - uniform_dist(rng) * 0.5, 1.0 - uniform_dist(rng) * 0.3); });
 
 	// Allocate output array storing the mean lattice orientation of grains (represented by a quaternion).
-	_grainOrientations = std::make_shared<PropertyStorage>(_numClusters - 1, PropertyStorage::Float, 4, 0, QStringLiteral("Orientation"), true);
-	PropertyAccess<Quaternion> grainOrientationsArray(_grainOrientations);
-	for (size_t i=0;i<_numClusters - 1;i++) {
-		grainOrientationsArray[i] = clusterOrientations[i].normalized();
-	}
+	_grainOrientations = std::make_shared<PropertyStorage>(_numClusters - 1, PropertyStorage::Float, 4, 0, QStringLiteral("Orientation"), true, 0, QStringList() << QStringLiteral("X") << QStringLiteral("Y") << QStringLiteral("Z") << QStringLiteral("W"));
+	boost::copy(clusterOrientations, PropertyAccess<Quaternion>(_grainOrientations).begin());
 
 	// Determine new IDs for non-root clusters.
 	for(size_t particleIndex = 0; particleIndex < _numParticles; particleIndex++)
@@ -635,6 +625,10 @@ void GrainSegmentationEngine::executeMergeSequence(int minGrainAtomCount, FloatT
 		atomClustersArray[particleIndex] = gid;
 		if(gid != 0) grainSizeArray[gid - 1]++;
 	}
+
+	// Adopt orphan atoms.
+	if(adoptOrphanAtoms)
+		mergeOrphanAtoms();
 
 	// Reorder grains by size (large to small).
 	if(_numClusters > 1) {
@@ -699,12 +693,15 @@ bool GrainSegmentationEngine::randomizeClusterIDs()
 }
 #endif
 
-#if 0
 /******************************************************************************
 * Merges any orphan atoms into the closest cluster.
 ******************************************************************************/
-bool GrainSegmentationEngine::mergeOrphanAtoms()
+void GrainSegmentationEngine::mergeOrphanAtoms()
 {
+	PropertyAccess<qlonglong> atomClustersArray(atomClusters());
+	PropertyAccess<qlonglong> grainSizeArray(_grainSizes);
+
+#if 0	
 	PropertyAccess<qlonglong> atomClustersArray(atomClusters());
 	ConstPropertyAccess<Point3> positionsArray(positions());
 
@@ -715,16 +712,12 @@ bool GrainSegmentationEngine::mergeOrphanAtoms()
 			orphanAtoms.push_back(i);
 	}
 
-	task()->setProgressText(GrainSegmentationModifier::tr("Grain segmentation - merging orphan atoms"));
-	task()->setProgressValue(0);
-	task()->setProgressMaximum(orphanAtoms.size());
-
-	// Add orphan atoms to the grains.
+	// Add each orphan atom to one of the grains in an iterative manner
+	// by growing the grains outward.
 	size_t oldOrphanCount = orphanAtoms.size();
 	for(;;) {
 		std::vector<size_t> newlyAssignedClusters(orphanAtoms.size(), 0);
 		for(size_t i = 0; i < orphanAtoms.size(); i++) {
-			if(task()->isCanceled()) return false;
 
 			// Find the closest cluster atom in the neighborhood.
 			FloatType minDistSq = FLOATTYPE_MAX;
@@ -753,7 +746,6 @@ bool GrainSegmentationEngine::mergeOrphanAtoms()
 			}
 			else {
 //				clusterSizes[newlyAssignedClusters[i] - 1]++;
-				if(!task()->incrementProgressValue()) return false;
 			}
 		}
 		orphanAtoms.resize(newOrphanCount);
@@ -761,10 +753,8 @@ bool GrainSegmentationEngine::mergeOrphanAtoms()
 			break;
 		oldOrphanCount = newOrphanCount;
 	}
-
-	return !task()->isCanceled();
+#endif	
 }
-#endif
 
 #if 0
 /******************************************************************************

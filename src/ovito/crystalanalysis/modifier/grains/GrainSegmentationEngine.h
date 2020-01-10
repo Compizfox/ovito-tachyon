@@ -70,8 +70,7 @@ public:
 	GrainSegmentationEngine(
 			ParticleOrderingFingerprint fingerprint, ConstPropertyPtr positions, const SimulationCell& simCell,
 			const QVector<bool>& typesToIdentify, ConstPropertyPtr selection,
-			FloatType rmsdCutoff, bool algorithmType,
-			int minGrainAtomCount, bool orphanAdoption, bool outputBonds);
+			FloatType rmsdCutoff, bool algorithmType, bool outputBonds);
 
 	/// Performs the computation.
 	virtual void perform() override;
@@ -79,7 +78,6 @@ public:
 	/// This method is called by the system to free memory and release any working data after the
 	/// computation has been successfully completed.
 	virtual void cleanup() override {
-		decltype(_distanceSortedAtoms){}.swap(_distanceSortedAtoms);
 		if(!_outputBondsToPipeline)
 			decltype(_neighborBonds){}.swap(_neighborBonds);
 		StructureIdentificationEngine::cleanup();
@@ -127,7 +125,7 @@ private:
 	bool determineMergeSequence();
 
 	/// Executes precomputed merge steps up to the threshold value set by the user.
-	void executeMergeSequence(int minGrainAtomCount, FloatType mergingThreshold);
+	void executeMergeSequence(int minGrainAtomCount, FloatType mergingThreshold, bool adoptOrphanAtoms);
 
 #if 0
 	/// Computes the average lattice orientation of each cluster.
@@ -135,10 +133,10 @@ private:
 
 	/// Randomizes cluster IDs for testing purposes (giving more color contrast).
 	bool randomizeClusterIDs();
+#endif
 
 	/// Merges any orphan atoms into the closest cluster.
-	bool mergeOrphanAtoms();
-#endif
+	void mergeOrphanAtoms();
 
 	/// Computes the disorientation angle between two crystal clusters of the given lattice type. 
 	/// Furthermore, the function computes the weighted average of the two cluster orientations. 
@@ -165,15 +163,6 @@ private:
 
 	/// The cutoff parameter used by the PTM algorithm.
 	FloatType _rmsdCutoff;
-
-	/// The minimum number of crystalline atoms per grain.
-	size_t _minGrainAtomCount;
-
-	/// Whether to adopt orphan atoms.
-	bool _orphanAdoption;
-
-	/// Stores indices of crystalline atoms sorted by value of distance transform.
-	std::vector<size_t> _distanceSortedAtoms;
 
 	/// Counts the number of clusters
 	size_t _numClusters = 0;
@@ -213,6 +202,9 @@ private:
 
 	// Dendrogram as list of cluster merges.
 	std::vector<DendrogramNode> _dendrogram;
+
+	/// Tells for each atom (being an orphan) what its parent atom is. 
+	std::vector<size_t> _orphanParentAtoms;
 
 	// The output list of grain IDs.
 	PropertyPtr _grainIds;

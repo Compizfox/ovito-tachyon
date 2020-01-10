@@ -51,8 +51,8 @@ public:
 	/// This method indicates whether cached computation results of the modifier should be discarded whenever
 	/// a parameter of the modifier changes.
 	virtual bool discardResultsOnModifierChange(const PropertyFieldEvent& event) const override {
-		// Avoid a recomputation from scratch if just the threshold value is changed.
-		if(event.field() == &PROPERTY_FIELD(mergingThreshold) || event.field() == &PROPERTY_FIELD(minGrainAtomCount) || event.field() == &PROPERTY_FIELD(colorParticlesByGrain)) return false;
+		// Avoid a recomputation from scratch if parameters are changed that only affect the second algorithm stage.
+		if(event.field() == &PROPERTY_FIELD(mergingThreshold) || event.field() == &PROPERTY_FIELD(minGrainAtomCount) || event.field() == &PROPERTY_FIELD(colorParticlesByGrain) || event.field() == &PROPERTY_FIELD(orphanAdoption)) return false;
 		return StructureIdentificationModifier::discardResultsOnModifierChange(event);
 	}
 

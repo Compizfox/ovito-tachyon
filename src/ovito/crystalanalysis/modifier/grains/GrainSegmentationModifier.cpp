@@ -93,8 +93,8 @@ GrainSegmentationModifier::GrainSegmentationModifier(DataSet* dataset) : Structu
 ******************************************************************************/
 void GrainSegmentationModifier::propertyChanged(const PropertyFieldDescriptor& field)
 {
-	if(field == PROPERTY_FIELD(mergingThreshold) || field == PROPERTY_FIELD(minGrainAtomCount)) {
-		// Immediately update viewports when threshold parameter is changed by the user.
+	if(field == PROPERTY_FIELD(mergingThreshold) || field == PROPERTY_FIELD(minGrainAtomCount) || field == PROPERTY_FIELD(colorParticlesByGrain) || field == PROPERTY_FIELD(orphanAdoption)) {
+		// Immediately update viewports if parameters are changed by the user that don't require a full recalculation.
 		notifyDependents(ReferenceEvent::PreliminaryStateAvailable);
 	}
 	StructureIdentificationModifier::propertyChanged(field);
@@ -110,6 +110,7 @@ std::shared_ptr<GrainSegmentationEngine> GrainSegmentationModifier::createSegmen
 
 	// Get modifier input.
 	const ParticlesObject* particles = input.expectObject<ParticlesObject>();
+	particles->verifyIntegrity();
 	const PropertyObject* posProperty = particles->expectProperty(ParticlesObject::PositionProperty);
 	const SimulationCellObject* simCell = input.expectObject<SimulationCellObject>();
 	if(simCell->is2D())
@@ -126,7 +127,7 @@ std::shared_ptr<GrainSegmentationEngine> GrainSegmentationModifier::createSegmen
 	// Create engine object. Pass all relevant modifier parameters to the engine as well as the input data.
 	return std::make_shared<GrainSegmentationEngine>(particles, posProperty->storage(), simCell->data(),
 			getTypesToIdentify(PTMAlgorithm::NUM_STRUCTURE_TYPES), std::move(selectionProperty),
-			rmsdCutoff(), algorithmType(), minGrainAtomCount(), orphanAdoption(), outputBonds());
+			rmsdCutoff(), algorithmType(), outputBonds());
 }
 
 /******************************************************************************
@@ -148,7 +149,7 @@ void GrainSegmentationEngine::emitResults(TimePoint time, ModifierApplication* m
 	OVITO_ASSERT(modifier);
 
 	// Complete the segmentation by executing the merge steps up to the cutoff set by the user.
-	executeMergeSequence(modifier->minGrainAtomCount(), modifier->mergingThreshold());
+	executeMergeSequence(modifier->minGrainAtomCount(), modifier->mergingThreshold(), modifier->orphanAdoption());
 
 	ParticlesObject* particles = state.expectMutableObject<ParticlesObject>();
 
