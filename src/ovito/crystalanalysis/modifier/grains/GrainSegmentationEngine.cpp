@@ -59,25 +59,11 @@ GrainSegmentationEngine::GrainSegmentationEngine(
 ******************************************************************************/
 void GrainSegmentationEngine::perform()
 {
-	if(_numParticles == 0)
-		return;	// No input particles, nothing to do.
-
 	// Grain segmentation algorithm:
 	if(!identifyAtomicStructures()) return;
 	if(!computeDisorientationAngles()) return;
 	if(!formSuperclusters()) return;
 	if(!determineMergeSequence()) return;
-
-#if 0
-	//if(!randomizeClusterIDs()) return;
-	if(!calculateAverageClusterOrientations()) return;
-
-	// For final output, convert edge disorientation angles from radians to degrees.
-	if(_outputBonds) {
-		for(FloatType& angle : neighborDisorientationAngles()->floatRange())
-			angle *= FloatType(180) / FLOATTYPE_PI;
-	}
-#endif
 }
 
 /******************************************************************************
@@ -127,6 +113,9 @@ bool GrainSegmentationEngine::identifyAtomicStructures()
 	if(task()->isCanceled() || positions()->size() == 0)
 		return false;
 
+	// Initially, no atom has a parent assigned to it. 
+	boost::fill(_orphanParentAtoms, std::numeric_limits<size_t>::max());
+
 	task()->setProgressValue(0);
 	task()->setProgressText(GrainSegmentationModifier::tr("Performing polyhedral template matching"));
 
@@ -138,6 +127,9 @@ bool GrainSegmentationEngine::identifyAtomicStructures()
 	// Mutex is needed to synchronize access to bonds list in parallelized loop.
 	std::mutex bondsMutex;
 
+	// List of bonds between non-crystalline atoms.
+	std::vector<ParticleIndexPair> noncrystallineBonds;
+
 	// Perform analysis on each particle.
 	parallelForChunks(_numParticles, *task(), [&](size_t startIndex, size_t count, Task& task) {
 		// Create a thread-local kernel for the PTM algorithm.
@@ -145,6 +137,9 @@ bool GrainSegmentationEngine::identifyAtomicStructures()
 
 		// Thread-local list of generated bonds connecting neighboring lattice atoms.
 		std::vector<NeighborBond> threadlocalNeighborBonds;
+
+		// Thread-local list of bonds between non-crystalline atoms.
+		std::vector<ParticleIndexPair> threadlocalNoncrystallineBonds;
 
 		// Loop over a range of input particles.
 		for(size_t index = startIndex, endIndex = startIndex + count; index < endIndex; index++) {
@@ -165,80 +160,133 @@ bool GrainSegmentationEngine::identifyAtomicStructures()
 
 			if(type != PTMAlgorithm::OTHER) {
 				rmsdArray[index] = kernel.rmsd();
+				if(_rmsdCutoff == 0.0 || kernel.rmsd() <= _rmsdCutoff) {
 
-				// Store computed local lattice orientation in the output property array.
-				if(orientationsArray)
+					// Store computed local lattice orientation in the output property array.
 					orientationsArray[index] = kernel.orientation().normalized();
 
-				// Store neighbor list for later use.
-				for(int j = 0; j < ptm_num_nbrs[type]; j++) {
+					// Store neighbor list for later use.
+					for(int j = 0; j < ptm_num_nbrs[type]; j++) {
 
-					size_t neighborIndex = kernel._env.atom_indices[j + 1];
+						size_t neighborIndex = kernel._env.atom_indices[j + 1];
 
-					// Create a bond to the neighbor, but skip every other bond to create just one bond per particle pair.
-					if(index < neighborIndex)
-						threadlocalNeighborBonds.push_back({index, neighborIndex});
+						// Create a bond to the neighbor, but skip every other bond to create just one bond per particle pair.
+						if(index < neighborIndex)
+							threadlocalNeighborBonds.push_back({index, neighborIndex});
 
-					// Check if neighbor vector spans more than half of a periodic simulation cell.
-					double* delta = kernel._env.points[j + 1];
-					Vector3 neighborVector(delta[0], delta[1], delta[2]);
-					for(size_t dim = 0; dim < 3; dim++) {
-						if(cell().pbcFlags()[dim]) {
-							if(std::abs(cell().inverseMatrix().prodrow(neighborVector, dim)) >= FloatType(0.5)+FLOATTYPE_EPSILON) {
-								static const QString axes[3] = { QStringLiteral("X"), QStringLiteral("Y"), QStringLiteral("Z") };
-								throw Exception(GrainSegmentationModifier::tr("Simulation box is too short along cell vector %1 (%2) to perform analysis. "
-										"Please extend it first using the 'Replicate' modifier.").arg(dim+1).arg(axes[dim]));
+						// Crystalline atoms become the parents of their neighbors.
+						// Note: The while loop is required to make the assignment of parents thread-safe and stable (the lowest index atom wins and becomes the parent!).
+						// Atomic memory access is used to make the algorithm lock-free.
+						size_t oldParent = _orphanParentAtoms[neighborIndex];
+						size_t newParent = index;
+						while(newParent < oldParent && !_orphanParentAtoms[neighborIndex].compare_exchange_weak(oldParent, newParent));
+
+						// Check if neighbor vector spans more than half of a periodic simulation cell.
+						double* delta = kernel._env.points[j + 1];
+						Vector3 neighborVector(delta[0], delta[1], delta[2]);
+						for(size_t dim = 0; dim < 3; dim++) {
+							if(cell().pbcFlags()[dim]) {
+								if(std::abs(cell().inverseMatrix().prodrow(neighborVector, dim)) >= FloatType(0.5)+FLOATTYPE_EPSILON) {
+									static const QString axes[3] = { QStringLiteral("X"), QStringLiteral("Y"), QStringLiteral("Z") };
+									throw Exception(GrainSegmentationModifier::tr("Simulation box is too short along cell vector %1 (%2) to perform analysis. "
+											"Please extend it first using the 'Replicate' modifier.").arg(dim+1).arg(axes[dim]));
+								}
 							}
 						}
 					}
 				}
+				else {
+					// Mark atom as OTHER, but still store its RMSD value. It'll be needed to build the RMSD histogram below.
+					structuresArray[index] = PTMAlgorithm::OTHER;
+
+					// Store neighbor bonds for later use.
+					for(int j = 0; j < ptm_num_nbrs[type]; j++) {
+						qlonglong neighborIndex = kernel._env.atom_indices[j + 1];
+						threadlocalNoncrystallineBonds.push_back({(qlonglong)index, neighborIndex});
+					}
+				}
 			}
 			else {
-				rmsdArray[index] = 0;
-#if 0
-				// Don't need more than 12 nearest neighbors to establish connectiveity between defect atoms.
-				int numNeighbors = std::min(12, kernel.numNearestNeighbors());
+				rmsdArray[index] = -1.0; // Store invalid RMSD value to exclude it from the RMSD histogram.
 
-				// Store neighbor list.
+				// Don't need more than 8 nearest neighbors to establish connectiveity between non-crystalline atoms.
+				int numNeighbors = std::min(8, kernel.numNearestNeighbors());
+
+				// Store neighbor bonds (note: we create two bonds per pair of particles).
 				for(int j = 0; j < numNeighbors; j++) {
-					_neighborLists[index][j] = kernel.getNearestNeighbor(j).index;
+					qlonglong neighborIndex = kernel.getNearestNeighbor(j).index;
+					threadlocalNoncrystallineBonds.push_back({(qlonglong)index, neighborIndex});
 				}
-#endif
 			}
 		}
 
 		// Append thread-local bonds to global bonds list.
 		std::lock_guard<std::mutex> lock(bondsMutex);
 		_neighborBonds.insert(_neighborBonds.end(), threadlocalNeighborBonds.cbegin(), threadlocalNeighborBonds.cend());
+		noncrystallineBonds.insert(noncrystallineBonds.end(), threadlocalNoncrystallineBonds.cbegin(), threadlocalNoncrystallineBonds.cend());
 	});
-	if(task()->isCanceled() || positions()->size() == 0)
+	if(task()->isCanceled())
 		return false;
 
 	// Determine histogram bin size based on maximum RMSD value.
 	const size_t numHistogramBins = 100;
 	_rmsdHistogram = std::make_shared<PropertyStorage>(numHistogramBins, PropertyStorage::Int64, 1, 0, GrainSegmentationModifier::tr("Count"), true, DataTable::YProperty);
-	FloatType rmsdHistogramBinSize = FloatType(1.01) * *boost::max_element(rmsdArray) / numHistogramBins;
+	FloatType rmsdHistogramBinSize = (_numParticles != 0) ? (FloatType(1.01) * *boost::max_element(rmsdArray) / numHistogramBins) : 0.01;
 	if(rmsdHistogramBinSize <= 0) rmsdHistogramBinSize = 1;
 	_rmsdHistogramRange = rmsdHistogramBinSize * numHistogramBins;
 
 	// Bin RMSD values.
 	PropertyAccess<qlonglong> histogramCounts(_rmsdHistogram);
-	for(size_t index = 0; index < _numParticles; index++) {
-		if(structuresArray[index] != PTMAlgorithm::OTHER) {
-			int binIndex = rmsdArray[index] / rmsdHistogramBinSize;
-			if(binIndex < numHistogramBins)
-				histogramCounts[binIndex]++;
+	for(FloatType& rmsd : rmsdArray) {
+		if(rmsd >= 0.0) {
+			int binIndex = rmsd / rmsdHistogramBinSize;
+			histogramCounts[binIndex]++;
 		}
+		else rmsd = 0.0;
 	}
+	if(task()->isCanceled())
+		return false;
 
-	// Reset the identified structure type to OTHER for particles having an RMSD value above the threshold.
-	if(_rmsdCutoff > 0) {
-		for(size_t index = 0; index < _numParticles; index++) {
-			if(structuresArray[index] != PTMAlgorithm::OTHER) {
-				if(rmsdArray[index] > _rmsdCutoff)
-					structuresArray[index] = PTMAlgorithm::OTHER;
+	// Give each non-crystalline atom a crystalline parent atom, which will be used to attribute the non-crystalline
+	// atoms to one of the nearby grains.
+
+	// Sort the bonds list by first atom index to accelerate search for bonds belonging to a particular atom. 
+	boost::sort(noncrystallineBonds);
+	if(task()->isCanceled())
+		return false;
+
+	// Build the initial front of non-crystalline atoms, which consists of those atoms having a crystalline atom as a parent.
+	std::vector<size_t> frontAtoms;
+	for(size_t index = 0; index < _numParticles; index++)
+		if(_orphanParentAtoms[index].load(std::memory_order_relaxed) != std::numeric_limits<size_t>::max())
+			frontAtoms.push_back(index);
+	if(task()->isCanceled())
+		return false;
+	
+	// Advance the front in a step-wise manner.
+	while(!frontAtoms.empty()) {
+		std::vector<size_t> nextFrontAtoms;
+		for(size_t index : frontAtoms) {
+			size_t parentAtom = _orphanParentAtoms[index].load(std::memory_order_relaxed);
+
+			// Get the range of bonds adjacent to the current atom.
+			auto bondsRange = boost::range::equal_range(noncrystallineBonds, ParticleIndexPair{{(qlonglong)index,0}},
+				[](const ParticleIndexPair& a, const ParticleIndexPair& b) { return a[0] < b[0]; });
+
+			for(const ParticleIndexPair& bond : boost::make_iterator_range(bondsRange.first, bondsRange.second)) {
+				OVITO_ASSERT(bond[0] == index);
+				size_t neighborIndex = bond[1];
+				size_t neighborParent = _orphanParentAtoms[neighborIndex].load(std::memory_order_relaxed);
+				if(neighborParent == std::numeric_limits<size_t>::max()) {
+					_orphanParentAtoms[neighborIndex].store(parentAtom, std::memory_order_relaxed);
+					nextFrontAtoms.push_back(neighborIndex);
+				}
 			}
 		}
+		nextFrontAtoms.swap(frontAtoms);
+
+		if(task()->isCanceled())
+			return false;
 	}
 
 	return !task()->isCanceled();
@@ -256,7 +304,7 @@ bool GrainSegmentationEngine::computeDisorientationAngles()
 
 	parallelFor(_neighborBonds.size(), *task(), [&](size_t bondIndex) {
 		NeighborBond& bond = _neighborBonds[bondIndex];
-		bond.disorientation = std::numeric_limits<FloatType>::infinity();
+		bond.disorientation = std::numeric_limits<FloatType>::max();
 
 		int structureTypeA = structuresArray[bond.a];
 		int structureTypeB = structuresArray[bond.b];
@@ -284,6 +332,8 @@ bool GrainSegmentationEngine::computeDisorientationAngles()
 ******************************************************************************/
 bool GrainSegmentationEngine::formSuperclusters()
 {
+	ConstPropertyAccess<int> structuresArray(structures());
+
 	task()->setProgressText(GrainSegmentationModifier::tr("Grain segmentation - supercluster merging"));
 	task()->setProgressValue(0);
 	task()->setProgressMaximum(neighborBonds().size());
@@ -297,6 +347,9 @@ bool GrainSegmentationEngine::formSuperclusters()
 		// Skip high-angle edges.
 		if(bond.disorientation > _misorientationThreshold) continue;
 
+		OVITO_ASSERT(structuresArray[bond.a] != PTMAlgorithm::OTHER);
+		OVITO_ASSERT(structuresArray[bond.a] == structuresArray[bond.b]);
+
 		uf.merge(bond.a, bond.b);
 	}
 
@@ -305,7 +358,7 @@ bool GrainSegmentationEngine::formSuperclusters()
 	std::vector<size_t> superclusterRemapping(_numParticles);
 	// Assign new consecutive IDs to root superclusters.
 	for(size_t i = 0; i < _numParticles; i++) {
-		if(uf.find(i) == i) {
+		if(uf.find(i) == i && structuresArray[i] != PTMAlgorithm::OTHER) {
 			superclusterRemapping[i] = _superclusterSizes.size();
 			_superclusterSizes.push_back(uf.nodesize(i));
 		}
@@ -450,7 +503,7 @@ bool GrainSegmentationEngine::determineMergeSequence()
 	totalWeight = 1;
 
 	// Group graph edges by supercluster.
-	boost::sort(neighborBonds(), [](NeighborBond& a, NeighborBond& b) {
+	boost::sort(neighborBonds(), [](const NeighborBond& a, const NeighborBond& b) {
 		return a.superCluster < b.superCluster;
 	});
 
@@ -558,13 +611,15 @@ void GrainSegmentationEngine::executeMergeSequence(int minGrainAtomCount, FloatT
 
 	// Iterate through merge list until distance cutoff is met.
 	DisjointSet uf(_numParticles);
-	for(const DendrogramNode& node : _dendrogram) {
-		if(std::log(node.distance) >= mergingThreshold)
+	auto node = _dendrogram.cbegin();
+	for(; node != _dendrogram.cend(); ++node) {
+		if(std::log(node->distance) >= mergingThreshold)
 			break;
 
-		uf.merge(node.a, node.b);
-		size_t parent = uf.find(node.a);
-		meanOrientation[parent] = node.orientation;
+		uf.merge(node->a, node->b);
+		size_t parent = uf.find(node->a);
+		OVITO_ASSERT(node->orientation.norm() > FLOATTYPE_EPSILON);
+		meanOrientation[parent] = node->orientation;
 	}
 
 	// Relabels the clusters to obtain a contiguous sequence of cluster IDs.
@@ -578,7 +633,7 @@ void GrainSegmentationEngine::executeMergeSequence(int minGrainAtomCount, FloatT
 	for(size_t i = 0; i < _numParticles; i++) {
 		if(uf.find(i) == i) {
 			// If the cluster's size is below the threshold, dissolve the cluster.
-			if(uf.nodesize(i) < minGrainAtomCount) {
+			if(uf.nodesize(i) < minGrainAtomCount || structuresArray[i] == PTMAlgorithm::OTHER) {
 				clusterRemapping[i] = 0;
 			}
 			else {
@@ -587,6 +642,31 @@ void GrainSegmentationEngine::executeMergeSequence(int minGrainAtomCount, FloatT
 				clusterStructureTypes.push_back(structuresArray[i]);
 				clusterOrientations.push_back(meanOrientation[i].normalized());
 			}
+		}
+	}
+
+	// Continue iterating through merge list to merge dissolved grains into adjacent grains.
+	// Makes sure that sub-critical clusters that are isolated (i.e. not connected to any super-critical cluster)
+	// remain dissolved even if they grow in size by eating other sub-critical clusters.
+	for(; node != _dendrogram.cend(); ++node) {
+		size_t clusterA = uf.find(node->a);
+		size_t clusterB = uf.find(node->b);
+		
+		// Don't merge two super-critical clusters.
+		if(clusterRemapping[clusterA] != 0 && clusterRemapping[clusterB] != 0)
+			continue;
+
+		// Merge the two clusters.
+		uf.merge(node->a, node->b);
+		size_t parent = uf.find(node->a);
+		meanOrientation[parent] = node->orientation;
+
+		// When merging a super-critical and a sub-critical cluster:
+		if(clusterRemapping[clusterB] == 0) {
+			clusterRemapping[parent] = clusterRemapping[clusterA];
+		}
+		else if(clusterRemapping[clusterA] == 0) {
+			clusterRemapping[parent] = clusterRemapping[clusterB];
 		}
 	}
 
@@ -606,7 +686,7 @@ void GrainSegmentationEngine::executeMergeSequence(int minGrainAtomCount, FloatT
 	_grainColors = std::make_shared<PropertyStorage>(_numClusters - 1, PropertyStorage::Float, 3, 0, QStringLiteral("Color"), false, 0, QStringList() << QStringLiteral("R") << QStringLiteral("G") << QStringLiteral("B"));
 	std::default_random_engine rng(1);
 	std::uniform_real_distribution<FloatType> uniform_dist(0, 1);
-	boost::generate(PropertyAccess<Color>(_grainColors), [&]() { return Color::fromHSV(uniform_dist(rng), 1.0 - uniform_dist(rng) * 0.5, 1.0 - uniform_dist(rng) * 0.3); });
+	boost::generate(PropertyAccess<Color>(_grainColors), [&]() { return Color::fromHSV(uniform_dist(rng), 1.0 - uniform_dist(rng) * 0.8, 1.0 - uniform_dist(rng) * 0.5); });
 
 	// Allocate output array storing the mean lattice orientation of grains (represented by a quaternion).
 	_grainOrientations = std::make_shared<PropertyStorage>(_numClusters - 1, PropertyStorage::Float, 4, 0, QStringLiteral("Orientation"), true, 0, QStringList() << QStringLiteral("X") << QStringLiteral("Y") << QStringLiteral("Z") << QStringLiteral("W"));
@@ -625,10 +705,6 @@ void GrainSegmentationEngine::executeMergeSequence(int minGrainAtomCount, FloatT
 		atomClustersArray[particleIndex] = gid;
 		if(gid != 0) grainSizeArray[gid - 1]++;
 	}
-
-	// Adopt orphan atoms.
-	if(adoptOrphanAtoms)
-		mergeOrphanAtoms();
 
 	// Reorder grains by size (large to small).
 	if(_numClusters > 1) {
@@ -665,151 +741,38 @@ void GrainSegmentationEngine::executeMergeSequence(int minGrainAtomCount, FloatT
 
 		for(auto& id : atomClustersArray)
 			id = inverseMapping[id];
+
+		// Adopt orphan atoms.
+		if(adoptOrphanAtoms)
+			mergeOrphanAtoms();
 	}
 }
-
-#if 0
-/******************************************************************************
-* Randomize cluster IDs for testing purposes (giving more color contrast).
-******************************************************************************/
-bool GrainSegmentationEngine::randomizeClusterIDs()
-{
-	size_t numAtoms = positions()->size();
-	int numClusters = _numClusters;
-
-	std::vector<size_t> clusterRandomMapping(numClusters+1);
-	std::iota(clusterRandomMapping.begin(), clusterRandomMapping.end(), 0);
-	std::mt19937 rng(1);
-	std::shuffle(clusterRandomMapping.begin() + 1, clusterRandomMapping.end(), rng);
-
-	for(size_t particleIndex = 0; particleIndex < numAtoms; particleIndex++) {
-
-		int clusterId = atomClusters()->getInt64(particleIndex);
-		int randomizedId = clusterRandomMapping[clusterId];
-		atomClusters()->setInt64(particleIndex, randomizedId);
-	}
-
-	return !task()->isCanceled();
-}
-#endif
 
 /******************************************************************************
 * Merges any orphan atoms into the closest cluster.
 ******************************************************************************/
 void GrainSegmentationEngine::mergeOrphanAtoms()
 {
+	ConstPropertyAccess<int> structuresArray(structures());
 	PropertyAccess<qlonglong> atomClustersArray(atomClusters());
 	PropertyAccess<qlonglong> grainSizeArray(_grainSizes);
 
-#if 0	
-	PropertyAccess<qlonglong> atomClustersArray(atomClusters());
-	ConstPropertyAccess<Point3> positionsArray(positions());
-
-	// Build list of orphan atoms.
-	std::vector<size_t> orphanAtoms;
-	for(size_t i = 0; i < positions()->size(); i++) {
-		if(atomClustersArray[i] == 0)
-			orphanAtoms.push_back(i);
-	}
-
-	// Add each orphan atom to one of the grains in an iterative manner
-	// by growing the grains outward.
-	size_t oldOrphanCount = orphanAtoms.size();
-	for(;;) {
-		std::vector<size_t> newlyAssignedClusters(orphanAtoms.size(), 0);
-		for(size_t i = 0; i < orphanAtoms.size(); i++) {
-
-			// Find the closest cluster atom in the neighborhood.
-			FloatType minDistSq = FLOATTYPE_MAX;
-			for(size_t c = 0; c < _neighborLists[orphanAtoms[i]].size(); c++) {
-				auto neighborIndex = _neighborLists[orphanAtoms[i]][c];
-				if(neighborIndex == std::numeric_limits<size_t>::max()) break;
-				auto clusterId = atomClustersArray[neighborIndex];
-				if(clusterId == 0) continue;
-
-				// Determine interatomic vector using minimum image convention.
-				Vector3 delta = cell().wrapVector(positionsArray[neighborIndex] - positionsArray[orphanAtoms[i]]);
-				FloatType distSq = delta.squaredLength();
-				if(distSq < minDistSq) {
-					minDistSq = distSq;
-					newlyAssignedClusters[i] = clusterId;
+	// Attribute non-crystalline atoms to their nearest crystal cluster.
+	for(size_t i = 0; i < _numParticles; i++) {
+		if(atomClustersArray[i] == 0) {
+			size_t parentAtom = _orphanParentAtoms[i].load(std::memory_order_relaxed);
+			if(parentAtom != std::numeric_limits<size_t>::max()) {
+//				_atomSuperclusters[i] = _atomSuperclusters[parentAtom];
+				size_t grain = atomClustersArray[parentAtom];
+				if(grain != 0) {
+					OVITO_ASSERT(atomClustersArray[i] == 0);
+					atomClustersArray[i] = grain;
+					grainSizeArray[grain - 1]++;
 				}
 			}
 		}
-
-		// Assign atoms to closest cluster and compress orphan list.
-		size_t newOrphanCount = 0;
-		for(size_t i = 0; i < orphanAtoms.size(); i++) {
-			atomClustersArray[orphanAtoms[i]] = newlyAssignedClusters[i];
-			if(newlyAssignedClusters[i] == 0) {
-				orphanAtoms[newOrphanCount++] = orphanAtoms[i];
-			}
-			else {
-//				clusterSizes[newlyAssignedClusters[i] - 1]++;
-			}
-		}
-		orphanAtoms.resize(newOrphanCount);
-		if(newOrphanCount == oldOrphanCount)
-			break;
-		oldOrphanCount = newOrphanCount;
 	}
-#endif	
 }
-
-#if 0
-/******************************************************************************
-* Computes the average lattice orientation of each cluster.
-******************************************************************************/
-bool GrainSegmentationEngine::calculateAverageClusterOrientations()
-{
-	task()->setProgressText(GrainSegmentationModifier::tr("Grain segmentation - average cluster orientation"));
-	task()->setProgressValue(0);
-	task()->setProgressMaximum(positions()->size());
-
-	// Allocate cluster orientation and size arrays.
-	// We will create one cluster for each basin in the distance transform field.
-	_clusterOrientations.resize(_numClusters, Quaternion(0,0,0,0));
-	_clusterSizes.resize(_numClusters, 0);
-
-	// Stores the seed atom index of each cluster.
-	std::vector<qlonglong> firstClusterAtom(_numClusters, -1);
-
-	for(size_t particleIndex = 0; particleIndex < positions()->size(); particleIndex++) {
-		if(!task()->incrementProgressValue()) return false;
-
-		qlonglong clusterId = atomClusters()->getInt64(particleIndex);
-		if(clusterId == 0) continue;
-
-		// Cluster IDs start at 1. Need to subtract 1 to get cluster index.
-		qlonglong clusterIndex = clusterId - 1;
-
-		_clusterSizes[clusterIndex]++;
-		if(firstClusterAtom[clusterIndex] == -1)
-			firstClusterAtom[clusterIndex] = particleIndex;
-
-		const Quaternion& orient0 = orientations()->getQuaternion(firstClusterAtom[clusterIndex]);
-		const Quaternion& orient = orientations()->getQuaternion(particleIndex);
-
-		Quaternion qrot = orient0.inverse() * orient;
-		double qrot_[4] = { qrot.w(), qrot.x(), qrot.y(), qrot.z() };
-
-		int structureType = structures()->getInt(particleIndex);
-		if(structureType == PTMAlgorithm::SC || structureType == PTMAlgorithm::FCC || structureType == PTMAlgorithm::BCC || structureType == PTMAlgorithm::CUBIC_DIAMOND)
-			ptm::rotate_quaternion_into_cubic_fundamental_zone(qrot_);
-		else if(structureType == PTMAlgorithm::HCP || structureType == PTMAlgorithm::HEX_DIAMOND || structureType == PTMAlgorithm::GRAPHENE)
-			ptm::rotate_quaternion_into_hcp_conventional_fundamental_zone(qrot_);
-
-		Quaternion qclosest = orient0 * Quaternion(qrot_[1], qrot_[2], qrot_[3], qrot_[0]);
-		_clusterOrientations[clusterIndex] += qclosest;
-	}
-	for(auto& qavg : _clusterOrientations) {
-		if(qavg.dot(qavg) > FLOATTYPE_EPSILON)
-			qavg.normalize();
-	}
-
-	return !task()->isCanceled();
-}
-#endif
 
 }	// End of namespace
 }	// End of namespace

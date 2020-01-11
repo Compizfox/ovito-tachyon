@@ -161,6 +161,9 @@ void GrainSegmentationEngine::emitResults(TimePoint time, ModifierApplication* m
 	if(atomClusters()) {
 		particles->createProperty(atomClusters());
 
+		PropertyAccess<qlonglong> superClustersArray = particles->createProperty(QStringLiteral("Supercluster"), PropertyStorage::Int64, 1, 0, false);
+		boost::copy(_atomSuperclusters, superClustersArray.begin());
+
 		if(modifier->colorParticlesByGrain()) {
 			
 			// Assign colors to particles according to the grains they belong to.
@@ -233,7 +236,7 @@ void GrainSegmentationEngine::emitResults(TimePoint time, ModifierApplication* m
 		numGrains = *boost::max_element(ConstPropertyAccess<qlonglong>(atomClusters()));
 
 	state.addAttribute(QStringLiteral("GrainSegmentation.grain_count"), QVariant::fromValue(numGrains), modApp);
-	state.setStatus(PipelineStatus(PipelineStatus::Success, GrainSegmentationModifier::tr("Found %1 grains").arg(numGrains)));
+	state.setStatus(PipelineStatus(PipelineStatus::Success, GrainSegmentationModifier::tr("Found %1 grains\n(%2 superclusters)").arg(numGrains).arg(_numSuperclusters)));
 }
 
 }	// End of namespace

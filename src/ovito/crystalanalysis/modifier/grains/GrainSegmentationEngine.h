@@ -33,23 +33,6 @@
 
 namespace Ovito { namespace CrystalAnalysis {
 
-class DendrogramNode
-{
-public:
-	DendrogramNode() = default;
-
-	DendrogramNode(size_t _a, size_t _b, FloatType _distance, FloatType _disorientation, size_t _size, Quaternion _orientation)
-		: a(_a), b(_b), distance(_distance), disorientation(_disorientation), size(_size), orientation(_orientation) {}
-
-	size_t a = 0;
-	size_t b = 0;
-	FloatType distance = std::numeric_limits<FloatType>::lowest();
-	FloatType disorientation = std::numeric_limits<FloatType>::lowest();
-	size_t size = 0;
-	Quaternion orientation;
-};
-
-
 /*
  * Computation engine of the GrainSegmentationModifier, which decomposes a polycrystalline microstructure into individual grains.
  */
@@ -64,6 +47,20 @@ public:
 		FloatType disorientation;
 		FloatType weight;
 		size_t superCluster;
+	};
+
+	struct DendrogramNode {
+
+		DendrogramNode() = default;
+		DendrogramNode(size_t _a, size_t _b, FloatType _distance, FloatType _disorientation, size_t _size, Quaternion _orientation)
+			: a(_a), b(_b), distance(_distance), disorientation(_disorientation), size(_size), orientation(_orientation) {}
+
+		size_t a = 0;
+		size_t b = 0;
+		FloatType distance = std::numeric_limits<FloatType>::lowest();
+		FloatType disorientation = std::numeric_limits<FloatType>::lowest();
+		size_t size = 0;
+		Quaternion orientation;
 	};
 
 	/// Constructor.
@@ -126,14 +123,6 @@ private:
 
 	/// Executes precomputed merge steps up to the threshold value set by the user.
 	void executeMergeSequence(int minGrainAtomCount, FloatType mergingThreshold, bool adoptOrphanAtoms);
-
-#if 0
-	/// Computes the average lattice orientation of each cluster.
-	bool calculateAverageClusterOrientations();
-
-	/// Randomizes cluster IDs for testing purposes (giving more color contrast).
-	bool randomizeClusterIDs();
-#endif
 
 	/// Merges any orphan atoms into the closest cluster.
 	void mergeOrphanAtoms();
@@ -204,7 +193,7 @@ private:
 	std::vector<DendrogramNode> _dendrogram;
 
 	/// Tells for each atom (being an orphan) what its parent atom is. 
-	std::vector<size_t> _orphanParentAtoms;
+	std::vector<std::atomic<size_t>> _orphanParentAtoms;
 
 	// The output list of grain IDs.
 	PropertyPtr _grainIds;
