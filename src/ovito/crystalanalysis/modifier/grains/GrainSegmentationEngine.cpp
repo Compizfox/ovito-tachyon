@@ -64,6 +64,11 @@ void GrainSegmentationEngine::perform()
 	if(!computeDisorientationAngles()) return;
 	if(!formSuperclusters()) return;
 	if(!determineMergeSequence()) return;
+
+	// Release data that is no longer needed.
+	releaseWorkingData();
+	if(!_outputBondsToPipeline)
+		decltype(_neighborBonds){}.swap(_neighborBonds);
 }
 
 /******************************************************************************
@@ -81,16 +86,16 @@ bool GrainSegmentationEngine::identifyAtomicStructures()
 		algorithm.setStructureTypeIdentification(static_cast<PTMAlgorithm::StructureType>(i), typesToIdentify()[i]);
 	}
 
-	if(!algorithm.prepare(*positions(), cell(), selection(), task().get()))
+	if(!algorithm.prepare(*positions(), cell(), selection(), this))
 		return false;
 
-	task()->setProgressValue(0);
-	task()->setProgressMaximum(_numParticles);
-	task()->setProgressText(GrainSegmentationModifier::tr("Pre-calculating neighbor ordering"));
+	setProgressValue(0);
+	setProgressMaximum(_numParticles);
+	setProgressText(GrainSegmentationModifier::tr("Pre-calculating neighbor ordering"));
 
 	// Pre-order neighbors of each particle.
 	std::vector<uint64_t> cachedNeighbors(_numParticles);
-	parallelForChunks(_numParticles, *task(), [this, &cachedNeighbors, &algorithm](size_t startIndex, size_t count, Task& task) {
+	parallelForChunks(_numParticles, *this, [this, &cachedNeighbors, &algorithm](size_t startIndex, size_t count, Task& task) {
 		// Create a thread-local kernel for the PTM algorithm.
 		PTMAlgorithm::Kernel kernel(algorithm);
 
@@ -110,14 +115,14 @@ bool GrainSegmentationEngine::identifyAtomicStructures()
 			kernel.precacheNeighbors(index, &cachedNeighbors[index]);
 		}
 	});
-	if(task()->isCanceled() || positions()->size() == 0)
+	if(isCanceled() || positions()->size() == 0)
 		return false;
 
 	// Initially, no atom has a parent assigned to it. 
 	boost::fill(_orphanParentAtoms, std::numeric_limits<size_t>::max());
 
-	task()->setProgressValue(0);
-	task()->setProgressText(GrainSegmentationModifier::tr("Performing polyhedral template matching"));
+	setProgressValue(0);
+	setProgressText(GrainSegmentationModifier::tr("Performing polyhedral template matching"));
 
 	// Prepare access to output memory arrays.
 	PropertyAccess<int> structuresArray(structures());
@@ -131,7 +136,7 @@ bool GrainSegmentationEngine::identifyAtomicStructures()
 	std::vector<ParticleIndexPair> noncrystallineBonds;
 
 	// Perform analysis on each particle.
-	parallelForChunks(_numParticles, *task(), [&](size_t startIndex, size_t count, Task& task) {
+	parallelForChunks(_numParticles, *this, [&](size_t startIndex, size_t count, Task& task) {
 		// Create a thread-local kernel for the PTM algorithm.
 		PTMAlgorithm::Kernel kernel(algorithm);
 
@@ -225,7 +230,7 @@ bool GrainSegmentationEngine::identifyAtomicStructures()
 		_neighborBonds.insert(_neighborBonds.end(), threadlocalNeighborBonds.cbegin(), threadlocalNeighborBonds.cend());
 		noncrystallineBonds.insert(noncrystallineBonds.end(), threadlocalNoncrystallineBonds.cbegin(), threadlocalNoncrystallineBonds.cend());
 	});
-	if(task()->isCanceled())
+	if(isCanceled())
 		return false;
 
 	// Determine histogram bin size based on maximum RMSD value.
@@ -244,7 +249,7 @@ bool GrainSegmentationEngine::identifyAtomicStructures()
 		}
 		else rmsd = 0.0;
 	}
-	if(task()->isCanceled())
+	if(isCanceled())
 		return false;
 
 	// Give each non-crystalline atom a crystalline parent atom, which will be used to attribute the non-crystalline
@@ -252,7 +257,7 @@ bool GrainSegmentationEngine::identifyAtomicStructures()
 
 	// Sort the bonds list by first atom index to accelerate search for bonds belonging to a particular atom. 
 	boost::sort(noncrystallineBonds);
-	if(task()->isCanceled())
+	if(isCanceled())
 		return false;
 
 	// Build the initial front of non-crystalline atoms, which consists of those atoms having a crystalline atom as a parent.
@@ -260,7 +265,7 @@ bool GrainSegmentationEngine::identifyAtomicStructures()
 	for(size_t index = 0; index < _numParticles; index++)
 		if(_orphanParentAtoms[index].load(std::memory_order_relaxed) != std::numeric_limits<size_t>::max())
 			frontAtoms.push_back(index);
-	if(task()->isCanceled())
+	if(isCanceled())
 		return false;
 	
 	// Advance the front in a step-wise manner.
@@ -285,11 +290,11 @@ bool GrainSegmentationEngine::identifyAtomicStructures()
 		}
 		nextFrontAtoms.swap(frontAtoms);
 
-		if(task()->isCanceled())
+		if(isCanceled())
 			return false;
 	}
 
-	return !task()->isCanceled();
+	return !isCanceled();
 }
 
 /******************************************************************************
@@ -298,11 +303,11 @@ bool GrainSegmentationEngine::identifyAtomicStructures()
 bool GrainSegmentationEngine::computeDisorientationAngles()
 {
 	// Compute disorientation angles associated with the neighbor graph edges.
-	task()->setProgressText(GrainSegmentationModifier::tr("Grain segmentation - misorientation calculation"));
+	setProgressText(GrainSegmentationModifier::tr("Grain segmentation - misorientation calculation"));
 	ConstPropertyAccess<int> structuresArray(structures());
 	ConstPropertyAccess<Quaternion> orientationsArray(orientations());
 
-	parallelFor(_neighborBonds.size(), *task(), [&](size_t bondIndex) {
+	parallelFor(_neighborBonds.size(), *this, [&](size_t bondIndex) {
 		NeighborBond& bond = _neighborBonds[bondIndex];
 		bond.disorientation = std::numeric_limits<FloatType>::max();
 
@@ -324,7 +329,7 @@ bool GrainSegmentationEngine::computeDisorientationAngles()
 		}
 	});
 
-	return !task()->isCanceled();
+	return !isCanceled();
 }
 
 /******************************************************************************
@@ -334,15 +339,15 @@ bool GrainSegmentationEngine::formSuperclusters()
 {
 	ConstPropertyAccess<int> structuresArray(structures());
 
-	task()->setProgressText(GrainSegmentationModifier::tr("Grain segmentation - supercluster merging"));
-	task()->setProgressValue(0);
-	task()->setProgressMaximum(neighborBonds().size());
+	setProgressText(GrainSegmentationModifier::tr("Grain segmentation - supercluster merging"));
+	setProgressValue(0);
+	setProgressMaximum(neighborBonds().size());
 
 	// Group connected particles having similar lattice orientations into superclusters.
 	DisjointSet uf(_numParticles);
 	size_t progress = 0;
 	for(const NeighborBond& bond : neighborBonds()) {
-		if(!task()->setProgressValueIntermittent(progress++)) return false;
+		if(!setProgressValueIntermittent(progress++)) return false;
 
 		// Skip high-angle edges.
 		if(bond.disorientation > _misorientationThreshold) continue;
@@ -365,7 +370,7 @@ bool GrainSegmentationEngine::formSuperclusters()
 	}
 	_numSuperclusters = _superclusterSizes.size();
 
-	if(task()->isCanceled()) return false;
+	if(isCanceled()) return false;
 
 	// Supercluster 0 contains all atoms that are not part of a regular supercluster.
 	_superclusterSizes[0] = _numParticles - std::accumulate(_superclusterSizes.begin() + 1, _superclusterSizes.end(), (size_t)0);
@@ -374,13 +379,13 @@ bool GrainSegmentationEngine::formSuperclusters()
 	for(size_t particleIndex = 0; particleIndex < _numParticles; particleIndex++)
 		superclusterRemapping[particleIndex] = superclusterRemapping[uf.find(particleIndex)];
 
-	if(task()->isCanceled()) return false;
+	if(isCanceled()) return false;
 
 	// Relabel atoms after cluster IDs have changed.
 	for(size_t particleIndex = 0; particleIndex < _numParticles; particleIndex++)
 		_atomSuperclusters[particleIndex] = superclusterRemapping[particleIndex];
 
-	return !task()->isCanceled();
+	return !isCanceled();
 }
 
 /******************************************************************************
@@ -431,7 +436,7 @@ bool GrainSegmentationEngine::minimum_spanning_tree_clustering(
 	boost::sort(edgeRange, [](NeighborBond& a, NeighborBond& b) {
 		return a.weight < b.weight;
 	});
-	if(task()->isCanceled()) return false;
+	if(isCanceled()) return false;
 
 	size_t progress = 0;
 	for(const NeighborBond& edge : edgeRange) {
@@ -446,13 +451,13 @@ bool GrainSegmentationEngine::minimum_spanning_tree_clustering(
 
 			// Update progress indicator.
 			if((progress++ % 1024) == 0) {
-				if(!task()->incrementProgressValue(1024)) 
+				if(!incrementProgressValue(1024)) 
 					return false;
 			}
 		}
 	}
 
-	return !task()->isCanceled();
+	return !isCanceled();
 }
 
 /******************************************************************************
@@ -467,9 +472,9 @@ bool GrainSegmentationEngine::determineMergeSequence()
 		return true;
 	}
 
-	task()->setProgressText(GrainSegmentationModifier::tr("Grain segmentation - building graph"));
-	task()->setProgressValue(0);
-	task()->setProgressMaximum(neighborBonds().size());
+	setProgressText(GrainSegmentationModifier::tr("Grain segmentation - building graph"));
+	setProgressValue(0);
+	setProgressMaximum(neighborBonds().size());
 
 	// Build initial graph.
 	FloatType totalWeight = 0;
@@ -477,7 +482,7 @@ bool GrainSegmentationEngine::determineMergeSequence()
 
 	size_t progress = 0;
 	for(NeighborBond& bond : neighborBonds()) {
-		if(!task()->setProgressValueIntermittent(progress++)) return false;
+		if(!setProgressValueIntermittent(progress++)) return false;
 
 		bond.superCluster = _atomSuperclusters[bond.a];
 
@@ -512,7 +517,7 @@ bool GrainSegmentationEngine::determineMergeSequence()
 	bondStart[0] = 0;
 	std::partial_sum(bondCount.cbegin(), bondCount.cend() - 1, bondStart.begin() + 1);
 
-	if(task()->isCanceled())
+	if(isCanceled())
 		return false;
 
 	// Allocate memory for the dendrograms.
@@ -525,9 +530,9 @@ bool GrainSegmentationEngine::determineMergeSequence()
 	}
 	_dendrogram.resize(dendrogramSize);
 
-	task()->setProgressText(GrainSegmentationModifier::tr("Grain segmentation - region merging"));
-	task()->setProgressValue(0);
-	task()->setProgressMaximum(dendrogramSize);
+	setProgressText(GrainSegmentationModifier::tr("Grain segmentation - region merging"));
+	setProgressValue(0);
+	setProgressMaximum(dendrogramSize);
 
 	// Build dendrograms.
 	ConstPropertyAccess<int> structuresArray(structures());
@@ -555,13 +560,13 @@ bool GrainSegmentationEngine::determineMergeSequence()
 				&_dendrogram[index], structureType, qsum, uf);
 		}
 	});
-	if(task()->isCanceled())
+	if(isCanceled())
 		return false;
 
 	// Sort dendrogram entries by distance.
 	boost::sort(_dendrogram, [](const DendrogramNode& a, const DendrogramNode& b) { return a.distance < b.distance; });
 
-	if(task()->isCanceled())
+	if(isCanceled())
 		return false;
 
 	// Scan through the entire merge list to determine merge sizes.
@@ -598,7 +603,7 @@ bool GrainSegmentationEngine::determineMergeSequence()
 		}
 	}
 
-	return !task()->isCanceled();
+	return !isCanceled();
 }
 
 /******************************************************************************

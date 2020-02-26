@@ -29,7 +29,7 @@
 #include <ovito/core/utilities/concurrent/ParallelFor.h>
 #include "AcklandJonesModifier.h"
 
-namespace Ovito { namespace Particles { OVITO_BEGIN_INLINE_NAMESPACE(Modifiers) OVITO_BEGIN_INLINE_NAMESPACE(Analysis)
+namespace Ovito { namespace Particles {
 
 IMPLEMENT_OVITO_CLASS(AcklandJonesModifier);
 
@@ -50,7 +50,7 @@ AcklandJonesModifier::AcklandJonesModifier(DataSet* dataset) : StructureIdentifi
 * Creates and initializes a computation engine that will compute the
 * modifier's results.
 ******************************************************************************/
-Future<AsynchronousModifier::ComputeEnginePtr> AcklandJonesModifier::createEngine(TimePoint time, ModifierApplication* modApp, const PipelineFlowState& input)
+Future<AsynchronousModifier::ComputeEnginePtr> AcklandJonesModifier::createEngine(const PipelineEvaluationRequest& request, ModifierApplication* modApp, const PipelineFlowState& input)
 {
 	if(structureTypes().size() != NUM_STRUCTURE_TYPES)
 		throwException(tr("The number of structure types has changed. Please remove this modifier from the pipeline and insert it again."));
@@ -77,24 +77,24 @@ Future<AsynchronousModifier::ComputeEnginePtr> AcklandJonesModifier::createEngin
 ******************************************************************************/
 void AcklandJonesModifier::AcklandJonesAnalysisEngine::perform()
 {
-	task()->setProgressText(tr("Performing Ackland-Jones analysis"));
+	setProgressText(tr("Performing Ackland-Jones analysis"));
 
 	// Prepare the neighbor finder.
 	NearestNeighborFinder neighborFinder(14);
-	if(!neighborFinder.prepare(positions(), cell(), selection(), task().get()))
+	if(!neighborFinder.prepare(positions(), cell(), selection(), this))
 		return;
 
 	PropertyAccess<int> output(structures());
 
 	// Perform analysis on each particle.
 	if(!selection()) {
-		parallelFor(positions()->size(), *task(), [&](size_t index) {
+		parallelFor(positions()->size(), *this, [&](size_t index) {
 			output[index] = determineStructure(neighborFinder, index, typesToIdentify());
 		});
 	}
 	else {
 		ConstPropertyAccess<int> selectionData(selection());
-		parallelFor(positions()->size(), *task(), [&](size_t index) {
+		parallelFor(positions()->size(), *this, [&](size_t index) {
 			// Skip particles that are not included in the analysis.
 			if(selectionData[index])
 				output[index] = determineStructure(neighborFinder, index, typesToIdentify());
@@ -102,6 +102,9 @@ void AcklandJonesModifier::AcklandJonesAnalysisEngine::perform()
 				output[index] = OTHER;
 		});
 	}
+
+	// Release data that is no longer needed.
+	releaseWorkingData();
 }
 
 /******************************************************************************
@@ -202,7 +205,5 @@ void AcklandJonesModifier::AcklandJonesAnalysisEngine::emitResults(TimePoint tim
 	state.addAttribute(QStringLiteral("AcklandJones.counts.ICO"), QVariant::fromValue(getTypeCount(ICO)), modApp);
 }
 
-OVITO_END_INLINE_NAMESPACE
-OVITO_END_INLINE_NAMESPACE
 }	// End of namespace
 }	// End of namespace

@@ -29,7 +29,7 @@
 #include <ovito/particles/util/ParticleOrderingFingerprint.h>
 #include <ovito/stdobj/simcell/SimulationCell.h>
 
-namespace Ovito { namespace Particles { OVITO_BEGIN_INLINE_NAMESPACE(Modifiers) OVITO_BEGIN_INLINE_NAMESPACE(Analysis)
+namespace Ovito { namespace Particles {
 
 /**
  * \brief Calculates the per-particle strain tensors based on a reference configuration.
@@ -50,7 +50,7 @@ public:
 protected:
 
 	/// Creates a computation engine that will compute the modifier's results.
-	virtual Future<ComputeEnginePtr> createEngineWithReference(TimePoint time, ModifierApplication* modApp, PipelineFlowState input, const PipelineFlowState& referenceState, TimeInterval validityInterval) override;
+	virtual Future<ComputeEnginePtr> createEngineInternal(const PipelineEvaluationRequest& request, ModifierApplication* modApp, PipelineFlowState input, const PipelineFlowState& referenceState, TimeInterval validityInterval) override;
 
 private:
 
@@ -80,12 +80,6 @@ private:
 			_rotations(calculateRotations ? ParticlesObject::OOClass().createStandardStorage(fingerprint.particleCount(), ParticlesObject::RotationProperty, false) : nullptr),
 			_stretchTensors(calculateStretchTensors ? ParticlesObject::OOClass().createStandardStorage(fingerprint.particleCount(), ParticlesObject::StretchTensorProperty, false) : nullptr),
 			_inputFingerprint(std::move(fingerprint)) {}
-
-		/// This method is called by the system after the computation was successfully completed.
-		virtual void cleanup() override {
-			_displacements.reset();
-			RefConfigEngineBase::cleanup();
-		}
 
 		/// Computes the modifier's results.
 		virtual void perform() override;
@@ -164,7 +158,5 @@ private:
 	DECLARE_MODIFIABLE_PROPERTY_FIELD(bool, selectInvalidParticles, setSelectInvalidParticles);
 };
 
-OVITO_END_INLINE_NAMESPACE
-OVITO_END_INLINE_NAMESPACE
 }	// End of namespace
 }	// End of namespace

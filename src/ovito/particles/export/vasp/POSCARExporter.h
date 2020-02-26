@@ -26,7 +26,7 @@
 #include <ovito/particles/Particles.h>
 #include "../ParticleExporter.h"
 
-namespace Ovito { namespace Particles { OVITO_BEGIN_INLINE_NAMESPACE(Export) OVITO_BEGIN_INLINE_NAMESPACE(Formats)
+namespace Ovito { namespace Particles {
 
 /**
  * \brief Exporter that writes the particles to a POSCAR file.
@@ -58,7 +58,7 @@ public:
 protected:
 
 	/// \brief Writes the particles of one animation frame to the current output file.
-	virtual bool exportData(const PipelineFlowState& state, int frameNumber, TimePoint time, const QString& filePath, AsyncOperation&& operation) override;
+	virtual bool exportData(const PipelineFlowState& state, int frameNumber, TimePoint time, const QString& filePath, SynchronousOperation operation) override;
 
 private:
 
@@ -66,7 +66,5 @@ private:
 	DECLARE_MODIFIABLE_PROPERTY_FIELD_FLAGS(bool, writeReducedCoordinates, setWriteReducedCoordinates, PROPERTY_FIELD_MEMORIZE);
 };
 
-OVITO_END_INLINE_NAMESPACE
-OVITO_END_INLINE_NAMESPACE
 }	// End of namespace
 }	// End of namespace

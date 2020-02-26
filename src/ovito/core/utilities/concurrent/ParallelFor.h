@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Copyright 2013 Alexander Stukowski
+//  Copyright 2020 Alexander Stukowski
 //
 //  This file is part of OVITO (Open Visualization Tool).
 //
@@ -29,7 +29,7 @@
 
 #include <future>
 
-namespace Ovito { OVITO_BEGIN_INLINE_NAMESPACE(Util) OVITO_BEGIN_INLINE_NAMESPACE(Concurrency)
+namespace Ovito {
 
 template<class Function, typename T>
 bool parallelFor(
@@ -179,8 +179,4 @@ void parallelForChunks(size_t loopCount, Function kernel)
 		t.get();
 }
 
-OVITO_END_INLINE_NAMESPACE
-OVITO_END_INLINE_NAMESPACE
 }	// End of namespace
-
-

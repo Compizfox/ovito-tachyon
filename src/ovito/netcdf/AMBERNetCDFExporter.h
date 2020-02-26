@@ -26,7 +26,7 @@
 #include <ovito/particles/Particles.h>
 #include <ovito/particles/export/FileColumnParticleExporter.h>
 
-namespace Ovito { namespace Particles { OVITO_BEGIN_INLINE_NAMESPACE(Export) OVITO_BEGIN_INLINE_NAMESPACE(Formats)
+namespace Ovito { namespace Particles {
 
 /**
  * \brief Exporter that writes the particles to an extended AMBER NetCDF file.
@@ -62,13 +62,13 @@ public:
 protected:
 
 	/// \brief This is called once for every output file to be written and before exportFrame() is called.
-	virtual bool openOutputFile(const QString& filePath, int numberOfFrames, AsyncOperation& operation) override;
+	virtual bool openOutputFile(const QString& filePath, int numberOfFrames, SynchronousOperation operation) override;
 
 	/// \brief This is called once for every output file written after exportFrame() has been called.
 	virtual void closeOutputFile(bool exportCompleted) override;
 
 	/// \brief Writes the particles of one animation frame to the current output file.
-	virtual bool exportData(const PipelineFlowState& state, int frameNumber, TimePoint time, const QString& filePath, AsyncOperation&& operation) override;
+	virtual bool exportData(const PipelineFlowState& state, int frameNumber, TimePoint time, const QString& filePath, SynchronousOperation operation) override;
 
 private:
 
@@ -114,8 +114,6 @@ private:
 	size_t _frameCounter;
 };
 
-OVITO_END_INLINE_NAMESPACE
-OVITO_END_INLINE_NAMESPACE
 }	// End of namespace
 }	// End of namespace
 

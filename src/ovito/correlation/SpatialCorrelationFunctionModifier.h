@@ -34,7 +34,7 @@
 
 #include <complex>
 
-namespace Ovito { namespace Particles { OVITO_BEGIN_INLINE_NAMESPACE(Modifiers) OVITO_BEGIN_INLINE_NAMESPACE(Analysis)
+namespace Ovito { namespace Particles {
 
 /**
  * \brief This modifier computes the spatial correlation function between two particle properties.
@@ -111,7 +111,7 @@ public:
 protected:
 
 	/// Creates a computation engine that will compute the modifier's results.
-	virtual Future<ComputeEnginePtr> createEngine(TimePoint time, ModifierApplication* modApp, const PipelineFlowState& input) override;
+	virtual Future<ComputeEnginePtr> createEngine(const PipelineEvaluationRequest& request, ModifierApplication* modApp, const PipelineFlowState& input) override;
 
 private:
 
@@ -140,14 +140,6 @@ private:
 			_applyWindow(applyWindow), _neighCutoff(neighCutoff),
 			_averagingDirection(averagingDirection),
 			_neighCorrelation(doComputeNeighCorrelation ? std::make_shared<PropertyStorage>(numberOfNeighBins, PropertyStorage::Float, 1, 0, tr("Neighbor C(r)"), true, DataTable::YProperty) : nullptr) {}
-
-		/// This method is called by the system after the computation was successfully completed.
-		virtual void cleanup() override {
-			_positions.reset();
-			_sourceProperty1.reset();
-			_sourceProperty2.reset();
-			ComputeEngine::cleanup();
-		}
 
 		/// Compute real and reciprocal space correlation function via FFT.
 		void computeFftCorrelation();
@@ -317,8 +309,6 @@ private:
 	DECLARE_MODIFIABLE_PROPERTY_FIELD(FloatType, reciprocalSpaceYAxisRangeEnd, setReciprocalSpaceYAxisRangeEnd);
 };
 
-OVITO_END_INLINE_NAMESPACE
-OVITO_END_INLINE_NAMESPACE
 }	// End of namespace
 }	// End of namespace
 

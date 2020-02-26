@@ -27,7 +27,7 @@
 #include <ovito/core/rendering/FrameBuffer.h>
 #include "ViewportOverlay.h"
 
-namespace Ovito { OVITO_BEGIN_INLINE_NAMESPACE(View) OVITO_BEGIN_INLINE_NAMESPACE(Internal)
+namespace Ovito {
 
 /**
  * \brief A viewport overlay that displays the coordinate system orientation.
@@ -53,13 +53,13 @@ public:
 	Q_INVOKABLE CoordinateTripodOverlay(DataSet* dataset);
 
 	/// This method asks the overlay to paint its contents over the rendered image.
-	virtual void render(const Viewport* viewport, TimePoint time, FrameBuffer* frameBuffer, const ViewProjectionParameters& projParams, const RenderSettings* renderSettings, AsyncOperation& operation) override {
+	virtual void render(const Viewport* viewport, TimePoint time, FrameBuffer* frameBuffer, const ViewProjectionParameters& projParams, const RenderSettings* renderSettings, SynchronousOperation operation) override {
 		QPainter painter(&frameBuffer->image());
 		renderImplementation(painter, projParams, renderSettings);
 	}
 
 	/// This method asks the overlay to paint its contents over the given interactive viewport.
-	virtual void renderInteractive(const Viewport* viewport, TimePoint time, QPainter& painter, const ViewProjectionParameters& projParams, const RenderSettings* renderSettings, AsyncOperation& operation) override {
+	virtual void renderInteractive(const Viewport* viewport, TimePoint time, QPainter& painter, const ViewProjectionParameters& projParams, const RenderSettings* renderSettings, SynchronousOperation operation) override {
 		renderImplementation(painter, projParams, renderSettings);
 	}
 
@@ -157,8 +157,6 @@ private:
 	DECLARE_MODIFIABLE_PROPERTY_FIELD_FLAGS(TripodStyle, tripodStyle, setTripodStyle, PROPERTY_FIELD_MEMORIZE);
 };
 
-OVITO_END_INLINE_NAMESPACE
-OVITO_END_INLINE_NAMESPACE
 }	// End of namespace
 
 Q_DECLARE_METATYPE(Ovito::CoordinateTripodOverlay::TripodStyle);

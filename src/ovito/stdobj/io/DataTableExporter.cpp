@@ -22,7 +22,6 @@
 
 #include <ovito/stdobj/StdObj.h>
 #include <ovito/stdobj/properties/PropertyAccess.h>
-#include <ovito/core/utilities/concurrent/AsyncOperation.h>
 #include "DataTableExporter.h"
 
 namespace Ovito { namespace StdObj {
@@ -33,7 +32,7 @@ IMPLEMENT_OVITO_CLASS(DataTableExporter);
  * This is called once for every output file to be written and before
  * exportData() is called.
  *****************************************************************************/
-bool DataTableExporter::openOutputFile(const QString& filePath, int numberOfFrames, AsyncOperation& operation)
+bool DataTableExporter::openOutputFile(const QString& filePath, int numberOfFrames, SynchronousOperation operation)
 {
 	OVITO_ASSERT(!_outputFile.isOpen());
 	OVITO_ASSERT(!_outputStream);
@@ -61,10 +60,10 @@ void DataTableExporter::closeOutputFile(bool exportCompleted)
 /******************************************************************************
  * Exports a single animation frame to the current output file.
  *****************************************************************************/
-bool DataTableExporter::exportFrame(int frameNumber, TimePoint time, const QString& filePath, AsyncOperation&& operation)
+bool DataTableExporter::exportFrame(int frameNumber, TimePoint time, const QString& filePath, SynchronousOperation operation)
 {
 	// Evaluate pipeline.
-	const PipelineFlowState& state = getPipelineDataToBeExported(time, operation);
+	const PipelineFlowState& state = getPipelineDataToBeExported(time, operation.subOperation());
 	if(operation.isCanceled())
 		return false;
 
@@ -98,7 +97,7 @@ bool DataTableExporter::exportFrame(int frameNumber, TimePoint time, const QStri
 	ConstPropertyAccess<FloatType, true> xaccessFloat(xDataType == PropertyStorage::Float ? xstorage : nullptr);
 
 	if(!table->title().isEmpty())
-		textStream() << "# " << table->title() << " (" << row_count << " data points):\n";
+		textStream() << "# " << table->title() << " (" << (quint64)row_count << " data points):\n";
 	textStream() << "# ";
 	auto formatColumnName = [](const QString& name) {
 		return name.contains(QChar(' ')) ? (QChar('"') + name + QChar('"')) : name;

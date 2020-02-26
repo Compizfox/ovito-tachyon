@@ -23,13 +23,11 @@
 #include <ovito/particles/Particles.h>
 #include <ovito/particles/objects/ParticlesObject.h>
 #include <ovito/particles/objects/BondsObject.h>
-#include <ovito/core/utilities/concurrent/TaskManager.h>
-#include <ovito/core/utilities/concurrent/AsyncOperation.h>
 #include <ovito/core/dataset/scene/PipelineSceneNode.h>
 #include <ovito/core/dataset/scene/SelectionSet.h>
 #include "ParticleExporter.h"
 
-namespace Ovito { namespace Particles { OVITO_BEGIN_INLINE_NAMESPACE(Export)
+namespace Ovito { namespace Particles {
 
 IMPLEMENT_OVITO_CLASS(ParticleExporter);
 
@@ -44,9 +42,9 @@ ParticleExporter::ParticleExporter(DataSet* dataset) : FileExporter(dataset)
 * Evaluates the pipeline of an PipelineSceneNode and makes sure that the data to be
 * exported contains particles and throws an exception if not.
 ******************************************************************************/
-PipelineFlowState ParticleExporter::getParticleData(TimePoint time, AsyncOperation& operation) const
+PipelineFlowState ParticleExporter::getParticleData(TimePoint time, SynchronousOperation operation) const
 {
-	PipelineFlowState state = getPipelineDataToBeExported(time, operation);
+	PipelineFlowState state = getPipelineDataToBeExported(time, operation.subOperation());
 	if(operation.isCanceled())
 		return {};
 
@@ -69,7 +67,7 @@ PipelineFlowState ParticleExporter::getParticleData(TimePoint time, AsyncOperati
  * This is called once for every output file to be written and before
  * exportFrame() is called.
  *****************************************************************************/
-bool ParticleExporter::openOutputFile(const QString& filePath, int numberOfFrames, AsyncOperation& operation)
+bool ParticleExporter::openOutputFile(const QString& filePath, int numberOfFrames, SynchronousOperation operation)
 {
 	OVITO_ASSERT(!_outputFile.isOpen());
 	OVITO_ASSERT(!_outputStream);
@@ -98,11 +96,11 @@ void ParticleExporter::closeOutputFile(bool exportCompleted)
 /******************************************************************************
  * Exports a single animation frame to the current output file.
  *****************************************************************************/
-bool ParticleExporter::exportFrame(int frameNumber, TimePoint time, const QString& filePath, AsyncOperation&& operation)
+bool ParticleExporter::exportFrame(int frameNumber, TimePoint time, const QString& filePath, SynchronousOperation operation)
 {
 	// Retreive the particle data to be exported.
-	const PipelineFlowState& state = getParticleData(time, operation);
-	if(operation.isCanceled() || state.isEmpty())
+	const PipelineFlowState& state = getParticleData(time, operation.subOperation());
+	if(operation.isCanceled() || !state)
 		return false;
 
 	// Set progress display.
@@ -112,6 +110,5 @@ bool ParticleExporter::exportFrame(int frameNumber, TimePoint time, const QStrin
 	return exportData(state, frameNumber, time, filePath, std::move(operation));
 }
 
-OVITO_END_INLINE_NAMESPACE
 }	// End of namespace
 }	// End of namespace

@@ -7,7 +7,7 @@
          xmlns:xlink="http://www.w3.org/1999/xlink"
          xmlns:xi="http://www.w3.org/2001/XInclude"
          xmlns:ns="http://docbook.org/ns/docbook">
-  <title>Building OVITO on MacOS</title>
+  <title>Building OVITO on macOS</title>
 
  <simplesect>
     <title>Installing dependencies</title>
@@ -22,7 +22,7 @@
     from the terminal to install the dependencies of OVITO.
   </para>
   <para>
-    Next, download and install <link xlink:href="https://www.qt.io/download/">Qt 5.12.5 for Mac</link>.
+    Next, download and install <link xlink:href="https://www.qt.io/download/">Qt 5.12.x for Mac</link>.
   </para>
   <para>
 Next, download the source code and build the shared version of the <link xlink:href="https://ffmpeg.org/">ffmpeg</link> video encoding library (optional):

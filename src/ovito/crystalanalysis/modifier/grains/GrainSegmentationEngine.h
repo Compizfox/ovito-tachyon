@@ -72,14 +72,6 @@ public:
 	/// Performs the computation.
 	virtual void perform() override;
 
-	/// This method is called by the system to free memory and release any working data after the
-	/// computation has been successfully completed.
-	virtual void cleanup() override {
-		if(!_outputBondsToPipeline)
-			decltype(_neighborBonds){}.swap(_neighborBonds);
-		StructureIdentificationEngine::cleanup();
-	}
-
 	/// Injects the computed results into the data pipeline.
 	virtual void emitResults(TimePoint time, ModifierApplication* modApp, PipelineFlowState& state) override;
 

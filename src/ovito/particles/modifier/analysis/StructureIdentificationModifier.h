@@ -30,7 +30,7 @@
 #include <ovito/stdobj/simcell/SimulationCell.h>
 #include <ovito/core/dataset/pipeline/AsynchronousModifier.h>
 
-namespace Ovito { namespace Particles { OVITO_BEGIN_INLINE_NAMESPACE(Modifiers) OVITO_BEGIN_INLINE_NAMESPACE(Analysis)
+namespace Ovito { namespace Particles {
 
 /**
  * \brief Base class for modifiers that assign a structure type to each particle.
@@ -69,14 +69,6 @@ public:
 			_structures(ParticlesObject::OOClass().createStandardStorage(fingerprint.particleCount(), ParticlesObject::StructureTypeProperty, false)),
 			_inputFingerprint(std::move(fingerprint)) {}
 
-		/// This method is called by the system after the computation was successfully completed.
-		virtual void cleanup() override {
-			_positions.reset();
-			_selection.reset();
-			decltype(_typesToIdentify){}.swap(_typesToIdentify);
-			ComputeEngine::cleanup();
-		}
-
 		/// Injects the computed results into the data pipeline.
 		virtual void emitResults(TimePoint time, ModifierApplication* modApp, PipelineFlowState& state) override;
 
@@ -102,6 +94,13 @@ public:
 		}
 
 	protected:
+
+		/// Releases data that is no longer needed.
+		void releaseWorkingData() {
+			_positions.reset();
+			_selection.reset();
+			decltype(_typesToIdentify){}.swap(_typesToIdentify);
+		}
 
 		/// Gives subclasses the possibility to post-process per-particle structure types
 		/// before they are output to the data pipeline.
@@ -162,8 +161,6 @@ private:
 	DECLARE_MODIFIABLE_PROPERTY_FIELD(bool, colorByType, setColorByType);
 };
 
-OVITO_END_INLINE_NAMESPACE
-OVITO_END_INLINE_NAMESPACE
 }	// End of namespace
 }	// End of namespace
 

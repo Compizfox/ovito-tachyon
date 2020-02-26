@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Copyright 2018 Alexander Stukowski
+//  Copyright 2020 Alexander Stukowski
 //
 //  This file is part of OVITO (Open Visualization Tool).
 //
@@ -29,14 +29,28 @@ namespace Ovito { namespace StdObj {
 IMPLEMENT_OVITO_CLASS(PropertyContainer);
 DEFINE_REFERENCE_FIELD(PropertyContainer, properties);
 DEFINE_PROPERTY_FIELD(PropertyContainer, elementCount);
+DEFINE_PROPERTY_FIELD(PropertyContainer, title);
 SET_PROPERTY_FIELD_LABEL(PropertyContainer, properties, "Properties");
 SET_PROPERTY_FIELD_LABEL(PropertyContainer, elementCount, "Element count");
+SET_PROPERTY_FIELD_LABEL(PropertyContainer, title, "Title");
+SET_PROPERTY_FIELD_CHANGE_EVENT(PropertyContainer, title, ReferenceEvent::TitleChanged);
 
 /******************************************************************************
 * Constructor.
 ******************************************************************************/
-PropertyContainer::PropertyContainer(DataSet* dataset) : DataObject(dataset), _elementCount(0)
+PropertyContainer::PropertyContainer(DataSet* dataset, const QString& title) : DataObject(dataset), 
+	_elementCount(0),
+	_title(title)
 {
+}
+
+/******************************************************************************
+* Returns the display title of this object.
+******************************************************************************/
+QString PropertyContainer::objectTitle() const
+{
+	if(!title().isEmpty()) return title();
+	return DataObject::objectTitle();
 }
 
 /******************************************************************************
@@ -175,7 +189,7 @@ PropertyObject* PropertyContainer::createProperty(int typeId, bool initializeMem
 * Creates a user-defined property and adds it to the container.
 * In case the property already exists, it is made sure that it's safe to modify it.
 ******************************************************************************/
-PropertyObject* PropertyContainer::createProperty(const QString& name, int dataType, size_t componentCount, size_t stride, bool initializeMemory)
+PropertyObject* PropertyContainer::createProperty(const QString& name, int dataType, size_t componentCount, size_t stride, bool initializeMemory, QStringList componentNames)
 {
 	// Undo recording should never be active during pipeline evaluation.
 	OVITO_ASSERT(!dataset()->undoStack().isRecording());
@@ -204,7 +218,8 @@ PropertyObject* PropertyContainer::createProperty(const QString& name, int dataT
 	}
 	else {
 		// Create a new property object.
-		OORef<PropertyObject> newProperty = getOOMetaClass().createFromStorage(dataset(), std::make_shared<PropertyStorage>(elementCount(), dataType, componentCount, stride, name, initializeMemory));
+		OORef<PropertyObject> newProperty = getOOMetaClass().createFromStorage(dataset(), 
+			std::make_shared<PropertyStorage>(elementCount(), dataType, componentCount, stride, name, initializeMemory, 0, std::move(componentNames)));
 		addProperty(newProperty);
 		return newProperty;
 	}
@@ -337,10 +352,41 @@ void PropertyContainer::verifyIntegrity() const
 {
 	size_t c = elementCount();
 	for(const PropertyObject* property : properties()) {
+//		OVITO_ASSERT_MSG(property->size() == c, "PropertyContainer::verifyIntegrity()", qPrintable(QString("Property array '%1' has wrong length. It does not match the number of elements in the parent %2 container.").arg(property->name()).arg(getOOMetaClass().propertyClassDisplayName())));
 		if(property->size() != c) {
 			throwException(tr("Property array '%1' has wrong length. It does not match the number of elements in the parent %2 container.").arg(property->name()).arg(getOOMetaClass().propertyClassDisplayName()));
 		}
 	}
+}
+
+/******************************************************************************
+* Saves the class' contents to the given stream.
+******************************************************************************/
+void PropertyContainer::saveToStream(ObjectSaveStream& stream, bool excludeRecomputableData)
+{
+	DataObject::saveToStream(stream, excludeRecomputableData);
+	stream.beginChunk(0x01);
+	stream << excludeRecomputableData;
+	stream.endChunk();
+}
+
+/******************************************************************************
+* Loads the class' contents from the given stream.
+******************************************************************************/
+void PropertyContainer::loadFromStream(ObjectLoadStream& stream)
+{
+	DataObject::loadFromStream(stream);
+	if(stream.formatVersion() >= 30004) {
+		stream.expectChunk(0x01);
+		bool excludeRecomputableData;
+		stream >> excludeRecomputableData;
+		if(excludeRecomputableData)
+			setElementCount(0);
+		stream.closeChunk();
+	}
+	// This is needed only for backward compatibility with early dev builds of OVITO 3.0:
+	if(identifier().isEmpty())
+		setIdentifier(getOOMetaClass().pythonName());
 }
 
 }	// End of namespace

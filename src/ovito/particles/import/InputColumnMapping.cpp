@@ -26,7 +26,7 @@
 #include "InputColumnMapping.h"
 #include "ParticleFrameData.h"
 
-namespace Ovito { namespace Particles { OVITO_BEGIN_INLINE_NAMESPACE(Import)
+namespace Ovito { namespace Particles {
 
 /******************************************************************************
  * Saves the mapping to the given stream.
@@ -147,7 +147,7 @@ InputColumnReader::InputColumnReader(const InputColumnMapping& mapping, Particle
 
 					// Also create a particle type list if it is a typed property.
 					if(pref.type() == ParticlesObject::TypeProperty || pref.type() == ParticlesObject::StructureTypeProperty)
-						rec.typeList = destination.propertyTypesList(property);
+						rec.typeList = destination.createPropertyTypesList(property);
 				}
 			}
 			else {
@@ -368,6 +368,5 @@ void InputColumnReader::sortParticleTypes()
 	}
 }
 
-OVITO_END_INLINE_NAMESPACE
 }	// End of namespace
 }	// End of namespace

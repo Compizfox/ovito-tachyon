@@ -24,12 +24,10 @@
 #include <ovito/particles/objects/ParticlesObject.h>
 #include <ovito/stdobj/simcell/SimulationCellObject.h>
 #include <ovito/stdobj/properties/PropertyAccess.h>
-#include <ovito/core/utilities/concurrent/Promise.h>
-#include <ovito/core/utilities/concurrent/AsyncOperation.h>
 #include <ovito/core/app/Application.h>
 #include "POSCARExporter.h"
 
-namespace Ovito { namespace Particles { OVITO_BEGIN_INLINE_NAMESPACE(Export) OVITO_BEGIN_INLINE_NAMESPACE(Formats)
+namespace Ovito { namespace Particles {
 
 IMPLEMENT_OVITO_CLASS(POSCARExporter);
 DEFINE_PROPERTY_FIELD(POSCARExporter, writeReducedCoordinates);
@@ -38,7 +36,7 @@ SET_PROPERTY_FIELD_LABEL(POSCARExporter, writeReducedCoordinates, "Output reduce
 /******************************************************************************
 * Writes the particles of one animation frame to the current output file.
 ******************************************************************************/
-bool POSCARExporter::exportData(const PipelineFlowState& state, int frameNumber, TimePoint time, const QString& filePath, AsyncOperation&& operation)
+bool POSCARExporter::exportData(const PipelineFlowState& state, int frameNumber, TimePoint time, const QString& filePath, SynchronousOperation operation)
 {
 	// Get particle positions and velocities.
 	const ParticlesObject* particles = state.expectObject<ParticlesObject>();
@@ -147,7 +145,5 @@ bool POSCARExporter::exportData(const PipelineFlowState& state, int frameNumber,
 	return !operation.isCanceled();
 }
 
-OVITO_END_INLINE_NAMESPACE
-OVITO_END_INLINE_NAMESPACE
 }	// End of namespace
 }	// End of namespace

@@ -30,7 +30,7 @@
 #include <ptm/ptm_polar.h>
 #include "AtomicStrainModifier.h"
 
-namespace Ovito { namespace Particles { OVITO_BEGIN_INLINE_NAMESPACE(Modifiers) OVITO_BEGIN_INLINE_NAMESPACE(Analysis)
+namespace Ovito { namespace Particles {
 
 IMPLEMENT_OVITO_CLASS(AtomicStrainModifier);
 DEFINE_PROPERTY_FIELD(AtomicStrainModifier, cutoff);
@@ -66,7 +66,7 @@ AtomicStrainModifier::AtomicStrainModifier(DataSet* dataset) : ReferenceConfigur
 /******************************************************************************
 * Creates and initializes a computation engine that will compute the modifier's results.
 ******************************************************************************/
-Future<AsynchronousModifier::ComputeEnginePtr> AtomicStrainModifier::createEngineWithReference(TimePoint time, ModifierApplication* modApp, PipelineFlowState input, const PipelineFlowState& referenceState, TimeInterval validityInterval)
+Future<AsynchronousModifier::ComputeEnginePtr> AtomicStrainModifier::createEngineInternal(const PipelineEvaluationRequest& request, ModifierApplication* modApp, PipelineFlowState input, const PipelineFlowState& referenceState, TimeInterval validityInterval)
 {
 	// Get the current particle positions.
 	const ParticlesObject* particles = input.expectObject<ParticlesObject>();
@@ -108,7 +108,7 @@ Future<AsynchronousModifier::ComputeEnginePtr> AtomicStrainModifier::createEngin
 ******************************************************************************/
 void AtomicStrainModifier::AtomicStrainEngine::perform()
 {
-	task()->setProgressText(tr("Computing atomic displacements"));
+	setProgressText(tr("Computing atomic displacements"));
 
 	// First determine the mapping from particles of the reference config to particles
 	// of the current config.
@@ -119,12 +119,12 @@ void AtomicStrainModifier::AtomicStrainEngine::perform()
 	PropertyAccess<Vector3> displacementsArray(displacements());
 	ConstPropertyAccess<Point3> positionsArray(positions());
 	ConstPropertyAccess<Point3> refPositionsArray(refPositions());
-	parallelForChunks(displacements()->size(), *task(), [&](size_t startIndex, size_t count, Task& promise) {
+	parallelForChunks(displacements()->size(), *this, [&](size_t startIndex, size_t count, Task& task) {
 		Vector3* u = displacementsArray.begin() + startIndex;
 		const Point3* p0 = refPositionsArray.cbegin() + startIndex;
 		auto index = refToCurrentIndexMap().cbegin() + startIndex;
 		for(; count; --count, ++u, ++p0, ++index) {
-			if(promise.isCanceled()) return;
+			if(task.isCanceled()) return;
 			if(*index == std::numeric_limits<size_t>::max()) {
 				u->setZero();
 				continue;
@@ -141,14 +141,14 @@ void AtomicStrainModifier::AtomicStrainEngine::perform()
 			*u = refCell().matrix() * delta;
 		}
 	});
-	if(task()->isCanceled())
+	if(isCanceled())
 		return;
 
-	task()->setProgressText(tr("Computing atomic strain tensors"));
+	setProgressText(tr("Computing atomic strain tensors"));
 
 	// Prepare the neighbor list for the reference configuration.
 	CutoffNeighborFinder neighborFinder;
-	if(!neighborFinder.prepare(_cutoff, refPositions(), refCell(), {}, task().get()))
+	if(!neighborFinder.prepare(_cutoff, refPositions(), refCell(), {}, this))
 		return;
 
 	// Prepare the output data arrays.
@@ -162,7 +162,7 @@ void AtomicStrainModifier::AtomicStrainEngine::perform()
 	PropertyAccess<SymmetricTensor2> stretchTensorsArray(stretchTensors());
 
 	// Perform individual strain calculation for each particle.
-	parallelFor(positions()->size(), *task(), [&](size_t particleIndex) {
+	parallelFor(positions()->size(), *this, [&](size_t particleIndex) {
 
 		// Note: We do the following calculations using double precision numbers to
 		// minimize numerical errors. Final results will be converted back to
@@ -323,6 +323,10 @@ void AtomicStrainModifier::AtomicStrainEngine::perform()
 		if(invalidParticlesArray)
 			invalidParticlesArray[particleIndex] = 0;
 	});
+
+	// Release data that is no longer needed.
+	releaseWorkingData();
+	_displacements.reset();
 }
 
 /******************************************************************************
@@ -368,7 +372,5 @@ void AtomicStrainModifier::AtomicStrainEngine::emitResults(TimePoint time, Modif
 		state.setStatus(PipelineStatus(PipelineStatus::Warning, tr("Could not compute local deformation for %1 particles because of too few neighbors. Increase cutoff radius to include more neighbors.").arg(numInvalidParticles())));
 }
 
-OVITO_END_INLINE_NAMESPACE
-OVITO_END_INLINE_NAMESPACE
 }	// End of namespace
 }	// End of namespace

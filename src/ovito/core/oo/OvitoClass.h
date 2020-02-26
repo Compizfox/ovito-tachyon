@@ -26,7 +26,7 @@
 #include <ovito/core/Core.h>
 #include <ovito/core/oo/OORef.h>
 
-namespace Ovito { OVITO_BEGIN_INLINE_NAMESPACE(ObjectSystem)
+namespace Ovito {
 
 /**
  * \brief Meta-class for classes derived from OvitoObject.
@@ -63,6 +63,10 @@ public:
 	/// \brief Returns the human-readable display name of the class.
 	/// \return The human-readable name of this object type that should be shown in the user interface.
 	const QString& displayName() const { return _displayName; }
+
+	/// \brief Returns a human-readable string describing this class.
+	/// \return The description string for this class, or an empty string if the developer did not define a description.
+	QString descriptionString() const;
 
 	/// Returns the name alias that has been set for this class.
 	/// It will be used as an alternative name when looking up the class for a serialized object in a state file.
@@ -268,7 +272,6 @@ private: \
 		OVITO_PLUGIN_NAME, \
 		nullptr);
 
-OVITO_END_INLINE_NAMESPACE
 }	// End of namespace
 
 Q_DECLARE_METATYPE(Ovito::OvitoClassPtr);

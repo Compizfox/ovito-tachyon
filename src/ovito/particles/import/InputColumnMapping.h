@@ -30,7 +30,7 @@
 #include <ovito/stdobj/properties/PropertyStorage.h>
 #include <ovito/stdobj/properties/PropertyAccess.h>
 
-namespace Ovito { namespace Particles { OVITO_BEGIN_INLINE_NAMESPACE(Import)
+namespace Ovito { namespace Particles {
 
 /**
  * \brief Defines the mapping between one column of an particle input file and
@@ -102,6 +102,9 @@ public:
 class OVITO_PARTICLES_EXPORT InputColumnMapping : public std::vector<InputColumnInfo>
 {
 public:
+
+	/// Inherit constructors from base class.
+	using std::vector<InputColumnInfo>::vector;
 
 	/// \brief Saves the mapping to a stream.
 	void saveToStream(SaveStream& stream) const;
@@ -216,7 +219,6 @@ private:
 	QVector<TargetPropertyRecord> _properties;
 };
 
-OVITO_END_INLINE_NAMESPACE
 }	// End of namespace
 }	// End of namespace
 

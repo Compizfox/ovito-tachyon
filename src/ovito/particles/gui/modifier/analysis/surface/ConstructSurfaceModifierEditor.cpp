@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Copyright 2019 Alexander Stukowski
+//  Copyright 2020 Alexander Stukowski
 //
 //  This file is part of OVITO (Open Visualization Tool).
 //
@@ -22,14 +22,14 @@
 
 #include <ovito/particles/gui/ParticlesGui.h>
 #include <ovito/particles/modifier/analysis/surface/ConstructSurfaceModifier.h>
-#include <ovito/gui/properties/IntegerParameterUI.h>
-#include <ovito/gui/properties/IntegerRadioButtonParameterUI.h>
-#include <ovito/gui/properties/FloatParameterUI.h>
-#include <ovito/gui/properties/BooleanParameterUI.h>
-#include <ovito/gui/properties/SubObjectParameterUI.h>
+#include <ovito/gui/desktop/properties/IntegerParameterUI.h>
+#include <ovito/gui/desktop/properties/IntegerRadioButtonParameterUI.h>
+#include <ovito/gui/desktop/properties/FloatParameterUI.h>
+#include <ovito/gui/desktop/properties/BooleanParameterUI.h>
+#include <ovito/gui/desktop/properties/SubObjectParameterUI.h>
 #include "ConstructSurfaceModifierEditor.h"
 
-namespace Ovito { namespace Particles { OVITO_BEGIN_INLINE_NAMESPACE(Modifiers) OVITO_BEGIN_INLINE_NAMESPACE(Analysis) OVITO_BEGIN_INLINE_NAMESPACE(Internal)
+namespace Ovito { namespace Particles {
 
 IMPLEMENT_OVITO_CLASS(ConstructSurfaceModifierEditor);
 SET_OVITO_OBJECT_EDITOR(ConstructSurfaceModifier, ConstructSurfaceModifierEditor);
@@ -76,11 +76,6 @@ void ConstructSurfaceModifierEditor::createUI(const RolloutInsertionParameters& 
 	sublayout->addWidget(selectSurfaceParticlesUI->checkBox(), 3, 1, 1, 2);
 	connect(alphaShapeMethodBtn, &QRadioButton::toggled, selectSurfaceParticlesUI, &BooleanParameterUI::setEnabled);
 
-	BooleanParameterUI* transferParticlePropertiesUI = new BooleanParameterUI(this, PROPERTY_FIELD(ConstructSurfaceModifier::transferParticleProperties));
-	transferParticlePropertiesUI->setEnabled(false);
-	sublayout->addWidget(transferParticlePropertiesUI->checkBox(), 4, 1, 1, 2);
-	connect(alphaShapeMethodBtn, &QRadioButton::toggled, transferParticlePropertiesUI, &BooleanParameterUI::setEnabled);
-
 	QRadioButton* gaussianDensityBtn = methodUI->addRadioButton(ConstructSurfaceModifier::GaussianDensity, tr("Gaussian density method (experimental):"));
 	sublayout->setRowMinimumHeight(5, 10);
 	sublayout->addWidget(gaussianDensityBtn, 6, 0, 1, 3);
@@ -114,6 +109,9 @@ void ConstructSurfaceModifierEditor::createUI(const RolloutInsertionParameters& 
 	BooleanParameterUI* onlySelectedUI = new BooleanParameterUI(this, PROPERTY_FIELD(ConstructSurfaceModifier::onlySelectedParticles));
 	sublayout->addWidget(onlySelectedUI->checkBox(), 1, 0, 1, 2);
 
+	BooleanParameterUI* transferParticlePropertiesUI = new BooleanParameterUI(this, PROPERTY_FIELD(ConstructSurfaceModifier::transferParticleProperties));
+	sublayout->addWidget(transferParticlePropertiesUI->checkBox(), 2, 0, 1, 2);
+
 	// Status label.
 	layout->addWidget(statusLabel());
 	statusLabel()->setMinimumHeight(100);
@@ -122,8 +120,5 @@ void ConstructSurfaceModifierEditor::createUI(const RolloutInsertionParameters& 
 	new SubObjectParameterUI(this, PROPERTY_FIELD(ConstructSurfaceModifier::surfaceMeshVis), rolloutParams.after(rollout));
 }
 
-OVITO_END_INLINE_NAMESPACE
-OVITO_END_INLINE_NAMESPACE
-OVITO_END_INLINE_NAMESPACE
 }	// End of namespace
 }	// End of namespace

@@ -31,7 +31,7 @@
 #include <ovito/stdobj/properties/PropertyStorage.h>
 #include <ovito/core/dataset/pipeline/AsynchronousModifier.h>
 
-namespace Ovito { namespace Particles { OVITO_BEGIN_INLINE_NAMESPACE(Modifiers) OVITO_BEGIN_INLINE_NAMESPACE(Analysis)
+namespace Ovito { namespace Particles {
 
 /*
  * Constructs a surface mesh from a particle system.
@@ -79,7 +79,7 @@ public:
 protected:
 
 	/// Creates a computation engine that will compute the modifier's results.
-	virtual Future<ComputeEnginePtr> createEngine(TimePoint time, ModifierApplication* modApp, const PipelineFlowState& input) override;
+	virtual Future<ComputeEnginePtr> createEngine(const PipelineEvaluationRequest& request, ModifierApplication* modApp, const PipelineFlowState& input) override;
 
 private:
 
@@ -89,17 +89,11 @@ private:
 	public:
 
 		/// Constructor.
-		ConstructSurfaceEngineBase(ConstPropertyPtr positions, ConstPropertyPtr selection, const SimulationCell& simCell) :
+		ConstructSurfaceEngineBase(ConstPropertyPtr positions, ConstPropertyPtr selection, const SimulationCell& simCell, std::vector<ConstPropertyPtr> particleProperties) :
 			_positions(positions),
 			_selection(std::move(selection)),
-			_mesh(simCell) {}
-
-		/// This method is called by the system after the computation was successfully completed.
-		virtual void cleanup() override {
-			_positions.reset();
-			_selection.reset();
-			ComputeEngine::cleanup();
-		}
+			_mesh(simCell),
+			_particleProperties(std::move(particleProperties)) {}
 
 		/// Returns the generated surface mesh.
 		const SurfaceMeshData& mesh() const { return _mesh; }
@@ -119,6 +113,18 @@ private:
 		/// Returns the input particle selection.
 		const ConstPropertyPtr& selection() const { return _selection; }
 
+		/// Returns the list of particle properties to copy over to the generated mesh.
+		const std::vector<ConstPropertyPtr>& particleProperties() const { return _particleProperties; }
+
+	protected:
+
+		/// Releases data that is no longer needed.
+		void releaseWorkingData() {
+			_positions.reset();
+			_selection.reset();
+			_particleProperties.clear();
+		}	
+
 	private:
 
 		/// The input particle coordinates.
@@ -132,6 +138,9 @@ private:
 
 		/// The computed surface area.
 		double _surfaceArea = 0;
+
+		/// The list of particle properties to copy over to the generated mesh.
+		std::vector<ConstPropertyPtr> _particleProperties;
 	};
 
 	/// Compute engine building the surface mesh using the alpha shape method.
@@ -141,21 +150,14 @@ private:
 
 		/// Constructor.
 		AlphaShapeEngine(ConstPropertyPtr positions, ConstPropertyPtr selection, const SimulationCell& simCell, FloatType probeSphereRadius, int smoothingLevel, bool selectSurfaceParticles, std::vector<ConstPropertyPtr> particleProperties) :
-			ConstructSurfaceEngineBase(std::move(positions), std::move(selection), simCell),
+			ConstructSurfaceEngineBase(std::move(positions), std::move(selection), simCell, std::move(particleProperties)),
 			_probeSphereRadius(probeSphereRadius),
 			_smoothingLevel(smoothingLevel),
 			_totalVolume(std::abs(simCell.matrix().determinant())),
-			_surfaceParticleSelection(selectSurfaceParticles ? ParticlesObject::OOClass().createStandardStorage(this->positions()->size(), ParticlesObject::SelectionProperty, true) : nullptr),
-			_particleProperties(std::move(particleProperties)) {}
+			_surfaceParticleSelection(selectSurfaceParticles ? ParticlesObject::OOClass().createStandardStorage(this->positions()->size(), ParticlesObject::SelectionProperty, true) : nullptr) {}
 
 		/// Computes the modifier's results and stores them in this object for later retrieval.
 		virtual void perform() override;
-
-		/// This method is called by the system after the computation was successfully completed.
-		virtual void cleanup() override {
-			_particleProperties.clear();
-			ConstructSurfaceEngineBase::cleanup();
-		}
 
 		/// Injects the computed results into the data pipeline.
 		virtual void emitResults(TimePoint time, ModifierApplication* modApp, PipelineFlowState& state) override;
@@ -191,9 +193,6 @@ private:
 
 		/// The selection set containing the particles right on the constructed surfaces.
 		PropertyPtr _surfaceParticleSelection;
-
-		/// The list of particle properties to copy over to the generated mesh.
-		std::vector<ConstPropertyPtr> _particleProperties;
 	};
 
 	/// Compute engine building the surface mesh using the Gaussian density method.
@@ -203,8 +202,8 @@ private:
 
 		/// Constructor.
 		GaussianDensityEngine(ConstPropertyPtr positions, ConstPropertyPtr selection, const SimulationCell& simCell,
-				FloatType radiusFactor, FloatType isoLevel, int gridResolution, std::vector<FloatType> radii) :
-			ConstructSurfaceEngineBase(std::move(positions), std::move(selection), simCell),
+				FloatType radiusFactor, FloatType isoLevel, int gridResolution, std::vector<FloatType> radii, std::vector<ConstPropertyPtr> particleProperties) :
+			ConstructSurfaceEngineBase(std::move(positions), std::move(selection), simCell, std::move(particleProperties)),
 			_radiusFactor(radiusFactor),
 			_isoLevel(isoLevel),
 			_gridResolution(gridResolution),
@@ -262,8 +261,6 @@ private:
 	DECLARE_MODIFIABLE_PROPERTY_FIELD_FLAGS(FloatType, isoValue, setIsoValue, PROPERTY_FIELD_MEMORIZE);
 };
 
-OVITO_END_INLINE_NAMESPACE
-OVITO_END_INLINE_NAMESPACE
 }	// End of namespace
 }	// End of namespace
 

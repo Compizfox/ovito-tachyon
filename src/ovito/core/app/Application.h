@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Copyright 2017 Alexander Stukowski
+//  Copyright 2020 Alexander Stukowski
 //
 //  This file is part of OVITO (Open Visualization Tool).
 //
@@ -127,8 +127,10 @@ public:
 		_executionContext = context;
 	}
 
+#ifndef Q_OS_WASM
 	/// Returns the application-wide network access manager object.
 	QNetworkAccessManager* networkAccessManager();
+#endif
 
 protected:
 
@@ -157,8 +159,10 @@ protected:
 	/// The global file manager instance.
 	std::unique_ptr<FileManager> _fileManager;
 
+#ifndef Q_OS_WASM
 	/// The application-wide network manager object.
 	QNetworkAccessManager* _networkAccessManager = nullptr;
+#endif
 
 	/// The default message handler method of Qt.
 	static QtMessageHandler defaultQtMessageHandler;

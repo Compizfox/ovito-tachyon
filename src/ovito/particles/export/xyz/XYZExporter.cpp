@@ -24,11 +24,9 @@
 #include <ovito/particles/objects/ParticlesObject.h>
 #include <ovito/stdobj/simcell/SimulationCellObject.h>
 #include <ovito/stdobj/properties/PropertyAccess.h>
-#include <ovito/core/utilities/concurrent/Promise.h>
-#include <ovito/core/utilities/concurrent/AsyncOperation.h>
 #include "XYZExporter.h"
 
-namespace Ovito { namespace Particles { OVITO_BEGIN_INLINE_NAMESPACE(Export) OVITO_BEGIN_INLINE_NAMESPACE(Formats)
+namespace Ovito { namespace Particles {
 
 IMPLEMENT_OVITO_CLASS(XYZExporter);
 DEFINE_PROPERTY_FIELD(XYZExporter, subFormat);
@@ -37,7 +35,7 @@ SET_PROPERTY_FIELD_LABEL(XYZExporter, subFormat, "XYZ format style");
 /******************************************************************************
 * Writes the particles of one animation frame to the current output file.
 ******************************************************************************/
-bool XYZExporter::exportData(const PipelineFlowState& state, int frameNumber, TimePoint time, const QString& filePath, AsyncOperation&& operation)
+bool XYZExporter::exportData(const PipelineFlowState& state, int frameNumber, TimePoint time, const QString& filePath, SynchronousOperation operation)
 {
 	// Get particle positions.
 	const ParticlesObject* particles = state.expectObject<ParticlesObject>();
@@ -174,7 +172,5 @@ bool XYZExporter::exportData(const PipelineFlowState& state, int frameNumber, Ti
 	return !operation.isCanceled();
 }
 
-OVITO_END_INLINE_NAMESPACE
-OVITO_END_INLINE_NAMESPACE
 }	// End of namespace
 }	// End of namespace

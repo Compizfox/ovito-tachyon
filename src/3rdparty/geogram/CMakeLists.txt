@@ -24,7 +24,7 @@
 ADD_LIBRARY(geogram Delaunay_psm.cpp)
 
 # Set floating-point math compiler options.
-IF(UNIX OR APPLE)
+IF((UNIX OR APPLE) AND NOT EMSCRIPTEN)
 	TARGET_COMPILE_OPTIONS(geogram PRIVATE "-frounding-math" "-ffp-contract=off")
 	IF(APPLE)
 		TARGET_COMPILE_OPTIONS(geogram PRIVATE "-Wno-ignored-optimization-argument")
@@ -42,6 +42,11 @@ ELSE()
 	TARGET_COMPILE_DEFINITIONS(geogram PUBLIC "GEO_STATIC_LIBS=1")
 	SET_PROPERTY(TARGET geogram PROPERTY POSITION_INDEPENDENT_CODE ON)
 ENDIF()
+
+# Geogram requires pthread lib on Linux platform.
+SET(THREADS_PREFER_PTHREAD_FLAG ON)
+FIND_PACKAGE(Threads REQUIRED)
+TARGET_LINK_LIBRARIES(geogram Threads::Threads)
 
 # Give our library file a new name to not confuse it with any system versions of the library.
 SET_TARGET_PROPERTIES(geogram PROPERTIES OUTPUT_NAME "ovito_geogram")

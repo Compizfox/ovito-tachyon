@@ -34,7 +34,7 @@
 
 #include <boost/container/flat_map.hpp>
 
-namespace Ovito { namespace Particles { OVITO_BEGIN_INLINE_NAMESPACE(Modifiers) OVITO_BEGIN_INLINE_NAMESPACE(Analysis)
+namespace Ovito { namespace Particles {
 
 /**
  * \brief This modifier computes the coordination number of each particle (i.e. the number of neighbors within a given cutoff radius).
@@ -68,7 +68,7 @@ public:
 protected:
 
 	/// Creates a computation engine that will compute the modifier's results.
-	virtual Future<ComputeEnginePtr> createEngine(TimePoint time, ModifierApplication* modApp, const PipelineFlowState& input) override;
+	virtual Future<ComputeEnginePtr> createEngine(const PipelineEvaluationRequest& request, ModifierApplication* modApp, const PipelineFlowState& input) override;
 
 private:
 
@@ -100,13 +100,6 @@ private:
 				}
 			}
 			_rdfY = std::make_shared<PropertyStorage>(rdfSampleCount, PropertyStorage::Float, componentCount, 0, tr("g(r)"), true, DataTable::YProperty, std::move(componentNames));
-		}
-
-		/// This method is called by the system after the computation was successfully completed.
-		virtual void cleanup() override {
-			_positions.reset();
-			_particleTypes.reset();
-			ComputeEngine::cleanup();
 		}
 
 		/// Computes the modifier's results.
@@ -161,7 +154,5 @@ private:
 	DECLARE_MODIFIABLE_PROPERTY_FIELD_FLAGS(bool, computePartialRDF, setComputePartialRDF, PROPERTY_FIELD_MEMORIZE);
 };
 
-OVITO_END_INLINE_NAMESPACE
-OVITO_END_INLINE_NAMESPACE
 }	// End of namespace
 }	// End of namespace

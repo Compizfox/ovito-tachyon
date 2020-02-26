@@ -79,12 +79,13 @@ public:
 	static std::map<int,FloatType> typeRadiusMap(const PropertyObject* typeProperty) {
 		std::map<int,FloatType> m;
 		for(const ElementType* type : typeProperty->elementTypes())
-			m.insert({ type->numericId(), static_object_cast<ParticleType>(type)->radius() });
+			if(const ParticleType* particleType = dynamic_object_cast<ParticleType>(type))
+				m.insert({ type->numericId(), particleType->radius() });
 		return m;
 	}
 
 	/// Loads a user-defined display shape from a geometry file and assigns it to this particle type.
-	bool loadShapeMesh(const QString& filepath, AsyncOperation&& operation, const FileImporterClass* importerType = nullptr);
+	bool loadShapeMesh(const QUrl& sourceUrl, Promise<>&& operation, const FileImporterClass* importerType = nullptr);
 
 	//////////////////////////////////// Default settings ////////////////////////////////
 
@@ -99,9 +100,6 @@ public:
 		OVITO_ASSERT(predefType < NUMBER_OF_PREDEFINED_STRUCTURE_TYPES);
 		return std::get<0>(_predefinedStructureTypes[predefType]);
 	}
-
-	/// Returns the default color for the particle type with the given ID.
-	static Color getDefaultParticleColorFromId(ParticlesObject::Type typeClass, int particleTypeId);
 
 	/// Returns the default color for a named particle type.
 	static Color getDefaultParticleColor(ParticlesObject::Type typeClass, const QString& particleTypeName, int particleTypeId, bool userDefaults = true);

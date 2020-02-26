@@ -31,7 +31,7 @@
 #include <ovito/core/dataset/data/DataObjectReference.h>
 #include <ovito/core/oo/CloneHelper.h>
 
-namespace Ovito { OVITO_BEGIN_INLINE_NAMESPACE(ObjectSystem) OVITO_BEGIN_INLINE_NAMESPACE(Scene)
+namespace Ovito {
 
 /**
  * \brief This data structure holds the list of data objects that flows down a data pipeline.
@@ -296,6 +296,9 @@ public:
 		return static_object_cast<DataObjectClass>(makeMutable(static_cast<const DataObject*>(obj), deepCopy));
 	}
 
+	/// Ensures that a DataObject from this flow state is not shared with others and is safe to modify.
+	DataObjectPath makeMutable(const ConstDataObjectPath& path, bool deepCopy = false);
+
 	/// \brief Returns true if this state object has no valid contents.
 	bool isEmpty() const { return objects().empty(); }
 
@@ -375,8 +378,6 @@ private:
 	DECLARE_MODIFIABLE_VECTOR_REFERENCE_FIELD(DataObject, objects, setObjects);
 };
 
-OVITO_END_INLINE_NAMESPACE
-OVITO_END_INLINE_NAMESPACE
 }	// End of namespace
 
 Q_DECLARE_METATYPE(Ovito::ConstDataObjectPath);

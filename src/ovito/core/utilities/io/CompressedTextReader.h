@@ -24,9 +24,11 @@
 
 
 #include <ovito/core/Core.h>
-#include <ovito/core/utilities/io/gzdevice/GzipIODevice.h>
+#ifdef OVITO_ZLIB_SUPPORT
+	#include <ovito/core/utilities/io/gzdevice/GzipIODevice.h>
+#endif
 
-namespace Ovito { OVITO_BEGIN_INLINE_NAMESPACE(Util) OVITO_BEGIN_INLINE_NAMESPACE(IO)
+namespace Ovito {
 
 /**
  * \brief A helper class for reading text-based files, which may be compressed (gzip format).
@@ -44,20 +46,19 @@ class OVITO_CORE_EXPORT CompressedTextReader : public QObject
 {
 public:
 
-	/// Opens the given I/O device for reading.
-	/// \param input The underlying Qt input device from which data should be read.
-	/// \param originalFilePath The file path of the file being read. This is used to determine if the file is compressed (ends with .gz suffix).
+	/// Opens the given file for reading.
+	/// \param input The file handle the data should be reade from.
 	/// \throw Exception if an I/O error has occurred.
-	CompressedTextReader(QFileDevice& input, const QString& originalFilePath);
+	explicit CompressedTextReader(const FileHandle& input);
 
-	/// Returns the name of the input file (without the path), which was passed to the constructor.
+	/// Returns the name of the input file (without the path).
 	const QString& filename() const { return _filename; }
 
 	/// Returns the underlying I/O device.
-	QFileDevice& device() { return _device; }
+	QIODevice& device() { return *_device; }
 
 	/// Indicates whether the input file is compressed.
-	bool isCompressed() const { return _stream != &_device; }
+	bool isCompressed() const { return _stream != _device.get(); }
 
 	/// Reads the next line of text from the input file.
 	/// \throw Exception if an I/O error has occurred of if there is no more line to read.
@@ -153,12 +154,12 @@ public:
 	/// Returns the current read position in the input file (which may be a compressed data stream).
 	/// \sa byteOffset()
 	qint64 underlyingByteOffset() const {
-		return _device.pos();
+		return _device->pos();
 	}
 
 	/// Returns the size of the input file in bytes (the compressed size if file is gzipped).
 	qint64 underlyingSize() const {
-		return _device.size();
+		return _device->size();
 	}
 
 	/// Maps the input file to memory, starting at the current offset and to end of the file.
@@ -184,26 +185,26 @@ private:
 	std::vector<char> _line;
 
 	/// The current line number.
-	int _lineNumber;
+	int _lineNumber = 0;
 
 	/// The current position in the uncompressed data stream.
-	qint64 _byteOffset;
+	qint64 _byteOffset = 0;
 
 	/// The underlying input device.
-	QFileDevice& _device;
+	std::unique_ptr<QIODevice> _device;
 
+#ifdef OVITO_ZLIB_SUPPORT
 	/// The uncompressing filter stream.
 	GzipIODevice _uncompressor;
+#endif
 
 	/// The input stream from which uncompressed data is read.
-	QIODevice* _stream;
+	QIODevice* _stream = nullptr;
 
 	/// The pointer to the memory-mapped data.
-	uchar* _mmapPointer;
+	uchar* _mmapPointer = nullptr;
 
 	Q_OBJECT
 };
 
-OVITO_END_INLINE_NAMESPACE
-OVITO_END_INLINE_NAMESPACE
 }	// End of namespace

@@ -32,6 +32,7 @@ OVITO_STANDARD_PLUGIN(StdObjGui
 		io/DataTablePlotExporterEditor.cpp
 		properties/PropertyInspectionApplet.cpp
 		properties/PropertyObjectEditor.cpp
+		properties/ElementTypeEditor.cpp
 		simcell/SimulationCellObjectEditor.cpp
 		simcell/SimulationCellVisEditor.cpp
 		table/DataTableInspectionApplet.cpp

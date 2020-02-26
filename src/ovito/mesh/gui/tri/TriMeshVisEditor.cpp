@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Copyright 2016 Alexander Stukowski
+//  Copyright 2020 Alexander Stukowski
 //
 //  This file is part of OVITO (Open Visualization Tool).
 //
@@ -20,14 +20,14 @@
 //
 ////////////////////////////////////////////////////////////////////////////////////////
 
-#include <ovito/gui/GUI.h>
-#include <ovito/gui/properties/ColorParameterUI.h>
-#include <ovito/gui/properties/FloatParameterUI.h>
-#include <ovito/gui/properties/BooleanParameterUI.h>
+#include <ovito/gui/desktop/GUI.h>
+#include <ovito/gui/desktop/properties/ColorParameterUI.h>
+#include <ovito/gui/desktop/properties/FloatParameterUI.h>
+#include <ovito/gui/desktop/properties/BooleanParameterUI.h>
 #include <ovito/mesh/tri/TriMeshVis.h>
 #include "TriMeshVisEditor.h"
 
-namespace Ovito { namespace Mesh { OVITO_BEGIN_INLINE_NAMESPACE(Internal)
+namespace Ovito { namespace Mesh {
 
 IMPLEMENT_OVITO_CLASS(TriMeshVisEditor);
 SET_OVITO_OBJECT_EDITOR(TriMeshVis, TriMeshVisEditor);
@@ -38,7 +38,7 @@ SET_OVITO_OBJECT_EDITOR(TriMeshVis, TriMeshVisEditor);
 void TriMeshVisEditor::createUI(const RolloutInsertionParameters& rolloutParams)
 {
 	// Create a rollout.
-	QWidget* rollout = createRollout(tr("Mesh display"), rolloutParams);
+	QWidget* rollout = createRollout(tr("Triangle mesh display"), rolloutParams, "visual_elements.triangle_mesh.html");
 
     // Create the rollout contents.
 	QGridLayout* layout = new QGridLayout(rollout);
@@ -58,6 +58,5 @@ void TriMeshVisEditor::createUI(const RolloutInsertionParameters& rolloutParams)
 	layout->addWidget(highlightEdgesUI->checkBox(), 2, 0, 1, 2);
 }
 
-OVITO_END_INLINE_NAMESPACE
 }	// End of namespace
 }	// End of namespace

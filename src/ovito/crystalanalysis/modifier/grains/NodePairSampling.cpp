@@ -198,7 +198,7 @@ bool GrainSegmentationEngine::node_pair_sampling_clustering(
 
 					// Update progress indicator.
 					if((progress++ % 1024) == 0) {
-						if(!task()->incrementProgressValue(1024)) 
+						if(!incrementProgressValue(1024)) 
 							return false;
 					}
 				}

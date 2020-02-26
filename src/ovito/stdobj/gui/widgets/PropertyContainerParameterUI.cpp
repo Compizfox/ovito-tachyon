@@ -21,7 +21,7 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 
 #include <ovito/stdobj/gui/StdObjGui.h>
-#include <ovito/gui/properties/PropertiesEditor.h>
+#include <ovito/gui/desktop/properties/PropertiesEditor.h>
 #include <ovito/core/dataset/pipeline/Modifier.h>
 #include <ovito/core/dataset/pipeline/ModifierApplication.h>
 #include <ovito/stdobj/properties/PropertyContainerClass.h>
@@ -95,32 +95,19 @@ void PropertyContainerParameterUI::updateUI()
 		bool currentContainerFilteredOut = false;
 		if(Modifier* mod = dynamic_object_cast<Modifier>(editObject())) {
 			for(ModifierApplication* modApp : mod->modifierApplications()) {
-				const PipelineFlowState& state = modApp->evaluateInputPreliminary();
+				const PipelineFlowState& state = modApp->evaluateInputSynchronous(dataset()->animationSettings()->time());
 				std::vector<ConstDataObjectPath> containers = state.getObjectsRecursive(PropertyContainer::OOClass());
 				for(const ConstDataObjectPath& path : containers) {
 					const PropertyContainer* container = static_object_cast<PropertyContainer>(path.back());
 
-					// The client can apply a filter to the container list.
+					PropertyContainerReference propRef(path);
+
+					// The client can apply a custom filter function to the container list.
 					if(_containerFilter && !_containerFilter(container)) {
-						if(selectedPropertyContainer == PropertyContainerReference(&container->getOOMetaClass(), path.toString()))
+						if(selectedPropertyContainer == propRef)
 							currentContainerFilteredOut = true;
 						continue;
 					}
-
-					QString title = container->getOOMetaClass().propertyClassDisplayName();
-					bool first = true;
-					for(const DataObject* obj : path) {
-						if(!obj->identifier().isEmpty()) {
-							if(first) {
-								first = false;
-								title += QStringLiteral(": ");
-							}
-							else title += QStringLiteral(" / ");
-							title += obj->objectTitle();
-						}
-					}
-
-					PropertyContainerReference propRef(&container->getOOMetaClass(), path.toString(), title);
 
 					// Do not add the same container to the list more than once.
 					bool existsAlready = false;
@@ -137,7 +124,7 @@ void PropertyContainerParameterUI::updateUI()
 					if(propRef == selectedPropertyContainer)
 						selectedIndex = comboBox()->count();
 
-					comboBox()->addItem(title, QVariant::fromValue(propRef));
+					comboBox()->addItem(propRef.dataTitle(), QVariant::fromValue(propRef));
 				}
 			}
 		}

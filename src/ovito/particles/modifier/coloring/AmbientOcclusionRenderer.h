@@ -29,7 +29,7 @@
 #include <QOffscreenSurface>
 #include <QOpenGLFramebufferObject>
 
-namespace Ovito { namespace Particles { OVITO_BEGIN_INLINE_NAMESPACE(Modifiers) OVITO_BEGIN_INLINE_NAMESPACE(Coloring) OVITO_BEGIN_INLINE_NAMESPACE(Internal)
+namespace Ovito { namespace Particles {
 
 /**
  * \brief A renderer used to compute ambient occlusion lighting.
@@ -42,8 +42,10 @@ class AmbientOcclusionRenderer : public OpenGLSceneRenderer
 public:
 
 	/// Constructor.
-	AmbientOcclusionRenderer(DataSet* dataset, QSize resolution, QOffscreenSurface& offscreenSurface) : OpenGLSceneRenderer(dataset), _resolution(resolution), _offscreenSurface(offscreenSurface) {
+	AmbientOcclusionRenderer(DataSet* dataset, QSize resolution) : OpenGLSceneRenderer(dataset), _resolution(resolution) {
 		setPicking(true);
+		_offscreenSurface.setFormat(OpenGLSceneRenderer::getDefaultSurfaceFormat());
+		_offscreenSurface.create();
 	}
 
 	/// Prepares the renderer for rendering and sets the data set that is being rendered.
@@ -84,7 +86,7 @@ private:
 	QScopedPointer<QOpenGLContext> _offscreenContext;
 
 	/// The offscreen surface used to render into an image buffer using OpenGL.
-	QOffscreenSurface& _offscreenSurface;
+	QOffscreenSurface _offscreenSurface;
 
 	/// The rendered image.
 	QImage _image;
@@ -93,10 +95,5 @@ private:
 	QSize _resolution;
 };
 
-OVITO_END_INLINE_NAMESPACE
-OVITO_END_INLINE_NAMESPACE
-OVITO_END_INLINE_NAMESPACE
 }	// End of namespace
 }	// End of namespace
-
-

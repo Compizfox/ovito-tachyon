@@ -29,7 +29,7 @@
 #include <ovito/particles/util/ParticleOrderingFingerprint.h>
 #include <ovito/stdmod/modifiers/ComputePropertyModifier.h>
 
-namespace Ovito { namespace Particles { OVITO_BEGIN_INLINE_NAMESPACE(Modifiers) OVITO_BEGIN_INLINE_NAMESPACE(Modify)
+namespace Ovito { namespace Particles {
 
 using namespace Ovito::StdMod;
 
@@ -93,12 +93,6 @@ private:
 				int frameNumber,
 				const PipelineFlowState& input);
 
-		/// This method is called by the system after the computation was successfully completed.
-		virtual void cleanup() override {
-			_topology.reset();
-			PropertyComputeEngine::cleanup();
-		}
-
 		/// Computes the modifier's results.
 		virtual void perform() override;
 
@@ -115,7 +109,5 @@ private:
 	};
 };
 
-OVITO_END_INLINE_NAMESPACE
-OVITO_END_INLINE_NAMESPACE
 }	// End of namespace
 }	// End of namespace

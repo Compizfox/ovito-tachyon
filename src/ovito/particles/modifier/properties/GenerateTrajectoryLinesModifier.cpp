@@ -30,9 +30,6 @@
 #include <ovito/core/dataset/DataSet.h>
 #include <ovito/core/app/Application.h>
 #include <ovito/core/viewport/ViewportConfiguration.h>
-#include <ovito/core/utilities/concurrent/Promise.h>
-#include <ovito/core/utilities/concurrent/AsyncOperation.h>
-#include <ovito/core/utilities/concurrent/TaskManager.h>
 #include <ovito/core/utilities/units/UnitsManager.h>
 #include "GenerateTrajectoryLinesModifier.h"
 
@@ -84,9 +81,9 @@ bool GenerateTrajectoryLinesModifier::OOMetaClass::isApplicableTo(const DataColl
 }
 
 /******************************************************************************
-* Modifies the input data in an immediate, preliminary way.
+* Modifies the input data synchronously.
 ******************************************************************************/
-void GenerateTrajectoryLinesModifier::evaluatePreliminary(TimePoint time, ModifierApplication* modApp, PipelineFlowState& state)
+void GenerateTrajectoryLinesModifier::evaluateSynchronous(TimePoint time, ModifierApplication* modApp, PipelineFlowState& state)
 {
 	// Inject the precomputed trajectory lines, which are stored in the modifier application, into the pipeline.
 	if(GenerateTrajectoryLinesModifierApplication* myModApp = dynamic_object_cast<GenerateTrajectoryLinesModifierApplication>(modApp)) {
@@ -99,7 +96,7 @@ void GenerateTrajectoryLinesModifier::evaluatePreliminary(TimePoint time, Modifi
 /******************************************************************************
 * Updates the stored trajectories from the source particle object.
 ******************************************************************************/
-bool GenerateTrajectoryLinesModifier::generateTrajectories(AsyncOperation&& operation)
+bool GenerateTrajectoryLinesModifier::generateTrajectories(Promise<>&& operation)
 {
 	TimePoint currentTime = dataset()->animationSettings()->time();
 

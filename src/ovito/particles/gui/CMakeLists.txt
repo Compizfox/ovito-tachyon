@@ -52,7 +52,7 @@ OVITO_STANDARD_PLUGIN(ParticlesGui
 		modifier/analysis/ptm/PolyhedralTemplateMatchingModifierEditor.cpp
 		modifier/analysis/surface/ConstructSurfaceModifierEditor.cpp
 		modifier/selection/ExpandSelectionModifierEditor.cpp
-		modifier/properties/InterpolateTrajectoryModifierEditor.cpp
+		modifier/properties/SmoothTrajectoryModifierEditor.cpp
 		modifier/properties/GenerateTrajectoryLinesModifierEditor.cpp
 		modifier/properties/ParticlesComputePropertyModifierDelegateEditor.cpp
 		util/CutoffRadiusPresetsUI.cpp
@@ -76,8 +76,8 @@ OVITO_STANDARD_PLUGIN(ParticlesGui
 		export/vasp/POSCARExporterEditor.cpp
 		export/xyz/XYZExporterEditor.cpp
 		${ResourceFiles}
-	PRIVATE_LIB_DEPENDENCIES Qwt
-	PLUGIN_DEPENDENCIES Particles StdObjGui
+	PRIVATE_LIB_DEPENDENCIES Qwt PolyhedralTemplateMatching
+	PLUGIN_DEPENDENCIES Particles StdObjGui 
 	GUI_PLUGIN
 )
 

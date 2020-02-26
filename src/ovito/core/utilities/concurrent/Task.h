@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Copyright 2017 Alexander Stukowski
+//  Copyright 2020 Alexander Stukowski
 //
 //  This file is part of OVITO (Open Visualization Tool).
 //
@@ -24,8 +24,9 @@
 
 
 #include <ovito/core/Core.h>
+#include <3rdparty/function2/function2.hpp>
 
-namespace Ovito { OVITO_BEGIN_INLINE_NAMESPACE(Util) OVITO_BEGIN_INLINE_NAMESPACE(Concurrency)
+namespace Ovito {
 
 /**
  * \brief The shared state of a Promise/Future pair.
@@ -43,7 +44,7 @@ public:
     };
 
     /// Constructor.
-    Task(State initialState = NoState) : _state(initialState) {
+    Task(State initialState = NoState, TaskManager* taskManager = nullptr) : _state(initialState), _taskManager(taskManager) {
 #ifdef OVITO_DEBUG
         _instanceCounter.fetch_add(1);
 #endif
@@ -152,25 +153,40 @@ public:
     /// \param ex The exception to store into the task object.
     virtual void setException(std::exception_ptr&& ex);
 
-    /// \brief Creates a child task that executes within the context of this parent task.
-    /// \return A promise which should be used to control the child task.
-    ///
-    /// In case the child task gets canceled, this parent task gets canceled too -and vice versa.
-	virtual Promise<> createSubTask();
-
     /// \brief Blocks execution until the given future enters the completed state.
     /// \param future The future to wait for.
     /// \return false if the either this task or the future have been canceled.
     ///
     /// If the future gets canceled for some reason while waiting for it, this task gets automatically canceled as well.
-	virtual bool waitForFuture(const FutureBase& future);
+	bool waitForFuture(const FutureBase& future);
+
+	/// \brief Returns the TaskManager this task is associated with (may be null).
+	TaskManager* taskManager() const { return _taskManager; }
+
+	/// Runs the given contintuation function once this task has reached either the 'finished' or 'canceled' states.
+	/// Note that the continuation function will always be executed, even if this task was canceled or set to an error state.
+    /// The continuation function must accept a TaskPtr (pointing to this Task) as a parameter.
+    template<typename Executor, typename F>
+    void finally(Executor&& executor, bool defer, F&& continuationFunc) noexcept {
+        addContinuationImpl(
+            fu2::unique_function<void(bool)>(
+                std::forward<Executor>(executor).createWork(
+                    std::bind(std::forward<F>(continuationFunc), shared_from_this()))), 
+            defer);
+    }
 
 #ifdef OVITO_DEBUG
     /// Returns the global number of Task instances that currently exist. Used to detect memory leaks.
     static size_t instanceCount() { return _instanceCounter.load(); }
+
+    /// Returns the current number of futures that hold a strong reference to this shared state.
+    int shareCount() const noexcept { return _shareCount.load(); }
 #endif
 
 protected:
+
+	/// \brief Associates this task with a TaskManager.
+	void setTaskManager(TaskManager* taskManager) { _taskManager = taskManager; }
 
     /// \brief Re-throws the exception stored in this task state if an exception was previously set via setException().
     /// \throw The exception stored in the Task (if any).
@@ -223,51 +239,46 @@ protected:
         return {};
     }
 
-    template<class F>
-    void addContinuation(F&& cont) {
-        addContinuationImpl(std::function<void()>(std::forward<F>(cont)));
-    }
-
     virtual void registerWatcher(TaskWatcher* watcher);
     virtual void unregisterWatcher(TaskWatcher* watcher);
-    virtual void registerTracker(TrackingTask* tracker);
-    virtual void addContinuationImpl(std::function<void()>&& cont);
 
-    void setFinishedNoSelfLock();
+    virtual void addContinuationImpl(fu2::unique_function<void(bool)>&& continuationFunc, bool defer);
 
-    /// Increments the count of futures that hold a strong reference to this shared state.
-    void incrementShareCount() noexcept {
-        _shareCount.fetch_add(1, std::memory_order_relaxed);
-    }
+    void cancelNoSelfLock() noexcept;
+    void setFinishedNoSelfLock() noexcept;
 
-    /// Decrements the count of futures that hold a strong reference to this shared state.
-    /// If the count reaches zero, the shared state is automatically canceled.
+    /// Increments the counter of futures currently holding a strong reference to this task.
+    void incrementShareCount() noexcept { _shareCount.fetch_add(1, std::memory_order_relaxed); }
+
+    /// Decrements the counter of futures currently holding a strong reference to this task.
+    /// If the counter reaches zero, the task gets automatically canceled.
     void decrementShareCount() noexcept;
 
-    /// Cancels this task if there is only a single future that depends on it.
-    /// This is an internal method used by TaskManager::waitForTask().
-    void cancelIfSingleFutureLeft() noexcept;
-
-    /// Linked list of PromiseWatchers that monitor this shared state.
+    /// Head of linked list of TaskWatchers currently monitoring this task.
     TaskWatcher* _watchers = nullptr;
 
-    /// Linked list of tracking states that track this shared state.
-    std::shared_ptr<TrackingTask> _trackers;
-
-    /// Pointer to a std::tuple<R...> holding the results.
+    /// Pointer to a std::tuple<...> storing the results of this task.
     void* _resultsTuple = nullptr;
 
-    /// List of continuation functions that will be called when this shared state enters the 'finished' state.
-    QVarLengthArray<std::function<void()>, 1> _continuations;
-
-    /// The current state value.
-    State _state;
-
-    /// The number of Future objects currently referring to this shared state.
-    std::atomic_int _shareCount{0};
+#if QT_VERSION >= QT_VERSION_CHECK(5, 12, 0) // Note: QVarLengthArray fully supports move-only types since Qt 5.12
+    /// List of continuation functions that will be called when this task enters the 'finished' or the 'canceled' state.
+    QVarLengthArray<fu2::unique_function<void(bool)>, 1> _continuations;
+#else
+    /// List of continuation functions that will be called when this task enters the 'finished' or the 'canceled' state.
+    std::vector<fu2::unique_function<void(bool)>> _continuations;
+#endif
 
     /// Holds the exception object when this shared state is in the failed state.
     std::exception_ptr _exceptionStore;
+
+	/// The TaskManager this task is registered with.
+	TaskManager* _taskManager = nullptr;
+
+    /// The current state this task is in.
+    State _state;
+
+    /// The number of Futures or other tasks currently referencing this shared state.
+    std::atomic_int _shareCount{0};
 
 #ifdef OVITO_DEBUG
     /// Indicates whether the result value of shared state has been set.
@@ -280,11 +291,11 @@ protected:
     friend class TaskWatcher;
     friend class TaskManager;
     friend class FutureBase;
-    friend class TrackingTask;
     friend class TaskDependency;
     template<typename... R2> friend class Future;
     template<typename... R2> friend class SharedFuture;
     template<typename... R2> friend class Promise;
+    template<typename promise_type> friend class ContinuationTask;
 };
 
 /**
@@ -303,13 +314,13 @@ class TaskWithResultStorage : public TaskType
 #endif
 {
 public:
+
     /// A special tag parameter type used to differentiate the second TaskWithResultStorage constructor.
     struct no_result_init_t {
         explicit no_result_init_t() = default;
     };
 
-public:
-    /// \brief Constructor which sets the value of the results storage and initializes the Task with the extra arguments.
+    /// \brief Constructor assigning the task's results storage and forwarding any extra arguments to the task class constructor.
     /// \param initialResult The value to assign to the results storage tuple.
     /// \param args The extra arguments which will be passed to the constructor of the Task derived class.
     template <typename... Args>
@@ -350,8 +361,9 @@ public:
 #endif
     }
 
-#ifdef Q_CC_MSVC
 private:
+
+#ifdef Q_CC_MSVC
     Tuple _tuple;
 #endif
 };
@@ -421,10 +433,20 @@ public:
         _ptr.swap(rhs._ptr);
     }
 
+    inline Task& operator*() const noexcept {
+        OVITO_ASSERT(_ptr);
+    	return *_ptr.get();
+    }
+
+    inline Task* operator->() const noexcept {
+        OVITO_ASSERT(_ptr);
+    	return _ptr.get();
+    }
+
+	explicit operator bool() const { return (bool)_ptr; }
+
 private:
     TaskPtr _ptr;
 };
 
-OVITO_END_INLINE_NAMESPACE
-OVITO_END_INLINE_NAMESPACE
 }	// End of namespace

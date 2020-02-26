@@ -25,7 +25,7 @@
 #include <ovito/core/Core.h>
 #include "DataObject.h"
 
-namespace Ovito { OVITO_BEGIN_INLINE_NAMESPACE(ObjectSystem) OVITO_BEGIN_INLINE_NAMESPACE(Scene)
+namespace Ovito {
 
 /// Utility class that is used to reference a particular data object in a DataCollection
 /// as a path through the hierarchy of nested data objects.
@@ -39,8 +39,8 @@ public:
 	/// Converts the path to a string representation.
 	QString toString() const;
 
-	/// Produces a string representation of the object path that is suitable for the user interface.
-	QString toHumanReadableString() const;
+	/// Returns a string representation of the object path that is suitable for display in the user interface.
+	QString toUIString() const;
 };
 
 /// Utility class that is used to reference a particular data object in a DataCollection
@@ -60,8 +60,8 @@ public:
 	/// Converts the path to a string representation.
 	QString toString() const { return static_cast<const ConstDataObjectPath&>(*this).toString(); }
 
-	/// Produces a string representation of the object path that is suitable for the user interface.
-	QString toHumanReadableString() const { return static_cast<const ConstDataObjectPath&>(*this).toHumanReadableString(); }
+	/// Returns a string representation of the object path that is suitable for display in the user interface.
+	QString toUIString() const { return static_cast<const ConstDataObjectPath&>(*this).toUIString(); }
 };
 
 /**
@@ -79,7 +79,7 @@ public:
 		_dataClass(dataClass), _dataPath(dataPath), _dataTitle(dataTitle) {}
 
 	/// \brief Constructs a reference to a data object from a data object path.
-	DataObjectReference(const ConstDataObjectPath& path) : DataObjectReference(path.empty() ? nullptr : &path.back()->getOOMetaClass(), path.toString(), path.toHumanReadableString()) {}
+	DataObjectReference(const ConstDataObjectPath& path) : DataObjectReference(path.empty() ? nullptr : &path.back()->getOOMetaClass(), path.toString(), path.toUIString()) {}
 
 	/// Returns the DataObject subclass being referenced.
 	DataObjectClassPtr dataClass() const { return _dataClass; }
@@ -92,7 +92,7 @@ public:
 
 	/// \brief Compares two references for equality.
 	bool operator==(const DataObjectReference& other) const {
-		return dataClass() == other.dataClass() && dataPath() == other.dataPath();
+		return dataClass() == other.dataClass() && (dataPath() == other.dataPath() || dataPath().isEmpty() || other.dataPath().isEmpty());
 	}
 
 	/// \brief Compares two references for inequality.
@@ -168,6 +168,11 @@ public:
 	/// \brief Constructs a reference to a data object.
 	TypedDataObjectReference(const typename DataObjectType::OOMetaClass* dataClass, const QString& dataPath = QString(), const QString& dataTitle = QString()) : DataObjectReference(dataClass, dataPath, dataTitle) {}
 
+	/// \brief Constructs a reference to a data object from an existing data path.
+	TypedDataObjectReference(const ConstDataObjectPath& path) : DataObjectReference(path) {
+		OVITO_ASSERT(!dataClass() || dataClass()->isDerivedFrom(DataObjectType::OOClass()));
+	}
+
 	/// Returns the DataObject subclass being referenced.
 	const typename DataObjectType::OOMetaClass* dataClass() const {
 		return static_cast<const typename DataObjectType::OOMetaClass*>(DataObjectReference::dataClass());
@@ -182,8 +187,6 @@ public:
 	}
 };
 
-OVITO_END_INLINE_NAMESPACE
-OVITO_END_INLINE_NAMESPACE
 }	// End of namespace
 
 Q_DECLARE_METATYPE(Ovito::DataObjectReference);

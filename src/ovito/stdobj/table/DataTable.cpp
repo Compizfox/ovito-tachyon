@@ -27,13 +27,11 @@
 namespace Ovito { namespace StdObj {
 
 IMPLEMENT_OVITO_CLASS(DataTable);
-DEFINE_PROPERTY_FIELD(DataTable, title);
 DEFINE_PROPERTY_FIELD(DataTable, intervalStart);
 DEFINE_PROPERTY_FIELD(DataTable, intervalEnd);
 DEFINE_PROPERTY_FIELD(DataTable, axisLabelX);
 DEFINE_PROPERTY_FIELD(DataTable, axisLabelY);
 DEFINE_PROPERTY_FIELD(DataTable, plotMode);
-SET_PROPERTY_FIELD_CHANGE_EVENT(DataTable, title, ReferenceEvent::TitleChanged);
 
 /******************************************************************************
 * Registers all standard properties with the property traits class.
@@ -51,8 +49,8 @@ void DataTable::OOMetaClass::initialize()
 	setPythonName(QStringLiteral("table"));
 
 	const QStringList emptyList;
-	registerStandardProperty(XProperty, tr("X"), PropertyStorage::Float, emptyList);
-	registerStandardProperty(YProperty, tr("Y"), PropertyStorage::Float, emptyList);
+	registerStandardProperty(XProperty, QString(), PropertyStorage::Float, emptyList);
+	registerStandardProperty(YProperty, QString(), PropertyStorage::Float, emptyList);
 }
 
 /******************************************************************************
@@ -88,8 +86,7 @@ PropertyPtr DataTable::OOMetaClass::createStandardStorage(size_t elementCount, i
 /******************************************************************************
 * Constructor.
 ******************************************************************************/
-DataTable::DataTable(DataSet* dataset, PlotMode plotMode, const QString& title, PropertyPtr y, PropertyPtr x) : PropertyContainer(dataset),
-	_title(title),
+DataTable::DataTable(DataSet* dataset, PlotMode plotMode, const QString& title, PropertyPtr y, PropertyPtr x) : PropertyContainer(dataset, title),
 	_intervalStart(0),
 	_intervalEnd(0),
 	_plotMode(plotMode)
@@ -103,14 +100,6 @@ DataTable::DataTable(DataSet* dataset, PlotMode plotMode, const QString& title, 
 		OVITO_ASSERT(y->type() == YProperty);
 		createProperty(std::move(y));
 	}
-}
-
-/******************************************************************************
-* Returns the display title of this object in the user interface.
-******************************************************************************/
-QString DataTable::objectTitle() const
-{
-	return !title().isEmpty() ? title() : identifier();
 }
 
 /******************************************************************************

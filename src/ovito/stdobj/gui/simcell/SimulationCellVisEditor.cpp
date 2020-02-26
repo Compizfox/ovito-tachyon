@@ -22,9 +22,9 @@
 
 #include <ovito/stdobj/gui/StdObjGui.h>
 #include <ovito/stdobj/simcell/SimulationCellVis.h>
-#include <ovito/gui/properties/FloatParameterUI.h>
-#include <ovito/gui/properties/ColorParameterUI.h>
-#include <ovito/gui/properties/BooleanParameterUI.h>
+#include <ovito/gui/desktop/properties/FloatParameterUI.h>
+#include <ovito/gui/desktop/properties/ColorParameterUI.h>
+#include <ovito/gui/desktop/properties/BooleanParameterUI.h>
 #include "SimulationCellVisEditor.h"
 
 namespace Ovito { namespace StdObj {
@@ -38,7 +38,7 @@ SET_OVITO_OBJECT_EDITOR(SimulationCellVis, SimulationCellVisEditor);
 void SimulationCellVisEditor::createUI(const RolloutInsertionParameters& rolloutParams)
 {
 	// Create a rollout.
-	QWidget* rollout = createRollout(QString(), rolloutParams, "display_objects.simulation_cell.html");
+	QWidget* rollout = createRollout(QString(), rolloutParams, "visual_elements.simulation_cell.html");
 
     // Create the rollout contents.
 	QGridLayout* layout = new QGridLayout(rollout);

@@ -23,11 +23,10 @@
 #include <ovito/stdobj/gui/StdObjGui.h>
 #include <ovito/stdobj/gui/io/DataTablePlotExporter.h>
 #include <ovito/stdobj/io/DataTableExporter.h>
-#include <ovito/gui/mainwin/MainWindow.h>
-#include <ovito/gui/dialogs/FileExporterSettingsDialog.h>
-#include <ovito/gui/dialogs/HistoryFileDialog.h>
-#include <ovito/gui/utilities/concurrent/ProgressDialog.h>
-#include <ovito/core/utilities/concurrent/AsyncOperation.h>
+#include <ovito/gui/desktop/mainwin/MainWindow.h>
+#include <ovito/gui/desktop/dialogs/FileExporterSettingsDialog.h>
+#include <ovito/gui/desktop/dialogs/HistoryFileDialog.h>
+#include <ovito/gui/desktop/utilities/concurrent/ProgressDialog.h>
 #include "DataTableInspectionApplet.h"
 
 namespace Ovito { namespace StdObj {
@@ -194,10 +193,10 @@ void DataTableInspectionApplet::exportDataToFile()
 			return;
 
 		// Show progress dialog.
-		ProgressDialog progressDialog(_mainWindow, tr("File export"));
+		ProgressDialog progressDialog(_mainWindow, exporter->dataset()->taskManager(), tr("File export"));
 
 		// Let the exporter do its job.
-		exporter->doExport(progressDialog.taskManager().createMainThreadOperation<>(true));
+		exporter->doExport(progressDialog.createOperation());
 	}
 	catch(const Exception& ex) {
 		ex.reportError();

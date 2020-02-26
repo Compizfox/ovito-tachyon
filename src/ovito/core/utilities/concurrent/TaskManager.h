@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Copyright 2016 Alexander Stukowski
+//  Copyright 2020 Alexander Stukowski
 //
 //  This file is part of OVITO (Open Visualization Tool).
 //
@@ -26,10 +26,11 @@
 #include <ovito/core/Core.h>
 #include "Task.h"
 
-#include <QThreadPool>
-#include <QMetaObject>
+#ifndef OVITO_DISABLE_THREADING
+	#include <QThreadPool>
+#endif
 
-namespace Ovito { OVITO_BEGIN_INLINE_NAMESPACE(Util) OVITO_BEGIN_INLINE_NAMESPACE(Concurrency)
+namespace Ovito {
 
 /**
  * \brief Manages the background tasks.
@@ -61,8 +62,15 @@ public:
 	template<class TaskType>
 	auto runTaskAsync(const std::shared_ptr<TaskType>& task) {
 		OVITO_ASSERT(task);
-		QThreadPool::globalInstance()->start(task.get());
+		// Associate the task with this TaskManager.
 		registerTask(task);
+#ifndef OVITO_DISABLE_THREADING
+		// Submit the task for execution in a background thread.
+		QThreadPool::globalInstance()->start(task.get());
+#else
+		// If multi-threading is not available, run the task in the main thread as soon as execution returns to the event loop.
+		QTimer::singleShot(0, this, [task]() { task->run(); });
+#endif
 		return task->future();
 	}
 
@@ -83,27 +91,6 @@ public:
     /// \brief Registers a Task with the TaskManager, which will subsequently track the progress of the associated operation.
     /// \note This function is thread-safe.
 	void registerTask(const TaskPtr& task);
-
-    /// \brief Creates a new promise for an asynchronous operation executing in the main thread and registers it with the TaskManager.
-    /// \param startedState If true, the new task is put into the 'started' state right away. Otherwise, it must be put into the 'started' via PromiseBase::setStarted() by the caller.
-    /// \tparam R The result value type of the operation.
-    /// \return The Promise which allows controlling the task and setting the result value of the operation.
-    /// \note This method may only be called from the main thread.
-	template<typename... R>
-	Promise<R...> createMainThreadOperation(bool startedState) {
-		return createMainThreadOperationPromise<Promise<R...>>(startedState);
-	}
-
-    // Same as the method above, but expecting the promise type instead of a parameter pack.
-	template<typename promise_type>
-	promise_type createMainThreadOperationPromise(bool startedState) {
-		using tuple_type = typename promise_type::tuple_type;
-		promise_type promise(std::make_shared<TaskWithResultStorage<MainThreadTask, tuple_type>>(
-			typename TaskWithResultStorage<MainThreadTask, tuple_type>::no_result_init_t(),
-			startedState ? Task::State(Task::Started) : Task::NoState, *this));
-		addTaskInternal(promise.task());
-		return promise;
-	}
 
     /// \brief Waits for the given future to be fulfilled and displays a modal progress dialog to show the progress.
     /// \return False if the operation has been cancelled by the user.
@@ -127,6 +114,12 @@ public:
 
 	/// \brief This should be called whenever a local event handling loop is left.
 	void stopLocalEventHandling();
+
+	/// \brief Returns whether printing of task status messages to the console is currently enabled.
+	bool consoleLoggingEnabled() const { return _consoleLoggingEnabled; }
+
+	/// \brief Enables or disables printing of task status messages to the console for this task manager.
+	void setConsoleLoggingEnabled(bool enabled);
 
 public Q_SLOTS:
 
@@ -154,6 +147,12 @@ private:
 	/// \brief Registers a promise with the progress manager.
 	Q_INVOKABLE TaskWatcher* addTaskInternal(const TaskPtr& sharedState);
 
+    /// \brief Waits for a task to finish while running in the main UI thread.
+    bool waitForTaskUIThread(const TaskPtr& task, const TaskPtr& dependentTask);
+
+    /// \brief Waits for a task to finish while running in a thread other than the main UI thread.
+    bool waitForTaskNonUIThread(const TaskPtr& task, const TaskPtr& dependentTask);
+
 private Q_SLOTS:
 
 	/// \brief Is called when a task has started to run.
@@ -161,6 +160,9 @@ private Q_SLOTS:
 
 	/// \brief Is called when a task has finished.
 	void taskFinishedInternal();
+
+	/// \brief Is called when a task has reported a new progress text (only if logging is enabled).
+	void taskProgressTextChangedInternal(const QString& msg);
 
 private:
 
@@ -173,12 +175,12 @@ private:
 	/// The dataset container owning this task manager (may be NULL).
 	DataSetContainer* _datasetContainer;
 
-	// Needed by MainThreadTask::createSubTask():
-	friend class MainThreadTask;
+	/// Enables printing of task status messages to the console.
+	bool _consoleLoggingEnabled = false;
+
+	friend class SynchronousOperation; // Needed by SynchronousOperation::create()
 };
 
-OVITO_END_INLINE_NAMESPACE
-OVITO_END_INLINE_NAMESPACE
 }	// End of namespace
 
 Q_DECLARE_METATYPE(Ovito::TaskPtr);

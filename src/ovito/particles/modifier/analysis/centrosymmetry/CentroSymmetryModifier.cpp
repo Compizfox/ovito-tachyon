@@ -30,7 +30,7 @@
 #include <ovito/core/dataset/pipeline/ModifierApplication.h>
 #include "CentroSymmetryModifier.h"
 
-namespace Ovito { namespace Particles { OVITO_BEGIN_INLINE_NAMESPACE(Modifiers) OVITO_BEGIN_INLINE_NAMESPACE(Analysis)
+namespace Ovito { namespace Particles {
 
 IMPLEMENT_OVITO_CLASS(CentroSymmetryModifier);
 DEFINE_PROPERTY_FIELD(CentroSymmetryModifier, numNeighbors);
@@ -56,7 +56,7 @@ bool CentroSymmetryModifier::OOMetaClass::isApplicableTo(const DataCollection& i
 /******************************************************************************
 * Creates and initializes a computation engine that will compute the modifier's results.
 ******************************************************************************/
-Future<AsynchronousModifier::ComputeEnginePtr> CentroSymmetryModifier::createEngine(TimePoint time, ModifierApplication* modApp, const PipelineFlowState& input)
+Future<AsynchronousModifier::ComputeEnginePtr> CentroSymmetryModifier::createEngine(const PipelineEvaluationRequest& request, ModifierApplication* modApp, const PipelineFlowState& input)
 {
 	// Get modifier input.
 	const ParticlesObject* particles = input.expectObject<ParticlesObject>();
@@ -79,11 +79,11 @@ Future<AsynchronousModifier::ComputeEnginePtr> CentroSymmetryModifier::createEng
 ******************************************************************************/
 void CentroSymmetryModifier::CentroSymmetryEngine::perform()
 {
-	task()->setProgressText(tr("Computing centrosymmetry parameters"));
+	setProgressText(tr("Computing centrosymmetry parameters"));
 
 	// Prepare the neighbor list.
 	NearestNeighborFinder neighFinder(_nneighbors);
-	if(!neighFinder.prepare(positions(), cell(), {}, task().get())) {
+	if(!neighFinder.prepare(positions(), cell(), {}, this)) {
 		return;
 	}
 
@@ -91,9 +91,12 @@ void CentroSymmetryModifier::CentroSymmetryEngine::perform()
 	PropertyAccess<FloatType> output(csp());
 
 	// Perform analysis on each particle.
-	parallelFor(positions()->size(), *task(), [&](size_t index) {
+	parallelFor(positions()->size(), *this, [&](size_t index) {
 		output[index] = computeCSP(neighFinder, index);
 	});
+
+	// Release data that is no longer needed.
+	_positions.reset();
 }
 
 /******************************************************************************
@@ -137,7 +140,5 @@ void CentroSymmetryModifier::CentroSymmetryEngine::emitResults(TimePoint time, M
 	particles->createProperty(csp());
 }
 
-OVITO_END_INLINE_NAMESPACE
-OVITO_END_INLINE_NAMESPACE
 }	// End of namespace
 }	// End of namespace

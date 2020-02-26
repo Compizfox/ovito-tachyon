@@ -57,13 +57,14 @@ CreateIsosurfaceModifier::CreateIsosurfaceModifier(DataSet* dataset) : Asynchron
 }
 
 /******************************************************************************
-* Asks the modifier for its validity interval at the given time.
+* Determines the time interval over which a computed pipeline state will remain valid.
 ******************************************************************************/
-TimeInterval CreateIsosurfaceModifier::modifierValidity(TimePoint time)
+TimeInterval CreateIsosurfaceModifier::validityInterval(const PipelineEvaluationRequest& request, const ModifierApplication* modApp) const
 {
-	TimeInterval interval = AsynchronousModifier::modifierValidity(time);
-	if(isolevelController()) interval.intersect(isolevelController()->validityInterval(time));
-	return interval;
+	TimeInterval iv = AsynchronousModifier::validityInterval(request, modApp);
+	if(isolevelController()) 
+		iv.intersect(isolevelController()->validityInterval(request.time()));
+	return iv;
 }
 
 /******************************************************************************
@@ -84,7 +85,7 @@ void CreateIsosurfaceModifier::initializeModifier(ModifierApplication* modApp)
 
 	// Use the first available voxel grid from the input state as data source when the modifier is newly created.
 	if(sourceProperty().isNull() && subject().dataPath().isEmpty() && Application::instance()->executionContext() == Application::ExecutionContext::Interactive) {
-		const PipelineFlowState& input = modApp->evaluateInputPreliminary();
+		const PipelineFlowState& input = modApp->evaluateInputSynchronous(dataset()->animationSettings()->time());
 		if(const VoxelGrid* grid = input.getObject<VoxelGrid>()) {
 			setSubject(PropertyContainerReference(&grid->getOOMetaClass(), grid->identifier()));
 		}
@@ -92,7 +93,7 @@ void CreateIsosurfaceModifier::initializeModifier(ModifierApplication* modApp)
 
 	// Use the first available property from the input grid as data source when the modifier is newly created.
 	if(sourceProperty().isNull() && subject() && Application::instance()->executionContext() == Application::ExecutionContext::Interactive) {
-		const PipelineFlowState& input = modApp->evaluateInputPreliminary();
+		const PipelineFlowState& input = modApp->evaluateInputSynchronous(dataset()->animationSettings()->time());
 		if(const VoxelGrid* grid = dynamic_object_cast<VoxelGrid>(input.getLeafObject(subject()))) {
 			for(const PropertyObject* property : grid->properties()) {
 				setSourceProperty(VoxelPropertyReference(property, (property->componentCount() > 1) ? 0 : -1));
@@ -106,7 +107,7 @@ void CreateIsosurfaceModifier::initializeModifier(ModifierApplication* modApp)
 * Creates and initializes a computation engine that will compute the
 * modifier's results.
 ******************************************************************************/
-Future<AsynchronousModifier::ComputeEnginePtr> CreateIsosurfaceModifier::createEngine(TimePoint time, ModifierApplication* modApp, const PipelineFlowState& input)
+Future<AsynchronousModifier::ComputeEnginePtr> CreateIsosurfaceModifier::createEngine(const PipelineEvaluationRequest& request, ModifierApplication* modApp, const PipelineFlowState& input)
 {
 	if(!subject())
 		throwException(tr("No input voxel grid set."));
@@ -138,7 +139,7 @@ Future<AsynchronousModifier::ComputeEnginePtr> CreateIsosurfaceModifier::createE
 				.arg(voxelGrid->shape()[0]).arg(voxelGrid->shape()[1]).arg(voxelGrid->shape()[2]));
 
 	TimeInterval validityInterval = input.stateValidity();
-	FloatType isolevel = isolevelController() ? isolevelController()->getFloatValue(time, validityInterval) : 0;
+	FloatType isolevel = isolevelController() ? isolevelController()->getFloatValue(request.time(), validityInterval) : 0;
 
 	// Create engine object. Pass all relevant modifier parameters to the engine as well as the input data.
 	return std::make_shared<ComputeIsosurfaceEngine>(validityInterval, voxelGrid->shape(), property->storage(),
@@ -150,7 +151,7 @@ Future<AsynchronousModifier::ComputeEnginePtr> CreateIsosurfaceModifier::createE
 ******************************************************************************/
 void CreateIsosurfaceModifier::ComputeIsosurfaceEngine::perform()
 {
-	task()->setProgressText(tr("Constructing isosurface"));
+	setProgressText(tr("Constructing isosurface"));
 
 	if(_mesh.cell().is2D())
 		throw Exception(tr("Cannot construct isosurfaces for two-dimensional voxel grids."));
@@ -161,7 +162,7 @@ void CreateIsosurfaceModifier::ComputeIsosurfaceEngine::perform()
 
 	ConstPropertyAccess<FloatType, true> data(property());
 	MarchingCubes mc(_mesh, _gridShape[0], _gridShape[1], _gridShape[2], data.cbegin() + _vectorComponent, property()->componentCount(), false);
-	if(!mc.generateIsosurface(_isolevel, *task()))
+	if(!mc.generateIsosurface(_isolevel, *this))
 		return;
 
 	// Transform mesh vertices from orthogonal grid space to world space.
@@ -174,12 +175,12 @@ void CreateIsosurfaceModifier::ComputeIsosurfaceEngine::perform()
 	// Flip surface orientation if cell matrix is a mirror transformation.
 	if(tm.determinant() < 0)
 		_mesh.flipFaces();
-	if(task()->isCanceled())
+	if(isCanceled())
 		return;
 
 	if(!_mesh.connectOppositeHalfedges())
 		throw Exception(tr("Something went wrong. Isosurface mesh is not closed."));
-	if(task()->isCanceled())
+	if(isCanceled())
 		return;
 
 	// Determine range of input field values.
@@ -196,6 +197,9 @@ void CreateIsosurfaceModifier::ComputeIsosurfaceEngine::perform()
 		int binIndex = (v - minValue()) / binSize;
 		histogramData[std::max(0, std::min(binIndex, histogramSizeMin1))]++;
 	}
+
+	// Release data that is no longer needed to reduce memory footprint.
+	_property.reset();
 }
 
 /******************************************************************************

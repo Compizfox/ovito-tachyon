@@ -30,8 +30,9 @@
 
 #include <ovito/core/Core.h>
 #include <ovito/core/dataset/animation/TimeInterval.h>
+#include <ovito/core/dataset/scene/PipelineSceneNode.h>
 #include <ovito/core/oo/RefTarget.h>
-#include <ovito/core/viewport/Viewport.h>
+#include <ovito/core/viewport/ViewportProjectionParameters.h>
 #include "LinePrimitive.h"
 #include "ParticlePrimitive.h"
 #include "TextPrimitive.h"
@@ -40,7 +41,7 @@
 #include "MeshPrimitive.h"
 #include "MarkerPrimitive.h"
 
-namespace Ovito { OVITO_BEGIN_INLINE_NAMESPACE(Rendering)
+namespace Ovito {
 
 /**
  * Abstract base class for object-specific information used in the picking system.
@@ -120,11 +121,14 @@ public:
 	/// Returns the final size of the rendered image in pixels.
 	virtual QSize outputSize() const;
 
+	/// Returns the device pixel ratio of the output device we are rendering to.
+	virtual qreal devicePixelRatio() const { return 1.0; }
+
 	/// \brief Computes the bounding box of the entire scene to be rendered.
 	/// \param time The time at which the bounding box should be computed.
 	/// \return An axis-aligned box in the world coordinate system that contains
 	///         everything to be rendered.
-	Box3 computeSceneBoundingBox(TimePoint time, const ViewProjectionParameters& params, Viewport* vp, AsyncOperation& operation);
+	Box3 computeSceneBoundingBox(TimePoint time, const ViewProjectionParameters& params, Viewport* vp, SynchronousOperation operation);
 
 	/// This method is called just before renderFrame() is called.
 	/// Sets the view projection parameters, the animation frame to render,
@@ -137,7 +141,7 @@ public:
 
 	/// Renders the current animation frame.
 	/// Returns false if the operation has been canceled by the user.
-	virtual bool renderFrame(FrameBuffer* frameBuffer, StereoRenderingTask stereoTask, AsyncOperation& operation) = 0;
+	virtual bool renderFrame(FrameBuffer* frameBuffer, StereoRenderingTask stereoTask, SynchronousOperation operation) = 0;
 
 	/// This method is called after renderFrame() has been called.
 	virtual void endFrame(bool renderSuccessful) {}
@@ -224,10 +228,10 @@ protected:
 	SceneRenderer(DataSet* dataset);
 
 	/// \brief Renders all nodes in the scene.
-	virtual bool renderScene(AsyncOperation& operation);
+	virtual bool renderScene(SynchronousOperation operation);
 
 	/// \brief Render a scene node (and all its children).
-	virtual bool renderNode(SceneNode* node, AsyncOperation& operation);
+	virtual bool renderNode(SceneNode* node, SynchronousOperation operation);
 
 	/// \brief This virtual method is responsible for rendering additional content that is only
 	///       visible in the interactive viewports.
@@ -364,5 +368,4 @@ private:
 	quint32 _subobjectId = 0;
 };
 
-OVITO_END_INLINE_NAMESPACE
 }	// End of namespace

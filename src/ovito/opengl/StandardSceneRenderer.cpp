@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Copyright 2013 Alexander Stukowski
+//  Copyright 2020 Alexander Stukowski
 //
 //  This file is part of OVITO (Open Visualization Tool).
 //
@@ -29,7 +29,7 @@
 #include <ovito/core/utilities/units/UnitsManager.h>
 #include "StandardSceneRenderer.h"
 
-namespace Ovito { OVITO_BEGIN_INLINE_NAMESPACE(Rendering)
+namespace Ovito {
 
 IMPLEMENT_OVITO_CLASS(StandardSceneRenderer);
 DEFINE_PROPERTY_FIELD(StandardSceneRenderer, antialiasingLevel);
@@ -57,8 +57,10 @@ bool StandardSceneRenderer::startRender(DataSet* dataset, RenderSettings* settin
 		_offscreenContext->setFormat(OpenGLSceneRenderer::getDefaultSurfaceFormat());
 		// It should share its resources with the viewport renderer.
 		const QVector<Viewport*>& viewports = renderDataset()->viewportConfig()->viewports();
-		if(!viewports.empty() && viewports.front()->window())
-			_offscreenContext->setShareContext(viewports.front()->window()->glcontext());
+		if(!viewports.empty() && viewports.front()->window()) {
+			viewports.front()->window()->makeOpenGLContextCurrent();
+			_offscreenContext->setShareContext(QOpenGLContext::currentContext());
+		}
 		if(!_offscreenContext->create())
 			throwException(tr("Failed to create OpenGL context for rendering."));
 	}
@@ -126,10 +128,10 @@ void StandardSceneRenderer::initializeGLState()
 /******************************************************************************
 * Renders the current animation frame.
 ******************************************************************************/
-bool StandardSceneRenderer::renderFrame(FrameBuffer* frameBuffer, StereoRenderingTask stereoTask, AsyncOperation& operation)
+bool StandardSceneRenderer::renderFrame(FrameBuffer* frameBuffer, StereoRenderingTask stereoTask, SynchronousOperation operation)
 {
 	// Let the base class do the main rendering work.
-	if(!OpenGLSceneRenderer::renderFrame(frameBuffer, stereoTask, operation))
+	if(!OpenGLSceneRenderer::renderFrame(frameBuffer, stereoTask, std::move(operation)))
 		return false;
 
 	// Flush the contents to the FBO before extracting image.
@@ -166,5 +168,4 @@ void StandardSceneRenderer::endRender()
 	OpenGLSceneRenderer::endRender();
 }
 
-OVITO_END_INLINE_NAMESPACE
 }	// End of namespace

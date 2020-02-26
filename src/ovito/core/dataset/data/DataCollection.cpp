@@ -28,7 +28,7 @@
 #include <ovito/core/oo/CloneHelper.h>
 #include <ovito/core/app/Application.h>
 
-namespace Ovito { OVITO_BEGIN_INLINE_NAMESPACE(ObjectSystem) OVITO_BEGIN_INLINE_NAMESPACE(Scene)
+namespace Ovito {
 
 IMPLEMENT_OVITO_CLASS(DataCollection);
 DEFINE_REFERENCE_FIELD(DataCollection, objects);
@@ -195,6 +195,20 @@ DataObject* DataCollection::makeMutable(const DataObject* obj, bool deepCopy)
 }
 
 /******************************************************************************
+* Ensures that a DataObject from this flow state is not shared with others and is safe to modify.
+******************************************************************************/
+DataObjectPath DataCollection::makeMutable(const ConstDataObjectPath& path, bool deepCopy)
+{
+	DataObjectPath result;
+	DataObject* parent = this;
+	for(const DataObject* obj : path) {
+		result.push_back(parent->makeMutable(obj));
+		parent = result.back();
+	}
+	return result;
+}
+
+/******************************************************************************
 * Finds an object of the given type and with the given identifier in the list
 * of data objects stored in this flow state.
 ******************************************************************************/
@@ -250,17 +264,25 @@ void DataCollection::getObjectsRecursiveImpl(ConstDataObjectPath& path, const Da
 ******************************************************************************/
 ConstDataObjectPath DataCollection::getObject(const DataObject::OOMetaClass& objectClass, const QString& pathString) const
 {
-	ConstDataObjectPath result;
-
-	// Perform a recursive search for the requested object.
-	for(const DataObject* obj : objects()) {
-		result.push_back(obj);
-		if(getObjectImpl(objectClass, &pathString, result))
-			break;
-		result.pop_back();
+	if(!pathString.isEmpty()) {
+		ConstDataObjectPath result;
+		// Perform a recursive path lookup of the requested object.
+		for(const DataObject* obj : objects()) {
+			result.push_back(obj);
+			if(getObjectImpl(objectClass, &pathString, result))
+				break;
+			result.pop_back();
+		}
+		return result;
 	}
-
-	return result;
+	else {
+		// Without any path, perform a recursive search for the first object of the given type.
+		std::vector<ConstDataObjectPath> paths = getObjectsRecursive(objectClass);
+		if(!paths.empty())
+			return paths.front();
+		else
+			return {};
+	}
 }
 
 /******************************************************************************
@@ -548,6 +570,4 @@ int DataCollection::sourceFrame() const
 	return getAttributeValue(QStringLiteral("SourceFrame"), -1).toInt();
 }
 
-OVITO_END_INLINE_NAMESPACE
-OVITO_END_INLINE_NAMESPACE
 }	// End of namespace

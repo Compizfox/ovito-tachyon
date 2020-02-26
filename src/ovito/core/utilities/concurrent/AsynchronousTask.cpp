@@ -22,8 +22,9 @@
 
 #include <ovito/core/Core.h>
 #include "AsynchronousTask.h"
+#include "TaskManager.h"
 
-namespace Ovito { OVITO_BEGIN_INLINE_NAMESPACE(Util) OVITO_BEGIN_INLINE_NAMESPACE(Concurrency)
+namespace Ovito {
 
 /******************************************************************************
 * Destructor.
@@ -32,7 +33,7 @@ AsynchronousTaskBase::~AsynchronousTaskBase()
 {
 	// If task was never started, cancel and finish it.
 	if(Task::setStarted()) {
-		Task::cancel();
+		Task::cancelNoSelfLock();
 		Task::setFinishedNoSelfLock();
 	}
 	OVITO_ASSERT(isFinished());
@@ -54,6 +55,4 @@ void AsynchronousTaskBase::run()
 	this->setFinished();
 }
 
-OVITO_END_INLINE_NAMESPACE
-OVITO_END_INLINE_NAMESPACE
 }	// End of namespace

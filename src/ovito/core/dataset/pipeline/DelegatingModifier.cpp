@@ -25,7 +25,7 @@
 #include <ovito/core/dataset/DataSet.h>
 #include "DelegatingModifier.h"
 
-namespace Ovito { OVITO_BEGIN_INLINE_NAMESPACE(ObjectSystem) OVITO_BEGIN_INLINE_NAMESPACE(Scene)
+namespace Ovito {
 
 IMPLEMENT_OVITO_CLASS(ModifierDelegate);
 DEFINE_PROPERTY_FIELD(ModifierDelegate, isEnabled);
@@ -63,6 +63,19 @@ DelegatingModifier::DelegatingModifier(DataSet* dataset) : Modifier(dataset)
 }
 
 /******************************************************************************
+* Determines the time interval over which a computed pipeline state will remain valid.
+******************************************************************************/
+TimeInterval DelegatingModifier::validityInterval(const PipelineEvaluationRequest& request, const ModifierApplication* modApp) const
+{
+	TimeInterval iv = Modifier::validityInterval(request, modApp);
+
+	if(delegate() && delegate()->isEnabled())
+		iv.intersect(delegate()->validityInterval(request, modApp));
+
+	return iv;
+}
+
+/******************************************************************************
 * Creates a default delegate for this modifier.
 ******************************************************************************/
 void DelegatingModifier::createDefaultModifierDelegate(const OvitoClass& delegateType, const QString& defaultDelegateTypeName)
@@ -96,9 +109,9 @@ bool DelegatingModifier::OOMetaClass::isApplicableTo(const DataCollection& input
 }
 
 /******************************************************************************
-* Modifies the input data in an immediate, preliminary way.
+* Modifies the input data synchronously.
 ******************************************************************************/
-void DelegatingModifier::evaluatePreliminary(TimePoint time, ModifierApplication* modApp, PipelineFlowState& state)
+void DelegatingModifier::evaluateSynchronous(TimePoint time, ModifierApplication* modApp, PipelineFlowState& state)
 {
 	// Apply the modifier delegate to the input data.
 	applyDelegate(state, time, modApp);
@@ -116,7 +129,7 @@ void DelegatingModifier::applyDelegate(PipelineFlowState& state, TimePoint time,
 
 	// Skip function if not applicable.
 	if(delegate()->getOOMetaClass().getApplicableObjects(state).empty())
-		throwException(tr("The modifier input does not contain the expected kind of data."));
+		throwException(tr("The modifier's pipeline input does not contain the expected kind of data."));
 
 	// Call the delegate function.
 	PipelineStatus delegateStatus = delegate()->apply(this, state, time, modApp, additionalInputs);
@@ -139,6 +152,22 @@ void DelegatingModifier::applyDelegate(PipelineFlowState& state, TimePoint time,
 ******************************************************************************/
 MultiDelegatingModifier::MultiDelegatingModifier(DataSet* dataset) : Modifier(dataset)
 {
+}
+
+/******************************************************************************
+* Determines the time interval over which a computed pipeline state will remain valid.
+******************************************************************************/
+TimeInterval MultiDelegatingModifier::validityInterval(const PipelineEvaluationRequest& request, const ModifierApplication* modApp) const
+{
+	TimeInterval iv = Modifier::validityInterval(request, modApp);
+
+	for(const ModifierDelegate* delegate : delegates()) {
+		if(delegate->isEnabled()) {
+			iv.intersect(delegate->validityInterval(request, modApp));
+		}
+	}
+
+	return iv;
 }
 
 /******************************************************************************
@@ -170,9 +199,9 @@ bool MultiDelegatingModifier::OOMetaClass::isApplicableTo(const DataCollection& 
 }
 
 /******************************************************************************
-* Modifies the input data in an immediate, preliminary way.
+* Modifies the input data synchronously.
 ******************************************************************************/
-void MultiDelegatingModifier::evaluatePreliminary(TimePoint time, ModifierApplication* modApp, PipelineFlowState& state)
+void MultiDelegatingModifier::evaluateSynchronous(TimePoint time, ModifierApplication* modApp, PipelineFlowState& state)
 {
 	// Apply all enabled modifier delegates to the input data.
 	applyDelegates(state, time, modApp);
@@ -208,6 +237,4 @@ void MultiDelegatingModifier::applyDelegates(PipelineFlowState& state, TimePoint
 	}
 }
 
-OVITO_END_INLINE_NAMESPACE
-OVITO_END_INLINE_NAMESPACE
 }	// End of namespace

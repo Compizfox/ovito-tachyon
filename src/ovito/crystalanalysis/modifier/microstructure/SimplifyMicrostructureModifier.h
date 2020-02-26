@@ -50,7 +50,7 @@ class OVITO_CRYSTALANALYSIS_EXPORT SimplifyMicrostructureModifier : public Async
 	OVITO_CLASS_META(SimplifyMicrostructureModifier, OOMetaClass)
 
 	Q_CLASSINFO("DisplayName", "Simplify microstructure");
-	Q_CLASSINFO("ModifierCategory", "Modification");
+	Q_CLASSINFO("ModifierCategory", "-");
 
 public:
 
@@ -66,7 +66,7 @@ public:
 protected:
 
 	/// Creates a computation engine that will compute the modifier's results.
-	virtual Future<ComputeEnginePtr> createEngine(TimePoint time, ModifierApplication* modApp, const PipelineFlowState& input) override;
+	virtual Future<ComputeEnginePtr> createEngine(const PipelineEvaluationRequest& request, ModifierApplication* modApp, const PipelineFlowState& input) override;
 
 private:
 
@@ -81,11 +81,6 @@ private:
             _smoothingLevel(smoothingLevel),
             _kPB(kPB),
             _lambda(lambda) {}
-
-		/// This method is called by the system after the computation was successfully completed.
-		virtual void cleanup() override {
-			ComputeEngine::cleanup();
-		}
 
 		/// Computes the modifier's results and stores them in this object for later retrieval.
 		virtual void perform() override;

@@ -30,7 +30,7 @@
 
 #include <QOffscreenSurface>
 
-namespace Ovito { namespace Particles { OVITO_BEGIN_INLINE_NAMESPACE(Modifiers) OVITO_BEGIN_INLINE_NAMESPACE(Coloring)
+namespace Ovito { namespace Particles {
 
 class AmbientOcclusionRenderer;		// defined in AmbientOcclusionRenderer.h
 
@@ -70,13 +70,9 @@ public:
 		AmbientOcclusionEngine(const TimeInterval& validityInterval, ParticleOrderingFingerprint fingerprint, int resolution, int samplingCount, PropertyPtr positions,
 			const Box3& boundingBox, std::vector<FloatType> particleRadii, AmbientOcclusionRenderer* renderer);
 
-		/// This method is called by the system after the computation was successfully completed.
-		virtual void cleanup() override {
-			_positions.reset();
-			decltype(_particleRadii){}.swap(_particleRadii);
-			ComputeEngine::cleanup();
-		}
-
+		/// Destructor.
+		virtual ~AmbientOcclusionEngine();
+		
 		/// Computes the modifier's results.
 		virtual void perform() override;
 
@@ -117,7 +113,7 @@ public:
 protected:
 
 	/// Creates a computation engine that will compute the modifier's results.
-	virtual Future<ComputeEnginePtr> createEngine(TimePoint time, ModifierApplication* modApp, const PipelineFlowState& input) override;
+	virtual Future<ComputeEnginePtr> createEngine(const PipelineEvaluationRequest& request, ModifierApplication* modApp, const PipelineFlowState& input) override;
 
 private:
 
@@ -131,9 +127,5 @@ private:
 	DECLARE_MODIFIABLE_PROPERTY_FIELD(int, bufferResolution, setBufferResolution);
 };
 
-OVITO_END_INLINE_NAMESPACE
-OVITO_END_INLINE_NAMESPACE
 }	// End of namespace
 }	// End of namespace
-
-

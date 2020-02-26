@@ -25,12 +25,12 @@
 #include <ovito/crystalanalysis/modifier/grains/GrainSegmentationEngine.h>
 #include <ovito/crystalanalysis/modifier/grains/GrainSegmentationModifier.h>
 #include <ovito/particles/gui/modifier/analysis/StructureListParameterUI.h>
-#include <ovito/gui/properties/FloatParameterUI.h>
-#include <ovito/gui/properties/IntegerParameterUI.h>
-#include <ovito/gui/properties/BooleanParameterUI.h>
-#include <ovito/gui/properties/BooleanRadioButtonParameterUI.h>
-#include <ovito/gui/utilities/concurrent/ProgressDialog.h>
-#include <ovito/gui/mainwin/MainWindow.h>
+#include <ovito/gui/desktop/properties/FloatParameterUI.h>
+#include <ovito/gui/desktop/properties/IntegerParameterUI.h>
+#include <ovito/gui/desktop/properties/BooleanParameterUI.h>
+#include <ovito/gui/desktop/properties/BooleanRadioButtonParameterUI.h>
+#include <ovito/gui/desktop/utilities/concurrent/ProgressDialog.h>
+#include <ovito/gui/desktop/mainwin/MainWindow.h>
 #include <ovito/core/dataset/DataSetContainer.h>
 #include "GrainSegmentationModifierEditor.h"
 

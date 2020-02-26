@@ -32,7 +32,7 @@
 #include <ovito/core/dataset/DataSet.h>
 #include "ChillPlusModifier.h"
 
-namespace Ovito { namespace Particles { OVITO_BEGIN_INLINE_NAMESPACE(Modifiers) OVITO_BEGIN_INLINE_NAMESPACE(Analysis)
+namespace Ovito { namespace Particles {
 
 IMPLEMENT_OVITO_CLASS(ChillPlusModifier);
 DEFINE_PROPERTY_FIELD(ChillPlusModifier, cutoff);
@@ -57,7 +57,7 @@ ChillPlusModifier::ChillPlusModifier(DataSet* dataset) : StructureIdentification
 * Creates and initializes a computation engine that will compute the
 * modifier's results.
 ******************************************************************************/
-Future<AsynchronousModifier::ComputeEnginePtr> ChillPlusModifier::createEngine(TimePoint time, ModifierApplication* modApp, const PipelineFlowState& input)
+Future<AsynchronousModifier::ComputeEnginePtr> ChillPlusModifier::createEngine(const PipelineEvaluationRequest& request, ModifierApplication* modApp, const PipelineFlowState& input)
 {
     if(structureTypes().size() != NUM_STRUCTURE_TYPES)
         throwException(tr("The number of structure types has changed. Please remove this modifier from the pipeline and insert it again."));
@@ -84,11 +84,11 @@ Future<AsynchronousModifier::ComputeEnginePtr> ChillPlusModifier::createEngine(T
 ******************************************************************************/
 void ChillPlusModifier::ChillPlusEngine::perform()
 {
-    task()->setProgressText(tr("Computing q_lm values in Chill+ analysis"));
+    setProgressText(tr("Computing q_lm values in Chill+ analysis"));
 
     // Prepare the neighbor list.
     CutoffNeighborFinder neighborListBuilder;
-    if(!neighborListBuilder.prepare(cutoff(), positions(), cell(), selection(), task().get()))
+    if(!neighborListBuilder.prepare(cutoff(), positions(), cell(), selection(), this))
         return;
 
 	PropertyAccess<int> output(structures());
@@ -96,25 +96,28 @@ void ChillPlusModifier::ChillPlusEngine::perform()
     // Find all relevant q_lm
     // create matrix of q_lm
     size_t particleCount = positions()->size();
-    task()->setProgressValue(0);
-    task()->setProgressMaximum(particleCount);
+    setProgressValue(0);
+    setProgressMaximum(particleCount);
+    setProgressText(tr("Computing c_ij values of Chill+"));
 
     q_values = boost::numeric::ublas::matrix<std::complex<float>>(particleCount, 7);
 
-    task()->setProgressText(tr("Computing c_ij values of Chill+"));
-
     // Parallel calculation loop:
-    parallelFor(particleCount, *task(), [&](size_t index) {
+    parallelFor(particleCount, *this, [&](size_t index) {
         int coordination = 0;
         for(int m = -3; m <= 3; m++) {
             q_values(index, m+3) = compute_q_lm(neighborListBuilder, index, 3, m);
         }
     });
+    if(isCanceled()) return;
 
     // For each particle, count the bonds and determine structure
-    parallelFor(particleCount, *task(), [&](size_t index) {
+    parallelFor(particleCount, *this, [&](size_t index) {
         output[index] = determineStructure(neighborListBuilder, index, typesToIdentify());
     });
+
+	// Release data that is no longer needed.
+	releaseWorkingData();
 }
 
 std::complex<float> ChillPlusModifier::ChillPlusEngine::compute_q_lm(CutoffNeighborFinder& neighFinder, size_t particleIndex, int l, int m)
@@ -208,7 +211,5 @@ std::pair<float, float> ChillPlusModifier::ChillPlusEngine::polar_asimuthal(cons
     return std::pair<float, float>(polar, asimuthal);
 }
 
-OVITO_END_INLINE_NAMESPACE
-OVITO_END_INLINE_NAMESPACE
 }	// End of namespace
 }	// End of namespace

@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Copyright 2017 Alexander Stukowski
+//  Copyright 2020 Alexander Stukowski
 //
 //  This file is part of OVITO (Open Visualization Tool).
 //
@@ -30,7 +30,7 @@
 	#include <malloc.h>
 #endif
 
-namespace Ovito { OVITO_BEGIN_INLINE_NAMESPACE(ObjectSystem) OVITO_BEGIN_INLINE_NAMESPACE(Scene)
+namespace Ovito {
 
 IMPLEMENT_OVITO_CLASS(AsynchronousModifier);
 
@@ -63,15 +63,12 @@ Future<PipelineFlowState> AsynchronousModifier::evaluate(const PipelineEvaluatio
 	}
 
 	// Let the subclass create the computation engine based on the input data.
-	Future<ComputeEnginePtr> engineFuture = createEngine(request.time(), modApp, input);
-	return engineFuture.then(executor(), [this, time = request.time(), input = input, modApp = QPointer<ModifierApplication>(modApp)](ComputeEnginePtr engine) mutable {
-
-			// Explicitly create a local copy of the shared_ptr to keep the task object alive for some time.
-			auto task = engine->task();
+	return createEngine(request, modApp, input)
+		.then(executor(), [this, time = request.time(), input = input, modApp = QPointer<ModifierApplication>(modApp)](ComputeEnginePtr engine) mutable {
 
 			// Execute the engine in a worker thread.
 			// Collect results from the engine in the UI thread once it has finished running.
-			return dataset()->container()->taskManager().runTaskAsync(task)
+			return dataset()->container()->taskManager().runTaskAsync(engine)
 				.then(executor(), [this, time, modApp, state = std::move(input), engine = std::move(engine)]() mutable {
 					if(modApp && modApp->modifier() == this) {
 
@@ -83,22 +80,19 @@ Future<PipelineFlowState> AsynchronousModifier::evaluate(const PipelineEvaluatio
 							asyncModApp->setLastComputeResults(engine);
 						}
 
-						UndoSuspender noUndo(this);
-
 						// Apply the computed results to the input data.
 						engine->emitResults(time, modApp, state);
 						state.intersectStateValidity(engine->validityInterval());
-						return std::move(state);
 					}
-					else return std::move(state);
+					return std::move(state);
 				});
 		});
 }
 
 /******************************************************************************
-* Modifies the input data in an immediate, preliminary way.
+* Modifies the input data synchronously.
 ******************************************************************************/
-void AsynchronousModifier::evaluatePreliminary(TimePoint time, ModifierApplication* modApp, PipelineFlowState& state)
+void AsynchronousModifier::evaluateSynchronous(TimePoint time, ModifierApplication* modApp, PipelineFlowState& state)
 {
 	// If results are still available from the last pipeline evaluation, apply them to the input data.
 	if(AsynchronousModifierApplication* asyncModApp = dynamic_object_cast<AsynchronousModifierApplication>(modApp)) {
@@ -108,7 +102,7 @@ void AsynchronousModifier::evaluatePreliminary(TimePoint time, ModifierApplicati
 			state.intersectStateValidity(lastResults->validityInterval());
 		}
 	}
-	Modifier::evaluatePreliminary(time, modApp, state);
+	Modifier::evaluateSynchronous(time, modApp, state);
 }
 
 /******************************************************************************
@@ -132,42 +126,18 @@ void AsynchronousModifier::loadFromStream(ObjectLoadStream& stream)
 	stream.closeChunk();
 }
 
-/******************************************************************************
-* This method is called by the system after the computation was
-* successfully completed.
-******************************************************************************/
-void AsynchronousModifier::ComputeEngine::cleanup()
-{
-	// The asynchronous task object is no longer needed after compute operation is complete.
-	_task.reset();
-}
-
-/******************************************************************************
-* Is called when the asynchronous task begins to run.
-******************************************************************************/
-void AsynchronousModifier::ComputeEngine::ComputeEngineTask::perform()
-{
-	// Let the compute engine do the work.
-	_engine->perform();
-
-	if(!isCanceled()) {
-
-		// If compute job was successfully completed, release memory and references to the input data.
-		_engine->cleanup();
-
-		// Make sure the cleanup() method has really cleared the reference to this task object:
-		OVITO_ASSERT(isCanceled() || !_engine->task());
-
 #ifdef Q_OS_LINUX
-		// Some compute engines allocate a considerable amount of memory in small chunks,
-		// which is sometimes not released back to the OS by the C memory allocator.
-		// This call to malloc_trim() will explicitly trigger an attempt to release free memory
-		// at the top of the heap.
-		::malloc_trim(0);
-#endif
-	}
+/******************************************************************************
+* Destructor.
+******************************************************************************/
+AsynchronousModifier::ComputeEngine::~ComputeEngine()
+{
+	// Some compute engines allocate a considerable amount of memory in small chunks,
+	// which is sometimes not released back to the OS by the C memory allocator.
+	// This call to malloc_trim() will explicitly trigger an attempt to release free memory
+	// at the top of the heap.
+	::malloc_trim(0);
 }
+#endif
 
-OVITO_END_INLINE_NAMESPACE
-OVITO_END_INLINE_NAMESPACE
 }	// End of namespace

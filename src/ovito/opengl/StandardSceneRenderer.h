@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Copyright 2018 Alexander Stukowski
+//  Copyright 2020 Alexander Stukowski
 //
 //  This file is part of OVITO (Open Visualization Tool).
 //
@@ -30,7 +30,7 @@
 #include <QOpenGLContext>
 #include <QOpenGLFramebufferObject>
 
-namespace Ovito { OVITO_BEGIN_INLINE_NAMESPACE(Rendering)
+namespace Ovito {
 
 /**
  * \brief This is the default scene renderer used for high-quality image output.
@@ -40,6 +40,8 @@ class OVITO_OPENGLRENDERER_EXPORT StandardSceneRenderer : public OpenGLSceneRend
 	Q_OBJECT
 	OVITO_CLASS(StandardSceneRenderer)
 	Q_CLASSINFO("DisplayName", "OpenGL");
+	Q_CLASSINFO("Description", "Hardware-accelerated rendering engine, also used by OVITO's interactive viewports. "
+								"The OpenGL renderer is fast and has the smallest memory footprint.");
 
 public:
 
@@ -53,7 +55,7 @@ public:
 	virtual void beginFrame(TimePoint time, const ViewProjectionParameters& params, Viewport* vp) override;
 
 	/// Renders the current animation frame.
-	virtual bool renderFrame(FrameBuffer* frameBuffer, StereoRenderingTask stereoTask, AsyncOperation& operation) override;
+	virtual bool renderFrame(FrameBuffer* frameBuffer, StereoRenderingTask stereoTask, SynchronousOperation operation) override;
 
 	/// Is called after rendering has finished.
 	virtual void endRender() override;
@@ -88,5 +90,4 @@ private:
 	QSize _framebufferSize;
 };
 
-OVITO_END_INLINE_NAMESPACE
 }	// End of namespace

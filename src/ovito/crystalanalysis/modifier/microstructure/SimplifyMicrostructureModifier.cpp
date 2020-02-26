@@ -63,7 +63,7 @@ bool SimplifyMicrostructureModifier::OOMetaClass::isApplicableTo(const DataColle
 * Creates and initializes a computation engine that will compute the
 * modifier's results.
 ******************************************************************************/
-Future<AsynchronousModifier::ComputeEnginePtr> SimplifyMicrostructureModifier::createEngine(TimePoint time, ModifierApplication* modApp, const PipelineFlowState& input)
+Future<AsynchronousModifier::ComputeEnginePtr> SimplifyMicrostructureModifier::createEngine(const PipelineEvaluationRequest& request, ModifierApplication* modApp, const PipelineFlowState& input)
 {
 	// Get modifier input.
 	const Microstructure* microstructure = input.getObject<Microstructure>();
@@ -79,7 +79,7 @@ Future<AsynchronousModifier::ComputeEnginePtr> SimplifyMicrostructureModifier::c
 ******************************************************************************/
 void SimplifyMicrostructureModifier::SimplifyMicrostructureEngine::perform()
 {
-	task()->setProgressText(tr("Simplifying microstructure"));
+	setProgressText(tr("Simplifying microstructure"));
 
     // Implementation of the mesh smoothing algorithm:
 	// Gabriel Taubin
@@ -87,10 +87,10 @@ void SimplifyMicrostructureModifier::SimplifyMicrostructureEngine::perform()
 	// In SIGGRAPH 95 Conference Proceedings, pages 351-358 (1995)
 
 	FloatType mu = FloatType(1) / (_kPB - FloatType(1)/_lambda);
-	task()->setProgressMaximum(_smoothingLevel);
+	setProgressMaximum(_smoothingLevel);
 
 	for(int iteration = 0; iteration < _smoothingLevel; iteration++) {
-		if(!task()->setProgressValue(iteration)) return;
+		if(!setProgressValue(iteration)) return;
 		smoothMeshIteration(_lambda);
 		smoothMeshIteration(mu);
 	}

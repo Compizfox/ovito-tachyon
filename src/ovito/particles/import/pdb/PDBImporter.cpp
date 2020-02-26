@@ -25,17 +25,17 @@
 #include <ovito/core/utilities/io/CompressedTextReader.h>
 #include "PDBImporter.h"
 
-namespace Ovito { namespace Particles { OVITO_BEGIN_INLINE_NAMESPACE(Import) OVITO_BEGIN_INLINE_NAMESPACE(Formats)
+namespace Ovito { namespace Particles {
 
 IMPLEMENT_OVITO_CLASS(PDBImporter);
 
 /******************************************************************************
 * Checks if the given file has format that can be read by this importer.
 ******************************************************************************/
-bool PDBImporter::OOMetaClass::checkFileFormat(QFileDevice& input, const QUrl& sourceLocation) const
+bool PDBImporter::OOMetaClass::checkFileFormat(const FileHandle& file) const
 {
 	// Open input file.
-	CompressedTextReader stream(input, sourceLocation.path());
+	CompressedTextReader stream(file);
 
 	// Read the first N lines.
 	for(int i = 0; i < 20 && !stream.eof(); i++) {
@@ -51,20 +51,17 @@ bool PDBImporter::OOMetaClass::checkFileFormat(QFileDevice& input, const QUrl& s
 }
 
 /******************************************************************************
-* Scans the given input file to find all contained simulation frames.
+* Scans the data file and builds a list of source frames.
 ******************************************************************************/
-void PDBImporter::FrameFinder::discoverFramesInFile(QFile& file, const QUrl& sourceUrl, QVector<FileSourceImporter::Frame>& frames)
+void PDBImporter::FrameFinder::discoverFramesInFile(QVector<FileSourceImporter::Frame>& frames)
 {
-	CompressedTextReader stream(file, sourceUrl.path());
+	CompressedTextReader stream(fileHandle());
 	setProgressText(tr("Scanning PDB file %1").arg(stream.filename()));
 	setProgressMaximum(stream.underlyingSize());
 
-	QFileInfo fileInfo(stream.device().fileName());
-	QString filename = fileInfo.fileName();
-	QDateTime lastModified = fileInfo.lastModified();
-	auto byteOffset = stream.byteOffset();
-	auto lineNumber = stream.lineNumber();
-
+	Frame frame(fileHandle());
+	frame.byteOffset = stream.byteOffset();
+	frame.lineNumber = stream.lineNumber();
 	while(!stream.eof()) {
 
 		if(isCanceled())
@@ -79,36 +76,26 @@ void PDBImporter::FrameFinder::discoverFramesInFile(QFile& file, const QUrl& sou
 			return;
 
 		if(stream.lineStartsWithToken("ENDMDL")) {
-			Frame frame;
-			frame.sourceFile = sourceUrl;
-			frame.byteOffset = byteOffset;
-			frame.lineNumber = lineNumber;
-			frame.lastModificationTime = lastModified;
 			frames.push_back(frame);
-			byteOffset = stream.byteOffset();
-			lineNumber = stream.lineNumber();
+			frame.byteOffset = stream.byteOffset();
+			frame.lineNumber = stream.lineNumber();
 		}
 	}
 
 	if(frames.empty()) {
 		// It's not a trajectory file. Report just a single frame.
-		Frame frame;
-		frame.sourceFile = sourceUrl;
-		frame.byteOffset = 0;
-		frame.lineNumber = 0;
-		frame.lastModificationTime = lastModified;
-		frames.push_back(frame);
+		frames.push_back(Frame(fileHandle()));
 	}
 }
 
 /******************************************************************************
 * Parses the given input file.
 ******************************************************************************/
-FileSourceImporter::FrameDataPtr PDBImporter::FrameLoader::loadFile(QFile& file)
+FileSourceImporter::FrameDataPtr PDBImporter::FrameLoader::loadFile()
 {
 	// Open file for reading.
-	CompressedTextReader stream(file, frame().sourceFile.path());
-	setProgressText(tr("Reading PDB file %1").arg(frame().sourceFile.toString(QUrl::RemovePassword | QUrl::PreferLocalFile | QUrl::PrettyDecoded)));
+	CompressedTextReader stream(fileHandle());
+	setProgressText(tr("Reading PDB file %1").arg(fileHandle().toString()));
 
 	// Jump to byte offset.
 	if(frame().byteOffset != 0)
@@ -182,7 +169,7 @@ FileSourceImporter::FrameDataPtr PDBImporter::FrameLoader::loadFile(QFile& file)
 	// Create the particle properties.
 	PropertyAccess<Point3> posProperty = frameData->addParticleProperty(ParticlesObject::OOClass().createStandardStorage(numAtoms, ParticlesObject::PositionProperty, false));
 	PropertyAccess<int> typeProperty = frameData->addParticleProperty(ParticlesObject::OOClass().createStandardStorage(numAtoms, ParticlesObject::TypeProperty, false));
-	ParticleFrameData::TypeList* typeList = frameData->propertyTypesList(typeProperty);
+	ParticleFrameData::TypeList* typeList = frameData->createPropertyTypesList(typeProperty);
 
 	// Parse atoms.
 	size_t atomIndex = 0;
@@ -251,7 +238,7 @@ FileSourceImporter::FrameDataPtr PDBImporter::FrameLoader::loadFile(QFile& file)
 			if(moleculeTypeLength != 0) {
 				if(!moleculeTypeProperty) {
 					moleculeTypeProperty = frameData->addParticleProperty(ParticlesObject::OOClass().createStandardStorage(numAtoms, ParticlesObject::MoleculeTypeProperty, true));
-					moleculeTypeList = frameData->propertyTypesList(moleculeTypeProperty);
+					moleculeTypeList = frameData->createPropertyTypesList(moleculeTypeProperty);
 				}
 				moleculeTypeProperty[atomIndex] = moleculeTypeList->addTypeName(moleculeType, moleculeType + moleculeTypeLength);
 			}
@@ -333,7 +320,5 @@ FileSourceImporter::FrameDataPtr PDBImporter::FrameLoader::loadFile(QFile& file)
 	return frameData;
 }
 
-OVITO_END_INLINE_NAMESPACE
-OVITO_END_INLINE_NAMESPACE
 }	// End of namespace
 }	// End of namespace

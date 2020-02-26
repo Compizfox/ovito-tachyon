@@ -27,7 +27,7 @@
 #include <ovito/core/utilities/concurrent/ParallelFor.h>
 #include "CalculateDisplacementsModifier.h"
 
-namespace Ovito { namespace Particles { OVITO_BEGIN_INLINE_NAMESPACE(Modifiers) OVITO_BEGIN_INLINE_NAMESPACE(Analysis)
+namespace Ovito { namespace Particles {
 
 IMPLEMENT_OVITO_CLASS(CalculateDisplacementsModifier);
 DEFINE_REFERENCE_FIELD(CalculateDisplacementsModifier, vectorVis);
@@ -54,7 +54,7 @@ CalculateDisplacementsModifier::CalculateDisplacementsModifier(DataSet* dataset)
 /******************************************************************************
 * Creates and initializes a computation engine that will compute the modifier's results.
 ******************************************************************************/
-Future<AsynchronousModifier::ComputeEnginePtr> CalculateDisplacementsModifier::createEngineWithReference(TimePoint time, ModifierApplication* modApp, PipelineFlowState input, const PipelineFlowState& referenceState, TimeInterval validityInterval)
+Future<AsynchronousModifier::ComputeEnginePtr> CalculateDisplacementsModifier::createEngineInternal(const PipelineEvaluationRequest& request, ModifierApplication* modApp, PipelineFlowState input, const PipelineFlowState& referenceState, TimeInterval validityInterval)
 {
 	// Get the current particle positions.
 	const ParticlesObject* particles = input.expectObject<ParticlesObject>();
@@ -102,14 +102,14 @@ void CalculateDisplacementsModifier::DisplacementEngine::perform()
 
 	// Compute displacement vectors.
 	if(affineMapping() != NO_MAPPING) {
-		parallelForChunks(displacements()->size(), *task(), [&](size_t startIndex, size_t count, Task& promise) {
+		parallelForChunks(displacements()->size(), *this, [&](size_t startIndex, size_t count, Task& task) {
 			Vector3* u = displacementsArray.begin() + startIndex;
 			FloatType* umag = displacementMagnitudesArray.begin() + startIndex;
 			const Point3* p = positionsArray.cbegin() + startIndex;
 			auto index = currentToRefIndexMap().cbegin() + startIndex;
 			const AffineTransformation& reduced_to_absolute = (affineMapping() == TO_REFERENCE_CELL) ? refCell().matrix() : cell().matrix();
 			for(; count; --count, ++u, ++umag, ++p, ++index) {
-				if(promise.isCanceled()) return;
+				if(task.isCanceled()) return;
 				Point3 reduced_current_pos = cell().inverseMatrix() * (*p);
 				Point3 reduced_reference_pos = refCell().inverseMatrix() * refPositionsArray[*index];
 				Vector3 delta = reduced_current_pos - reduced_reference_pos;
@@ -125,13 +125,13 @@ void CalculateDisplacementsModifier::DisplacementEngine::perform()
 		});
 	}
 	else {
-		parallelForChunks(displacements()->size(), *task(), [&] (size_t startIndex, size_t count, Task& promise) {
+		parallelForChunks(displacements()->size(), *this, [&] (size_t startIndex, size_t count, Task& task) {
 			Vector3* u = displacementsArray.begin() + startIndex;
 			FloatType* umag = displacementMagnitudesArray.begin() + startIndex;
 			const Point3* p = positionsArray.cbegin() + startIndex;
 			auto index = currentToRefIndexMap().cbegin() + startIndex;
 			for(; count; --count, ++u, ++umag, ++p, ++index) {
-				if(promise.isCanceled()) return;
+				if(task.isCanceled()) return;
 				*u = *p - refPositionsArray[*index];
 				if(useMinimumImageConvention()) {
 					for(size_t k = 0; k < 3; k++) {
@@ -148,6 +148,9 @@ void CalculateDisplacementsModifier::DisplacementEngine::perform()
 			}
 		});
 	}
+
+	// Release data that is no longer needed.
+	releaseWorkingData();
 }
 
 /******************************************************************************
@@ -166,8 +169,5 @@ void CalculateDisplacementsModifier::DisplacementEngine::emitResults(TimePoint t
 	particles->createProperty(displacementMagnitudes());
 }
 
-
-OVITO_END_INLINE_NAMESPACE
-OVITO_END_INLINE_NAMESPACE
 }	// End of namespace
 }	// End of namespace

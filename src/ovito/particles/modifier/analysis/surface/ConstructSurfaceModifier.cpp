@@ -35,7 +35,7 @@
 #include <ovito/core/utilities/concurrent/ParallelFor.h>
 #include "ConstructSurfaceModifier.h"
 
-namespace Ovito { namespace Particles { OVITO_BEGIN_INLINE_NAMESPACE(Modifiers) OVITO_BEGIN_INLINE_NAMESPACE(Analysis)
+namespace Ovito { namespace Particles {
 
 using namespace Ovito::Delaunay;
 
@@ -54,7 +54,7 @@ SET_PROPERTY_FIELD_LABEL(ConstructSurfaceModifier, smoothingLevel, "Smoothing le
 SET_PROPERTY_FIELD_LABEL(ConstructSurfaceModifier, probeSphereRadius, "Probe sphere radius");
 SET_PROPERTY_FIELD_LABEL(ConstructSurfaceModifier, onlySelectedParticles, "Use only selected input particles");
 SET_PROPERTY_FIELD_LABEL(ConstructSurfaceModifier, selectSurfaceParticles, "Select particles on the surface");
-SET_PROPERTY_FIELD_LABEL(ConstructSurfaceModifier, transferParticleProperties, "Copy particle properties to surface");
+SET_PROPERTY_FIELD_LABEL(ConstructSurfaceModifier, transferParticleProperties, "Transfer particle properties to surface");
 SET_PROPERTY_FIELD_LABEL(ConstructSurfaceModifier, method, "Construction method");
 SET_PROPERTY_FIELD_LABEL(ConstructSurfaceModifier, gridResolution, "Resolution");
 SET_PROPERTY_FIELD_LABEL(ConstructSurfaceModifier, radiusFactor, "Radius scaling");
@@ -94,7 +94,7 @@ bool ConstructSurfaceModifier::OOMetaClass::isApplicableTo(const DataCollection&
 * Creates and initializes a computation engine that will compute the
 * modifier's results.
 ******************************************************************************/
-Future<AsynchronousModifier::ComputeEnginePtr> ConstructSurfaceModifier::createEngine(TimePoint time, ModifierApplication* modApp, const PipelineFlowState& input)
+Future<AsynchronousModifier::ComputeEnginePtr> ConstructSurfaceModifier::createEngine(const PipelineEvaluationRequest& request, ModifierApplication* modApp, const PipelineFlowState& input)
 {
 	// Get modifier inputs.
 	const ParticlesObject* particles = input.expectObject<ParticlesObject>();
@@ -107,20 +107,19 @@ Future<AsynchronousModifier::ComputeEnginePtr> ConstructSurfaceModifier::createE
 	if(simCell->is2D())
 		throwException(tr("The construct surface mesh modifier does not support 2d simulation cells."));
 
-	if(method() == AlphaShape) {
-
-		// Collect the set of particle properties that should be transferred over to the surface mesh vertices.
-		std::vector<ConstPropertyPtr> particleProperties;
-		if(transferParticleProperties()) {
-			for(const PropertyObject* property : particles->properties()) {
-				// Certain properties should not be transferred to the mesh vertices.
-				if(property->type() == ParticlesObject::SelectionProperty) continue;
-				if(property->type() == ParticlesObject::PositionProperty) continue;
-				if(property->type() == ParticlesObject::IdentifierProperty) continue;
-				particleProperties.push_back(property->storage());
-			}
+	// Collect the set of particle properties that should be transferred over to the surface mesh vertices.
+	std::vector<ConstPropertyPtr> particleProperties;
+	if(transferParticleProperties()) {
+		for(const PropertyObject* property : particles->properties()) {
+			// Certain properties should not be transferred to the mesh vertices.
+			if(property->type() == ParticlesObject::SelectionProperty) continue;
+			if(property->type() == ParticlesObject::PositionProperty) continue;
+			if(property->type() == ParticlesObject::IdentifierProperty) continue;
+			particleProperties.push_back(property->storage());
 		}
-
+	}
+	
+	if(method() == AlphaShape) {
 		// Create engine object. Pass all relevant modifier parameters to the engine as well as the input data.
 		return std::make_shared<AlphaShapeEngine>(posProperty->storage(),
 				std::move(selProperty),
@@ -138,7 +137,8 @@ Future<AsynchronousModifier::ComputeEnginePtr> ConstructSurfaceModifier::createE
 				radiusFactor(),
 				isoValue(),
 				gridResolution(),
-				particles->inputParticleRadii());
+				particles->inputParticleRadii(),
+				std::move(particleProperties));
 	}
 }
 
@@ -147,7 +147,7 @@ Future<AsynchronousModifier::ComputeEnginePtr> ConstructSurfaceModifier::createE
 ******************************************************************************/
 void ConstructSurfaceModifier::AlphaShapeEngine::perform()
 {
-	task()->setProgressText(tr("Constructing surface mesh"));
+	setProgressText(tr("Constructing surface mesh"));
 
 	if(probeSphereRadius() <= 0)
 		throw Exception(tr("Radius parameter must be positive."));
@@ -174,12 +174,14 @@ void ConstructSurfaceModifier::AlphaShapeEngine::perform()
 		numInputParticles = positions()->size() - boost::count(ConstPropertyAccess<int>(selection()), 0);
 	}
 	if(numInputParticles <= 3) {
+		// Release data that is no longer needed.
+		releaseWorkingData();
 		return;
 	}
 
 	// Algorithm is divided into several sub-steps.
 	// Assign weights to sub-steps according to estimated runtime.
-	task()->beginProgressSubStepsWithWeights({ 10, 30, 2, 2, 4 });
+	beginProgressSubStepsWithWeights({ 10, 30, 2, 2, 4 });
 
 	// Generate Delaunay tessellation.
 	DelaunayTessellation tessellation;
@@ -189,10 +191,10 @@ void ConstructSurfaceModifier::AlphaShapeEngine::perform()
 			positions()->size(), 
 			ghostLayerSize,
 			selection() ? ConstPropertyAccess<int>(selection()).cbegin() : nullptr, 
-			*task()))
+			*this))
 		return;
 
-	task()->nextProgressSubStep();
+	nextProgressSubStep();
 
 	// Determines the region a solid Delaunay cell belongs to.
 	// We use this callback function to compute the total volume of the solid region.
@@ -227,11 +229,11 @@ void ConstructSurfaceModifier::AlphaShapeEngine::perform()
 	};
 
 	ManifoldConstructionHelper<false, false, true> manifoldConstructor(tessellation, mesh(), alpha, *positions());
-	if(!manifoldConstructor.construct(tetrahedronRegion, *task(), std::move(prepareMeshFace), std::move(prepareMeshVertex)))
+	if(!manifoldConstructor.construct(tetrahedronRegion, *this, std::move(prepareMeshFace), std::move(prepareMeshVertex)))
 		return;
 
 	// Copy particle property values to mesh vertices.
-	for(const ConstPropertyPtr& particleProperty : _particleProperties) {
+	for(const ConstPropertyPtr& particleProperty : particleProperties()) {
 		PropertyStorage* vertexProperty;
 		if(SurfaceMeshVertices::OOClass().isValidStandardPropertyId(particleProperty->type())) {
 			// Input property is also a standard property for mesh vertices.
@@ -252,23 +254,23 @@ void ConstructSurfaceModifier::AlphaShapeEngine::perform()
 		particleProperty->mappedCopyTo(*vertexProperty, vertexToParticleMap);
 	}
 
-	task()->nextProgressSubStep();
+	nextProgressSubStep();
 
 	// Make sure every mesh vertex is only part of one surface manifold.
 	mesh().makeManifold();
 
-	task()->nextProgressSubStep();
-	if(!mesh().smoothMesh(_smoothingLevel, *task()))
+	nextProgressSubStep();
+	if(!mesh().smoothMesh(_smoothingLevel, *this))
 		return;
 
 	// Create the 'Surface area' region property.
 	PropertyAccess<FloatType> surfaceAreaProperty = mesh().createRegionProperty(SurfaceMeshRegions::SurfaceAreaProperty, true);
 
 	// Compute surface area (total and per-region) by summing up the triangle face areas.
-	task()->nextProgressSubStep();
-	task()->setProgressMaximum(mesh().faceCount());
+	nextProgressSubStep();
+	setProgressMaximum(mesh().faceCount());
 	for(HalfEdgeMesh::edge_index edge : mesh().firstFaceEdges()) {
-		if(!task()->incrementProgressValue()) return;
+		if(!incrementProgressValue()) return;
 		const Vector3& e1 = mesh().edgeVector(edge);
 		const Vector3& e2 = mesh().edgeVector(mesh().nextFaceEdge(edge));
 		FloatType area = e1.cross(e2).length() / 2;
@@ -277,7 +279,10 @@ void ConstructSurfaceModifier::AlphaShapeEngine::perform()
 		surfaceAreaProperty[region] += area;
 	}
 
-	task()->endProgressSubSteps();
+	endProgressSubSteps();
+
+	// Release data that is no longer needed.
+	releaseWorkingData();
 }
 
 /******************************************************************************
@@ -285,18 +290,21 @@ void ConstructSurfaceModifier::AlphaShapeEngine::perform()
 ******************************************************************************/
 void ConstructSurfaceModifier::GaussianDensityEngine::perform()
 {
-	task()->setProgressText(tr("Constructing surface mesh"));
+	setProgressText(tr("Constructing surface mesh"));
 
 	// Check input data.
 	if(mesh().cell().volume3D() <= FLOATTYPE_EPSILON*FLOATTYPE_EPSILON*FLOATTYPE_EPSILON)
 		throw Exception(tr("Simulation cell is degenerate."));
 
-	if(positions()->size() == 0)
+	if(positions()->size() == 0) {
+		// Release data that is no longer needed.
+		releaseWorkingData();
 		return;
+	}
 
 	// Algorithm is divided into several sub-steps.
 	// Assign weights to sub-steps according to estimated runtime.
-	task()->beginProgressSubStepsWithWeights({ 1, 30, 1600, 1500, 30, 100, 300 });
+	beginProgressSubStepsWithWeights({ 1, 30, 1600, 1500, 30, 500, 100, 300 });
 
 	// Scale the atomic radii.
 	for(FloatType& r : _particleRadii) r *= _radiusFactor;
@@ -304,7 +312,7 @@ void ConstructSurfaceModifier::GaussianDensityEngine::perform()
 	// Determine the cutoff range of atomic Gaussians.
 	FloatType cutoffSize = FloatType(3) * *std::max_element(_particleRadii.cbegin(), _particleRadii.cend());
 
-	// Determine the extends of the density grid.
+	// Determine the extents of the density grid.
 	AffineTransformation gridBoundaries = mesh().cell().matrix();
 	ConstPropertyAccess<Point3> positionsArray(positions());
 	for(size_t dim = 0; dim < 3; dim++) {
@@ -339,17 +347,17 @@ void ConstructSurfaceModifier::GaussianDensityEngine::perform()
 	gridDims[1] = std::max((size_t)2, (size_t)(gridBoundaries.column(1).length() / voxelSize));
 	gridDims[2] = std::max((size_t)2, (size_t)(gridBoundaries.column(2).length() / voxelSize));
 
-	task()->nextProgressSubStep();
+	nextProgressSubStep();
 
 	// Allocate storage for the density grid values.
 	std::vector<FloatType> densityData(gridDims[0] * gridDims[1] * gridDims[2], FloatType(0));
 
 	// Set up a particle neighbor finder to speed up density field computation.
 	CutoffNeighborFinder neighFinder;
-	if(!neighFinder.prepare(cutoffSize, positions(), mesh().cell(), selection(), task().get()))
+	if(!neighFinder.prepare(cutoffSize, positions(), mesh().cell(), selection(), this))
 		return;
 
-	task()->nextProgressSubStep();
+	nextProgressSubStep();
 
 	// Set up a matrix that converts grid coordinates to spatial coordinates.
 	AffineTransformation gridToCartesian = gridBoundaries;
@@ -358,7 +366,7 @@ void ConstructSurfaceModifier::GaussianDensityEngine::perform()
 	gridToCartesian.column(2) /= gridDims[2] - (mesh().cell().pbcFlags()[2]?0:1);
 
 	// Compute the accumulated density at each grid point.
-	parallelFor(densityData.size(), *task(), [&](size_t voxelIndex) {
+	parallelFor(densityData.size(), *this, [&](size_t voxelIndex) {
 
 		// Determine the center coordinates of the current grid cell.
 		size_t ix = voxelIndex % gridDims[0];
@@ -373,47 +381,108 @@ void ConstructSurfaceModifier::GaussianDensityEngine::perform()
 			density += std::exp(-neighQuery.distanceSquared() / (FloatType(2) * alpha * alpha));
 		}
 	});
-	if(task()->isCanceled())
+	if(isCanceled())
 		return;
 
-	task()->nextProgressSubStep();
+	nextProgressSubStep();
 
 	// Construct isosurface of the density field.
 	mesh().cell().setMatrix(gridBoundaries);
 	MarchingCubes mc(mesh(), gridDims[0], gridDims[1], gridDims[2], densityData.data(), 1, false);
-	if(!mc.generateIsosurface(_isoLevel, *task()))
+	if(!mc.generateIsosurface(_isoLevel, *this))
 		return;
 
-	task()->nextProgressSubStep();
+	nextProgressSubStep();
 
 	// Transform mesh vertices from orthogonal grid space to world space.
 	mesh().transformVertices(gridToCartesian);
-	if(task()->isCanceled())
+	if(isCanceled())
 		return;
+
+	nextProgressSubStep();
+
+	// Create mesh vertex properties for transferring particle property values to the surface.
+	std::vector<std::pair<ConstPropertyAccess<FloatType,true>, PropertyAccess<FloatType,true>>> propertyMapping;
+	for(const ConstPropertyPtr& particleProperty : particleProperties()) {
+		// Can only transfer floating-point properties, because we'll need to blend values of several particles.
+		if(particleProperty->dataType() == PropertyStorage::Float) {
+			PropertyPtr vertexProperty;
+			if(SurfaceMeshVertices::OOClass().isValidStandardPropertyId(particleProperty->type())) {
+				// Input property is also a standard property for mesh vertices.
+				vertexProperty = mesh().createVertexProperty(static_cast<SurfaceMeshVertices::Type>(particleProperty->type()), true);
+				OVITO_ASSERT(vertexProperty->dataType() == particleProperty->dataType());
+				OVITO_ASSERT(vertexProperty->stride() == particleProperty->stride());
+			}
+			else if(SurfaceMeshVertices::OOClass().standardPropertyTypeId(particleProperty->name()) != 0) {
+				// Input property name is that of a standard property for mesh vertices.
+				// Must rename the property to avoid conflict, because user properties may not have a standard property name.
+				QString newPropertyName = particleProperty->name() + tr("_particles");
+				vertexProperty = mesh().createVertexProperty(particleProperty->dataType(), particleProperty->componentCount(), particleProperty->stride(), newPropertyName, true, particleProperty->componentNames());
+			}
+			else {
+				// Input property is a user property for mesh vertices.
+				vertexProperty = mesh().createVertexProperty(particleProperty->dataType(), particleProperty->componentCount(), particleProperty->stride(), particleProperty->name(), true, particleProperty->componentNames());
+			}
+			propertyMapping.emplace_back(particleProperty, std::move(vertexProperty));
+		}
+	}
+
+	// Transfer property values from particles to to mesh vertices.
+	if(!propertyMapping.empty()) {
+		// Compute the accumulated density at each grid point.
+		parallelFor(mesh().vertexCount(), *this, [&](size_t vertexIndex) {
+			// Visit all particles in the vicinity of the vertex.
+			FloatType weightSum = 0;
+			for(CutoffNeighborFinder::Query neighQuery(neighFinder, mesh().vertexPosition(vertexIndex)); !neighQuery.atEnd(); neighQuery.next()) {
+				FloatType alpha = _particleRadii[neighQuery.current()];
+				FloatType weight = std::exp(-neighQuery.distanceSquared() / (FloatType(2) * alpha * alpha));
+				// Perform summation of particle contributions to the property values at the current mesh vertex.
+				for(auto& p : propertyMapping) {
+					for(size_t component = 0; component < p.first.componentCount(); component++) {
+						p.second.value(vertexIndex, component) += weight * p.first.get(neighQuery.current(), component);
+					}
+				}
+				weightSum += weight;
+			}
+			if(weightSum != 0) {
+				// Normalize property values.
+				for(auto& p : propertyMapping) {
+					for(size_t component = 0; component < p.second.componentCount(); component++) {
+						p.second.value(vertexIndex, component) /= weightSum;
+					}
+				}
+			}
+		});
+		if(isCanceled())
+			return;
+	}
 
 	// Flip surface orientation if cell is mirrored.
 	if(gridToCartesian.determinant() < 0)
 		mesh().flipFaces();
 
-	task()->nextProgressSubStep();
+	nextProgressSubStep();
 
 	if(!mesh().connectOppositeHalfedges())
 		throw Exception(tr("Something went wrong. Isosurface mesh is not closed."));
-	if(task()->isCanceled())
+	if(isCanceled())
 		return;
 
-	task()->nextProgressSubStep();
+	nextProgressSubStep();
 
 	// Compute surface area (total and per-region) by summing up the triangle face areas.
 	for(HalfEdgeMesh::edge_index edge : mesh().firstFaceEdges()) {
-		if(task()->isCanceled()) return;
+		if(isCanceled()) return;
 		const Vector3& e1 = mesh().edgeVector(edge);
 		const Vector3& e2 = mesh().edgeVector(mesh().nextFaceEdge(edge));
 		FloatType area = e1.cross(e2).length() / 2;
 		addSurfaceArea(area);
 	}
 
-	task()->endProgressSubSteps();
+	endProgressSubSteps();
+
+	// Release data that is no longer needed.
+	releaseWorkingData();
 }
 
 /******************************************************************************
@@ -431,6 +500,7 @@ void ConstructSurfaceModifier::AlphaShapeEngine::emitResults(TimePoint time, Mod
 
 	if(surfaceParticleSelection()) {
 		ParticlesObject* particles = state.expectMutableObject<ParticlesObject>();
+		particles->verifyIntegrity();
 		particles->createProperty(surfaceParticleSelection());
 	}
 
@@ -466,7 +536,5 @@ void ConstructSurfaceModifier::GaussianDensityEngine::emitResults(TimePoint time
 	state.setStatus(PipelineStatus(PipelineStatus::Success, tr("Surface area: %1").arg(surfaceArea())));
 }
 
-OVITO_END_INLINE_NAMESPACE
-OVITO_END_INLINE_NAMESPACE
 }	// End of namespace
 }	// End of namespace

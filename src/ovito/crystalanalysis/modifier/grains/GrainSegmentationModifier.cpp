@@ -133,9 +133,9 @@ std::shared_ptr<GrainSegmentationEngine> GrainSegmentationModifier::createSegmen
 /******************************************************************************
 * Creates a computation engine that will compute the modifier's results.
 ******************************************************************************/
-Future<AsynchronousModifier::ComputeEnginePtr> GrainSegmentationModifier::createEngine(TimePoint time, ModifierApplication* modApp, const PipelineFlowState& input)
+Future<AsynchronousModifier::ComputeEnginePtr> GrainSegmentationModifier::createEngine(const PipelineEvaluationRequest& request, ModifierApplication* modApp, const PipelineFlowState& input)
 {
-	return createSegmentationEngine(time, modApp, input);
+	return createSegmentationEngine(request.time(), modApp, input);
 }
 
 /******************************************************************************

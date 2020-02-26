@@ -26,7 +26,7 @@
 #include <ovito/core/utilities/io/CompressedTextReader.h>
 #include "GaussianCubeImporter.h"
 
-namespace Ovito { namespace Particles { OVITO_BEGIN_INLINE_NAMESPACE(Import) OVITO_BEGIN_INLINE_NAMESPACE(Formats)
+namespace Ovito { namespace Particles {
 
 IMPLEMENT_OVITO_CLASS(GaussianCubeImporter);
 
@@ -60,10 +60,10 @@ static const char* chemical_symbols[] = {
 /******************************************************************************
 * Checks if the given file has format that can be read by this importer.
 ******************************************************************************/
-bool GaussianCubeImporter::OOMetaClass::checkFileFormat(QFileDevice& input, const QUrl& sourceLocation) const
+bool GaussianCubeImporter::OOMetaClass::checkFileFormat(const FileHandle& file) const
 {
 	// Open input file.
-	CompressedTextReader stream(input, sourceLocation.path());
+	CompressedTextReader stream(file);
 
 	// Ignore two comment lines.
 	stream.readLine(1024);
@@ -101,11 +101,11 @@ bool GaussianCubeImporter::OOMetaClass::checkFileFormat(QFileDevice& input, cons
 /******************************************************************************
 * Parses the given input file.
 ******************************************************************************/
-FileSourceImporter::FrameDataPtr GaussianCubeImporter::FrameLoader::loadFile(QFile& file)
+FileSourceImporter::FrameDataPtr GaussianCubeImporter::FrameLoader::loadFile()
 {
 	// Open file for reading.
-	CompressedTextReader stream(file, frame().sourceFile.path());
-	setProgressText(tr("Reading Gaussian Cube file %1").arg(frame().sourceFile.toString(QUrl::RemovePassword | QUrl::PreferLocalFile | QUrl::PrettyDecoded)));
+	CompressedTextReader stream(fileHandle());
+	setProgressText(tr("Reading Gaussian Cube file %1").arg(fileHandle().toString()));
 
 	// Create the destination container for loaded data.
 	std::shared_ptr<ParticleFrameData> frameData = std::make_shared<ParticleFrameData>();
@@ -167,7 +167,7 @@ FileSourceImporter::FrameDataPtr GaussianCubeImporter::FrameLoader::loadFile(QFi
 	}
 
 	// Translate atomic numbers into element names.
-	ParticleFrameData::TypeList* typeList = frameData->propertyTypesList(typeProperty);
+	ParticleFrameData::TypeList* typeList = frameData->createPropertyTypesList(typeProperty);
 	for(int a : typeProperty) {
 		if(a >= 0 && a < sizeof(chemical_symbols)/sizeof(chemical_symbols[0]))
 			typeList->addTypeId(a, chemical_symbols[a]);
@@ -244,7 +244,5 @@ FileSourceImporter::FrameDataPtr GaussianCubeImporter::FrameLoader::loadFile(QFi
 	return frameData;
 }
 
-OVITO_END_INLINE_NAMESPACE
-OVITO_END_INLINE_NAMESPACE
 }	// End of namespace
 }	// End of namespace

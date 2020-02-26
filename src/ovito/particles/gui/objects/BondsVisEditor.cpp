@@ -22,13 +22,13 @@
 
 #include <ovito/particles/gui/ParticlesGui.h>
 #include <ovito/particles/objects/BondsVis.h>
-#include <ovito/gui/properties/FloatParameterUI.h>
-#include <ovito/gui/properties/BooleanParameterUI.h>
-#include <ovito/gui/properties/VariantComboBoxParameterUI.h>
-#include <ovito/gui/properties/ColorParameterUI.h>
+#include <ovito/gui/desktop/properties/FloatParameterUI.h>
+#include <ovito/gui/desktop/properties/BooleanParameterUI.h>
+#include <ovito/gui/desktop/properties/VariantComboBoxParameterUI.h>
+#include <ovito/gui/desktop/properties/ColorParameterUI.h>
 #include "BondsVisEditor.h"
 
-namespace Ovito { namespace Particles { OVITO_BEGIN_INLINE_NAMESPACE(Internal)
+namespace Ovito { namespace Particles {
 
 IMPLEMENT_OVITO_CLASS(BondsVisEditor);
 SET_OVITO_OBJECT_EDITOR(BondsVis, BondsVisEditor);
@@ -39,7 +39,7 @@ SET_OVITO_OBJECT_EDITOR(BondsVis, BondsVisEditor);
 void BondsVisEditor::createUI(const RolloutInsertionParameters& rolloutParams)
 {
 	// Create a rollout.
-	QWidget* rollout = createRollout(tr("Bonds display"), rolloutParams, "display_objects.bonds.html");
+	QWidget* rollout = createRollout(tr("Bonds display"), rolloutParams, "visual_elements.bonds.html");
 
     // Create the rollout contents.
 	QGridLayout* layout = new QGridLayout(rollout);
@@ -77,6 +77,5 @@ void BondsVisEditor::createUI(const RolloutInsertionParameters& rolloutParams)
 	layout->addWidget(useParticleColorsUI->checkBox(), 4, 1);
 }
 
-OVITO_END_INLINE_NAMESPACE
 }	// End of namespace
 }	// End of namespace

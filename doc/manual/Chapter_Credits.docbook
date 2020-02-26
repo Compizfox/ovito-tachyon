@@ -10,16 +10,17 @@
   <title>Credits and licensing information</title>
 
   <para>
-    OVITO has been developed by Alexander Stukowski and other contributors.
+    The development versions of <emphasis>OVITO Pro</emphasis> and <emphasis>OVITO Basic</emphasis> ("3.0.0-dev") are licensed under <link linkend="appendix.license.ovito_pro">the terms found here</link>.
+    See <link linkend="credits.ovito_pro">this page</link> for more information on the differences between the <emphasis>Pro</emphasis> and <emphasis>Basic</emphasis> editions of OVITO.
   </para>
 
   <para>
-    The <emphasis>Pro</emphasis> edition of OVITO in binary form is licensed under <link linkend="appendix.license.ovito_pro">the terms found here</link>.
-    The <emphasis>Basic</emphasis> edition of OVITO in binary form is licensed under the terms of the <link linkend="appendix.GPL">GNU General Public License (v3)</link>.
-    The complete source code for the <emphasis>Basic</emphasis> edition can be found on <link xlink:href="https://gitlab.com/stuko/ovito/">GitLab.com</link>.
+    The source code for building program binaries equivalent to <emphasis>OVITO Basic</emphasis> is made available under the terms of the 
+    <link linkend="appendix.GPL">GNU General Public License (v3)</link> and can be found in our <link xlink:href="https://gitlab.com/stuko/ovito/">GitLab repository</link>.
+    OVITO has been developed by Alexander Stukowski and other contributors.
   </para>
 
-  <para>This user manual was written by Alexander Stukowski and is licensed under the terms of the <link linkend="appendix.GFDL">GNU Free Documentation License</link>.</para>
+  <para>This user manual has been written by Alexander Stukowski and is licensed under the terms of the <link linkend="appendix.GFDL">GNU Free Documentation License</link>.</para>
 
   <para>The following third-party libraries are used within OVITO:
     <informaltable>
@@ -175,6 +176,69 @@
     </informaltable>
   </para>
 
+  <section xml:id="credits.ovito_pro">
+    <title>OVITO Pro and OVITO Basic</title>
+    <para>
+      <screenshot><mediaobject><imageobject>
+        <imagedata fileref="images/team/ovito_logo_128.png" format="PNG" scale="15" />
+      </imageobject></mediaobject></screenshot>
+      <informalfigure>
+        <informaltable frame="none" colsep="0" rowsep="0">
+          <tgroup cols="2">
+            <tbody>
+              <row valign="top">
+                <entry>
+                  <mediaobject><imageobject>
+                  <imagedata fileref="images/team/alexander_stukowski.jpg" format="JPG" scale="20" />
+                  </imageobject></mediaobject>
+                </entry>
+                <entry>
+                  <mediaobject><imageobject>
+                  <imagedata fileref="images/team/constanze_kalcher.jpg" format="JPG" scale="20" />
+                  </imageobject></mediaobject>
+                </entry>
+              </row>
+              <row valign="top">
+                <entry>Dr. Alexander Stukowski</entry>
+                <entry>Dr. Constanze Kalcher</entry>
+              </row>
+            </tbody>
+          </tgroup>
+        </informaltable>
+      </informalfigure>
+
+      We (the OVITO team) provide two variants of the software: <emphasis>OVITO Basic</emphasis> and <emphasis>OVITO Pro</emphasis>. 
+      The two differ in terms of the program features and <link linkend="credits">licensing conditions</link>. 
+    </para>
+    <para> 
+      <emphasis>OVITO Basic</emphasis> is made available to the research community free of charge and provides the 
+      basic functionality typically needed by occasional users, who want an easy way to visualize molecular simulations or other particle-based data. 
+      This edition of OVITO is also meant for students and teachers, who use the software in a classroom setting. 
+      The source code of <emphasis>OVITO Basic</emphasis> is freely available, giving you open access to the algorithms
+      that work behind the scenes. We also invite you to contribute new code to this version of OVITO under the MIT and GNU GPL open source licenses
+      and share your developments with the research community.
+    </para>
+    <para> 
+      <emphasis>OVITO Pro</emphasis> will be made available for a fee (coming in 2020) and addresses the needs of professional researchers, 
+      who require features such as scripting capabilities, advanced data analysis tools and high-quality rendering functions.
+      The proceeds from the sales of <emphasis>OVITO Pro</emphasis> will enable us to further extend the
+      code and continue making well-maintained program packages available to the community on a long-term basis. Furthermore, buyers of a <emphasis>OVITO Pro</emphasis> license
+      will receive priority support directly from the OVITO team. Note that the development of OVITO is no longer funded by any
+      public institution, and we now work on a freelance basis out of Germany. 
+      (Upside is we can now invest much more time into making OVITO better than ever before.)
+    </para>
+    <para>
+      Note that this user manual covers both editions of OVITO. Program features exclusively available in the <emphasis>Pro</emphasis>
+      edition are marked with this tag: 
+      <blockquote>
+        <ovito-pro/>
+      </blockquote>
+    </para>
+    <para>
+      If you have any questions or comments, please get in touch with us. You can find our email contacts and more up to date information 
+      on the website <link xlink:href="https://www.ovito.org/">www.ovito.org</link>.
+    </para> 
+  </section>
 
   <xi:include href="licenses/ovito_pro.docbook"/>
 

@@ -22,11 +22,11 @@
 
 #include <ovito/particles/gui/ParticlesGui.h>
 #include <ovito/particles/objects/ParticlesVis.h>
-#include <ovito/gui/properties/FloatParameterUI.h>
-#include <ovito/gui/properties/VariantComboBoxParameterUI.h>
+#include <ovito/gui/desktop/properties/FloatParameterUI.h>
+#include <ovito/gui/desktop/properties/VariantComboBoxParameterUI.h>
 #include "ParticlesVisEditor.h"
 
-namespace Ovito { namespace Particles { OVITO_BEGIN_INLINE_NAMESPACE(Internal)
+namespace Ovito { namespace Particles {
 
 IMPLEMENT_OVITO_CLASS(ParticlesVisEditor);
 SET_OVITO_OBJECT_EDITOR(ParticlesVis, ParticlesVisEditor);
@@ -37,7 +37,7 @@ SET_OVITO_OBJECT_EDITOR(ParticlesVis, ParticlesVisEditor);
 void ParticlesVisEditor::createUI(const RolloutInsertionParameters& rolloutParams)
 {
 	// Create a rollout.
-	QWidget* rollout = createRollout(tr("Particle display"), rolloutParams, "display_objects.particles.html");
+	QWidget* rollout = createRollout(tr("Particle display"), rolloutParams, "visual_elements.particles.html");
 
     // Create the rollout contents.
 	QGridLayout* layout = new QGridLayout(rollout);
@@ -62,7 +62,7 @@ void ParticlesVisEditor::createUI(const RolloutInsertionParameters& rolloutParam
 	layout->addLayout(radiusUI->createFieldLayout(), 2, 1);
 
 	// Create a second rollout.
-	rollout = createRollout(tr("Advanced settings"), rolloutParams.after(rollout), "display_objects.particles.html");
+	rollout = createRollout(tr("Advanced settings"), rolloutParams.after(rollout), "visual_elements.particles.html");
 
     // Create the rollout contents.
 	layout = new QGridLayout(rollout);
@@ -80,6 +80,5 @@ void ParticlesVisEditor::createUI(const RolloutInsertionParameters& rolloutParam
 	layout->addWidget(renderingQualityUI->comboBox(), 1, 1);
 }
 
-OVITO_END_INLINE_NAMESPACE
 }	// End of namespace
 }	// End of namespace

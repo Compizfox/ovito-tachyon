@@ -32,7 +32,7 @@ extern "C" {
     typedef struct ptm_local_handle* ptm_local_handle_t;
 }
 
-namespace Ovito { namespace Particles { OVITO_BEGIN_INLINE_NAMESPACE(Util)
+namespace Ovito { namespace Particles {
 
 /**
  * \brief This class is a wrapper around the Polyhedral Template Matching algorithm
@@ -252,6 +252,5 @@ private:
     FloatType _rmsdCutoff = 0.1;
 };
 
-OVITO_END_INLINE_NAMESPACE
 }	// End of namespace
 }	// End of namespace

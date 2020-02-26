@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Copyright 2018 Alexander Stukowski
+//  Copyright 2020 Alexander Stukowski
 //
 //  This file is part of OVITO (Open Visualization Tool).
 //
@@ -24,13 +24,15 @@
 #include <ovito/core/utilities/concurrent/TaskManager.h>
 #include <ovito/core/viewport/ViewportConfiguration.h>
 #include <ovito/core/dataset/DataSetContainer.h>
+#include <ovito/core/oo/RefTargetExecutor.h>
 #include <ovito/core/app/Application.h>
 
+#include <QMetaObject>
 #ifdef Q_OS_UNIX
 	#include <csignal>
 #endif
 
-namespace Ovito { OVITO_BEGIN_INLINE_NAMESPACE(Util) OVITO_BEGIN_INLINE_NAMESPACE(Concurrency)
+namespace Ovito {
 
 /******************************************************************************
 * Initializes the task manager.
@@ -89,10 +91,18 @@ TaskWatcher* TaskManager::addTaskInternal(const TaskPtr& task)
     // In this case, a TaskWatcher must exist for the task that has been added as a child object to the TaskManager.
 	for(QObject* childObject : children()) {
 		if(TaskWatcher* watcher = qobject_cast<TaskWatcher*>(childObject)) {
-			if(watcher->task() == task)
+			if(watcher->task() == task) {
+				OVITO_ASSERT(task->taskManager() == this);
 				return watcher;
+			}
 		}
 	}
+
+	// The task should not be registered with more than one TaskManager.
+	OVITO_ASSERT(task->taskManager() == nullptr || task->taskManager() == this);
+
+	// Associate this TaskManager with the task.
+	task->setTaskManager(this);
 
 	// Create a task watcher, which will generate start/stop notification signals.
 	TaskWatcher* watcher = new TaskWatcher(this);
@@ -102,6 +112,32 @@ TaskWatcher* TaskManager::addTaskInternal(const TaskPtr& task)
 	// Activate the watcher.
 	watcher->watch(task);
 	return watcher;
+}
+
+/******************************************************************************
+* Enables or disables printing of task status messages to the console for 
+* this task manager.
+******************************************************************************/
+void TaskManager::setConsoleLoggingEnabled(bool enabled) 
+{
+	if(_consoleLoggingEnabled != enabled) {
+		_consoleLoggingEnabled = enabled;
+		if(enabled) {
+			// Foward status messages from the active tasks to the console if logging was enabled.
+		    for(TaskWatcher* watcher : runningTasks()) {
+				connect(watcher, &TaskWatcher::progressTextChanged, this, &TaskManager::taskProgressTextChangedInternal);
+			}
+		}	
+	}
+}
+
+/******************************************************************************
+* Is called when a task has reported a new progress text (only if logging is enabled).
+******************************************************************************/
+void TaskManager::taskProgressTextChangedInternal(const QString& msg)
+{
+	if(!msg.isEmpty())
+		std::cerr << "OVITO: " << qPrintable(msg) << std::endl;
 }
 
 /******************************************************************************
@@ -120,6 +156,10 @@ void TaskManager::taskStartedInternal()
 {
 	TaskWatcher* watcher = static_cast<TaskWatcher*>(sender());
 	_runningTaskStack.push_back(watcher);
+
+	// Foward status messages from the task to the console if logging is enabled.
+	if(_consoleLoggingEnabled)
+		connect(watcher, &TaskWatcher::progressTextChanged, this, &TaskManager::taskProgressTextChangedInternal);
 
 	Q_EMIT taskStarted(watcher);
 }
@@ -169,7 +209,7 @@ void TaskManager::waitForAll()
 	if(!QCoreApplication::closingDown()) {
 		do {
 			QCoreApplication::processEvents(QEventLoop::ExcludeUserInputEvents);
-			QCoreApplication::sendPostedEvents(nullptr, OvitoObjectExecutor::workEventType());
+			QCoreApplication::sendPostedEvents(nullptr, RefTargetExecutor::workEventType());
 		}
 		while(!runningTasks().empty());
 	}
@@ -202,15 +242,40 @@ void TaskManager::stopLocalEventHandling()
 ******************************************************************************/
 bool TaskManager::waitForTask(const TaskPtr& task, const TaskPtr& dependentTask)
 {
-	OVITO_ASSERT_MSG(!QCoreApplication::instance() || QThread::currentThread() == QCoreApplication::instance()->thread(), "TaskManager::waitForTask", "Function may be called only from the main thread.");
-
 	// Before entering the local event loop, check if the task has already finished.
 	if(task->isFinished()) {
 		return !task->isCanceled();
 	}
+
+	// Also not need for the dependent task to wait if it has been canceled. 
 	if(dependentTask && dependentTask->isCanceled()) {
 		return false;
 	}
+
+	// Use different waiting schemes depending on the thread we are currently in.
+	bool result = (QCoreApplication::instance() && QThread::currentThread() == QCoreApplication::instance()->thread()) ?
+		waitForTaskUIThread(task, dependentTask) :
+		waitForTaskNonUIThread(task, dependentTask);
+	if(!result)
+		return false;
+
+	if(dependentTask && dependentTask->isCanceled())
+		return false;
+
+	if(!task->isFinished()) {
+		qWarning() << "Warning: TaskManager::waitForTask() returning with an unfinished promise state (canceled=" << task->isCanceled() << ")";
+		task->cancel();
+	}
+
+	return !task->isCanceled();	
+}
+
+/******************************************************************************
+* Waits for a task to finish while running in the main UI thread.
+******************************************************************************/
+bool TaskManager::waitForTaskUIThread(const TaskPtr& task, const TaskPtr& dependentTask)
+{
+	OVITO_ASSERT_MSG(!QCoreApplication::instance() || QThread::currentThread() == QCoreApplication::instance()->thread(), "TaskManager::waitForTaskUIThread", "Function may be called only from the main thread.");
 
 	// Make sure this method is not called while rendering a viewport.
 	// Qt doesn't allow a local event loops during paint event processing.
@@ -232,14 +297,9 @@ bool TaskManager::waitForTask(const TaskPtr& task, const TaskPtr& dependentTask)
 	QEventLoop eventLoop;
 	connect(watcher, &TaskWatcher::finished, &eventLoop, &QEventLoop::quit);
 
-	// Stop the event loop when the dependent task gets canceled.
-	if(dependentTask) {
-		TaskWatcher* dependentWatcher = addTaskInternal(dependentTask);
-		connect(dependentWatcher, &TaskWatcher::canceled, watcher, [dependentTask, watcher]() {
-			watcher->task()->cancelIfSingleFutureLeft();
-		});
-		connect(dependentWatcher, &TaskWatcher::canceled, &eventLoop, &QEventLoop::quit);
-	}
+	// Break out of the event loop when the dependent task gets canceled.
+	if(dependentTask)
+		connect(addTaskInternal(dependentTask), &TaskWatcher::canceled, &eventLoop, &QEventLoop::quit);
 
 #ifdef Q_OS_UNIX
 	// Boolean flag which is set by the POSIX signal handler when user
@@ -281,16 +341,33 @@ bool TaskManager::waitForTask(const TaskPtr& task, const TaskPtr& dependentTask)
 	}
 #endif
 
-	if(dependentTask && dependentTask->isCanceled()) {
-		return false;
+	return true;
+}
+
+/******************************************************************************
+* Waits for a task to finish while running in a thread other than the main UI thread.
+******************************************************************************/
+bool TaskManager::waitForTaskNonUIThread(const TaskPtr& task, const TaskPtr& dependentTask)
+{
+	// Create local task watchers.
+	TaskWatcher watcher;
+	TaskWatcher dependentWatcher;
+
+	// Start a local event loop and wait for the task to generate a signal when it finishes.
+	QEventLoop eventLoop;
+	connect(&watcher, &TaskWatcher::finished, &eventLoop, &QEventLoop::quit);
+
+	// Stop the event loop when the dependent task gets canceled.
+	if(dependentTask) {
+		connect(&dependentWatcher, &TaskWatcher::canceled, &eventLoop, &QEventLoop::quit);
+		dependentWatcher.watch(dependentTask);
 	}
 
-	if(!task->isFinished()) {
-		qWarning() << "Warning: TaskManager::waitForTask() returning with an unfinished promise state (canceled=" << task->isCanceled() << ")";
-		task->cancel();
-	}
+	// Start waiting phase.
+	watcher.watch(task);
+	eventLoop.exec();
 
-	return !task->isCanceled();
+	return true;
 }
 
 /******************************************************************************
@@ -304,6 +381,4 @@ void TaskManager::processEvents()
 		QCoreApplication::processEvents();
 }
 
-OVITO_END_INLINE_NAMESPACE
-OVITO_END_INLINE_NAMESPACE
 }	// End of namespace

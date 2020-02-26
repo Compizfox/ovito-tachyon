@@ -31,7 +31,7 @@
 #include <ovito/core/utilities/units/UnitsManager.h>
 #include "CreateBondsModifier.h"
 
-namespace Ovito { namespace Particles { OVITO_BEGIN_INLINE_NAMESPACE(Modifiers) OVITO_BEGIN_INLINE_NAMESPACE(Modify)
+namespace Ovito { namespace Particles {
 
 IMPLEMENT_OVITO_CLASS(CreateBondsModifier);
 DEFINE_PROPERTY_FIELD(CreateBondsModifier, cutoffMode);
@@ -131,7 +131,7 @@ void CreateBondsModifier::initializeModifier(ModifierApplication* modApp)
 	// Adopt the upstream BondsVis object if there already is one.
 	// Also initialize the numeric ID of the type ID to not conflict with any existing bond types.
 	int bondTypeId = 1;
-	const PipelineFlowState& input = modApp->evaluateInputPreliminary();
+	const PipelineFlowState& input = modApp->evaluateInputSynchronous(dataset()->animationSettings()->time());
 	if(const ParticlesObject* particles = input.getObject<ParticlesObject>()) {
 		if(particles->bonds()) {
 			if(BondsVis* bondsVis = particles->bonds()->visElement<BondsVis>()) {
@@ -168,7 +168,7 @@ const ElementType* CreateBondsModifier::lookupParticleType(const PropertyObject*
 * Creates and initializes a computation engine that will compute the
 * modifier's results.
 ******************************************************************************/
-Future<AsynchronousModifier::ComputeEnginePtr> CreateBondsModifier::createEngine(TimePoint time, ModifierApplication* modApp, const PipelineFlowState& input)
+Future<AsynchronousModifier::ComputeEnginePtr> CreateBondsModifier::createEngine(const PipelineEvaluationRequest& request, ModifierApplication* modApp, const PipelineFlowState& input)
 {
 	// Get modifier input.
 	const ParticlesObject* particles = input.expectObject<ParticlesObject>();
@@ -222,11 +222,11 @@ Future<AsynchronousModifier::ComputeEnginePtr> CreateBondsModifier::createEngine
 ******************************************************************************/
 void CreateBondsModifier::BondsEngine::perform()
 {
-	task()->setProgressText(tr("Generating bonds"));
+	setProgressText(tr("Generating bonds"));
 
 	// Prepare the neighbor list.
 	CutoffNeighborFinder neighborFinder;
-	if(!neighborFinder.prepare(_maxCutoff, _positions, _simCell, {}, task().get()))
+	if(!neighborFinder.prepare(_maxCutoff, _positions, _simCell, {}, this))
 		return;
 
 	FloatType minCutoffSquared = _minCutoff * _minCutoff;
@@ -236,7 +236,7 @@ void CreateBondsModifier::BondsEngine::perform()
 
 	// Generate bonds.
 	size_t particleCount = _positions->size();
-	task()->setProgressMaximum(particleCount);
+	setProgressMaximum(particleCount);
 	if(!particleTypesArray) {
 		for(size_t particleIndex = 0; particleIndex < particleCount; particleIndex++) {
 			for(CutoffNeighborFinder::Query neighborQuery(neighborFinder, particleIndex); !neighborQuery.atEnd(); neighborQuery.next()) {
@@ -252,7 +252,7 @@ void CreateBondsModifier::BondsEngine::perform()
 					bonds().push_back(bond);
 			}
 			// Update progress indicator.
-			if(!task()->setProgressValueIntermittent(particleIndex))
+			if(!setProgressValueIntermittent(particleIndex))
 				return;
 		}
 	}
@@ -275,11 +275,16 @@ void CreateBondsModifier::BondsEngine::perform()
 				}
 			}
 			// Update progress indicator.
-			if(!task()->setProgressValueIntermittent(particleIndex))
+			if(!setProgressValueIntermittent(particleIndex))
 				return;
 		}
 	}
-	task()->setProgressValue(particleCount);
+	setProgressValue(particleCount);
+
+	// Release data that is no longer needed.
+	_positions.reset();
+	_particleTypes.reset();
+	_moleculeIDs.reset();
 }
 
 /******************************************************************************
@@ -312,7 +317,5 @@ void CreateBondsModifier::BondsEngine::emitResults(TimePoint time, ModifierAppli
 	}
 }
 
-OVITO_END_INLINE_NAMESPACE
-OVITO_END_INLINE_NAMESPACE
 }	// End of namespace
 }	// End of namespace

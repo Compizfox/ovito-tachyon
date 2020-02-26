@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Copyright 2018 Alexander Stukowski
+//  Copyright 2020 Alexander Stukowski
 //
 //  This file is part of OVITO (Open Visualization Tool).
 //
@@ -42,7 +42,10 @@ class OVITO_STDOBJ_EXPORT PropertyContainer : public DataObject
 public:
 
 	/// Constructor.
-	PropertyContainer(DataSet* dataset);
+	PropertyContainer(DataSet* dataset, const QString& title = {});
+
+	/// Returns the display title of this object.
+	virtual QString objectTitle() const override;
 
 	/// Appends a new property to the list of properties.
 	void addProperty(const PropertyObject* property) {
@@ -125,7 +128,7 @@ public:
 
 	/// Creates a user-defined property and adds it to the container.
 	/// In case the property already exists, it is made sure that it's safe to modify it.
-	PropertyObject* createProperty(const QString& name, int dataType, size_t componentCount, size_t stride, bool initializeMemory = false) ;
+	PropertyObject* createProperty(const QString& name, int dataType, size_t componentCount, size_t stride, bool initializeMemory = false, QStringList componentNames = QStringList());
 
 	/// Creates a property and adds it to the container.
 	PropertyObject* createProperty(PropertyPtr storage);
@@ -148,6 +151,14 @@ public:
 	/// If this is not the case, the method throws an exception.
 	void verifyIntegrity() const;
 
+protected:
+
+	/// Saves the class' contents to the given stream.
+	virtual void saveToStream(ObjectSaveStream& stream, bool excludeRecomputableData) override;
+
+	/// Loads the class' contents from the given stream.
+	virtual void loadFromStream(ObjectLoadStream& stream) override;
+
 private:
 
 	/// Holds the list of properties.
@@ -155,6 +166,9 @@ private:
 
 	/// Keeps track of the number of elements stored in this property container.
 	DECLARE_PROPERTY_FIELD(size_t, elementCount);
+
+	/// The assigned title of the data object, which is displayed in the user interface.
+	DECLARE_MODIFIABLE_PROPERTY_FIELD(QString, title, setTitle);
 };
 
 /// Encapsulates a reference to a PropertyContainer in a PipelineFlowState.

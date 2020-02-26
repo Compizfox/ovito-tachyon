@@ -27,11 +27,10 @@
 #include <ovito/core/dataset/scene/PipelineSceneNode.h>
 #include <ovito/core/dataset/pipeline/PipelineFlowState.h>
 #include <ovito/core/dataset/pipeline/PipelineEvaluation.h>
-#include <ovito/core/utilities/concurrent/AsyncOperation.h>
 #include <ovito/core/rendering/FrameBuffer.h>
 #include "ViewportOverlay.h"
 
-namespace Ovito { OVITO_BEGIN_INLINE_NAMESPACE(View) OVITO_BEGIN_INLINE_NAMESPACE(Internal)
+namespace Ovito {
 
 /**
  * \brief A viewport overlay that displays a user-defined text label.
@@ -48,10 +47,9 @@ public:
 	Q_INVOKABLE TextLabelOverlay(DataSet* dataset);
 
 	/// This method asks the overlay to paint its contents over the rendered image.
-	virtual void render(const Viewport* viewport, TimePoint time, FrameBuffer* frameBuffer, const ViewProjectionParameters& projParams, const RenderSettings* renderSettings, AsyncOperation& operation) override {
+	virtual void render(const Viewport* viewport, TimePoint time, FrameBuffer* frameBuffer, const ViewProjectionParameters& projParams, const RenderSettings* renderSettings, SynchronousOperation operation) override {
 		if(sourceNode()) {
-			PipelineEvaluationFuture pipelineEvaluation(time);
-			pipelineEvaluation.execute(sourceNode());
+			PipelineEvaluationFuture pipelineEvaluation = sourceNode()->evaluatePipeline(time);
 			if(!operation.waitForFuture(pipelineEvaluation))
 				return;
 			QPainter painter(&frameBuffer->image());
@@ -64,8 +62,8 @@ public:
 	}
 
 	/// This method asks the overlay to paint its contents over the given interactive viewport.
-	virtual void renderInteractive(const Viewport* viewport, TimePoint time, QPainter& painter, const ViewProjectionParameters& projParams, const RenderSettings* renderSettings, AsyncOperation& operation) override {
-		const PipelineFlowState& flowState = sourceNode() ? sourceNode()->evaluatePipelinePreliminary(true) : PipelineFlowState();
+	virtual void renderInteractive(const Viewport* viewport, TimePoint time, QPainter& painter, const ViewProjectionParameters& projParams, const RenderSettings* renderSettings, SynchronousOperation operation) override {
+		const PipelineFlowState& flowState = sourceNode() ? sourceNode()->evaluatePipelineSynchronous(true) : PipelineFlowState();
 		renderImplementation(painter, renderSettings, flowState);
 	}
 
@@ -116,6 +114,4 @@ private:
 	DECLARE_MODIFIABLE_REFERENCE_FIELD_FLAGS(PipelineSceneNode, sourceNode, setSourceNode, PROPERTY_FIELD_NO_SUB_ANIM);
 };
 
-OVITO_END_INLINE_NAMESPACE
-OVITO_END_INLINE_NAMESPACE
 }	// End of namespace

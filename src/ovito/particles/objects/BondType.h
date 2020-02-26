@@ -48,14 +48,15 @@ public:
 	static std::map<int,FloatType> typeRadiusMap(const PropertyObject* typeProperty) {
 		std::map<int,FloatType> m;
 		for(const ElementType* type : typeProperty->elementTypes())
-			m.insert({ type->numericId(), static_object_cast<BondType>(type)->radius() });
+			if(const BondType* bondType = dynamic_object_cast<BondType>(type))
+				m.insert({ type->numericId(), bondType->radius() });
 		return m;
 	}
 
 	//////////////////////////////////// Default settings ////////////////////////////////
 
 	/// Returns the default color for the bond type with the given ID.
-	static Color getDefaultBondColorFromId(BondsObject::Type typeClass, int bondTypeId);
+	static Color getDefaultBondColorForId(BondsObject::Type typeClass, int bondTypeId);
 
 	/// Returns the default color for a named bond type.
 	static Color getDefaultBondColor(BondsObject::Type typeClass, const QString& bondTypeName, int bondTypeId, bool userDefaults = true);

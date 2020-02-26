@@ -24,19 +24,17 @@
 #include <ovito/particles/objects/ParticlesObject.h>
 #include <ovito/particles/export/FileColumnParticleExporter.h>
 #include <ovito/stdobj/simcell/SimulationCellObject.h>
-#include <ovito/core/utilities/concurrent/Promise.h>
-#include <ovito/core/utilities/concurrent/AsyncOperation.h>
 #include <ovito/core/app/Application.h>
 #include "IMDExporter.h"
 
-namespace Ovito { namespace Particles { OVITO_BEGIN_INLINE_NAMESPACE(Export) OVITO_BEGIN_INLINE_NAMESPACE(Formats)
+namespace Ovito { namespace Particles {
 
 IMPLEMENT_OVITO_CLASS(IMDExporter);
 
 /******************************************************************************
 * Writes the particles of one animation frame to the current output file.
 ******************************************************************************/
-bool IMDExporter::exportData(const PipelineFlowState& state, int frameNumber, TimePoint time, const QString& filePath, AsyncOperation&& operation)
+bool IMDExporter::exportData(const PipelineFlowState& state, int frameNumber, TimePoint time, const QString& filePath, SynchronousOperation operation)
 {
 	const ParticlesObject* particles = state.expectObject<ParticlesObject>();
 	particles->verifyIntegrity();
@@ -157,7 +155,5 @@ bool IMDExporter::exportData(const PipelineFlowState& state, int frameNumber, Ti
 	return !operation.isCanceled();
 }
 
-OVITO_END_INLINE_NAMESPACE
-OVITO_END_INLINE_NAMESPACE
 }	// End of namespace
 }	// End of namespace

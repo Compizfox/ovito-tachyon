@@ -29,7 +29,7 @@
 #include <ovito/particles/util/ParticleOrderingFingerprint.h>
 #include <ovito/stdmod/modifiers/ComputePropertyModifier.h>
 
-namespace Ovito { namespace Particles { OVITO_BEGIN_INLINE_NAMESPACE(Modifiers) OVITO_BEGIN_INLINE_NAMESPACE(Modify)
+namespace Ovito { namespace Particles {
 
 using namespace Ovito::StdMod;
 
@@ -123,14 +123,6 @@ private:
 				QStringList neighborExpressions,
 				FloatType cutoff);
 
-		/// This method is called by the system after the computation was successfully completed.
-		virtual void cleanup() override {
-			_positions.reset();
-			_neighborExpressions.clear();
-			_neighborEvaluator.reset();
-			PropertyComputeEngine::cleanup();
-		}
-
 		/// Returns the list of available input variables for the expressions managed by the delegate.
 		virtual QStringList delegateInputVariableNames() const override;
 
@@ -172,7 +164,5 @@ private:
 	DECLARE_MODIFIABLE_PROPERTY_FIELD(bool, useMultilineFields, setUseMultilineFields);
 };
 
-OVITO_END_INLINE_NAMESPACE
-OVITO_END_INLINE_NAMESPACE
 }	// End of namespace
 }	// End of namespace

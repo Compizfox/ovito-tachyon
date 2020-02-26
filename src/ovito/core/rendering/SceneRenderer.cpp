@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Copyright 2013 Alexander Stukowski
+//  Copyright 2020 Alexander Stukowski
 //
 //  This file is part of OVITO (Open Visualization Tool).
 //
@@ -31,9 +31,8 @@
 #include <ovito/core/dataset/pipeline/ModifierApplication.h>
 #include <ovito/core/dataset/DataSet.h>
 #include <ovito/core/dataset/DataSetContainer.h>
-#include <ovito/core/utilities/concurrent/AsyncOperation.h>
 
-namespace Ovito { OVITO_BEGIN_INLINE_NAMESPACE(Rendering)
+namespace Ovito {
 
 IMPLEMENT_OVITO_CLASS(SceneRenderer);
 IMPLEMENT_OVITO_CLASS(ObjectPickInfo);
@@ -56,7 +55,7 @@ QSize SceneRenderer::outputSize() const
 /******************************************************************************
 * Computes the bounding box of the entire scene to be rendered.
 ******************************************************************************/
-Box3 SceneRenderer::computeSceneBoundingBox(TimePoint time, const ViewProjectionParameters& params, Viewport* vp, AsyncOperation& operation)
+Box3 SceneRenderer::computeSceneBoundingBox(TimePoint time, const ViewProjectionParameters& params, Viewport* vp, SynchronousOperation operation)
 {
 	OVITO_CHECK_OBJECT_POINTER(renderDataset()); // startRender() must be called first.
 
@@ -68,21 +67,21 @@ Box3 SceneRenderer::computeSceneBoundingBox(TimePoint time, const ViewProjection
 		setProjParams(params);
 
 		// Perform bounding box rendering pass.
-		if(renderScene(operation)) {
+		if(renderScene(operation.subOperation())) {
 
 			// Include other visual content that is only visible in the interactive viewports.
 			if(isInteractive())
 				renderInteractiveContent();
 
-			// Include three-dimensional content from viewport overlys in the bounding box.
+			// Include three-dimensional content from viewport layers in the bounding box.
 			if(vp && (!isInteractive() || vp->renderPreviewMode())) {
 				for(ViewportOverlay* layer : vp->underlays()) {
 					if(layer->isEnabled())
-						layer->render3D(vp, time, this, operation);
+						layer->render3D(vp, time, this, operation.subOperation());
 				}
 				for(ViewportOverlay* layer : vp->overlays()) {
 					if(layer->isEnabled())
-						layer->render3D(vp, time, this, operation);
+						layer->render3D(vp, time, this, operation.subOperation());
 				}
 			}
 		}
@@ -100,13 +99,13 @@ Box3 SceneRenderer::computeSceneBoundingBox(TimePoint time, const ViewProjection
 /******************************************************************************
 * Renders all nodes in the scene
 ******************************************************************************/
-bool SceneRenderer::renderScene(AsyncOperation& operation)
+bool SceneRenderer::renderScene(SynchronousOperation operation)
 {
 	OVITO_CHECK_OBJECT_POINTER(renderDataset());
 
 	if(RootSceneNode* rootNode = renderDataset()->sceneRoot()) {
 		// Recursively render all scene nodes.
-		return renderNode(rootNode, operation);
+		return renderNode(rootNode, operation.subOperation());
 	}
 
 	return true;
@@ -115,7 +114,7 @@ bool SceneRenderer::renderScene(AsyncOperation& operation)
 /******************************************************************************
 * Render a scene node (and all its children).
 ******************************************************************************/
-bool SceneRenderer::renderNode(SceneNode* node, AsyncOperation& operation)
+bool SceneRenderer::renderNode(SceneNode* node, SynchronousOperation operation)
 {
     OVITO_CHECK_OBJECT_POINTER(node);
 
@@ -131,9 +130,9 @@ bool SceneRenderer::renderNode(SceneNode* node, AsyncOperation& operation)
 		if(!viewport() || !viewport()->viewNode() || (viewport()->viewNode() != node && viewport()->viewNode()->lookatTargetNode() != node)) {
 
 			// Evaluate data pipeline of object node and render the results.
-			PipelineEvaluationFuture pipelineEvaluation(time());
+			PipelineEvaluationFuture pipelineEvaluation;
 			if(waitForLongOperationsEnabled()) {
-				pipelineEvaluation.execute(pipeline, true);
+				pipelineEvaluation = pipeline->evaluateRenderingPipeline(time());
 				if(!operation.waitForFuture(pipelineEvaluation))
 					return false;
 
@@ -143,11 +142,11 @@ bool SceneRenderer::renderNode(SceneNode* node, AsyncOperation& operation)
 			}
 			const PipelineFlowState& state = pipelineEvaluation.isValid() ?
 												pipelineEvaluation.result() :
-												pipeline->evaluatePipelinePreliminary(true);
+												pipeline->evaluatePipelineSynchronous(true);
 
 			// Invoke all vis elements of all data objects in the pipeline state.
 			std::vector<const DataObject*> objectStack;
-			if(!state.isEmpty())
+			if(state)
 				renderDataObject(state.data(), pipeline, state, objectStack);
 			OVITO_ASSERT(objectStack.empty());
 		}
@@ -160,7 +159,7 @@ bool SceneRenderer::renderNode(SceneNode* node, AsyncOperation& operation)
 
 	// Render child nodes.
 	for(SceneNode* child : node->children()) {
-		if(!renderNode(child, operation))
+		if(!renderNode(child, operation.subOperation()))
 			return false;
 	}
 
@@ -308,5 +307,4 @@ void SceneRenderer::renderModifiers(PipelineSceneNode* pipeline, bool renderOver
 	}
 }
 
-OVITO_END_INLINE_NAMESPACE
 }	// End of namespace

@@ -22,11 +22,10 @@
 
 #include <ovito/vorotop/VoroTopPlugin.h>
 #include <ovito/particles/gui/modifier/analysis/StructureListParameterUI.h>
-#include <ovito/gui/properties/BooleanParameterUI.h>
-#include <ovito/gui/properties/FilenameParameterUI.h>
-#include <ovito/gui/dialogs/HistoryFileDialog.h>
-#include <ovito/gui/utilities/concurrent/ProgressDialog.h>
-#include <ovito/core/utilities/concurrent/AsyncOperation.h>
+#include <ovito/gui/desktop/properties/BooleanParameterUI.h>
+#include <ovito/gui/desktop/properties/FilenameParameterUI.h>
+#include <ovito/gui/desktop/dialogs/HistoryFileDialog.h>
+#include <ovito/gui/desktop/utilities/concurrent/ProgressDialog.h>
 #include "VoroTopModifierEditor.h"
 
 namespace Ovito { namespace VoroTop {
@@ -105,7 +104,7 @@ void VoroTopModifierEditor::onLoadFilter()
 			QStringList selectedFiles = fileDialog.selectedFiles();
 			if(!selectedFiles.empty()) {
 				ProgressDialog progressDialog(container(), mod->dataset()->taskManager(), tr("Loading filter"));
-				mod->loadFilterDefinition(selectedFiles.front(), progressDialog.taskManager());
+				mod->loadFilterDefinition(selectedFiles.front(), progressDialog.createOperation());
 			}
 		}
 	});

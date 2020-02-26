@@ -30,7 +30,7 @@
 #include <ovito/stdobj/properties/PropertyStorage.h>
 #include <ovito/core/dataset/pipeline/AsynchronousModifier.h>
 
-namespace Ovito { namespace Particles { OVITO_BEGIN_INLINE_NAMESPACE(Modifiers) OVITO_BEGIN_INLINE_NAMESPACE(Selection)
+namespace Ovito { namespace Particles {
 
 /**
  * \brief Extends the current particle selection by adding particles to the selection
@@ -76,7 +76,7 @@ public:
 protected:
 
 	/// Creates a computation engine that will compute the modifier's results.
-	virtual Future<ComputeEnginePtr> createEngine(TimePoint time, ModifierApplication* modApp, const PipelineFlowState& input) override;
+	virtual Future<ComputeEnginePtr> createEngine(const PipelineEvaluationRequest& request, ModifierApplication* modApp, const PipelineFlowState& input) override;
 
 private:
 
@@ -93,13 +93,6 @@ private:
 			_inputSelection(inputSelection),
 			_outputSelection(std::make_shared<PropertyStorage>(*inputSelection)),
 			_inputFingerprint(std::move(fingerprint)) {}
-
-		/// This method is called by the system after the computation was successfully completed.
-		virtual void cleanup() override {
-			_positions.reset();
-			_inputSelection.reset();
-			ComputeEngine::cleanup();
-		}
 
 		/// Computes the modifier's results.
 		virtual void perform() override;
@@ -186,12 +179,6 @@ private:
 			ExpandSelectionEngine(std::move(fingerprint), std::move(positions), simCell, std::move(inputSelection), numIterations),
 			_bondTopology(std::move(bondTopology)) {}
 
-		/// This method is called by the system after the computation was successfully completed.
-		virtual void cleanup() override {
-			_bondTopology.reset();
-			ExpandSelectionEngine::cleanup();
-		}
-
 		/// Expands the selection by one step.
 		virtual void expandSelection() override;
 
@@ -215,8 +202,6 @@ private:
 	DECLARE_MODIFIABLE_PROPERTY_FIELD(int, numberOfIterations, setNumberOfIterations);
 };
 
-OVITO_END_INLINE_NAMESPACE
-OVITO_END_INLINE_NAMESPACE
 }	// End of namespace
 }	// End of namespace
 

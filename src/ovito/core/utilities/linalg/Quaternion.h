@@ -33,7 +33,7 @@
 #include <ovito/core/utilities/io/LoadStream.h>
 #include "Vector3.h"
 
-namespace Ovito { OVITO_BEGIN_INLINE_NAMESPACE(Util) OVITO_BEGIN_INLINE_NAMESPACE(Math)
+namespace Ovito {
 
 template<typename T> class AffineTransformationT;
 template<typename T> class Matrix_3;
@@ -285,8 +285,6 @@ public:
 	}
 };
 
-OVITO_END_INLINE_NAMESPACE
-OVITO_END_INLINE_NAMESPACE
 }	// End of namespace
 
 #include "Vector3.h"
@@ -294,7 +292,7 @@ OVITO_END_INLINE_NAMESPACE
 #include "AffineTransformation.h"
 #include "Matrix3.h"
 
-namespace Ovito { OVITO_BEGIN_INLINE_NAMESPACE(Util) OVITO_BEGIN_INLINE_NAMESPACE(Math)
+namespace Ovito {
 
 // Initializes the quaternion from a rotation matrix.
 template<typename T>
@@ -475,8 +473,6 @@ inline QDataStream& operator>>(QDataStream& stream, QuaternionT<T>& q) {
  */
 using Quaternion = QuaternionT<FloatType>;
 
-OVITO_END_INLINE_NAMESPACE
-OVITO_END_INLINE_NAMESPACE
 }	// End of namespace
 
 Q_DECLARE_METATYPE(Ovito::Quaternion);

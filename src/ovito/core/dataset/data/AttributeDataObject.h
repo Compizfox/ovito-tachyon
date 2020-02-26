@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Copyright 2018 Alexander Stukowski
+//  Copyright 2020 Alexander Stukowski
 //
 //  This file is part of OVITO (Open Visualization Tool).
 //
@@ -26,7 +26,7 @@
 #include <ovito/core/Core.h>
 #include <ovito/core/dataset/data/DataObject.h>
 
-namespace Ovito { OVITO_BEGIN_INLINE_NAMESPACE(ObjectSystem) OVITO_BEGIN_INLINE_NAMESPACE(Scene)
+namespace Ovito {
 
 /**
  * \brief A data object holding a primitive value (e.g. a number or a string).
@@ -35,12 +35,20 @@ class OVITO_CORE_EXPORT AttributeDataObject : public DataObject
 {
 	Q_OBJECT
 	OVITO_CLASS(AttributeDataObject)
+	Q_CLASSINFO("DisplayName", "Attribute");
 
 public:
 
 	/// Constructor.
 	Q_INVOKABLE AttributeDataObject(DataSet* dataset, QVariant value = {})
 		: DataObject(dataset), _value(std::move(value)) {}
+
+	/// Returns the display title of this object.
+	virtual QString objectTitle() const override {
+		if(!identifier().isEmpty()) 
+			return identifier();
+		return DataObject::objectTitle();
+	}
 
 protected:
 
@@ -56,6 +64,4 @@ private:
 	DECLARE_RUNTIME_PROPERTY_FIELD(QVariant, value, setValue);
 };
 
-OVITO_END_INLINE_NAMESPACE
-OVITO_END_INLINE_NAMESPACE
 }	// End of namespace

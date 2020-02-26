@@ -24,20 +24,19 @@
 #include <ovito/particles/objects/ParticleType.h>
 #include <ovito/stdobj/properties/PropertyStorage.h>
 #include <ovito/mesh/tri/TriMeshObject.h>
-#include <ovito/gui/properties/ColorParameterUI.h>
-#include <ovito/gui/properties/FloatParameterUI.h>
-#include <ovito/gui/properties/IntegerParameterUI.h>
-#include <ovito/gui/properties/StringParameterUI.h>
-#include <ovito/gui/properties/BooleanParameterUI.h>
-#include <ovito/gui/dialogs/ImportFileDialog.h>
-#include <ovito/gui/utilities/concurrent/ProgressDialog.h>
-#include <ovito/gui/mainwin/MainWindow.h>
+#include <ovito/gui/desktop/properties/ColorParameterUI.h>
+#include <ovito/gui/desktop/properties/FloatParameterUI.h>
+#include <ovito/gui/desktop/properties/IntegerParameterUI.h>
+#include <ovito/gui/desktop/properties/StringParameterUI.h>
+#include <ovito/gui/desktop/properties/BooleanParameterUI.h>
+#include <ovito/gui/desktop/dialogs/ImportFileDialog.h>
+#include <ovito/gui/desktop/utilities/concurrent/ProgressDialog.h>
+#include <ovito/gui/desktop/mainwin/MainWindow.h>
 #include <ovito/core/app/PluginManager.h>
 #include <ovito/core/dataset/io/FileSourceImporter.h>
-#include <ovito/core/utilities/concurrent/AsyncOperation.h>
 #include "ParticleTypeEditor.h"
 
-namespace Ovito { namespace Particles { OVITO_BEGIN_INLINE_NAMESPACE(Internal)
+namespace Ovito { namespace Particles {
 
 IMPLEMENT_OVITO_CLASS(ParticleTypeEditor);
 SET_OVITO_OBJECT_EDITOR(ParticleType, ParticleTypeEditor);
@@ -94,7 +93,7 @@ void ParticleTypeEditor::createUI(const RolloutInsertionParameters& rolloutParam
 
 	// "Save as defaults" button
 	QPushButton* setAsDefaultBtn = new QPushButton(tr("Save as defaults"));
-	setAsDefaultBtn->setToolTip(tr("Saves the current color and radius values as defaults for this particle type."));
+	setAsDefaultBtn->setToolTip(tr("Save current color/radius as default values for this particle type."));
 	setAsDefaultBtn->setEnabled(false);
 	gridLayout->addWidget(setAsDefaultBtn, 2, 0, 1, 2, Qt::AlignRight);
 	connect(setAsDefaultBtn, &QPushButton::clicked, this, [this]() {
@@ -189,7 +188,7 @@ void ParticleTypeEditor::createUI(const RolloutInsertionParameters& rolloutParam
 				}
 				// Load the geometry from the selected file.
 				ProgressDialog progressDialog(container(), ptype->dataset()->taskManager(), tr("Loading mesh file"));
-				ptype->loadShapeMesh(selectedFile, progressDialog.taskManager(), fileImporterType);
+				ptype->loadShapeMesh(selectedFile, progressDialog.createOperation(), fileImporterType);
 			});
 		}
 	});
@@ -204,6 +203,5 @@ void ParticleTypeEditor::createUI(const RolloutInsertionParameters& rolloutParam
 	});
 }
 
-OVITO_END_INLINE_NAMESPACE
 }	// End of namespace
 }	// End of namespace

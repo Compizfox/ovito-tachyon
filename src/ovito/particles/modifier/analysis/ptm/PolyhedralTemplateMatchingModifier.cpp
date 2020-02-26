@@ -33,7 +33,7 @@
 #include <ovito/core/dataset/DataSet.h>
 #include "PolyhedralTemplateMatchingModifier.h"
 
-namespace Ovito { namespace Particles { OVITO_BEGIN_INLINE_NAMESPACE(Modifiers) OVITO_BEGIN_INLINE_NAMESPACE(Analysis)
+namespace Ovito { namespace Particles {
 
 IMPLEMENT_OVITO_CLASS(PolyhedralTemplateMatchingModifier);
 DEFINE_PROPERTY_FIELD(PolyhedralTemplateMatchingModifier, rmsdCutoff);
@@ -107,7 +107,7 @@ void PolyhedralTemplateMatchingModifier::propertyChanged(const PropertyFieldDesc
 /******************************************************************************
 * Creates and initializes a computation engine that will compute the modifier's results.
 ******************************************************************************/
-Future<AsynchronousModifier::ComputeEnginePtr> PolyhedralTemplateMatchingModifier::createEngine(TimePoint time, ModifierApplication* modApp, const PipelineFlowState& input)
+Future<AsynchronousModifier::ComputeEnginePtr> PolyhedralTemplateMatchingModifier::createEngine(const PipelineEvaluationRequest& request, ModifierApplication* modApp, const PipelineFlowState& input)
 {
 	if(structureTypes().size() != PTMAlgorithm::NUM_STRUCTURE_TYPES)
 		throwException(tr("The number of structure types has changed. Please remove this modifier from the data pipeline and insert it again."));
@@ -152,23 +152,21 @@ void PolyhedralTemplateMatchingModifier::PTMEngine::perform()
 	}
 
 	// Initialize the algorithm object.
-	if(!_algorithm->prepare(positions(), cell(), selection(), task().get()))
+	if(!_algorithm->prepare(positions(), cell(), selection(), this))
 		return;
 
 	// Get access to the particle selection flags.
 	ConstPropertyAccess<int> selectionData(selection());
 
-	task()->setProgressValue(0);
-	task()->setProgressMaximum(positions()->size());
-	task()->setProgressText(tr("Pre-calculating neighbor ordering"));
+	setProgressValue(0);
+	setProgressMaximum(positions()->size());
+	setProgressText(tr("Pre-calculating neighbor ordering"));
 
 	// Pre-order neighbors of each particle
 	std::vector< uint64_t > cachedNeighbors(positions()->size());
-	parallelForChunks(positions()->size(), *task(), [&](size_t startIndex, size_t count, Task& task) {
+	parallelForChunks(positions()->size(), *this, [&](size_t startIndex, size_t count, Task& task) {
 		// Create a thread-local kernel for the PTM algorithm.
 		PTMAlgorithm::Kernel kernel(*_algorithm);
-
-//size_t startIndex = 0, count = positions()->size();
 
 		// Loop over input particles.
 		size_t endIndex = startIndex + count;
@@ -190,11 +188,11 @@ void PolyhedralTemplateMatchingModifier::PTMEngine::perform()
 			kernel.precacheNeighbors(index, &cachedNeighbors[index]);
 		}
 	});
-	if(task()->isCanceled() || positions()->size() == 0)
+	if(isCanceled())
 		return;
 
-	task()->setProgressValue(0);
-	task()->setProgressText(tr("Performing polyhedral template matching"));
+	setProgressValue(0);
+	setProgressText(tr("Performing polyhedral template matching"));
 
 	// Get access to the output buffers that will receive the identified particle types and other data.
 	PropertyAccess<int> outputStructureArray(structures());
@@ -205,12 +203,11 @@ void PolyhedralTemplateMatchingModifier::PTMEngine::perform()
 	PropertyAccess<int> orderingTypesArray(orderingTypes());
 
 	// Perform analysis on each particle.
-	parallelForChunks(positions()->size(), *task(), [&](size_t startIndex, size_t count, Task& task) {
+	parallelForChunks(positions()->size(), *this, [&](size_t startIndex, size_t count, Task& task) {
 
 		// Create a thread-local kernel for the PTM algorithm.
 		PTMAlgorithm::Kernel kernel(*_algorithm);
 
-//size_t startIndex = 0, count = positions()->size();
 		// Loop over input particles.
 		size_t endIndex = startIndex + count;
 		for(size_t index = startIndex; index < endIndex; index++) {
@@ -244,27 +241,33 @@ void PolyhedralTemplateMatchingModifier::PTMEngine::perform()
 			}
 		}
 	});
-	if(task()->isCanceled() || positions()->size() == 0)
+	if(isCanceled())
 		return;
 
 	// Determine histogram bin size based on maximum RMSD value.
 	const size_t numHistogramBins = 100;
 	_rmsdHistogram = std::make_shared<PropertyStorage>(numHistogramBins, PropertyStorage::Int64, 1, 0, tr("Count"), true, DataTable::YProperty);
-	FloatType rmsdHistogramBinSize = FloatType(1.01) * *boost::max_element(rmsdArray) / numHistogramBins;
+	FloatType rmsdHistogramBinSize = (rmsdArray.size() != 0) ? (FloatType(1.01) * *boost::max_element(rmsdArray) / numHistogramBins) : 0;
 	if(rmsdHistogramBinSize <= 0) rmsdHistogramBinSize = 1;
 	_rmsdHistogramRange = rmsdHistogramBinSize * numHistogramBins;
 
 	// Perform binning of RMSD values.
-	PropertyAccess<qlonglong> histogramCounts(_rmsdHistogram);
-	const int* structureType = outputStructureArray.cbegin();
-	for(FloatType rmsdValue : rmsdArray) {
-		if(*structureType++ != PTMAlgorithm::OTHER) {
-			OVITO_ASSERT(rmsdValue >= 0);
-			int binIndex = rmsdValue / rmsdHistogramBinSize;
-			if(binIndex < numHistogramBins)
-				histogramCounts[binIndex]++;
+	if(outputStructureArray.size() != 0) {
+		PropertyAccess<qlonglong> histogramCounts(_rmsdHistogram);
+		const int* structureType = outputStructureArray.cbegin();
+		for(FloatType rmsdValue : rmsdArray) {
+			if(*structureType++ != PTMAlgorithm::OTHER) {
+				OVITO_ASSERT(rmsdValue >= 0);
+				int binIndex = rmsdValue / rmsdHistogramBinSize;
+				if(binIndex < numHistogramBins)
+					histogramCounts[binIndex]++;
+			}
 		}
 	}
+
+	// Release data that is no longer needed.
+	releaseWorkingData();
+	_algorithm.reset();
 }
 
 /******************************************************************************
@@ -347,7 +350,5 @@ void PolyhedralTemplateMatchingModifier::PTMEngine::emitResults(TimePoint time, 
 	table->setIntervalEnd(rmsdHistogramRange());
 }
 
-OVITO_END_INLINE_NAMESPACE
-OVITO_END_INLINE_NAMESPACE
 }	// End of namespace
 }	// End of namespace
