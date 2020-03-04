@@ -27,7 +27,7 @@ FIND_PACKAGE(FFMPEG)
 FIND_PACKAGE(ZLIB)
 
 # Locate the libssh library, needed for the built-in SSH client.
-IF(NOT OVITO_BUILD_PYTHON_CONDA)
+IF(NOT OVITO_BUILD_CONDA)
 	FIND_PACKAGE(Libssh)
 ENDIF()
 
@@ -213,6 +213,10 @@ TARGET_COMPILE_DEFINITIONS(Core PUBLIC "$<$<CONFIG:Debug>:OVITO_DEBUG>")
 IF(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
 	TARGET_COMPILE_OPTIONS(Core PUBLIC "-Wno-undefined-var-template")
 ENDIF()
+
+# Compute the relative path where the plugin libraries get installed relative to the executable. 
+FILE(RELATIVE_PATH OVITO_PLUGINS_RELATIVE_PATH "${OVITO_BINARY_DIRECTORY}" "${OVITO_PLUGINS_DIRECTORY}")
+TARGET_COMPILE_DEFINITIONS(Core PRIVATE "OVITO_PLUGINS_RELATIVE_PATH=\"${OVITO_PLUGINS_RELATIVE_PATH}\"")
 
 # Link to the pthread library on Linux platform.
 IF(UNIX AND NOT APPLE)

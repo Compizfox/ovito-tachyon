@@ -34,13 +34,22 @@ ELSE()
 ENDIF()
 
 # Builds the main executable of the application
-ADD_EXECUTABLE(Ovito ${OVITO_WIN32_EXECUTABLE} MACOSX_BUNDLE Main.cpp ${WINDOWS_RESOURCES})
+ADD_EXECUTABLE(Ovito ${OVITO_WIN32_EXECUTABLE} Main.cpp ${WINDOWS_RESOURCES})
 
 # The executable depends on the core and the gui modules, of course.
 TARGET_LINK_LIBRARIES(Ovito PRIVATE Core Gui)
 
 # Put the executable into the right directory.
-SET_TARGET_PROPERTIES(Ovito PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${OVITO_BINARY_DIRECTORY}")
+IF(APPLE AND NOT OVITO_BUILD_CONDA)
+	SET_TARGET_PROPERTIES(Ovito PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${Ovito_BINARY_DIR}")
+	INSTALL(TARGETS Ovito DESTINATION ".")
+ELSEIF(UNIX)
+	SET_TARGET_PROPERTIES(Ovito PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${Ovito_BINARY_DIR}/bin")
+	INSTALL(TARGETS Ovito DESTINATION "bin/")
+ELSEIF(WIN32)
+	SET_TARGET_PROPERTIES(Ovito PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${Ovito_BINARY_DIR}")
+	INSTALL(TARGETS Ovito DESTINATION ".")
+ENDIF()
 
 # Set name of executable.
 SET_TARGET_PROPERTIES(Ovito PROPERTIES OUTPUT_NAME "ovito")
@@ -55,18 +64,18 @@ IF(UNIX AND NOT APPLE AND OVITO_REDISTRIBUTABLE_PACKAGE)
 	TARGET_LINK_LIBRARIES(Ovito PRIVATE Qt5::DBus)
 ENDIF()
 
+SET_TARGET_PROPERTIES(Ovito PROPERTIES BUILD_WITH_INSTALL_RPATH TRUE)
 IF(APPLE)
-    # Enable the use of @rpath on macOS.
-    SET_TARGET_PROPERTIES(Ovito PROPERTIES MACOSX_RPATH TRUE)
-    SET_TARGET_PROPERTIES(Ovito PROPERTIES INSTALL_RPATH "@executable_path/;@executable_path/../Frameworks/;@executable_path/../PlugIns/")
-	SET_TARGET_PROPERTIES(Ovito PROPERTIES BUILD_WITH_INSTALL_RPATH TRUE)
+	IF(NOT OVITO_BUILD_CONDA)
+	    SET_TARGET_PROPERTIES(Ovito PROPERTIES MACOSX_BUNDLE TRUE)
+		SET_TARGET_PROPERTIES(Ovito PROPERTIES INSTALL_RPATH "@executable_path/;@executable_path/../Frameworks/;@executable_path/../PlugIns/")
+	ELSE()
+		SET_TARGET_PROPERTIES(Ovito PROPERTIES MACOSX_BUNDLE FALSE)
+		SET_TARGET_PROPERTIES(Ovito PROPERTIES INSTALL_RPATH "@loader_path/;@loader_path/../${OVITO_RELATIVE_PLUGINS_DIRECTORY}/")
+	ENDIF()
 ELSEIF(UNIX)
-    SET_TARGET_PROPERTIES(Ovito PROPERTIES INSTALL_RPATH "$ORIGIN/../${OVITO_RELATIVE_LIBRARY_DIRECTORY}/:$ORIGIN/../${OVITO_RELATIVE_PLUGINS_DIRECTORY}/")
-	SET_TARGET_PROPERTIES(Ovito PROPERTIES BUILD_WITH_INSTALL_RPATH TRUE)
+	SET_TARGET_PROPERTIES(Ovito PROPERTIES INSTALL_RPATH "$ORIGIN/../${OVITO_RELATIVE_LIBRARY_DIRECTORY}/:$ORIGIN/../${OVITO_RELATIVE_PLUGINS_DIRECTORY}/")
 ENDIF()
-
-# This executable will be part of the installation package.
-INSTALL(TARGETS Ovito DESTINATION "${OVITO_RELATIVE_BINARY_DIRECTORY}/")
 
 # Build all plugins first before building the main executable.
 FOREACH(plugin ${OVITO_PLUGIN_LIST})
@@ -88,7 +97,7 @@ FOREACH(plugin ${OVITO_PLUGIN_LIST})
 ENDFOREACH()
 
 # Install fonts required by 'minimal' platform plugin on Linux
-IF(UNIX AND NOT APPLE)
+IF(UNIX AND NOT APPLE AND NOT OVITO_BUILD_CONDA)
     INSTALL(DIRECTORY "resources/fonts" DESTINATION "${OVITO_RELATIVE_SHARE_DIRECTORY}/")
 ENDIF()
 
@@ -108,7 +117,7 @@ ELSEIF(WIN32)
 	    FILE(WRITE \"\${CMAKE_INSTALL_PREFIX}/${OVITO_RELATIVE_BINARY_DIRECTORY}/qt.conf\" \"[Paths]\\nPlugins = plugins/\")
 		")
 
-ELSEIF(APPLE)
+ELSEIF(APPLE AND NOT OVITO_BUILD_CONDA)
 
 	# Install the Info.plist file in the app bundle.
 	CONFIGURE_FILE("resources/Info.plist" "${Ovito_BINARY_DIR}/${MACOSX_BUNDLE_NAME}.app/Contents/Info.plist")
@@ -122,7 +131,19 @@ ELSEIF(APPLE)
 
 ENDIF()
 
-IF(OVITO_REDISTRIBUTABLE_PACKAGE AND OVITO_BUILD_PLUGIN_PYSCRIPT AND UNIX AND NOT APPLE)
-	# Uninstall Python packages from the embedded interpreter that should not be part of the official distribution.
-	INSTALL(CODE "${OVITO_UNINSTALL_UNUSED_PYTHON_MODULES_CODE}")
+# Special steps needed to build OVITO with Python scripting support.
+IF(OVITO_BUILD_PLUGIN_PYSCRIPT AND NOT OVITO_BUILD_BASIC)
+
+	# Make sure the Python library gets loaded at program startup. We need to do it
+	# this way, because the OVITO scripting plugins do not explicitly link the
+	# Python interpreter library. They rely on it already being loaded into the 
+	# process memory (as is the case if the OVITO Python modules are imported by an external interpreter).
+	FIND_PACKAGE(Python3 REQUIRED COMPONENTS Interpreter Development)
+	TARGET_LINK_LIBRARIES(Ovito PRIVATE Python3::Python)
+	TARGET_COMPILE_DEFINITIONS(Ovito PRIVATE "OVITO_BUILD_PLUGIN_PYSCRIPT=1")
+
+	IF(OVITO_REDISTRIBUTABLE_PACKAGE AND UNIX AND NOT APPLE)
+		# Uninstall Python packages from the embedded interpreter that should not be part of the official distribution.
+		INSTALL(CODE "${OVITO_UNINSTALL_UNUSED_PYTHON_MODULES_CODE}")
+	ENDIF()
 ENDIF()
