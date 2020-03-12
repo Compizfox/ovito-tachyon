@@ -13,12 +13,15 @@
   This modifier determines the grain structure in a polycrystalline microstructure.
   </para>
   <para>
-  The algorithm works in three steps. First, the local structural environment and orientation of each atom is determined using <link linkend="particles.modifiers.polyhedral_template_matching">Polyhedral Template Matching</link> (PTM).
-  Second, a graph is created using the neighbors of each atom, where each atom is a graph node and each bond is a graph edge.
-  Third, grains are created by hierarchical clustering of the graph.
+    The algorithm works in three steps:
+      <itemizedlist>
+        <listitem>The local structural environment and orientation of each atom is determined using <link linkend="particles.modifiers.polyhedral_template_matching">Polyhedral Template Matching</link> (PTM).</listitem>
+        <listitem>A graph is created using the neighbors of each atom, where each atom is a graph node and each bond is a graph edge.</listitem>
+        <listitem>Grains are created by hierarchical clustering of the graph.</listitem>
+      </itemizedlist>
   </para>
   <para>
-  The modifier sets the <literal>Cluster</literal> property, which is encoded as an integer value. This property indicates which grain an atom belongs to. A cluster value of zero means the atom does not belong to any grain.
+  The modifier sets the <literal>Cluster</literal> property, which is encoded as an integer value and indicates which grain an atom belongs to. A cluster value of zero means the atom does not belong to any grain.
   The modifier also sets the <literal>Structure Type</literal>, <literal>RMSD</literal>, and <literal>Orientation</literal> properties for each particle. A description of these properties is given in the <link linkend="particles.modifiers.polyhedral_template_matching">Polyhedral Template Matching</link> documentation.
   </para>
 
@@ -40,18 +43,8 @@
           Edge weights are set as <literal>exp(-d<superscript>2</superscript>/3)</literal>, where <literal>d</literal> is the misorientation in degrees. Grains are built up by contracting edges using the <emphasis>Node Pair Sampling</emphasis> method of <link xlink:href="https://arxiv.org/abs/1806.01664">Bonald et al.</link>
           </para>
           <para>
-          Pros:
-          <itemizedlist>
-            <listitem>Produces good segmentations in a range of microstructure types, typically in line with expectations.</listitem>
-            <listitem>Performs well on low-angle grain boundaries.</listitem>
-            <listitem>Can discriminate between grains and sub-grains.</listitem>
-          </itemizedlist>
-          </para>
-          <para>
-          Cons:
-          <itemizedlist>
-            <listitem>Merge distance does not have an intuitive meaning.</listitem>
-          </itemizedlist>
+          This algorithm produces good segmentations in a range of microstructure types. It performs well on low-angle grain boundaries and can discriminate between grains and sub-grains.
+          A drawback is that the merge distance does not have an intuitive physical meaning.
           </para>
         </listitem>
       </varlistentry>
@@ -60,33 +53,20 @@
         <term>Minimum spanning tree</term>
         <listitem>
           <para>
-          Edge weights are the misorientations betweem neighboring atoms. The graph is replaced by its <link xlink:href="https://en.wikipedia.org/wiki/Minimum_spanning_tree">minimum spanning tree.</link>
+          In this algorithm the graph is replaced by its <link xlink:href="https://en.wikipedia.org/wiki/Minimum_spanning_tree">minimum spanning tree.</link>
+          The edge weights are the misorientations between neighboring atoms.
           Grains are built up by contracting edges in sorted order (by misorientation, low to high).
           The distance of a contraction (or merge) is simply the edge misorientation.
           </para>
 
           <para>
-          Pros:
-          <itemizedlist>
-            <listitem>Faster algorithm.</listitem>
-            <listitem>Lower memory usage.</listitem>
-            <listitem>Merge distance has a simple interpretation (misorientation between neighboring atoms).</listitem>
-            <listitem>Merge threshold is scale-invariant.</listitem>
-          </itemizedlist>
-          Cons:
-          <itemizedlist>
-            <listitem>Can produce poor results in simulations containing low-angle grain boundaries.</listitem>
-            <listitem>Performs poorly with moderate atomic perturbations. Works best with low-temperature simulations.</listitem>
-          </itemizedlist>
+          This is a fast algorithm which has lower memory usage. The merge distance has a simple interpretation (misorientation between neighboring atoms) and is scale-invariant.
+          Drawbacks are that it can produce poor results in simulations containing low-angle grain boundaries, and it performs poorly with moderate atomic perturbations. This method is best suited to low-temperature simulations.
           </para>
 
           <para>
-          This approach is similar to that of <link xlink:href="https://doi.org/10.1007/s11837-013-0831-9">Panzarino and Rupert</link>. The key differences are:
-          <itemizedlist>
-            <listitem>The use of PTM (more robust structural determination).</listitem>
-            <listitem>A faster algorithm (minutes instead of days).</listitem>
-            <listitem>Formulation as a hierarchical clustering problem (effects of cutoff choices are visible).</listitem>
-          </itemizedlist>
+          This approach is similar to that of <link xlink:href="https://doi.org/10.1007/s11837-013-0831-9">Panzarino and Rupert</link>. The key differences are the use of PTM (more robust structural determination),
+          a faster algorithm (minutes instead of days), and formulation as a hierarchical clustering problem (effects of cutoff choices are visible).
           </para>
         </listitem>
       </varlistentry>
@@ -132,7 +112,7 @@
   <simplesect>
     <title>Output bonds</title>
     <para>
-    Whether to output the bonds used in the graph. This has large memory requirements and is not recommended for large systems.
+    Whether to output the bonds used in the graph. This has large memory requirements and is not recommended for large simulations.
     </para>
   </simplesect>
 
