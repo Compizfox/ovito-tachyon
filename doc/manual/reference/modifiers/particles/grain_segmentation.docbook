@@ -25,6 +25,35 @@
   The modifier also sets the <literal>Structure Type</literal>, <literal>RMSD</literal>, and <literal>Orientation</literal> properties for each particle. A description of these properties is given in the <link linkend="particles.modifiers.polyhedral_template_matching">Polyhedral Template Matching</link> documentation.
   </para>
 
+  <para>
+  The method is illustrated in the table below. The local structural environment is determined for every atom using PTM (left). PTM also determines the local orientations (coloured, middle) but does not explicitly
+  group atoms into grains. Hierarchical clustering is used to identify grains (right).
+  </para>
+
+  <para>
+      <informaltable frame="all" colsep="1" rowsep="0">
+        <tgroup cols="3">
+          <colspec colname="ptm" colsep="1"/>
+          <colspec colname="orientations" colsep="1" />
+          <colspec colname="segmented" colsep="1"/>
+          <thead>
+            <row>
+              <entry>Structure</entry>
+              <entry>Orientations</entry>
+              <entry>Segmented grains</entry>
+            </row>
+          </thead>
+          <tbody>
+            <row valign="center" align="right">
+            <entry align="center"><imagedata fileref="images/modifiers/grain_segmentation_ptm.png" format="PNG" scale="50" /></entry>
+            <entry align="center"><imagedata fileref="images/modifiers/grain_segmentation_orientations.png" format="PNG" scale="50" /></entry>
+            <entry align="center"><imagedata fileref="images/modifiers/grain_segmentation_segmented.png" format="PNG" scale="50" /></entry>
+            </row>
+          </tbody>
+        </tgroup>
+      </informaltable>
+  </para>
+
     <informalfigure><screenshot><mediaobject><imageobject>
       <imagedata fileref="images/modifiers/grain_segmentation_panel.png" format="PNG" scale="50" />
     </imageobject></mediaobject></screenshot></informalfigure>
