@@ -37,7 +37,7 @@
         <term>Node Pair Sampling</term>
         <listitem>
           <para>
-          Edge weights are set as exp(-d<superscript>2</superscript>/3), where d is the misorientation in degrees. Grains are built up by contracting edges using the <emphasis>Node Pair Sampling</emphasis> method of <link xlink:href="https://arxiv.org/abs/1806.01664">Bonald et al.</link>
+          Edge weights are set as <literal>exp(-d<superscript>2</superscript>/3)</literal>, where <literal>d</literal> is the misorientation in degrees. Grains are built up by contracting edges using the <emphasis>Node Pair Sampling</emphasis> method of <link xlink:href="https://arxiv.org/abs/1806.01664">Bonald et al.</link>
           </para>
           <para>
           Pros:
