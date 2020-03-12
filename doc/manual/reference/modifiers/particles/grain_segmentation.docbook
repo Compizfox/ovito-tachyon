@@ -79,7 +79,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term>Minimum spanning tree</term>
+        <term>Minimum Spanning Tree</term>
         <listitem>
           <para>
           In this algorithm the graph is replaced by its <link xlink:href="https://en.wikipedia.org/wiki/Minimum_spanning_tree">minimum spanning tree.</link>
@@ -106,13 +106,14 @@
     <title>Log merge threshold</title>
     <para>
     The maximum edge contraction distance. Determines the number and sizes of grains. A lower threshold produces more (and smaller) grains; a larger threshold produces fewer (and larger) grains. The scatter plot ("Log merge distance" vs "Merge size") can be used to select an appropriate cutoff.
+If the grains are well-separated, the scatter plot will contain a dense cluster at low distances, and a few isolated points at higher distances. An ideal threshold lies after the dense cluster, but before the isolated points.
     </para>
   </simplesect>
 
   <simplesect>
     <title>Minimum grain size</title>
     <para>
-    Grains below this size are dissolved. The atoms contained within are set as 'orphan' atoms.
+    Grains below this size are dissolved. The atoms contained within are set as 'orphan' atoms (see 'Adopt orphan atoms').
     </para>
   </simplesect>
 
