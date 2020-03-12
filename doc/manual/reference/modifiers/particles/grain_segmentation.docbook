@@ -1,0 +1,147 @@
+<?xml version="1.0" encoding="utf-8"?>
+<section version="5.0"
+         xsi:schemaLocation="http://docbook.org/ns/docbook http://docbook.org/xml/5.0/xsd/docbook.xsd"
+         xml:id="particles.modifiers.grain_segmentation"
+         xmlns="http://docbook.org/ns/docbook"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xmlns:xs="http://www.w3.org/2001/XMLSchema"
+         xmlns:xlink="http://www.w3.org/1999/xlink"
+         xmlns:xi="http://www.w3.org/2001/XInclude"
+         xmlns:ns="http://docbook.org/ns/docbook">
+  <title>Grain segmentation</title>
+  <para>
+  This modifier determines the grain structure in a polycrystalline microstructure.
+  </para>
+  <para>
+  The algorithm works in three steps. First, the local structural environment and orientation of each atom is determined using <link linkend="particles.modifiers.polyhedral_template_matching">Polyhedral Template Matching</link> (PTM).
+  Second, a graph is created using the neighbors of each atom, where each atom is a graph node and each bond is a graph edge.
+  Third, grains are created by hierarchical clustering of the graph.
+  </para>
+  <para>
+  The modifier sets the <literal>Cluster</literal> property, which is encoded as an integer value. This property indicates which grain an atom belongs to. A cluster value of zero means the atom does not belong to any grain.
+  The modifier also sets the <literal>Structure Type</literal>, <literal>RMSD</literal>, and <literal>Orientation</literal> properties for each particle. A description of these properties is given in the <link linkend="particles.modifiers.polyhedral_template_matching">Polyhedral Template Matching</link> documentation.
+  </para>
+
+    <informalfigure><screenshot><mediaobject><imageobject>
+      <imagedata fileref="images/modifiers/grain_segmentation_panel.png" format="PNG" scale="50" />
+    </imageobject></mediaobject></screenshot></informalfigure>
+
+  <simplesect>
+    <title>Algorithm</title>
+    <para>
+    The modifier creates grains by performing hierarchical clustering on the graph. Two types of hierarchical clustering algorithms are implemented:
+    </para>
+
+    <variablelist>
+      <varlistentry>
+        <term>Node Pair Sampling</term>
+        <listitem>
+          <para>
+          Edge weights are set as exp(-d<superscript>2</superscript>/3), where d is the misorientation in degrees. Grains are built up by contracting edges using the <emphasis>Node Pair Sampling</emphasis> method of <link xlink:href="https://arxiv.org/abs/1806.01664">Bonald et al.</link>
+          </para>
+          <para>
+          Pros:
+          <itemizedlist>
+            <listitem>Produces good segmentations in a range of microstructure types, typically in line with expectations.</listitem>
+            <listitem>Performs well on low-angle grain boundaries.</listitem>
+            <listitem>Can discriminate between grains and sub-grains.</listitem>
+          </itemizedlist>
+          </para>
+          <para>
+          Cons:
+          <itemizedlist>
+            <listitem>Merge distance does not have an intuitive meaning.</listitem>
+          </itemizedlist>
+          </para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term>Minimum spanning tree</term>
+        <listitem>
+          <para>
+          Edge weights are the misorientations betweem neighboring atoms. The graph is replaced by its <link xlink:href="https://en.wikipedia.org/wiki/Minimum_spanning_tree">minimum spanning tree.</link>
+          Grains are built up by contracting edges in sorted order (by misorientation, low to high).
+          The distance of a contraction (or merge) is simply the edge misorientation.
+          </para>
+
+          <para>
+          Pros:
+          <itemizedlist>
+            <listitem>Faster algorithm.</listitem>
+            <listitem>Lower memory usage.</listitem>
+            <listitem>Merge distance has a simple interpretation (misorientation between neighboring atoms).</listitem>
+            <listitem>Merge threshold is scale-invariant.</listitem>
+          </itemizedlist>
+          Cons:
+          <itemizedlist>
+            <listitem>Can produce poor results in simulations containing low-angle grain boundaries.</listitem>
+            <listitem>Performs poorly with moderate atomic perturbations. Works best with low-temperature simulations.</listitem>
+          </itemizedlist>
+          </para>
+
+          <para>
+          This approach is similar to that of <link xlink:href="https://doi.org/10.1007/s11837-013-0831-9">Panzarino and Rupert</link>. The key differences are:
+          <itemizedlist>
+            <listitem>The use of PTM (more robust structural determination).</listitem>
+            <listitem>A faster algorithm (minutes instead of days).</listitem>
+            <listitem>Formulation as a hierarchical clustering problem (effects of cutoff choices are visible).</listitem>
+          </itemizedlist>
+          </para>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+  </simplesect>
+
+  <simplesect>
+    <title>Log merge threshold</title>
+    <para>
+    The maximum edge contraction distance. Determines the number and sizes of grains. A lower threshold produces more (and smaller) grains; a larger threshold produces fewer (and larger) grains. The scatter plot ("Log merge distance" vs "Merge size") can be used to select an appropriate cutoff.
+    </para>
+  </simplesect>
+
+  <simplesect>
+    <title>Minimum grain size</title>
+    <para>
+    Grains below this size are dissolved. The atoms contained within are set as 'orphan' atoms.
+    </para>
+  </simplesect>
+
+  <simplesect>
+    <title>RMSD cutoff</title>
+    <para>
+    The cutoff in the Root-Mean-Square Deviation used to determine the local structural environment. More details are given in the <link linkend="particles.modifiers.polyhedral_template_matching">Polyhedral Template Matching</link> documentation.
+    </para>
+  </simplesect>
+
+  <simplesect>
+    <title>Adopt orphan atoms</title>
+    <para>
+    After clustering some atoms might not be assigned to a grain, so-called 'orphan' atoms (due to <link xlink:href="https://doi.org/10.1016/j.commatsci.2016.11.027">Hoffrogge and Barrales-Mora</link>).
+    This option assigns orphan atoms to the nearest grain.
+    </para>
+  </simplesect>
+
+  <simplesect>
+    <title>Color particles by grain</title>
+    <para>
+    This option assigns each grain a unique color for easier visualization of the grain structure.
+    </para>
+  </simplesect>
+
+  <simplesect>
+    <title>Output bonds</title>
+    <para>
+    Whether to output the bonds used in the graph. This has large memory requirements and is not recommended for large systems.
+    </para>
+  </simplesect>
+
+  <simplesect>
+  <title>See also</title>
+    <para>
+      <pydoc-link href="modules/ovito_modifiers" anchor="ovito.modifiers.GrainSegmentationModifier"><classname>GrainSegmentationModifier</classname> (Python API)</pydoc-link>
+    </para>
+  </simplesect>
+
+</section>
+
