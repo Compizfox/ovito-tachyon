@@ -39,7 +39,7 @@
           <thead>
             <row>
               <entry>Structure</entry>
-              <entry>Orientations</entry>
+              <entry>Lattice orientation</entry>
               <entry>Segmented grains</entry>
             </row>
           </thead>
@@ -73,7 +73,7 @@
           </para>
           <para>
           This algorithm produces good segmentations in a range of microstructure types. It performs well on low-angle grain boundaries and can discriminate between grains and sub-grains.
-          A drawback is that the merge distance does not have an intuitive physical meaning.
+          A drawback is that the merge distance parameter does not have an intuitive physical meaning.
           </para>
         </listitem>
       </varlistentry>
@@ -89,13 +89,14 @@
           </para>
 
           <para>
-          This is a fast algorithm which has lower memory usage. The merge distance has a simple interpretation (misorientation between neighboring atoms) and is scale-invariant.
-          Drawbacks are that it can produce poor results in simulations containing low-angle grain boundaries, and it performs poorly with moderate atomic perturbations. This method is best suited to low-temperature simulations.
+          This is a fast algorithm which has lower memory usage. The merge distance has a simple interpretation (misorientation between neighboring atoms) and is scale invariant.
+          Drawbacks are that it can produce poor results in microstructures containing low-angle grain boundaries, and it performs poorly in the presense of local perturbations due to, e.g., thermal atomic displacements or elastic lattice distortions. 
+          This method is best suited for low-temperature simulations.
           </para>
 
           <para>
           This approach is similar to that of <link xlink:href="https://doi.org/10.1007/s11837-013-0831-9">Panzarino and Rupert</link>. The key differences are the use of PTM (more robust structural determination),
-          a faster algorithm (minutes instead of days), and formulation as a hierarchical clustering problem (effects of cutoff choices are visible).
+          a faster algorithm (minutes instead of days), and the formulation as a hierarchical clustering problem (effects of cutoff choices are visible).
           </para>
         </listitem>
       </varlistentry>
@@ -103,51 +104,74 @@
   </simplesect>
 
   <simplesect>
-    <title>Log merge threshold</title>
+    <title>Parameters and options</title>
     <para>
-    The maximum edge contraction distance. Determines the number and sizes of grains. A lower threshold produces more (and smaller) grains; a larger threshold produces fewer (and larger) grains. The scatter plot ("Log merge distance" vs "Merge size") can be used to select an appropriate cutoff.
-If the grains are well-separated, the scatter plot will contain a dense cluster at low distances, and a few isolated points at higher distances. An ideal threshold lies after the dense cluster, but before the isolated points.
+
+    <variablelist>
+      
+      <varlistentry>
+        <term>Log merge threshold</term>
+        <listitem>
+          <para>
+            Specifies the maximum graph edge contraction distance and determines the resulting number and sizes of grains. A lower threshold produces more (and smaller) grains; a larger threshold produces fewer (and larger) grains. The scatter plot ("Log merge distance" vs "Merge size") can be used to select an appropriate merge threshold value.
+            If the grains are well-separated, the scatter plot will contain a dense cluster at low distances, and a few isolated points at higher distances. An ideal threshold lies after the dense cluster, but before the isolated points (see screenshot).
+            Note that this threshold parameter can be set to a negative value, because it is specified on a logarithmic distance scale.
+          </para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term>Minimum grain size</term>
+        <listitem>
+          <para>
+            Grains below this size are dissolved. The atoms contained within are set as 'orphan' atoms (see 'Adopt orphan atoms').
+          </para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term>RMSD cutoff</term>
+        <listitem>
+          <para>
+            The cutoff in the Root-Mean-Square Deviation used to determine the local structural environment. More details are given in the <link linkend="particles.modifiers.polyhedral_template_matching">Polyhedral Template Matching</link> documentation.
+          </para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term>Adopt orphan atoms</term>
+        <listitem>
+          <para>
+            After clustering has been performed by the algorithm, some atoms might not be assigned to a grain, so-called 'orphan' atoms (due to <link xlink:href="https://doi.org/10.1016/j.commatsci.2016.11.027">Hoffrogge and Barrales-Mora</link>).
+            This includes atoms that are part of grain boundaries. This option lets the modifier assign these orphan atoms to the nearest grain.
+          </para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term>Color particles by grain</term>
+        <listitem>
+          <para>
+            This option assigns each grain a unique color for easier visualization of the grain structure.
+          </para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term>Output bonds</term>
+        <listitem>
+          <para>
+            Whether to visualize the edges of the initial graph as bonds between atoms. This option is mainly for debugging purposes and has large memory requirements. It is not recommended for large datasets.
+          </para>
+        </listitem>
+      </varlistentry>
+
+    </variablelist>
     </para>
   </simplesect>
 
   <simplesect>
-    <title>Minimum grain size</title>
-    <para>
-    Grains below this size are dissolved. The atoms contained within are set as 'orphan' atoms (see 'Adopt orphan atoms').
-    </para>
-  </simplesect>
-
-  <simplesect>
-    <title>RMSD cutoff</title>
-    <para>
-    The cutoff in the Root-Mean-Square Deviation used to determine the local structural environment. More details are given in the <link linkend="particles.modifiers.polyhedral_template_matching">Polyhedral Template Matching</link> documentation.
-    </para>
-  </simplesect>
-
-  <simplesect>
-    <title>Adopt orphan atoms</title>
-    <para>
-    After clustering some atoms might not be assigned to a grain, so-called 'orphan' atoms (due to <link xlink:href="https://doi.org/10.1016/j.commatsci.2016.11.027">Hoffrogge and Barrales-Mora</link>).
-    This option assigns orphan atoms to the nearest grain.
-    </para>
-  </simplesect>
-
-  <simplesect>
-    <title>Color particles by grain</title>
-    <para>
-    This option assigns each grain a unique color for easier visualization of the grain structure.
-    </para>
-  </simplesect>
-
-  <simplesect>
-    <title>Output bonds</title>
-    <para>
-    Whether to output the bonds used in the graph. This has large memory requirements and is not recommended for large simulations.
-    </para>
-  </simplesect>
-
-  <simplesect>
-  <title>See also</title>
+    <title>See also</title>
     <para>
       <pydoc-link href="modules/ovito_modifiers" anchor="ovito.modifiers.GrainSegmentationModifier"><classname>GrainSegmentationModifier</classname> (Python API)</pydoc-link>
     </para>
