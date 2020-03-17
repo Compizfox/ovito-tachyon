@@ -311,8 +311,15 @@ bool GrainSegmentationEngine::computeDisorientationAngles()
 		NeighborBond& bond = _neighborBonds[bondIndex];
 		bond.disorientation = std::numeric_limits<FloatType>::max();
 
+		int a = bond.a;
+		int b = bond.b;
 		int structureTypeA = structuresArray[bond.a];
 		int structureTypeB = structuresArray[bond.b];
+		if (structureTypeB < structureTypeA) {
+			std::swap(structureTypeA, structureTypeB);
+			std::swap(a, b);
+		}
+
 		if(structureTypeA == structureTypeB) {
 
 			int structureType = structureTypeA;
@@ -326,6 +333,23 @@ bool GrainSegmentationEngine::computeDisorientationAngles()
 				bond.disorientation = (FloatType)ptm::quat_disorientation_cubic(orientA, orientB);
 			else if(structureType == PTMAlgorithm::HCP || structureType == PTMAlgorithm::HEX_DIAMOND || structureType == PTMAlgorithm::GRAPHENE)
 				bond.disorientation = (FloatType)ptm::quat_disorientation_hcp_conventional(orientA, orientB);
+		}
+		else if(structureTypeA == PTMAlgorithm::FCC && structureTypeB == PTMAlgorithm::HCP) {
+
+			const Quaternion& qA = orientationsArray[a];
+			const Quaternion& qB = orientationsArray[b];
+
+			double orientA[4] = { qA.w(), qA.x(), qA.y(), qA.z() };
+			double orientB[4] = { qB.w(), qB.x(), qB.y(), qB.z() };
+
+			double map_hcp_to_fcc[49][4] = {{0.11591690,  0.3647052, 0.27984814,  0.88047624},
+											{0.45576804, -0.5406251, 0.70455634, -0.06000300}};
+			for (int i=0;i<2;i++) {
+				double testB[4];
+				ptm::quat_rot(orientB, map_hcp_to_fcc[i], testB);
+				FloatType disorientation = (FloatType)ptm::quat_disorientation_cubic(orientA, testB);
+				bond.disorientation = std::min(bond.disorientation, disorientation);
+			}
 		}
 	});
 
@@ -353,7 +377,7 @@ bool GrainSegmentationEngine::formSuperclusters()
 		if(bond.disorientation > _misorientationThreshold) continue;
 
 		OVITO_ASSERT(structuresArray[bond.a] != PTMAlgorithm::OTHER);
-		OVITO_ASSERT(structuresArray[bond.a] == structuresArray[bond.b]);
+		//OVITO_ASSERT(structuresArray[bond.a] == structuresArray[bond.b]);     // TODO: fix this for stacking faults
 
 		uf.merge(bond.a, bond.b);
 	}
@@ -479,6 +503,7 @@ bool GrainSegmentationEngine::determineMergeSequence()
 	// Build initial graph.
 	FloatType totalWeight = 0;
 	std::vector<size_t> bondCount(_numSuperclusters, 0); // Number of bonds in each supercluster.
+	ConstPropertyAccess<int> structuresArray(structures());
 
 	size_t progress = 0;
 	for(NeighborBond& bond : neighborBonds()) {
@@ -490,8 +515,12 @@ bool GrainSegmentationEngine::determineMergeSequence()
 		if(bond.superCluster != 0 && bond.disorientation <= _misorientationThreshold) {
 			// Convert disorientations to graph weights.
 			FloatType deg = qRadiansToDegrees(bond.disorientation);
-			if(_algorithmType == 0)
+			if(_algorithmType == 0) {
 				bond.weight = std::exp(-FloatType(1)/3 * deg * deg);	// This is fairly arbitrary but it works well.
+				if (structuresArray[bond.a] != structuresArray[bond.b]) {
+					bond.weight /= 2;
+				}
+			}
 			else
 				bond.weight = deg;
 
@@ -535,7 +564,6 @@ bool GrainSegmentationEngine::determineMergeSequence()
 	setProgressMaximum(dendrogramSize);
 
 	// Build dendrograms.
-	ConstPropertyAccess<int> structuresArray(structures());
 	ConstPropertyAccess<Quaternion> orientationsArray(orientations());
 	std::vector<Quaternion> qsum(orientationsArray.cbegin(), orientationsArray.cend());
 	DisjointSet uf(_numParticles);
