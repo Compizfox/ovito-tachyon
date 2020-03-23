@@ -249,6 +249,17 @@ static void output_data(ptm::result_t *res, ptm_atomicenv_t* env,
 			int* p_best_template_index, const double (**p_best_template)[3],
 			ptm_atomicenv_t* output_env) {
 	const ptm::refdata_t *ref = res->ref_struct;
+
+	if (output_env != NULL) {
+
+        int num_nbrs = ref == NULL ? 12 : ref->num_nbrs;
+		for (int i = 0; i < num_nbrs + 1; i++) {
+			output_env->correspondences[i] = env->correspondences[res->mapping[i]];
+			output_env->atom_indices[i] = env->atom_indices[res->mapping[i]];
+			memcpy(output_env->points[i], env->points[res->mapping[i]], 3 * sizeof(double));
+		}
+	}
+
 	if (ref == NULL)
 		return;
 
@@ -302,15 +313,6 @@ static void output_data(ptm::result_t *res, ptm_atomicenv_t* env,
 			ptm::polar_decomposition_3x3(F, false, U, P);
 	}
 
-	if (output_env != NULL) {
-		for (int i = 0; i < ref->num_nbrs + 1; i++) {
-			output_env->correspondences[i] = env->correspondences[res->mapping[i]];
-			output_env->atom_indices[i] = env->atom_indices[res->mapping[i]];
-
-			memcpy(output_env->points[i], env->points[res->mapping[i]], 3 * sizeof(double));
-		}
-	}
-
 	double interatomic_distance = calculate_interatomic_distance(ref->type, res->scale);
 	double lattice_constant = calculate_lattice_constant(ref->type, interatomic_distance);
 
@@ -345,6 +347,8 @@ int ptm_index(ptm_local_handle_t local_handle,
 	ptm::result_t res;
 	res.ref_struct = NULL;
 	res.rmsd = INFINITY;
+    for (int i=0;i<PTM_MAX_POINTS;i++)
+        res.mapping[i] = i;
 
 	*p_type = PTM_MATCH_NONE;
 	if (p_alloy_type != NULL)

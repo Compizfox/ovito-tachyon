@@ -163,63 +163,61 @@ bool GrainSegmentationEngine::identifyAtomicStructures()
 			// Store identification result in the output property array.
 			structuresArray[index] = type;
 
-			if(type != PTMAlgorithm::OTHER) {
+            int numNeighbors = 0;
+			if(type == PTMAlgorithm::OTHER) {
+				rmsdArray[index] = -1.0; // Store invalid RMSD value to exclude it from the RMSD histogram.
+
+				// Don't need more than 8 nearest neighbors to establish connectivity between non-crystalline atoms.
+				numNeighbors = std::min(8, kernel.numNearestNeighbors());
+            }
+            else {
 				rmsdArray[index] = kernel.rmsd();
-				if(_rmsdCutoff == 0.0 || kernel.rmsd() <= _rmsdCutoff) {
+                numNeighbors = ptm_num_nbrs[type];
 
-					// Store computed local lattice orientation in the output property array.
-					orientationsArray[index] = kernel.orientation().normalized();
+				if(_rmsdCutoff != 0.0 && kernel.rmsd() > _rmsdCutoff) {
+                    // Mark atom as OTHER, but still store its RMSD value. It'll be needed to build the RMSD histogram below.
+					structuresArray[index] = PTMAlgorithm::OTHER;
+                }
+            }
 
-					// Store neighbor list for later use.
-					for(int j = 0; j < ptm_num_nbrs[type]; j++) {
+			if (structuresArray[index] != PTMAlgorithm::OTHER) {
+				// Store computed local lattice orientation in the output property array.
+				orientationsArray[index] = kernel.orientation().normalized();
 
-						size_t neighborIndex = kernel._env.atom_indices[j + 1];
+				// Store neighbor list for later use.
+				for(int j = 0; j < numNeighbors; j++) {
 
-						// Create a bond to the neighbor, but skip every other bond to create just one bond per particle pair.
-						if(index < neighborIndex)
-							threadlocalNeighborBonds.push_back({index, neighborIndex});
+					size_t neighborIndex = kernel._env.atom_indices[j + 1];
 
-						// Crystalline atoms become the parents of their neighbors.
-						// Note: The while loop is required to make the assignment of parents thread-safe and stable (the lowest index atom wins and becomes the parent!).
-						// Atomic memory access is used to make the algorithm lock-free.
-						size_t oldParent = _orphanParentAtoms[neighborIndex];
-						size_t newParent = index;
-						while(newParent < oldParent && !_orphanParentAtoms[neighborIndex].compare_exchange_weak(oldParent, newParent));
+					// Create a bond to the neighbor, but skip every other bond to create just one bond per particle pair.
+					if(index < neighborIndex)
+						threadlocalNeighborBonds.push_back({index, neighborIndex});
 
-						// Check if neighbor vector spans more than half of a periodic simulation cell.
-						double* delta = kernel._env.points[j + 1];
-						Vector3 neighborVector(delta[0], delta[1], delta[2]);
-						for(size_t dim = 0; dim < 3; dim++) {
-							if(cell().pbcFlags()[dim]) {
-								if(std::abs(cell().inverseMatrix().prodrow(neighborVector, dim)) >= FloatType(0.5)+FLOATTYPE_EPSILON) {
-									static const QString axes[3] = { QStringLiteral("X"), QStringLiteral("Y"), QStringLiteral("Z") };
-									throw Exception(GrainSegmentationModifier::tr("Simulation box is too short along cell vector %1 (%2) to perform analysis. "
-											"Please extend it first using the 'Replicate' modifier.").arg(dim+1).arg(axes[dim]));
-								}
+					// Crystalline atoms become the parents of their neighbors.
+					// Note: The while loop is required to make the assignment of parents thread-safe and stable (the lowest index atom wins and becomes the parent!).
+					// Atomic memory access is used to make the algorithm lock-free.
+					size_t oldParent = _orphanParentAtoms[neighborIndex];
+					size_t newParent = index;
+					while(newParent < oldParent && !_orphanParentAtoms[neighborIndex].compare_exchange_weak(oldParent, newParent));
+
+					// Check if neighbor vector spans more than half of a periodic simulation cell.
+					double* delta = kernel._env.points[j + 1];
+					Vector3 neighborVector(delta[0], delta[1], delta[2]);
+					for(size_t dim = 0; dim < 3; dim++) {
+						if(cell().pbcFlags()[dim]) {
+							if(std::abs(cell().inverseMatrix().prodrow(neighborVector, dim)) >= FloatType(0.5)+FLOATTYPE_EPSILON) {
+								static const QString axes[3] = { QStringLiteral("X"), QStringLiteral("Y"), QStringLiteral("Z") };
+								throw Exception(GrainSegmentationModifier::tr("Simulation box is too short along cell vector %1 (%2) to perform analysis. "
+										"Please extend it first using the 'Replicate' modifier.").arg(dim+1).arg(axes[dim]));
 							}
 						}
 					}
 				}
-				else {
-					// Mark atom as OTHER, but still store its RMSD value. It'll be needed to build the RMSD histogram below.
-					structuresArray[index] = PTMAlgorithm::OTHER;
-
-					// Store neighbor bonds for later use.
-					for(int j = 0; j < ptm_num_nbrs[type]; j++) {
-						qlonglong neighborIndex = kernel._env.atom_indices[j + 1];
-						threadlocalNoncrystallineBonds.push_back({(qlonglong)index, neighborIndex});
-					}
-				}
 			}
-			else {
-				rmsdArray[index] = -1.0; // Store invalid RMSD value to exclude it from the RMSD histogram.
-
-				// Don't need more than 8 nearest neighbors to establish connectiveity between non-crystalline atoms.
-				int numNeighbors = std::min(8, kernel.numNearestNeighbors());
-
-				// Store neighbor bonds (note: we create two bonds per pair of particles).
+            else {
+				// Store neighbor bonds for later use (note: we create two bonds per pair of particles).
 				for(int j = 0; j < numNeighbors; j++) {
-					qlonglong neighborIndex = kernel.getNearestNeighbor(j).index;
+					qlonglong neighborIndex = kernel._env.atom_indices[j + 1];
 					threadlocalNoncrystallineBonds.push_back({(qlonglong)index, neighborIndex});
 				}
 			}
@@ -334,6 +332,7 @@ bool GrainSegmentationEngine::computeDisorientationAngles()
 			else if(structureType == PTMAlgorithm::HCP || structureType == PTMAlgorithm::HEX_DIAMOND || structureType == PTMAlgorithm::GRAPHENE)
 				bond.disorientation = (FloatType)ptm::quat_disorientation_hcp_conventional(orientA, orientB);
 		}
+#if 0
 		else if(structureTypeA == PTMAlgorithm::FCC && structureTypeB == PTMAlgorithm::HCP) {
 
 			const Quaternion& qA = orientationsArray[a];
@@ -351,6 +350,7 @@ bool GrainSegmentationEngine::computeDisorientationAngles()
 				bond.disorientation = std::min(bond.disorientation, disorientation);
 			}
 		}
+#endif
 	});
 
 	return !isCanceled();
