@@ -171,6 +171,48 @@
   </simplesect>
 
   <simplesect>
+    <title>Example</title>
+    <para>
+      The panel below illustrates the effect of varying the merge threshold in a polycrystalline graphene sample, using the <emphasis>Node Pair Sampling</emphasis> algorithm.
+      A good segmentation into 6 grains is achieved using a merge threshold of 14 (left).
+      Reducing the threshold to 13.5 reveals a subgrain structure in the largest grain (middle). A further reduction of the threshold to 12.5 splits the largest grain into three subgrains (right).
+    </para>
+
+    <para>
+      Note that the difference between subgrains and grains is not well defined. It is therefore up to the user to decide upon the best threshold value.
+    </para>
+
+    <para>
+        <informaltable frame="all" colsep="1" rowsep="0">
+          <tgroup cols="3">
+            <colspec colname="6 grains" colsep="1"/>
+            <colspec colname="7 grains" colsep="1" />
+            <colspec colname="8 grains" colsep="1"/>
+            <thead>
+              <row>
+                <entry>6 grains</entry>
+                <entry>7 grains</entry>
+                <entry>8 grains</entry>
+              </row>
+            </thead>
+            <tbody>
+              <row valign="center" align="right">
+              <entry align="center"><imagedata fileref="images/modifiers/grains_graphene_panel1.png" format="PNG" scale="50" /></entry>
+              <entry align="center"><imagedata fileref="images/modifiers/grains_graphene_panel2.png" format="PNG" scale="50" /></entry>
+              <entry align="center"><imagedata fileref="images/modifiers/grains_graphene_panel3.png" format="PNG" scale="50" /></entry>
+              </row>
+              <row valign="center" align="right">
+              <entry align="center"><imagedata fileref="images/modifiers/grains_graphene_1.png" format="PNG" scale="50" /></entry>
+              <entry align="center"><imagedata fileref="images/modifiers/grains_graphene_2.png" format="PNG" scale="50" /></entry>
+              <entry align="center"><imagedata fileref="images/modifiers/grains_graphene_3.png" format="PNG" scale="50" /></entry>
+              </row>
+            </tbody>
+          </tgroup>
+        </informaltable>
+    </para>
+  </simplesect>
+
+  <simplesect>
     <title>See also</title>
     <para>
       <pydoc-link href="modules/ovito_modifiers" anchor="ovito.modifiers.GrainSegmentationModifier"><classname>GrainSegmentationModifier</classname> (Python API)</pydoc-link>
