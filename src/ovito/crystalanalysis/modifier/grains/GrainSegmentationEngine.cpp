@@ -31,6 +31,9 @@
 
 #include <ptm/ptm_functions.h>
 #include <ptm/ptm_quat.h>
+#if 0
+#include <sys/time.h>
+#endif
 
 namespace Ovito { namespace CrystalAnalysis {
 
@@ -533,9 +536,6 @@ bool GrainSegmentationEngine::determineMergeSequence()
 		bondCount[bond.superCluster]++;
 	}
 
-	// setting the total weight to 1 is an effective multi-frame normalization
-	totalWeight = 1;
-
 	// Group graph edges by supercluster.
 	boost::sort(neighborBonds(), [](const NeighborBond& a, const NeighborBond& b) {
 		return a.superCluster < b.superCluster;
@@ -578,9 +578,10 @@ bool GrainSegmentationEngine::determineMergeSequence()
 		int structureType = structuresArray[neighborBonds()[start].a];
 
 		if(_algorithmType == 0) {
+	        // setting the total weight to 1 is an effective multi-frame normalization
 			node_pair_sampling_clustering(
 				boost::make_iterator_range_n(neighborBonds().cbegin() + start, count), 
-				&_dendrogram[index], structureType, qsum, totalWeight);
+				&_dendrogram[index], structureType, qsum, 1);
 		}
 		else {
 			minimum_spanning_tree_clustering(
@@ -597,6 +598,22 @@ bool GrainSegmentationEngine::determineMergeSequence()
 	if(isCanceled())
 		return false;
 
+#if 0
+char filename[128];
+struct timeval tp;
+gettimeofday(&tp, NULL);
+long int ms = tp.tv_sec * 1000 + tp.tv_usec / 1000;
+sprintf(filename, "dump_%lu.txt", ms);
+FILE* fout = fopen(filename, "w");
+
+size_t count = 0;
+for(size_t particleIndex = 0; particleIndex < _numParticles; particleIndex++)
+	count += structuresArray[particleIndex] == PTMAlgorithm::OTHER ? 0 : 1;
+
+if (fout)
+    fprintf(fout, "%lu %e\n", count, totalWeight);
+#endif
+
 	// Scan through the entire merge list to determine merge sizes.
 	size_t numPlot = 0;
 	uf.clear();
@@ -607,6 +624,11 @@ bool GrainSegmentationEngine::determineMergeSequence()
 		uf.merge(node.a, node.b);
 		node.disorientation = qRadiansToDegrees(node.disorientation);
 
+#if 0
+if (fout)
+    fprintf(fout, "%lu %lu %lu %e\n", sa, sb, dsize, node.distance);
+#endif
+
 		// We don't want to plot very small merges - they extend the x-axis by a lot and don't provide much useful information
 		if(dsize < 20) {
 			node.size = 0;
@@ -616,6 +638,10 @@ bool GrainSegmentationEngine::determineMergeSequence()
 			numPlot++;
 		}
 	}
+
+#if 0
+fclose(fout);
+#endif
 
 	// Create PropertyStorage objects for the output plot.
 	PropertyAccess<FloatType> mergeDistanceArray = _mergeDistance = std::make_shared<PropertyStorage>(numPlot, PropertyStorage::Float, 1, 0, GrainSegmentationModifier::tr("Log merge distance"), false, DataTable::XProperty);
