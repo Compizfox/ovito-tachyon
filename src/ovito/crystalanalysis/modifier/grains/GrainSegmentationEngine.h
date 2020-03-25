@@ -117,7 +117,7 @@ private:
 	void executeMergeSequence(int minGrainAtomCount, FloatType mergingThreshold, bool adoptOrphanAtoms);
 
 	/// Merges any orphan atoms into the closest cluster.
-	void mergeOrphanAtoms();
+	bool mergeOrphanAtoms();
 
 	/// Computes the disorientation angle between two crystal clusters of the given lattice type. 
 	/// Furthermore, the function computes the weighted average of the two cluster orientations. 
@@ -174,6 +174,9 @@ private:
 
 	/// The bonds connecting neighboring lattice atoms.
 	std::vector<NeighborBond> _neighborBonds;
+
+	/// The bonds connecting neighboring non-crystalline atoms.
+	std::vector<ParticleIndexPair> _noncrystallineBonds;
 
 	/// Controls the output of neighbor bonds to the data pipeline for visualization purposes.
 	bool _outputBondsToPipeline;

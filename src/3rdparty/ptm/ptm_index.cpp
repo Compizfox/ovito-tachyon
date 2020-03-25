@@ -252,7 +252,8 @@ static void output_data(ptm::result_t *res, ptm_atomicenv_t* env,
 
 	if (output_env != NULL) {
 
-        int num_nbrs = ref == NULL ? 12 : ref->num_nbrs;
+        int num_nbrs = ref == NULL ? env->num - 1 : ref->num_nbrs;
+		output_env->num = num_nbrs + 1;
 		for (int i = 0; i < num_nbrs + 1; i++) {
 			output_env->correspondences[i] = env->correspondences[res->mapping[i]];
 			output_env->atom_indices[i] = env->atom_indices[res->mapping[i]];

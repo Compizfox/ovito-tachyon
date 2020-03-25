@@ -194,7 +194,29 @@ public:
         int numTemplateNeighbors() const;
 
         /// Returns the number of nearest neighbors found for the current particle.
-        int numNearestNeighbors() const { return results().size(); }
+        //int numNearestNeighbors() const { return results().size(); }
+		int numNearestNeighbors() const { return _env.num - 1; }
+
+        /// Returns the number of nearest neighbors that lie within a ball of twice the radius of the nearest neighbor distance.
+		int numGoodNeighbors() const {
+			FloatType minDist = std::numeric_limits<FloatType>::infinity();;
+			FloatType distances[PTM_MAX_INPUT_POINTS];
+			for (int i=1;i<_env.num;i++) {
+				FloatType dx = _env.points[i][0];
+				FloatType dy = _env.points[i][1];
+				FloatType dz = _env.points[i][2];
+				distances[i] = sqrt(dx * dx + dy * dy + dz * dz);
+				minDist = std::min(minDist, distances[i]);
+			}
+
+			int n = 0;
+			for (int i=0;i<_env.num;i++) {
+				if (distances[i] < 2 * minDist)
+					n++;
+			}
+
+			return n;
+		}
 
         /// Returns the neighbor information for the i-th nearest neighbor of the current particle.
         const NearestNeighborFinder::Neighbor& getNearestNeighbor(int index) const {
