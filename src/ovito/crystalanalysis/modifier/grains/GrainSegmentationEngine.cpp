@@ -31,7 +31,9 @@
 
 #include <ptm/ptm_functions.h>
 #include <ptm/ptm_quat.h>
-#if 0
+
+#define DEBUG_OUTPUT 1
+#if DEBUG_OUTPUT
 #include <sys/time.h>
 #endif
 
@@ -607,7 +609,7 @@ bool GrainSegmentationEngine::determineMergeSequence()
 	if(isCanceled())
 		return false;
 
-#if 0
+#if DEBUG_OUTPUT
 char filename[128];
 struct timeval tp;
 gettimeofday(&tp, NULL);
@@ -633,9 +635,9 @@ if (fout)
 		uf.merge(node.a, node.b);
 		node.disorientation = qRadiansToDegrees(node.disorientation);
 
-#if 0
+#if DEBUG_OUTPUT
 if (fout)
-	fprintf(fout, "%lu %lu %lu %e\n", sa, sb, dsize, node.distance);
+	fprintf(fout, "%lu %lu %lu %lu %lu %e\n", node.a, node.b, sa, sb, dsize, node.distance);
 #endif
 
 		// We don't want to plot very small merges - they extend the x-axis by a lot and don't provide much useful information
@@ -648,7 +650,7 @@ if (fout)
 		}
 	}
 
-#if 0
+#if DEBUG_OUTPUT
 fclose(fout);
 #endif
 
