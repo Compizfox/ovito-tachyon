@@ -130,6 +130,8 @@ private:
 
 private:
 
+    const size_t _minPlotSize = 20;
+
 	/// The number of input particles.
 	size_t _numParticles;
 

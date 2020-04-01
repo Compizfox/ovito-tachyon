@@ -32,7 +32,7 @@
 #include <ptm/ptm_functions.h>
 #include <ptm/ptm_quat.h>
 
-#define DEBUG_OUTPUT 1
+#define DEBUG_OUTPUT 0
 #if DEBUG_OUTPUT
 #include <sys/time.h>
 #endif
@@ -641,11 +641,8 @@ if (fout)
 #endif
 
 		// We don't want to plot very small merges - they extend the x-axis by a lot and don't provide much useful information
-		if(dsize < 20) {
-			node.size = 0;
-		}
-		else {
-			node.size = dsize;
+		node.size = dsize;
+		if(dsize >= _minPlotSize) {
 			numPlot++;
 		}
 	}
@@ -662,11 +659,139 @@ fclose(fout);
 	FloatType* mergeDistanceIter = mergeDistanceArray.begin();
 	FloatType* mergeSizeIter = mergeSizeArray.begin();
 	for(const DendrogramNode& node : _dendrogram) {
-		if(node.size > 0) {
+		if(node.size >= _minPlotSize) {
 			*mergeDistanceIter++ = std::log(node.distance);
 			*mergeSizeIter++ = node.size;
 		}
 	}
+
+
+if (_algorithmType == 0) {
+
+    auto calculateMedian = [](std::vector< FloatType > data)
+    {
+        size_t n = data.size();
+        std::sort(data.begin(), data.end());
+        FloatType median = data[n / 2];
+        if (n % 2 == 0) {
+            median += data[n / 2 - 1];
+            median /= 2;
+        }
+
+        return median;
+    };
+
+
+	// Sort dendrogram entries lexicographically by (merge size, distance).
+	boost::sort(_dendrogram, [](const DendrogramNode& a, const DendrogramNode& b)
+    {
+        if (a.size == b.size)
+            return a.distance < b.distance;
+        else
+            return a.size < b.size;
+    });
+
+    size_t i = 0;
+    size_t start = 0, currentSize = _dendrogram[0].size;
+    std::vector< std::tuple< size_t, FloatType > > transformed; // median of y values for each dsize
+
+	for(i=0;i<dendrogramSize;i++) {
+        DendrogramNode& node = _dendrogram[i];
+
+        if (node.size != currentSize) {
+            size_t count = i - start;
+            FloatType median = _dendrogram[start + count / 2].distance;
+            if (count % 2 == 0) {
+                median += _dendrogram[start + count / 2 - 1].distance;
+                median /= 2;
+            }
+            transformed.push_back(std::make_tuple(currentSize, median));
+
+            currentSize = node.size;
+            start = i;
+        }
+    }
+
+    size_t count = i - start;
+    FloatType median = _dendrogram[i + count / 2].distance;
+    if (count % 2 == 0) {
+        median += _dendrogram[i + count / 2 - 1].distance;
+        median /= 2;
+    }
+
+    transformed.push_back(std::make_tuple(currentSize, median));
+    // TODO: check that `transformed` contains more than 1 element
+
+    // Use Theil-Sen estimator for linear regression
+    // Fit gradient (median of k gradient samples)
+    std::vector< FloatType > gradients;
+    for (size_t it=0;it<100000;it++) {
+        size_t i = rand() % transformed.size();
+        size_t j = i;
+        while (i == j) {
+            j = rand() % transformed.size();
+        }
+
+        auto a = transformed[i];
+        auto b = transformed[j];
+        if (std::get<0>(b) < std::get<0>(a)) {
+            std::swap(a, b);
+        }
+
+        FloatType dy = log(std::get<1>(b)) - log(std::get<1>(a));
+        FloatType dx = log(std::get<0>(b)) - log(std::get<0>(a));
+        gradients.push_back(dy / dx);
+    }
+    FloatType gradient = calculateMedian(gradients);
+
+    // Fit intercept (median of residuals)
+    std::vector< FloatType > residuals;
+    for (auto point: transformed) {
+        FloatType x = log(std::get<0>(point));
+        FloatType y = log(std::get<1>(point));
+        residuals.push_back(y - gradient * x);
+    }
+    FloatType intercept = calculateMedian(residuals);
+
+printf("fit: %f %f\n", gradient, intercept);
+
+    // Calculate residuals from best fit
+    std::vector< FloatType > absoluteResiduals;
+    for (size_t i=0;i<residuals.size();i++) {
+        residuals[i] -= intercept;
+        absoluteResiduals.push_back(fabs(residuals[i]));
+    }
+
+    // Calculate suggested threshold
+    FloatType sigma = 1.4826 * calculateMedian(absoluteResiduals);
+printf("sigma: %f\n", sigma);
+
+    FloatType minSuggestion = 0;
+	for(DendrogramNode& node : _dendrogram) {
+		FloatType x = log(node.size);
+		FloatType y = log(node.distance);
+
+        FloatType prediction = x * gradient + intercept;
+        FloatType residual = y - prediction;
+        if (residual < 2.5 * sigma) {
+            minSuggestion = std::max(minSuggestion, log(node.distance));
+        }
+    }
+
+	// Sort dendrogram entries by distance.
+	boost::sort(_dendrogram, [](const DendrogramNode& a, const DendrogramNode& b) { return a.distance < b.distance; });
+
+    // Set a slightly higher threshold, ignoring small merges
+    FloatType maxSuggestion = minSuggestion;
+	for(DendrogramNode& node : _dendrogram) {
+        if (log(node.distance) <= maxSuggestion) continue;
+        if (node.size >= _minPlotSize) break;
+        maxSuggestion = log(node.distance);
+    }
+
+    FloatType suggestedThreshold = (minSuggestion + maxSuggestion) / 2;
+    printf("suggested log threshold: %f (%f, %f)\n", suggestedThreshold, minSuggestion, maxSuggestion);
+}
 
 	return !isCanceled();
 }
