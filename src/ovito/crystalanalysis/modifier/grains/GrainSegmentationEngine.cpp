@@ -718,7 +718,6 @@ if (_algorithmType == 0) {
 
 	// Calculate suggested threshold
 	FloatType sigma = 1.4826 * calculate_median(absoluteResiduals);
-	printf("sigma: %f\n", sigma);
 
 	FloatType minSuggestion = 0;
 	for(DendrogramNode& node : _dendrogram) {
@@ -744,7 +743,7 @@ if (_algorithmType == 0) {
 	}
 
 	FloatType suggestedThreshold = (minSuggestion + maxSuggestion) / 2;
-	printf("suggested log threshold: %f (%f, %f)\n", suggestedThreshold, minSuggestion, maxSuggestion);
+	printf("suggested log threshold: %f\n", suggestedThreshold);
 }
 
 	return !isCanceled();
