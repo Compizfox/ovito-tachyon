@@ -391,7 +391,7 @@ bool GrainSegmentationEngine::formSuperclusters()
 		if(bond.disorientation > _misorientationThreshold) continue;
 
 		OVITO_ASSERT(structuresArray[bond.a] != PTMAlgorithm::OTHER);
-		//OVITO_ASSERT(structuresArray[bond.a] == structuresArray[bond.b]);     // TODO: fix this for stacking faults
+		//OVITO_ASSERT(structuresArray[bond.a] == structuresArray[bond.b]);	 // TODO: fix this for stacking faults
 
 		uf.merge(bond.a, bond.b);
 	}
@@ -437,7 +437,7 @@ FloatType GrainSegmentationEngine::calculate_disorientation(int structureType, Q
 	FloatType qa_norm = qa.norm();
 	FloatType qb_norm = qb.norm();
 	double qtarget[4] = { qa.w()/qa_norm, qa.x()/qa_norm, qa.y()/qa_norm, qa.z()/qa_norm };
-	double q[4]       = { qb.w()/qb_norm, qb.x()/qb_norm, qb.y()/qb_norm, qb.z()/qb_norm };
+	double q[4]	   = { qb.w()/qb_norm, qb.x()/qb_norm, qb.y()/qb_norm, qb.z()/qb_norm };
 
 	// Convert structure type back to PTM representation
 	int type = 0;
@@ -668,129 +668,83 @@ fclose(fout);
 
 if (_algorithmType == 0) {
 
-    auto calculateMedian = [](std::vector< FloatType > data)
-    {
-        size_t n = data.size();
-        std::sort(data.begin(), data.end());
-        FloatType median = data[n / 2];
-        if (n % 2 == 0) {
-            median += data[n / 2 - 1];
-            median /= 2;
-        }
-
-        return median;
-    };
-
-
 	// Sort dendrogram entries lexicographically by (merge size, distance).
 	boost::sort(_dendrogram, [](const DendrogramNode& a, const DendrogramNode& b)
-    {
-        if (a.size == b.size)
-            return a.distance < b.distance;
-        else
-            return a.size < b.size;
-    });
+	{
+		if (a.size == b.size)
+			return a.distance < b.distance;
+		else
+			return a.size < b.size;
+	});
 
-    size_t i = 0;
-    size_t start = 0, currentSize = _dendrogram[0].size;
-    std::vector< std::tuple< size_t, FloatType > > transformed; // median of y values for each dsize
-
+	// Transform the data into x = log size, y = log median distance
+	size_t i = 0;
+	size_t start = 0, currentSize = _dendrogram[0].size;
+	std::vector< std::tuple< FloatType, FloatType > > transformed; // median of y values for each dsize
 	for(i=0;i<dendrogramSize;i++) {
-        DendrogramNode& node = _dendrogram[i];
+		DendrogramNode& node = _dendrogram[i];
 
-        if (node.size != currentSize) {
-            size_t count = i - start;
-            FloatType median = _dendrogram[start + count / 2].distance;
-            if (count % 2 == 0) {
-                median += _dendrogram[start + count / 2 - 1].distance;
-                median /= 2;
-            }
-            transformed.push_back(std::make_tuple(currentSize, median));
+		if (node.size != currentSize) {
+			size_t count = i - start;
+			FloatType median = _dendrogram[start + count / 2].distance;
+			if (count % 2 == 0) {
+				median += _dendrogram[start + count / 2 - 1].distance;
+				median /= 2;
+			}
+			transformed.push_back(std::make_tuple(log(currentSize), log(median)));
 
-            currentSize = node.size;
-            start = i;
-        }
-    }
+			currentSize = node.size;
+			start = i;
+		}
+	}
 
-    size_t count = i - start;
-    FloatType median = _dendrogram[i + count / 2].distance;
-    if (count % 2 == 0) {
-        median += _dendrogram[i + count / 2 - 1].distance;
-        median /= 2;
-    }
+	size_t count = i - start;
+	FloatType median = _dendrogram[i + count / 2].distance;
+	if (count % 2 == 0) {
+		median += _dendrogram[i + count / 2 - 1].distance;
+		median /= 2;
+	}
 
-    transformed.push_back(std::make_tuple(currentSize, median));
-    // TODO: check that `transformed` contains more than 1 element
+	transformed.push_back(std::make_tuple(log(currentSize), log(median)));
+	// TODO: check that `transformed` contains more than 1 element
 
-    // Use Theil-Sen estimator for linear regression
-    // Fit gradient (median of k gradient samples)
-    std::vector< FloatType > gradients;
-    for (size_t it=0;it<100000;it++) {
-        size_t i = rand() % transformed.size();
-        size_t j = i;
-        while (i == j) {
-            j = rand() % transformed.size();
-        }
+	// Use Theil-Sen estimator to perform a robust linear regression
+	FloatType gradient, intercept;
+	auto residuals = GrainSegmentationEngine::theil_sen_estimator(100000, transformed, gradient, intercept);
+	std::vector< FloatType > absoluteResiduals;
+	for (size_t i=0;i<residuals.size();i++) {
+		absoluteResiduals.push_back(fabs(residuals[i]));
+	}
 
-        auto a = transformed[i];
-        auto b = transformed[j];
-        if (std::get<0>(b) < std::get<0>(a)) {
-            std::swap(a, b);
-        }
+	// Calculate suggested threshold
+	FloatType sigma = 1.4826 * calculate_median(absoluteResiduals);
+	printf("sigma: %f\n", sigma);
 
-        FloatType dy = log(std::get<1>(b)) - log(std::get<1>(a));
-        FloatType dx = log(std::get<0>(b)) - log(std::get<0>(a));
-        gradients.push_back(dy / dx);
-    }
-    FloatType gradient = calculateMedian(gradients);
-
-    // Fit intercept (median of residuals)
-    std::vector< FloatType > residuals;
-    for (auto point: transformed) {
-        FloatType x = log(std::get<0>(point));
-        FloatType y = log(std::get<1>(point));
-        residuals.push_back(y - gradient * x);
-    }
-    FloatType intercept = calculateMedian(residuals);
-
-printf("fit: %f %f\n", gradient, intercept);
-
-    // Calculate residuals from best fit
-    std::vector< FloatType > absoluteResiduals;
-    for (size_t i=0;i<residuals.size();i++) {
-        residuals[i] -= intercept;
-        absoluteResiduals.push_back(fabs(residuals[i]));
-    }
-
-    // Calculate suggested threshold
-    FloatType sigma = 1.4826 * calculateMedian(absoluteResiduals);
-printf("sigma: %f\n", sigma);
-
-    FloatType minSuggestion = 0;
+	FloatType minSuggestion = 0;
 	for(DendrogramNode& node : _dendrogram) {
 		FloatType x = log(node.size);
 		FloatType y = log(node.distance);
 
-        FloatType prediction = x * gradient + intercept;
-        FloatType residual = y - prediction;
-        if (residual < 2.5 * sigma) {
-            minSuggestion = std::max(minSuggestion, log(node.distance));
-        }
-    }
+		FloatType prediction = x * gradient + intercept;
+		FloatType residual = y - prediction;
+		if (residual < 2.5 * sigma) {
+			minSuggestion = std::max(minSuggestion, log(node.distance));
+		}
+	}
 
 	// Sort dendrogram entries by distance.
 	boost::sort(_dendrogram, [](const DendrogramNode& a, const DendrogramNode& b) { return a.distance < b.distance; });
 
-    // Set a slightly higher threshold, ignoring small merges
-    FloatType maxSuggestion = minSuggestion;
+	// Set a slightly higher threshold, ignoring small merges
+	FloatType maxSuggestion = minSuggestion;
 	for(DendrogramNode& node : _dendrogram) {
-        if (log(node.distance) <= maxSuggestion) continue;
-        if (node.size >= _minPlotSize) break;
-        maxSuggestion = log(node.distance);
-    }
+		if (log(node.distance) <= maxSuggestion) continue;
+		if (node.size >= _minPlotSize) break;
+		maxSuggestion = log(node.distance);
+	}
 
-    FloatType suggestedThreshold = (minSuggestion + maxSuggestion) / 2;
-    printf("suggested log threshold: %f (%f, %f)\n", suggestedThreshold, minSuggestion, maxSuggestion);
+	FloatType suggestedThreshold = (minSuggestion + maxSuggestion) / 2;
+	printf("suggested log threshold: %f (%f, %f)\n", suggestedThreshold, minSuggestion, maxSuggestion);
 }
 
 	return !isCanceled();
