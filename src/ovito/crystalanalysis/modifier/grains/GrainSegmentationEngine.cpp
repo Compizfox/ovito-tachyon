@@ -726,7 +726,7 @@ if (_algorithmType == 0) {
 
 		FloatType prediction = x * gradient + intercept;
 		FloatType residual = y - prediction;
-		if (residual < 2.5 * sigma) {
+		if (residual < 2. * sigma) {
 			minSuggestion = std::max(minSuggestion, log(node.distance));
 		}
 	}
