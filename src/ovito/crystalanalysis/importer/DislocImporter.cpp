@@ -120,7 +120,7 @@ FileSourceImporter::FrameDataPtr DislocImporter::FrameLoader::loadFile()
 		// Open the input file for reading.
 		NCERR(nc_open(qPrintable(filename), NC_NOWRITE, &root_ncid));
 
-		// Make sure we have the right file conventions
+		// Make sure we have the right file convention.
 		size_t len;
 		NCERR(nc_inq_attlen(root_ncid, NC_GLOBAL, "Conventions", &len));
 		auto conventions_str = std::make_unique<char[]>(len+1);
@@ -129,6 +129,23 @@ FileSourceImporter::FrameDataPtr DislocImporter::FrameLoader::loadFile()
 		if(strcmp(conventions_str.get(), "FixDisloc"))
 			throw Exception(tr("NetCDF file follows '%1' conventions; expected 'FixDisloc' convention.").arg(conventions_str.get()));
 
+		// Read precise version of file convention.
+		enum DislocFileConvention {
+			CONVENTION_1_1,
+			CONVENTION_1_2
+		};
+		NCERR(nc_inq_attlen(root_ncid, NC_GLOBAL, "ConventionVersion", &len));
+		auto convention_version_str = std::make_unique<char[]>(len+1);
+		NCERR(nc_get_att_text(root_ncid, NC_GLOBAL, "ConventionVersion", convention_version_str.get()));
+		convention_version_str[len] = '\0';
+		DislocFileConvention fileConvention;
+		if(strcmp(convention_version_str.get(), "1.1") == 0)
+			fileConvention = CONVENTION_1_1;
+		else if(strcmp(convention_version_str.get(), "1.2") == 0)
+			fileConvention = CONVENTION_1_2;
+		else
+			throw Exception(tr("NetCDF file follows convention version %1. This version of OVITO only supports convention versions 1.1/1.2.").arg(convention_version_str.get()));
+
 		// Read lattice structure.
 		NCERR(nc_inq_attlen(root_ncid, NC_GLOBAL, "LatticeStructure", &len));
 		auto lattice_structure_str = std::make_unique<char[]>(len+1);
@@ -136,11 +153,14 @@ FileSourceImporter::FrameDataPtr DislocImporter::FrameLoader::loadFile()
 		lattice_structure_str[len] = '\0';
 
 		// Get NetCDF dimensions.
-		int spatial_dim, nodes_dim, dislocation_segments_dim, pair_dim, node_id_dim;
+		int spatial_dim, nodes_dim, dislocation_segments_dim, pair_dim, line_segment_dim, node_id_dim;
 		NCERR(nc_inq_dimid(root_ncid, "spatial", &spatial_dim));
 		NCERR(nc_inq_dimid(root_ncid, "nodes", &nodes_dim));
 		NCERR(nc_inq_dimid(root_ncid, "dislocations", &dislocation_segments_dim));
-		NCERR(nc_inq_dimid(root_ncid, "pair", &pair_dim));
+		if(fileConvention == CONVENTION_1_1)
+			NCERR(nc_inq_dimid(root_ncid, "pair", &pair_dim));
+		else
+			NCERR(nc_inq_dimid(root_ncid, "line_segment", &line_segment_dim));
 		NCERR(nc_inq_dimid(root_ncid, "node_id", &node_id_dim));
 
 		// Get NetCDF variables.
@@ -191,24 +211,44 @@ FileSourceImporter::FrameDataPtr DislocImporter::FrameLoader::loadFile()
 		size_t numNodeRecords;
 		NCERR(nc_inq_dimlen(root_ncid, nodes_dim, &numNodeRecords));
 		std::vector<Point_3<float>> nodalPositions(numNodeRecords);
-		std::vector<std::array<qlonglong,4>> nodalIds(numNodeRecords);
+		std::vector<std::array<qlonglong,3>> nodalIds3;
+		std::vector<std::array<qlonglong,4>> nodalIds4;
 		if(numNodeRecords) {
 			NCERR(nc_get_var_float(root_ncid, nodal_positions_var, nodalPositions.front().data()));
-			NCERR(nc_get_var_longlong(root_ncid, nodal_ids_var, nodalIds.front().data()));
+			if(fileConvention == CONVENTION_1_1) {
+				nodalIds4.resize(numNodeRecords);
+				NCERR(nc_get_var_longlong(root_ncid, nodal_ids_var, nodalIds4.front().data()));
+			}
+			else {
+				nodalIds3.resize(numNodeRecords);
+				NCERR(nc_get_var_longlong(root_ncid, nodal_ids_var, nodalIds3.front().data()));
+			}
 		}
 
 		// Build list of unique nodes.
-		std::vector<MicrostructureData::vertex_index> vertexMap(numNodeRecords);
-		std::unordered_map<std::array<qlonglong,4>, MicrostructureData::vertex_index, boost::hash<std::array<qlonglong,4>>> idMap;
-		auto vertexMapIter = vertexMap.begin();
+		std::vector<MicrostructureData::vertex_index> vertexMap;
+		std::unordered_map<std::array<qlonglong,3>, MicrostructureData::vertex_index, boost::hash<std::array<qlonglong,3>>> idMap3;
+		std::unordered_map<std::array<qlonglong,4>, MicrostructureData::vertex_index, boost::hash<std::array<qlonglong,4>>> idMap4;
 		auto nodalPositionsIter = nodalPositions.cbegin();
-		for(const auto& id : nodalIds) {
-			auto iter = idMap.find(id);
-			if(iter == idMap.end())
-				iter = idMap.emplace(id, microstructure.createVertex(Point3(*nodalPositionsIter))).first;
-			*vertexMapIter = iter->second;
-			++vertexMapIter;
-			++nodalPositionsIter;
+		if(fileConvention == CONVENTION_1_1) {
+			vertexMap.resize(numNodeRecords);
+			auto vertexMapIter = vertexMap.begin();
+			for(const auto& id : nodalIds4) {
+				auto iter = idMap4.find(id);
+				if(iter == idMap4.end())
+					iter = idMap4.emplace(id, microstructure.createVertex(Point3(*nodalPositionsIter))).first;
+				*vertexMapIter = iter->second;
+				++vertexMapIter;
+				++nodalPositionsIter;
+			}
+		}
+		else {
+			for(const auto& id : nodalIds3) {
+				auto iter = idMap3.find(id);
+				if(iter == idMap3.end())
+					iter = idMap3.emplace(id, microstructure.createVertex(Point3(*nodalPositionsIter))).first;
+				++nodalPositionsIter;
+			}
 		}
 
 		// Read dislocation segments.
@@ -218,22 +258,54 @@ FileSourceImporter::FrameDataPtr DislocImporter::FrameLoader::loadFile()
 		size_t numDislocationSegments;
 		NCERR(nc_inq_dimlen(root_ncid, dislocation_segments_dim, &numDislocationSegments));
 		std::vector<Vector_3<float>> burgersVectors(numDislocationSegments);
-		std::vector<std::array<qlonglong,2>> dislocationSegments(numDislocationSegments);
+		std::vector<std::array<qlonglong,2>> dislocationSegments2;
+		std::vector<std::array<qlonglong,3>> dislocationSegments3;
 		if(numDislocationSegments) {
 			NCERR(nc_get_var_float(root_ncid, burgers_vectors_var, burgersVectors.front().data()));
-			NCERR(nc_get_var_longlong(root_ncid, dislocation_segments_var, dislocationSegments.front().data()));
+			if(fileConvention == CONVENTION_1_1) {
+				dislocationSegments2.resize(numDislocationSegments);
+				NCERR(nc_get_var_longlong(root_ncid, dislocation_segments_var, dislocationSegments2.front().data()));
+			}
+			else {
+				dislocationSegments3.resize(numDislocationSegments);
+				NCERR(nc_get_var_longlong(root_ncid, dislocation_segments_var, dislocationSegments3.front().data()));
+			}
 		}
 
 		// Create dislocation segments.
 		auto burgersVector = burgersVectors.cbegin();
-		for(const auto& seg : dislocationSegments) {
-			OVITO_ASSERT(seg[0] >= 0 && seg[0] < vertexMap.size());
-			OVITO_ASSERT(seg[1] >= 0 && seg[1] < vertexMap.size());
-			MicrostructureData::vertex_index vertex1 = vertexMap[seg[0]];
-			MicrostructureData::vertex_index vertex2 = vertexMap[seg[1]];
-			microstructure.createDislocationSegment(vertex1, vertex2, Vector3(*burgersVector++), crystalRegion);
+		if(fileConvention == CONVENTION_1_1) {
+			for(const auto& seg : dislocationSegments2) {
+				OVITO_ASSERT(seg[0] >= 0 && seg[0] < vertexMap.size());
+				OVITO_ASSERT(seg[1] >= 0 && seg[1] < vertexMap.size());
+				MicrostructureData::vertex_index vertex1 = vertexMap[seg[0]];
+				MicrostructureData::vertex_index vertex2 = vertexMap[seg[1]];
+				microstructure.createDislocationSegment(vertex1, vertex2, Vector3(*burgersVector++), crystalRegion);
+			}
+			segmentCount = dislocationSegments2.size();
 		}
-		segmentCount = dislocationSegments.size();
+		else {
+			for(const auto& seg : dislocationSegments3) {
+				std::array<qlonglong,3> nodeId1 = { seg[0], seg[1], 0 };
+				std::array<qlonglong,3> nodeId2 = { seg[0], seg[1], seg[2] };
+                if(nodeId1[1] < nodeId1[0])
+                    std::swap(nodeId1[0], nodeId1[1]);
+                std::sort(nodeId2.begin(), nodeId2.end());
+
+				auto iter1 = idMap3.find(nodeId1);
+				if(iter1 == idMap3.end())
+					throw Exception(tr("Detected inconsistent dislocation segment information in NetCDF file."));
+
+				auto iter2 = idMap3.find(nodeId2);
+				if(iter2 == idMap3.end())
+					throw Exception(tr("Detected inconsistent dislocation segment information in NetCDF file."));
+
+				MicrostructureData::vertex_index vertex1 = iter1->second;
+				MicrostructureData::vertex_index vertex2 = iter2->second;
+				microstructure.createDislocationSegment(vertex1, vertex2, Vector3(*burgersVector++), crystalRegion);
+			}
+			segmentCount = dislocationSegments3.size();
+		}
 
 		// Form continuous dislocation lines from the segments.
 		microstructure.makeContinuousDislocationLines();

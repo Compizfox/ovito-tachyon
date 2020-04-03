@@ -33,6 +33,7 @@
       <listitem><link linkend="data_inspector.bonds">Bonds</link></listitem>
       <listitem><link linkend="data_inspector.attributes">Global attributes</link></listitem>
       <listitem><link linkend="data_inspector.data_tables">Data tables</link></listitem>
+      <listitem><link linkend="data_inspector.voxel_grids">Voxel grids</link></listitem>
       <listitem><link linkend="data_inspector.dislocations">Dislocations</link></listitem>
     </itemizedlist>
    </para>
@@ -41,6 +42,7 @@
   <xi:include href="bonds.docbook"/>
   <xi:include href="attributes.docbook"/>
   <xi:include href="data_tables.docbook"/>
+  <xi:include href="voxel_grids.docbook"/>
   <xi:include href="dislocations.docbook"/>
 
 </section>

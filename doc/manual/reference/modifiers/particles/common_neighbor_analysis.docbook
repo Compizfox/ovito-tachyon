@@ -55,6 +55,15 @@
   for each individual particle.</para>
   </listitem></varlistentry>
 
+  <varlistentry><term>Interval CNA (with variable cutoff)</term>
+  <listitem>
+  <para>Sometimes an appriopriate cutoff cannot be found using either the conventional CNA <emphasis>or</emphasis> the adaptive CNA,
+  in particular at elevated temperatures. In this case the <emphasis>Interval Common Neighbor Analysis</emphasis> (i-CNA) method
+  [<link xlink:href="https://arxiv.org/abs/2003.08879">Larsen</link>]
+  may be used. For each particle it investigates all possible threshold choices. This is slower than the other methods but has a
+  better recognition rate.</para>
+  </listitem></varlistentry>
+
   <varlistentry><term>Bond-based CNA (without cutoff)</term>
   <listitem>
   <para>The modifier also supports a <emphasis>bond-based</emphasis> mode of operation. Then the CNA indices

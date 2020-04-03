@@ -69,6 +69,9 @@ private:
 
 	/// The list of clipped and wrapped line segments.
 	DECLARE_RUNTIME_PROPERTY_FIELD(std::vector<RenderableDislocationLines::Segment>, lineSegments, setLineSegments);
+
+	/// The associated cluster graph.
+	DECLARE_RUNTIME_PROPERTY_FIELD(std::shared_ptr<ClusterGraph>, clusterGraph, setClusterGraph);
 };
 
 }	// End of namespace

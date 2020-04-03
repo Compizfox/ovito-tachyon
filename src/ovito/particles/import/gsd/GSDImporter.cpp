@@ -381,6 +381,9 @@ void GSDImporter::FrameLoader::parseParticleShape(int typeId, ParticleFrameData:
 	else if(shapeType == "Mesh") {
 		parseMeshShape(typeId, typeList, shapeSpec.object(), shapeSpecString);
 	}
+	else if(shapeType == "SphereUnion") {
+		parseSphereUnionShape(typeId, typeList, shapeSpec.object(), shapeSpecString);
+	}
 	else {
 		qWarning() << "GSD file reader: The following particle shape type is not supported by this version of OVITO:" << shapeType;
 	}
@@ -780,6 +783,76 @@ void GSDImporter::FrameLoader::parseMeshShape(int typeId, ParticleFrameData::Typ
 	typeList->setTypeShape(typeId, std::move(triMesh));
 }
 
+/******************************************************************************
+* Parsing routine for 'SphereUnion' particle shape definitions.
+******************************************************************************/
+void GSDImporter::FrameLoader::parseSphereUnionShape(int typeId, ParticleFrameData::TypeList* typeList, QJsonObject definition, const QByteArray& shapeSpecString)
+{
+	// Parse the list of sphere centers.
+	std::vector<Point3> centers;
+	const QJsonValue centersArrayVal = definition.value("centers");
+	if(!centersArrayVal.isArray())
+		throw Exception(tr("Missing or invalid 'centers' array in 'SphereUnion' particle shape definition in GSD file."));
+	for(QJsonValue val : centersArrayVal.toArray()) {
+		const QJsonArray coordinateArray = val.toArray();
+		if(coordinateArray.size() != 3)
+			throw Exception(tr("Invalid vertex value in 'centers' array of 'SphereUnion' particle shape definition in GSD file."));
+		Point3 center;
+		for(int c = 0; c < 3; c++)
+			center[c] = coordinateArray[c].toDouble();
+		centers.push_back(center);
+	}
+	if(centers.size() < 1)
+		throw Exception(tr("Invalid 'SphereUnion' particle shape definition in GSD file: Number of spheres must be at least 1."));
+	
+	// Parse the list of sphere diameters.
+	std::vector<FloatType> diameters;
+	const QJsonValue diametersArrayVal = definition.value("diameters");
+	if(!diametersArrayVal.isArray())
+		throw Exception(tr("Missing or invalid 'diameters' array in 'SphereUnion' particle shape definition in GSD file."));
+	for(QJsonValue val : diametersArrayVal.toArray()) {
+		diameters.push_back(val.toDouble());
+		if(diameters.back() <= 0)
+			throw Exception(tr("Invalid diameters value in 'diameters' array of 'SphereUnion' particle shape definition in GSD file."));
+	}
+	if(diameters.size() != centers.size())
+		throw Exception(tr("Invalid 'SphereUnion' particle shape definition in GSD file: Length of diameters array must match length of centers array."));
+
+	// Build template for a triangulated (ico)sphere:
+	TriMesh sphereTemplate = TriMesh::createIcosphere(_roundingResolution - 1);
+	const int unitSphereVertexCount = sphereTemplate.vertexCount();
+	const int unitSphereFaceCount = sphereTemplate.faceCount();
+
+	// Generate the triangle mesh for the union of spheres by duplicating the unit sphere template.
+	std::shared_ptr<TriMesh> triMesh = std::make_shared<TriMesh>();
+	triMesh->setVertexCount(unitSphereVertexCount * centers.size());
+	triMesh->setFaceCount(unitSphereFaceCount * centers.size());
+	triMesh->setHasNormals(true);
+	auto vertex = triMesh->vertices().begin();
+	auto face = triMesh->faces().begin();
+	auto normal = triMesh->normals().begin();
+	for(size_t sphereIndex = 0; sphereIndex < centers.size(); sphereIndex++) {
+		const Point3 center = centers[sphereIndex];
+		const FloatType diameter = 0.5 * diameters[sphereIndex];
+		const int baseVertex = sphereIndex * unitSphereVertexCount;
+		for(const Point3& p : sphereTemplate.vertices())
+			*vertex++ = Point3(p.x() * diameter + center.x(), p.y() * diameter + center.y(), p.z() * diameter + center.z());
+		for(const TriMeshFace& inFace : sphereTemplate.faces()) {
+			for(int v = 0; v < 3; v++) {
+				face->setVertex(v, inFace.vertex(v) + baseVertex);
+				const Point3& vpos = sphereTemplate.vertex(inFace.vertex(v));
+				*normal++ = Vector3(vpos.x(), vpos.y(), vpos.z());
+			}
+			++face;
+		}
+	}
+
+	// Store shape geometry in internal cache to avoid parsing the JSON string again for other animation frames.
+	_importer->storeParticleShapeInCache(shapeSpecString, triMesh);
+
+	// Assign shape to particle type.
+	typeList->setTypeShape(typeId, std::move(triMesh));
+}
 
 }	// End of namespace
 }	// End of namespace

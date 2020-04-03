@@ -21,6 +21,8 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 
 #include <ovito/gui/desktop/GUI.h>
+#include <ovito/core/app/Application.h>
+#include <ovito/core/utilities/io/FileManager.h>
 #include "ImportFileDialog.h"
 
 namespace Ovito {
@@ -59,6 +61,14 @@ QString ImportFileDialog::fileToImport() const
 		return filesToImport.front();
 	}
 	else return _selectedFile;
+}
+
+/******************************************************************************
+* Returns the file to import after the dialog has been closed with "OK".
+******************************************************************************/
+QUrl ImportFileDialog::urlToImport() const
+{
+	return Application::instance()->fileManager()->urlFromUserInput(fileToImport());
 }
 
 /******************************************************************************

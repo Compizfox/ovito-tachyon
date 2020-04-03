@@ -47,6 +47,7 @@ public:
 	enum CNAMode {
 		FixedCutoffMode,	///< Performs the conventional CNA using a global cutoff radius.
 		AdaptiveCutoffMode,	///< Performs the adaptive CNA, which picks an optimal cutoff for each atom.
+		IntervalCutoffMode,	///< Performs the interval CNA, which performs an interval analysis to find the optimal cutoff for each atom.
 		BondMode,			///< Performs the CNA based on the existing network of bonds.
 	};
 	Q_ENUMS(CNAMode);
@@ -174,6 +175,18 @@ private:
 		virtual void perform() override;
 	};
 
+	/// Analysis engine that performs the interval common neighbor analysis.
+	class IntervalCNAEngine : public CNAEngine
+	{
+	public:
+
+		/// Constructor.
+		using CNAEngine::CNAEngine;
+
+		/// Computes the modifier's results.
+		virtual void perform() override;
+	};
+
 	/// Analysis engine that performs the common neighbor analysis based on existing bonds.
 	class BondCNAEngine : public CNAEngine
 	{
@@ -212,7 +225,16 @@ private:
 	static StructureType determineStructureAdaptive(NearestNeighborFinder& neighList, size_t particleIndex, const QVector<bool>& typesToIdentify);
 
 	/// Determines the coordination structure of a single particle using the common neighbor analysis method.
+	static StructureType determineStructureInterval(NearestNeighborFinder& neighList, size_t particleIndex, const QVector<bool>& typesToIdentify);
+
+	/// Determines the coordination structure of a single particle using the common neighbor analysis method.
 	static StructureType determineStructureFixed(CutoffNeighborFinder& neighList, size_t particleIndex, const QVector<bool>& typesToIdentify);
+
+	/// Determines the coordination signature for structures with 12 neighbors.
+	static StructureType analyzeSmallSignature(NeighborBondArray& neighborArray, const QVector<bool>& typesToIdentify);
+
+	/// Determines the coordination signature for structures with 14 neighbors.
+	static StructureType analyzeLargeSignature(NeighborBondArray& neighborArray, const QVector<bool>& typesToIdentify);
 
 	/// The cutoff radius used for the conventional CNA.
 	DECLARE_MODIFIABLE_PROPERTY_FIELD_FLAGS(FloatType, cutoff, setCutoff, PROPERTY_FIELD_MEMORIZE);

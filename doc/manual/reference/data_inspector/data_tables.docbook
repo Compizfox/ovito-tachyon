@@ -19,7 +19,7 @@
     </informalfigure>
 
     This tab of the <link linkend="data_inspector">data inspector panel</link> lists all
-    data tables and data plots computed by the current pipeline. A data table is a collection of data columns 
+    data tables and data plots computed by the current pipeline. A <link linkend="scene_objects.data_table">data table</link> is a collection of data columns 
     that can be plotted as a graph, histogram or scatter plot.
   </para>
 

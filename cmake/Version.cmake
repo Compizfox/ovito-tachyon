@@ -84,7 +84,7 @@ IF(NOT OVITO_COPYRIGHT_NOTICE)
 	STRING(TIMESTAMP _CURRENT_YEAR "%Y")
 	SET(OVITO_COPYRIGHT_NOTICE
 		"<p>A scientific visualization and analysis software for atomistic simulation data.</p>\
-		 <p>Copyright (C) ${_CURRENT_YEAR}, Alexander Stukowski</p>\
+		 <p>Copyright (C) ${_CURRENT_YEAR}, OVITO GmbH, Germany</p>\
 		 <p>\
 		 This is free, open-source software, and you are welcome to redistribute\
 		 it under certain conditions. See the user manual for copying conditions.</p>\

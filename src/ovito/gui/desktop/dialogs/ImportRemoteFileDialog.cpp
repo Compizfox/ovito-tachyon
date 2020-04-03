@@ -136,7 +136,7 @@ void ImportRemoteFileDialog::onOk()
 /******************************************************************************
 * Returns the file to import after the dialog has been closed with "OK".
 ******************************************************************************/
-QUrl ImportRemoteFileDialog::fileToImport() const
+QUrl ImportRemoteFileDialog::urlToImport() const
 {
 	return QUrl::fromUserInput(_urlEdit->currentText());
 }

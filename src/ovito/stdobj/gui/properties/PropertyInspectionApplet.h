@@ -89,6 +89,9 @@ protected:
 	/// Creates the evaluator object for filter expressions.
 	virtual std::unique_ptr<PropertyExpressionEvaluator> createExpressionEvaluator() = 0;
 
+	/// Determines the text shown in cells of the vertical header column.
+	virtual QVariant headerColumnText(int section) { return section; }
+
 	/// Determines whether the given property represents a color.
 	virtual bool isColorProperty(PropertyObject* property) const { return false; }
 
@@ -149,7 +152,7 @@ private:
 				return _properties[section]->name();
 			}
 			else if(orientation == Qt::Vertical && role == Qt::DisplayRole) {
-				return section;
+				return _applet->headerColumnText(section);
 			}
 			return QAbstractTableModel::headerData(section, orientation, role);
 		}

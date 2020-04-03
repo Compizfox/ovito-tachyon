@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<section version="5.0"
+         xsi:schemaLocation="http://docbook.org/ns/docbook http://docbook.org/xml/5.0/xsd/docbook.xsd"
+         xml:id="data_inspector.voxel_grids"
+         xmlns="http://docbook.org/ns/docbook"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xmlns:xs="http://www.w3.org/2001/XMLSchema"
+         xmlns:xlink="http://www.w3.org/1999/xlink"
+         xmlns:xi="http://www.w3.org/2001/XInclude"
+         xmlns:ns="http://docbook.org/ns/docbook">
+  <title>Voxel grids (data inspector)</title>
+  <titleabbrev>Voxel grids</titleabbrev>
+
+  <para>
+    This tab of the <link linkend="data_inspector">data inspector panel</link> lists the
+    <link linkend="scene_objects.voxel_grid">voxel grids</link> generated or loaded by the current data pipeline. 
+  </para>
+
+</section>

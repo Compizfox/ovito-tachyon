@@ -97,6 +97,8 @@ void MicrostructureData::makeContinuousDislocationLines()
             if(edgeRegion(arm1) == edgeRegion(arm2)) {
 
                 // Verify that Burgers vector conservation is fulfilled at the 2-node.
+//                if(!(burgersVector(adjacentFace(arm1)).equals(-burgersVector(adjacentFace(arm2)))))
+//                    continue;
                 OVITO_ASSERT(burgersVector(adjacentFace(arm1)).equals(-burgersVector(adjacentFace(arm2))));
 
                 // These conditions must always be fulfilled:

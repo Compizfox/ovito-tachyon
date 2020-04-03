@@ -44,7 +44,7 @@ public:
 	void selectFile(const QUrl& url);
 
 	/// \brief Returns the file to import after the dialog has been closed with "OK".
-	QUrl fileToImport() const;
+	QUrl urlToImport() const;
 
 	/// \brief Returns the selected importer type or NULL if auto-detection is requested.
 	const FileImporterClass* selectedFileImporterType() const;

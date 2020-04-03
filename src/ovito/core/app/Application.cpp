@@ -27,8 +27,8 @@
 #include "Application.h"
 
 // Called from Application::initialize() to register the embedded Qt resource files
-// when running a statically linked executable. Accordings to the Qt documentation this
-// needs to happen from oustide of any C++ namespace.
+// when running a statically linked executable. Following the Qt documentation, this
+// needs to be placed outside of any C++ namespace.
 static void registerQtResources()
 {
 #ifdef OVITO_BUILD_MONOLITHIC
@@ -37,6 +37,11 @@ static void registerQtResources()
 	#if defined(OVITO_BUILD_GUI) || defined(OVITO_BUILD_WEBGUI)
 		Q_INIT_RESOURCE(guibase);
 		Q_INIT_RESOURCE(gui);
+		#ifdef OVITO_BUILD_WEBGUI
+			Q_INIT_RESOURCE(stdobjgui);
+			Q_INIT_RESOURCE(stdmodgui);
+			Q_INIT_RESOURCE(particlesgui);
+		#endif
 	#endif
 #endif
 }
@@ -168,6 +173,14 @@ bool Application::initialize()
 	QMetaType::registerConverter<Color, QColor>();
 	QMetaType::registerConverter<QColor, ColorA>();
 	QMetaType::registerConverter<ColorA, QColor>();
+	QMetaType::registerConverter<Vector2, QVector2D>(&Vector2::operator QVector2D);
+	QMetaType::registerConverter<QVector2D, Vector2>();
+	QMetaType::registerConverter<Vector3, QVector3D>(&Vector3::operator QVector3D);
+	QMetaType::registerConverter<QVector3D, Vector3>();
+	QMetaType::registerConverter<Color, Vector3>();
+	QMetaType::registerConverter<Vector3, Color>();
+	QMetaType::registerConverter<QVector3D, Color>();
+	QMetaType::registerConverter<Color, QVector3D>(&Color::operator QVector3D);
 
 	// Register Qt resources.
 	::registerQtResources();

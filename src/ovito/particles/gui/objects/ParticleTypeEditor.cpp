@@ -167,7 +167,7 @@ void ParticleTypeEditor::createUI(const RolloutInsertionParameters& rolloutParam
 		if(OORef<ParticleType> ptype = static_object_cast<ParticleType>(editObject())) {
 
 			undoableTransaction(tr("Set particle shape"), [&]() {
-				QString selectedFile;
+				QUrl selectedFile;
 				const FileImporterClass* fileImporterType = nullptr;
 				// Put code in a block: Need to release dialog before loading the input file.
 				{
@@ -183,7 +183,7 @@ void ParticleTypeEditor::createUI(const RolloutInsertionParameters& rolloutParam
 					if(fileDialog.exec() != QDialog::Accepted)
 						return;
 
-					selectedFile = fileDialog.fileToImport();
+					selectedFile = fileDialog.urlToImport();
 					fileImporterType = fileDialog.selectedFileImporterType();
 				}
 				// Load the geometry from the selected file.

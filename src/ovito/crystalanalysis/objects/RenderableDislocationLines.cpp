@@ -27,6 +27,7 @@ namespace Ovito { namespace CrystalAnalysis {
 
 IMPLEMENT_OVITO_CLASS(RenderableDislocationLines);
 DEFINE_PROPERTY_FIELD(RenderableDislocationLines, lineSegments);
+DEFINE_PROPERTY_FIELD(RenderableDislocationLines, clusterGraph);
 
 }	// End of namespace
 }	// End of namespace

@@ -191,7 +191,7 @@ void FileSourceEditor::onPickLocalInputFile()
 			if(dialog.exec() != QDialog::Accepted)
 				return;
 
-			newSourceUrl = QUrl::fromLocalFile(dialog.fileToImport());
+			newSourceUrl = dialog.urlToImport();
 			importerType = dialog.selectedFileImporterType();
 		}
 
@@ -231,7 +231,7 @@ void FileSourceEditor::onPickRemoteInputFile()
 			if(dialog.exec() != QDialog::Accepted)
 				return;
 
-			newSourceUrl = dialog.fileToImport();
+			newSourceUrl = dialog.urlToImport();
 			importerType = dialog.selectedFileImporterType();
 		}
 

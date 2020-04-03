@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Copyright 2019 Alexander Stukowski
+//  Copyright 2020 Alexander Stukowski
 //
 //  This file is part of OVITO (Open Visualization Tool).
 //
@@ -70,7 +70,8 @@ bool LAMMPSDataExporter::exportData(const PipelineFlowState& state, int frameNum
 	Vector3 a,b,c;
 	AffineTransformation transformation;
 	bool transformCoordinates;
-	if(simCell.column(0).y() != 0 || simCell.column(0).z() != 0 || simCell.column(1).z() != 0) {
+	if(simCell.column(0).x() < 0 || simCell.column(0).y() != 0 || simCell.column(0).z() != 0 || 
+			simCell.column(1).y() < 0 || simCell.column(1).z() != 0 || simCell.column(2).z() < 0) {
 		a.x() = simCell.column(0).length();
 		a.y() = a.z() = 0;
 		b.x() = simCell.column(1).dot(simCell.column(0)) / a.x();

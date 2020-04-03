@@ -1,7 +1,7 @@
 # Contributor License Agreement
 
 Thank you for your interest in the open source software project OVITO (defined as the GitLab repository “stuko/ovito” – the “Project”) maintained or managed 
-by Alexander Stukowski (“us”). The purpose of this Contribution Agreement (“Agreement”) is to define the intellectual property license granted by persons or 
+by OVITO GmbH, Germany, represented by Alexander Stukowski (“us”). The purpose of this Contribution Agreement (“Agreement”) is to define the intellectual property license granted by persons or 
 entities that contribute code to us for the Project (“Contributions” and further defined below). If the Contribution is made on behalf of a company, the 
 term “you” as used in this Agreement will mean the individual accepting this Agreement as well as the company employing such individual.
 You hereby agree to the following terms and conditions:

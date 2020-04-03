@@ -50,9 +50,11 @@ void CommonNeighborAnalysisModifierEditor::createUI(const RolloutInsertionParame
 	IntegerRadioButtonParameterUI* modeUI = new IntegerRadioButtonParameterUI(this, PROPERTY_FIELD(CommonNeighborAnalysisModifier::mode));
 	QRadioButton* bondModeBtn = modeUI->addRadioButton(CommonNeighborAnalysisModifier::BondMode, tr("Bond-based CNA (without cutoff)"));
 	QRadioButton* adaptiveModeBtn = modeUI->addRadioButton(CommonNeighborAnalysisModifier::AdaptiveCutoffMode, tr("Adaptive CNA (variable cutoff)"));
+	QRadioButton* intervalModeBtn = modeUI->addRadioButton(CommonNeighborAnalysisModifier::IntervalCutoffMode, tr("Interval CNA (variable cutoff)"));
 	QRadioButton* fixedCutoffModeBtn = modeUI->addRadioButton(CommonNeighborAnalysisModifier::FixedCutoffMode, tr("Conventional CNA (fixed cutoff)"));
 	layout1->addWidget(bondModeBtn);
 	layout1->addWidget(adaptiveModeBtn);
+	layout1->addWidget(intervalModeBtn);
 	layout1->addWidget(fixedCutoffModeBtn);
 
 	QGridLayout* gridlayout = new QGridLayout();

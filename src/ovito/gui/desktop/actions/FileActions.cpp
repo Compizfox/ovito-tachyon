@@ -267,7 +267,7 @@ void ActionManager::on_FileImport_triggered()
 			return;
 
 		// Import file.
-		mainWindow()->datasetContainer().importFile(QUrl::fromLocalFile(dialog.fileToImport()), dialog.selectedFileImporterType());
+		mainWindow()->datasetContainer().importFile(dialog.urlToImport(), dialog.selectedFileImporterType());
 	}
 	catch(const Exception& ex) {
 		ex.reportError();
@@ -286,7 +286,7 @@ void ActionManager::on_FileRemoteImport_triggered()
 			return;
 
 		// Import URL.
-		mainWindow()->datasetContainer().importFile(dialog.fileToImport(), dialog.selectedFileImporterType());
+		mainWindow()->datasetContainer().importFile(dialog.urlToImport(), dialog.selectedFileImporterType());
 	}
 	catch(const Exception& ex) {
 		ex.reportError();

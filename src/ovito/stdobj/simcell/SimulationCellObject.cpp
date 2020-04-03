@@ -57,7 +57,8 @@ void SimulationCellObject::init(DataSet* dataset)
 void SimulationCellObject::makeWritableFromPython()
 {
 	if(!isSafeToModify())
-		throwException(tr("Modifying the cell data is not allowed, because the SimulationCell object is currently shared by more than one data collection. Please explicitly request a mutable version of the SimulationCell object by using the '_' notation."));
+		throwException(tr("Modifying the cell is not allowed, because the SimulationCell object is currently shared by more than one data collection. "
+							"Please explicitly request a mutable version of the SimulationCell object by using the '_' notation."));
 	_isWritableFromPython++;
 }
 

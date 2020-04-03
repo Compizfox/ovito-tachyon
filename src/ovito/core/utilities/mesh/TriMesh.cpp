@@ -539,4 +539,75 @@ void TriMesh::removeDuplicateVertices(FloatType epsilon)
 	invalidateFaces();
 }
 
+/******************************************************************************
+* Creates a triangulated unit sphere model by subdividing a icosahedron. 
+* The resolution parameter controls the number of subdivision iterations and determines the
+* resulting vertices/faces of the mesh. 
+******************************************************************************/
+TriMesh TriMesh::createIcosphere(int resolution)
+{
+	OVITO_ASSERT(resolution >= 0);
+
+	constexpr FloatType X = 0.525731112119133606;
+	constexpr FloatType Z = 0.850650808352039932;
+	constexpr FloatType N = 0.0;
+
+	static const Point3 vertices[] = {
+		{-X,N,Z}, {X,N,Z}, {-X,N,-Z}, {X,N,-Z},
+		{N,Z,X}, {N,Z,-X}, {N,-Z,X}, {N,-Z,-X},
+		{Z,X,N}, {-Z,X, N}, {Z,-X,N}, {-Z,-X, N}
+	};
+
+	static const std::array<int,3> triangles[] = {
+		{0,4,1}, {0,9,4}, {9,5,4}, {4,5,8}, {4,8,1},
+		{8,10,1}, {8,3,10}, {5,3,8}, {5,2,3}, {2,7,3},
+		{7,10,3}, {7,6,10}, {7,11,6}, {11,0,6}, {0,1,6},
+		{6,1,10}, {9,0,11}, {9,11,2}, {9,2,5}, {7,2,11}
+	};
+
+	TriMesh mesh;
+	mesh.setVertexCount(sizeof(vertices) / sizeof(vertices[0]));
+	mesh.setFaceCount(sizeof(triangles) / sizeof(triangles[0]));
+	std::copy(std::begin(vertices), std::end(vertices), mesh.vertices().begin());
+	for(int i = 0; i < mesh.faceCount(); i++)
+		mesh.face(i).setVertices(triangles[i][2], triangles[i][1], triangles[i][0]);
+
+	using Lookup = std::map<std::pair<int, int>, int>;
+
+	for(int i = 0; i < resolution; i++) {
+		Lookup lookup;
+		QVector<TriMeshFace> newFaces(mesh.faceCount() * 4);
+		auto newFace = newFaces.begin();
+		for(TriMeshFace& face : mesh.faces()) {
+			std::array<int, 3> mid;
+			for(int edge = 0; edge < 3; edge++) {
+				int first = face.vertex(edge);
+				int second = face.vertex((edge+1)%3);
+
+				Lookup::key_type key(first, second);
+				if(key.first > key.second)
+					std::swap(key.first, key.second);
+				
+				auto inserted = lookup.insert({key, mesh.vertexCount()});
+				if(inserted.second) {
+					const Vector3& edge0 = mesh.vertex(first) - Point3::Origin();
+					const Vector3& edge1 = mesh.vertex(second) - Point3::Origin();
+					Point3 point = Point3::Origin() + (edge0 + edge1).normalized();
+					mesh.addVertex(point);
+				}
+				
+				mid[edge] =  inserted.first->second;
+			}
+			(*newFace++).setVertices(face.vertex(0), mid[0], mid[2]);
+			(*newFace++).setVertices(face.vertex(1), mid[1], mid[0]);
+			(*newFace++).setVertices(face.vertex(2), mid[2], mid[1]);
+			(*newFace++).setVertices(mid[0], mid[1], mid[2]);
+		}
+		mesh._faces = std::move(newFaces);
+	}
+	
+	return mesh;
+}
+
+
 }	// End of namespace

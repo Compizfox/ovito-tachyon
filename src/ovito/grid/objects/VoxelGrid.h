@@ -88,6 +88,14 @@ public:
 		return z * (shape()[0] * shape()[1]) + y * shape()[0] + x;
 	}
 
+	/// Converts a linear voxel array index into grid coordinates.
+	std::array<size_t, 3> voxelCoords(size_t index) const {
+		OVITO_ASSERT(index < elementCount());
+		size_t yz = shape()[0] * shape()[1];
+		OVITO_ASSERT(voxelIndex(index % shape()[0], (index / shape()[0]) % shape()[1], index / yz) == index);
+		return { index % shape()[0], (index / shape()[0]) % shape()[1], index / yz };
+	}
+
 protected:
 
 	/// Saves the class' contents to the given stream.

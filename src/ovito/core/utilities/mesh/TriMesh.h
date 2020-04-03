@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Copyright 2013 Alexander Stukowski
+//  Copyright 2020 Alexander Stukowski
 //
 //  This file is part of OVITO (Open Visualization Tool).
 //
@@ -542,6 +542,13 @@ public:
 
 	/// Clips the mesh at the given plane.
 	void clipAtPlane(const Plane3& plane);
+
+	/************************************* Mesh creation *************************************/
+
+	/// Creates a triangulated unit sphere model by subdividing a icosahedron. 
+	/// The resolution parameter controls the number of subdivision iterations and determines the
+	/// resulting vertices/faces of the mesh. 
+	static TriMesh createIcosphere(int resolution);
 
 private:
 

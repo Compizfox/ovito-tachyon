@@ -169,7 +169,9 @@ void FileManager::fileFetched(QUrl url, QTemporaryFile* localFile)
 ******************************************************************************/
 QUrl FileManager::urlFromUserInput(const QString& path)
 {
-	if(path.startsWith(QStringLiteral("sftp://")))
+	if(path.isEmpty())
+		return QUrl();
+	else if(path.startsWith(QStringLiteral("sftp://")))
 		return QUrl(path);
 	else
 		return QUrl::fromLocalFile(path);

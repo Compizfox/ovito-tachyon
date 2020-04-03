@@ -88,8 +88,10 @@ Future<PipelineFlowState> DislocationVis::transformDataImpl(const PipelineEvalua
 	// Generate the list of clipped line segments.
 	const SimulationCell cellData = cellObject->data();
 	std::vector<RenderableDislocationLines::Segment> outputSegments;
+	std::shared_ptr<ClusterGraph> clusterGraph;
 
 	if(const DislocationNetworkObject* dislocationsObj = dynamic_object_cast<DislocationNetworkObject>(periodicDomainObj)) {
+		clusterGraph = dislocationsObj->storage()->clusterGraph();
 		// Convert the dislocations object.
 		int segmentIndex = 0;
 		for(const DislocationSegment* segment : dislocationsObj->segments()) {
@@ -165,6 +167,7 @@ Future<PipelineFlowState> DislocationVis::transformDataImpl(const PipelineEvalua
 	// Create output RenderableDislocationLines object.
 	OORef<RenderableDislocationLines> renderableLines = new RenderableDislocationLines(this, dataObject);
 	renderableLines->setLineSegments(std::move(outputSegments));
+	renderableLines->setClusterGraph(std::move(clusterGraph));
 	flowState.addObject(renderableLines);
 
 	return std::move(flowState);
@@ -283,7 +286,6 @@ void DislocationVis::render(TimePoint time, const std::vector<const DataObject*>
 	const Microstructure* microstructureObj = dynamic_object_cast<Microstructure>(domainObj);
 	const PropertyObject* phaseProperty = microstructureObj ? microstructureObj->regions()->getProperty(SurfaceMeshRegions::PhaseProperty) : nullptr;
 	const PropertyObject* correspondenceProperty = microstructureObj ? microstructureObj->regions()->getProperty(SurfaceMeshRegions::LatticeCorrespondenceProperty) : nullptr;
-	const ClusterGraphObject* clusterGraphObj = flowState.getObject<ClusterGraphObject>();
 	if(!dislocationsObj && !microstructureObj) return;
 
 	// Get the simulation cell.
@@ -348,8 +350,8 @@ void DislocationVis::render(TimePoint time, const std::vector<const DataObject*>
 				lastRegion = lineSegment.region;
 				lineColor = Color(0.8f,0.8f,0.8f);
 				const MicrostructurePhase* phase = nullptr;
-				if(dislocationsObj && clusterGraphObj) {
-					Cluster* cluster = clusterGraphObj->storage()->findCluster(lineSegment.region);
+				if(dislocationsObj && renderableLines->clusterGraph()) {
+					Cluster* cluster = renderableLines->clusterGraph()->findCluster(lineSegment.region);
 					OVITO_ASSERT(cluster != nullptr);
 					phase = dislocationsObj->structureById(cluster->structure);
 					normalizedBurgersVector = ClusterVector(lineSegment.burgersVector, cluster).toSpatialVector();
