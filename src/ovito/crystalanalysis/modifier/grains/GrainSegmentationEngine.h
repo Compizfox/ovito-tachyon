@@ -133,6 +133,8 @@ private:
 	std::vector< FloatType > theil_sen_estimator(size_t num_samples, std::vector< std::tuple< FloatType, FloatType> >& data,
 												 FloatType& gradient, FloatType& intercept);
 
+    FloatType calculate_threshold_suggestion();
+
 private:
 
 	const size_t _minPlotSize = 20;

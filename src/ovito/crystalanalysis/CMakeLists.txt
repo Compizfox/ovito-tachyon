@@ -48,6 +48,7 @@ SET(SourceFiles
 	modifier/grains/GrainSegmentationEngine.cpp
 	modifier/grains/NodePairSampling.cpp
 	modifier/grains/RobustStatistics.cpp
+	modifier/grains/ThresholdSelection.cpp
 	modifier/microstructure/SimplifyMicrostructureModifier.cpp
 )
 

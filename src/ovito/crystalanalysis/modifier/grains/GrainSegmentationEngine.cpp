@@ -665,86 +665,10 @@ fclose(fout);
 		}
 	}
 
-
-if (_algorithmType == 0) {
-
-	// Sort dendrogram entries lexicographically by (merge size, distance).
-	boost::sort(_dendrogram, [](const DendrogramNode& a, const DendrogramNode& b)
-	{
-		if (a.size == b.size)
-			return a.distance < b.distance;
-		else
-			return a.size < b.size;
-	});
-
-	// Transform the data into x = log size, y = log median distance
-	size_t i = 0;
-	size_t start = 0, currentSize = _dendrogram[0].size;
-	std::vector< std::tuple< FloatType, FloatType > > transformed; // median of y values for each dsize
-	for(i=0;i<dendrogramSize;i++) {
-		DendrogramNode& node = _dendrogram[i];
-
-		if (node.size != currentSize) {
-			size_t count = i - start;
-			FloatType median = _dendrogram[start + count / 2].distance;
-			if (count % 2 == 0) {
-				median += _dendrogram[start + count / 2 - 1].distance;
-				median /= 2;
-			}
-			transformed.push_back(std::make_tuple(log(currentSize), log(median)));
-
-			currentSize = node.size;
-			start = i;
-		}
-	}
-
-	size_t count = i - start;
-	FloatType median = _dendrogram[i + count / 2].distance;
-	if (count % 2 == 0) {
-		median += _dendrogram[i + count / 2 - 1].distance;
-		median /= 2;
-	}
-
-	transformed.push_back(std::make_tuple(log(currentSize), log(median)));
-	// TODO: check that `transformed` contains more than 1 element
-
-	// Use Theil-Sen estimator to perform a robust linear regression
-	FloatType gradient, intercept;
-	auto residuals = GrainSegmentationEngine::theil_sen_estimator(100000, transformed, gradient, intercept);
-	std::vector< FloatType > absoluteResiduals;
-	for (size_t i=0;i<residuals.size();i++) {
-		absoluteResiduals.push_back(fabs(residuals[i]));
-	}
-
-	// Calculate suggested threshold
-	FloatType sigma = 1.4826 * calculate_median(absoluteResiduals);
-
-	FloatType minSuggestion = 0;
-	for(DendrogramNode& node : _dendrogram) {
-		FloatType x = log(node.size);
-		FloatType y = log(node.distance);
-
-		FloatType prediction = x * gradient + intercept;
-		FloatType residual = y - prediction;
-		if (residual < 2. * sigma) {
-			minSuggestion = std::max(minSuggestion, log(node.distance));
-		}
-	}
-
-	// Sort dendrogram entries by distance.
-	boost::sort(_dendrogram, [](const DendrogramNode& a, const DendrogramNode& b) { return a.distance < b.distance; });
-
-	// Set a slightly higher threshold, ignoring small merges
-	FloatType maxSuggestion = minSuggestion;
-	for(DendrogramNode& node : _dendrogram) {
-		if (log(node.distance) <= maxSuggestion) continue;
-		if (node.size >= _minPlotSize) break;
-		maxSuggestion = log(node.distance);
-	}
-
-	FloatType suggestedThreshold = (minSuggestion + maxSuggestion) / 2;
-	printf("suggested log threshold: %f\n", suggestedThreshold);
-}
+    if (_algorithmType == 0) {
+	    FloatType suggestedThreshold = calculate_threshold_suggestion();
+	    printf("suggested log threshold: %f\n", suggestedThreshold);
+    }
 
 	return !isCanceled();
 }
