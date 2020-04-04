@@ -665,8 +665,10 @@ fclose(fout);
 		}
 	}
 
-	if(_algorithmType == GrainSegmentationModifier::NodePairSamplingAutomatic)
+	if(_algorithmType == GrainSegmentationModifier::NodePairSamplingAutomatic) {
 		_suggestedMergingThreshold = calculate_threshold_suggestion();
+		_suggestedMergingThreshold = log(exp(_suggestedMergingThreshold) + 1);
+	}
 
 	return !isCanceled();
 }
