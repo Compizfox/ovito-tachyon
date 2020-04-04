@@ -1,7 +1,7 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Copyright 2019 Alexander Stukowski
-//  Copyright 2019 Peter Mahler Larsen
+//  Copyright 2020 Alexander Stukowski
+//  Copyright 2020 Peter Mahler Larsen
 //
 //  This file is part of OVITO (Open Visualization Tool).
 //
@@ -28,8 +28,7 @@
 #include <ovito/gui/desktop/properties/FloatParameterUI.h>
 #include <ovito/gui/desktop/properties/IntegerParameterUI.h>
 #include <ovito/gui/desktop/properties/BooleanParameterUI.h>
-#include <ovito/gui/desktop/properties/BooleanRadioButtonParameterUI.h>
-#include <ovito/gui/desktop/utilities/concurrent/ProgressDialog.h>
+#include <ovito/gui/desktop/properties/IntegerRadioButtonParameterUI.h>
 #include <ovito/gui/desktop/mainwin/MainWindow.h>
 #include <ovito/core/dataset/DataSetContainer.h>
 #include "GrainSegmentationModifierEditor.h"
@@ -60,21 +59,22 @@ void GrainSegmentationModifierEditor::createUI(const RolloutInsertionParameters&
 	sublayout2->setSpacing(4);
 	sublayout2->setColumnStretch(1, 1);
 
-	BooleanRadioButtonParameterUI* algorithmTypeUI = new BooleanRadioButtonParameterUI(this, PROPERTY_FIELD(GrainSegmentationModifier::algorithmType));
-	algorithmTypeUI->buttonFalse()->setText(tr("Node Pair Sampling"));
-	algorithmTypeUI->buttonTrue()->setText(tr("Minimum Spanning Tree"));
+	IntegerRadioButtonParameterUI* algorithmTypeUI = new IntegerRadioButtonParameterUI(this, PROPERTY_FIELD(GrainSegmentationModifier::mergeAlgorithm));
 	QGridLayout* sublayout3 = new QGridLayout();
 	sublayout3->setContentsMargins(0,0,0,0);
 	sublayout3->setSpacing(4);
 	sublayout2->setColumnStretch(1, 1);
 	sublayout3->addWidget(new QLabel(tr("Algorithm:")), 0, 0);
-	sublayout3->addWidget(algorithmTypeUI->buttonFalse(), 0, 1);
-	sublayout3->addWidget(algorithmTypeUI->buttonTrue(), 1, 1);
+	QRadioButton* automaticModeButton = algorithmTypeUI->addRadioButton(GrainSegmentationModifier::NodePairSamplingAutomatic, tr("Node Pair Sampling (automatic)"));
+	sublayout3->addWidget(automaticModeButton, 0, 1);
+	sublayout3->addWidget(algorithmTypeUI->addRadioButton(GrainSegmentationModifier::NodePairSamplingManual, tr("Node Pair Sampling (manual)")), 1, 1);
+	sublayout3->addWidget(algorithmTypeUI->addRadioButton(GrainSegmentationModifier::MinimumSpanningTree, tr("Minimum Spanning Tree")), 2, 1);
 	sublayout2->addLayout(sublayout3, 0, 0, 1, 2);
 
 	FloatParameterUI* mergingThresholdUI = new FloatParameterUI(this, PROPERTY_FIELD(GrainSegmentationModifier::mergingThreshold));
 	sublayout2->addWidget(mergingThresholdUI->label(), 1, 0);
 	sublayout2->addLayout(mergingThresholdUI->createFieldLayout(), 1, 1);
+	connect(automaticModeButton, &QAbstractButton::toggled, mergingThresholdUI, &ParameterUI::setDisabled);
 
 	IntegerParameterUI* minGrainAtomCountUI = new IntegerParameterUI(this, PROPERTY_FIELD(GrainSegmentationModifier::minGrainAtomCount));
 	sublayout2->addWidget(minGrainAtomCountUI->label(), 2, 0);
@@ -157,7 +157,7 @@ bool GrainSegmentationModifierEditor::referenceEvent(RefTarget* source, const Re
 }
 
 /******************************************************************************
-* Replots the histogram computed by the modifier.
+* Replots the RMSD value histogram computed by the modifier.
 ******************************************************************************/
 void GrainSegmentationModifierEditor::plotHistogram()
 {
@@ -183,6 +183,9 @@ void GrainSegmentationModifierEditor::plotHistogram()
 	}
 }
 
+/******************************************************************************
+* Replots the merge sequence computed by the modifier.
+******************************************************************************/
 void GrainSegmentationModifierEditor::plotMerges()
 {
 	GrainSegmentationModifier* modifier = static_object_cast<GrainSegmentationModifier>(editObject());
@@ -195,7 +198,11 @@ void GrainSegmentationModifierEditor::plotMerges()
 		_mergePlotWidget->setTable(state.getObjectBy<DataTable>(modifierApplication(), QStringLiteral("grains-merge")));
 
 		// Indicate the current merge threshold in the plot.
-		_mergeRangeIndicator->setInterval(std::numeric_limits<double>::lowest(), modifier->mergingThreshold());
+		FloatType mergingThreshold = modifier->mergingThreshold();
+		if(modifier->mergeAlgorithm() == GrainSegmentationModifier::NodePairSamplingAutomatic) {
+			mergingThreshold = state.getAttributeValue(modifierApplication(), QStringLiteral("GrainSegmentation.auto_merge_threshold"), mergingThreshold).value<FloatType>();
+		}
+		_mergeRangeIndicator->setInterval(std::numeric_limits<double>::lowest(), mergingThreshold);
 		_mergeRangeIndicator->show();
 	}
 	else {

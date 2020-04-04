@@ -1,7 +1,7 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Copyright 2019 Alexander Stukowski
-//  Copyright 2019 Peter Mahler Larsen
+//  Copyright 2020 Alexander Stukowski
+//  Copyright 2020 Peter Mahler Larsen
 //
 //  This file is part of OVITO (Open Visualization Tool).
 //
@@ -30,6 +30,7 @@
 #include <ovito/particles/objects/BondsObject.h>
 #include <ovito/particles/modifier/analysis/ptm/PTMAlgorithm.h>
 #include "DisjointSet.h"
+#include "GrainSegmentationModifier.h"
 
 namespace Ovito { namespace CrystalAnalysis {
 
@@ -67,7 +68,7 @@ public:
 	GrainSegmentationEngine(
 			ParticleOrderingFingerprint fingerprint, ConstPropertyPtr positions, const SimulationCell& simCell,
 			const QVector<bool>& typesToIdentify, ConstPropertyPtr selection,
-			FloatType rmsdCutoff, bool algorithmType, bool outputBonds);
+			FloatType rmsdCutoff, GrainSegmentationModifier::MergeAlgorithm algorithmType, bool outputBonds);
 
 	/// Performs the computation.
 	virtual void perform() override;
@@ -95,6 +96,9 @@ public:
 
 	/// Returns the array storing the cluster ID of each particle.
 	const PropertyPtr& atomClusters() const { return _atomClusters; }
+
+	/// Returns the adaptively determined merge threshold.
+	FloatType suggestedMergingThreshold() const { return _suggestedMergingThreshold; }
 
 private:
 
@@ -173,7 +177,7 @@ private:
 	PropertyPtr _mergeSize;
 
 	// The linkage criterion used in the merge algorithm
-	bool _algorithmType;
+	GrainSegmentationModifier::MergeAlgorithm _algorithmType;
 
 	/// The computed per-particle lattice orientations.
 	PropertyPtr _orientations;
@@ -213,6 +217,9 @@ private:
 
 	/// The output list of mean grain orientations.
 	PropertyPtr _grainOrientations;
+
+	/// The adaptively computed merge threshold.
+	FloatType _suggestedMergingThreshold = 0;
 };
 
 }	// End of namespace

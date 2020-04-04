@@ -1,7 +1,7 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Copyright 2019 Alexander Stukowski
-//  Copyright 2019 Peter Mahler Larsen
+//  Copyright 2020 Alexander Stukowski
+//  Copyright 2020 Peter Mahler Larsen
 //
 //  This file is part of OVITO (Open Visualization Tool).
 //
@@ -45,7 +45,7 @@ namespace Ovito { namespace CrystalAnalysis {
 GrainSegmentationEngine::GrainSegmentationEngine(
 			ParticleOrderingFingerprint fingerprint, ConstPropertyPtr positions, const SimulationCell& simCell,
 			const QVector<bool>& typesToIdentify, ConstPropertyPtr selection,
-			FloatType rmsdCutoff, bool algorithmType, bool outputBonds) :
+			FloatType rmsdCutoff, GrainSegmentationModifier::MergeAlgorithm algorithmType, bool outputBonds) :
 	StructureIdentificationModifier::StructureIdentificationEngine(std::move(fingerprint), positions, simCell, std::move(typesToIdentify), std::move(selection)),
 	_numParticles(positions->size()),
 	_rmsdCutoff(rmsdCutoff),
@@ -529,7 +529,7 @@ bool GrainSegmentationEngine::determineMergeSequence()
 		if(bond.superCluster != 0 && bond.disorientation <= _misorientationThreshold) {
 			// Convert disorientations to graph weights.
 			FloatType deg = qRadiansToDegrees(bond.disorientation);
-			if(_algorithmType == 0) {
+			if(_algorithmType == GrainSegmentationModifier::NodePairSamplingAutomatic || _algorithmType == GrainSegmentationModifier::NodePairSamplingManual) {
 				bond.weight = std::exp(-FloatType(1)/3 * deg * deg);	// This is fairly arbitrary but it works well.
 				if (structuresArray[bond.a] != structuresArray[bond.b]) {
 					bond.weight /= 2;
@@ -588,7 +588,7 @@ bool GrainSegmentationEngine::determineMergeSequence()
 		size_t index = dendrogramOffsets[sc];
 		int structureType = structuresArray[neighborBonds()[start].a];
 
-		if(_algorithmType == 0) {
+		if(_algorithmType == GrainSegmentationModifier::NodePairSamplingAutomatic || _algorithmType == GrainSegmentationModifier::NodePairSamplingManual) {
 			// setting the total weight to 1 is an effective multi-frame normalization
 			node_pair_sampling_clustering(
 				boost::make_iterator_range_n(neighborBonds().cbegin() + start, count), 
@@ -665,10 +665,8 @@ fclose(fout);
 		}
 	}
 
-    if (_algorithmType == 0) {
-	    FloatType suggestedThreshold = calculate_threshold_suggestion();
-	    printf("suggested log threshold: %f\n", suggestedThreshold);
-    }
+	if(_algorithmType == GrainSegmentationModifier::NodePairSamplingAutomatic)
+		_suggestedMergingThreshold = calculate_threshold_suggestion();
 
 	return !isCanceled();
 }

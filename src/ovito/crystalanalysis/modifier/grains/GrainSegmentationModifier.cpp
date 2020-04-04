@@ -1,7 +1,7 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Copyright 2019 Alexander Stukowski
-//  Copyright 2019 Peter Mahler Larsen
+//  Copyright 2020 Alexander Stukowski
+//  Copyright 2020 Peter Mahler Larsen
 //
 //  This file is part of OVITO (Open Visualization Tool).
 //
@@ -39,7 +39,7 @@ namespace Ovito { namespace CrystalAnalysis {
 
 IMPLEMENT_OVITO_CLASS(GrainSegmentationModifier);
 DEFINE_PROPERTY_FIELD(GrainSegmentationModifier, rmsdCutoff);
-DEFINE_PROPERTY_FIELD(GrainSegmentationModifier, algorithmType);
+DEFINE_PROPERTY_FIELD(GrainSegmentationModifier, mergeAlgorithm);
 DEFINE_PROPERTY_FIELD(GrainSegmentationModifier, mergingThreshold);
 DEFINE_PROPERTY_FIELD(GrainSegmentationModifier, minGrainAtomCount);
 DEFINE_PROPERTY_FIELD(GrainSegmentationModifier, orphanAdoption);
@@ -48,7 +48,7 @@ DEFINE_PROPERTY_FIELD(GrainSegmentationModifier, outputBonds);
 DEFINE_PROPERTY_FIELD(GrainSegmentationModifier, colorParticlesByGrain);
 DEFINE_REFERENCE_FIELD(GrainSegmentationModifier, bondsVis);
 SET_PROPERTY_FIELD_LABEL(GrainSegmentationModifier, rmsdCutoff, "RMSD cutoff");
-SET_PROPERTY_FIELD_LABEL(GrainSegmentationModifier, algorithmType, "Linkage type");
+SET_PROPERTY_FIELD_LABEL(GrainSegmentationModifier, mergeAlgorithm, "Linkage type");
 SET_PROPERTY_FIELD_LABEL(GrainSegmentationModifier, mergingThreshold, "Log merge threshold");
 SET_PROPERTY_FIELD_LABEL(GrainSegmentationModifier, minGrainAtomCount, "Minimum grain size (# of atoms)");
 SET_PROPERTY_FIELD_LABEL(GrainSegmentationModifier, orphanAdoption, "Adopt orphan atoms");
@@ -64,7 +64,7 @@ SET_PROPERTY_FIELD_UNITS_AND_MINIMUM(GrainSegmentationModifier, minGrainAtomCoun
 ******************************************************************************/
 GrainSegmentationModifier::GrainSegmentationModifier(DataSet* dataset) : StructureIdentificationModifier(dataset),
 		_rmsdCutoff(0.1),
-		_algorithmType(0),
+		_mergeAlgorithm(NodePairSamplingAutomatic),
 		_minGrainAtomCount(100),
 		_onlySelectedParticles(false),
 		_mergingThreshold(0.0),
@@ -127,7 +127,7 @@ std::shared_ptr<GrainSegmentationEngine> GrainSegmentationModifier::createSegmen
 	// Create engine object. Pass all relevant modifier parameters to the engine as well as the input data.
 	return std::make_shared<GrainSegmentationEngine>(particles, posProperty->storage(), simCell->data(),
 			getTypesToIdentify(PTMAlgorithm::NUM_STRUCTURE_TYPES), std::move(selectionProperty),
-			rmsdCutoff(), algorithmType(), outputBonds());
+			rmsdCutoff(), mergeAlgorithm(), outputBonds());
 }
 
 /******************************************************************************
@@ -148,8 +148,13 @@ void GrainSegmentationEngine::emitResults(TimePoint time, ModifierApplication* m
 	GrainSegmentationModifier* modifier = static_object_cast<GrainSegmentationModifier>(modApp->modifier());
 	OVITO_ASSERT(modifier);
 
-	// Complete the segmentation by executing the merge steps up to the cutoff set by the user.
-	executeMergeSequence(modifier->minGrainAtomCount(), modifier->mergingThreshold(), modifier->orphanAdoption());
+	// Complete the segmentation by executing the merge steps up to the threshold set by the user or the adaptively determined threshold.
+	FloatType mergingThreshold = modifier->mergingThreshold();
+	if(modifier->mergeAlgorithm() == GrainSegmentationModifier::NodePairSamplingAutomatic) {
+		mergingThreshold = this->suggestedMergingThreshold();
+		state.addAttribute(QStringLiteral("GrainSegmentation.auto_merge_threshold"), QVariant::fromValue(mergingThreshold), modApp);
+	}
+	executeMergeSequence(modifier->minGrainAtomCount(), mergingThreshold, modifier->orphanAdoption());
 
 	ParticlesObject* particles = state.expectMutableObject<ParticlesObject>();
 
@@ -177,7 +182,6 @@ void GrainSegmentationEngine::emitResults(TimePoint time, ModifierApplication* m
 			});
 		}
 	}
-
 
 	// Output the edges of the neighbor graph.
 	if(_outputBondsToPipeline && modifier->outputBonds()) {

@@ -145,7 +145,7 @@ PTMAlgorithm::StructureType PTMAlgorithm::Kernel::identifyStructure(size_t parti
 	int32_t type;
 	double F_res[3];
 
-	ptm_index(_handle,
+	int errorCode = ptm_index(_handle,
 			particleIndex, get_neighbours, (void*)&nbrdata,
 			flags,
 			true,
@@ -163,6 +163,8 @@ PTMAlgorithm::StructureType PTMAlgorithm::Kernel::identifyStructure(size_t parti
 			&_bestTemplateIndex,
 			&_bestTemplate,
 			&_env);
+
+	OVITO_ASSERT(errorCode == PTM_NO_ERROR);
 
 	// Convert PTM classification back to our own scheme.
 	if(type == PTM_MATCH_NONE || (_algo._rmsdCutoff != 0 && _rmsd > _algo._rmsdCutoff)) {

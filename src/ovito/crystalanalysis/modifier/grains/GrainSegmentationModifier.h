@@ -1,7 +1,7 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Copyright 2019 Alexander Stukowski
-//  Copyright 2019 Peter Mahler Larsen
+//  Copyright 2020 Alexander Stukowski
+//  Copyright 2020 Peter Mahler Larsen
 //
 //  This file is part of OVITO (Open Visualization Tool).
 //
@@ -45,6 +45,13 @@ class OVITO_CRYSTALANALYSIS_EXPORT GrainSegmentationModifier : public StructureI
 
 public:
 
+	enum MergeAlgorithm {
+		NodePairSamplingAutomatic,	///< Use node pair sampling algorithm to build merge sequence and choose threshold adaptively.
+		NodePairSamplingManual,		///< Use node pair sampling algorithm to build merge sequence and let user choose merge threshold.
+		MinimumSpanningTree,		///< Use minimum spanning tree algorithm to build merge sequence.
+	};
+	Q_ENUMS(MergeAlgorithm);
+
 	/// Constructor.
 	Q_INVOKABLE GrainSegmentationModifier(DataSet* dataset);
 
@@ -73,7 +80,7 @@ private:
 	DECLARE_MODIFIABLE_PROPERTY_FIELD_FLAGS(FloatType, rmsdCutoff, setRmsdCutoff, PROPERTY_FIELD_MEMORIZE);
 
 	/// The merging algorithm to use.
-	DECLARE_MODIFIABLE_PROPERTY_FIELD(bool, algorithmType, setAlgorithmType);
+	DECLARE_MODIFIABLE_PROPERTY_FIELD(MergeAlgorithm, mergeAlgorithm, setMergeAlgorithm);
 
 	/// Controls the amount of noise allowed inside a grain.
 	DECLARE_MODIFIABLE_PROPERTY_FIELD(FloatType, mergingThreshold, setMergingThreshold);

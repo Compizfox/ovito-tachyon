@@ -203,6 +203,8 @@ public:
 #if 0
 			FloatType minDist = std::numeric_limits<FloatType>::infinity();;
 			FloatType distances[PTM_MAX_INPUT_POINTS];
+            qDebug() << "_env.num:" << _env.num << PTM_MAX_INPUT_POINTS << minDist;
+            OVITO_ASSERT(_env.num <= PTM_MAX_INPUT_POINTS);
 			for (int i=1;i<_env.num;i++) {
 				FloatType dx = _env.points[i][0];
 				FloatType dy = _env.points[i][1];
@@ -212,7 +214,7 @@ public:
 			}
 
 			int n = 0;
-			for (int i=0;i<_env.num;i++) {
+			for (int i=1;i<_env.num;i++) {
 				if (distances[i] < 2 * minDist)
 					n++;
 			}
