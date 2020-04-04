@@ -667,7 +667,6 @@ fclose(fout);
 
 	if(_algorithmType == GrainSegmentationModifier::NodePairSamplingAutomatic) {
 		_suggestedMergingThreshold = calculate_threshold_suggestion();
-		_suggestedMergingThreshold = log(exp(_suggestedMergingThreshold) + 1);
 	}
 
 	return !isCanceled();
@@ -685,7 +684,7 @@ void GrainSegmentationEngine::executeMergeSequence(int minGrainAtomCount, FloatT
 	DisjointSet uf(_numParticles);
 	auto node = _dendrogram.cbegin();
 	for(; node != _dendrogram.cend(); ++node) {
-		if(std::log(node->distance) >= mergingThreshold)
+		if(std::log(node->distance) > mergingThreshold)
 			break;
 
 		uf.merge(node->a, node->b);

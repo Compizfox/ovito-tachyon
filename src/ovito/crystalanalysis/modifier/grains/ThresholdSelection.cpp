@@ -97,6 +97,7 @@ FloatType GrainSegmentationEngine::calculate_threshold_suggestion()
 	// Sort dendrogram entries by distance (undoing the lexicographic sorting performed above).
 	boost::sort(_dendrogram, [](const DendrogramNode& a, const DendrogramNode& b) { return a.distance < b.distance; });
 
+#if 0
 	// Set a slightly higher threshold, ignoring small merges
 	FloatType maxSuggestion = minSuggestion;
 	for(DendrogramNode& node : _dendrogram) {
@@ -104,8 +105,9 @@ FloatType GrainSegmentationEngine::calculate_threshold_suggestion()
 		if (node.size >= _minPlotSize) break;
 		maxSuggestion = log(node.distance);
 	}
+#endif
 
-	return (minSuggestion + maxSuggestion) / 2;
+	return minSuggestion;//(minSuggestion + maxSuggestion) / 2;
 }
 
 }	// End of namespace
