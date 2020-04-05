@@ -58,7 +58,7 @@ typedef struct
 {
 	const NearestNeighborFinder* neighFinder;
 	ConstPropertyAccess<int> particleTypes;
-	std::vector< uint64_t > *precachedNeighbors;
+	std::vector< uint64_t > *cachedNeighbors;
 
 } ptmnbrdata_t;
 
@@ -67,7 +67,7 @@ static int get_neighbours(void* vdata, size_t _unused_lammps_variable, size_t at
 	ptmnbrdata_t* nbrdata = (ptmnbrdata_t*)vdata;
 	const NearestNeighborFinder* neighFinder = nbrdata->neighFinder;
 	const ConstPropertyAccess<int>& particleTypes = nbrdata->particleTypes;
-	std::vector< uint64_t >& precachedNeighbors = *nbrdata->precachedNeighbors;
+	std::vector< uint64_t >& cachedNeighbors = *nbrdata->cachedNeighbors;
 
 	// Find nearest neighbors.
 	NearestNeighborFinder::Query<PTMAlgorithm::MAX_INPUT_NEIGHBORS> neighQuery(*neighFinder);
@@ -76,7 +76,7 @@ static int get_neighbours(void* vdata, size_t _unused_lammps_variable, size_t at
 	OVITO_ASSERT(numNeighbors <= PTMAlgorithm::MAX_INPUT_NEIGHBORS);
 
 	int permutation[PTM_MAX_INPUT_POINTS];
-	ptm_index_to_permutation(numNeighbors, precachedNeighbors[atom_index], permutation);
+	ptm_index_to_permutation(numNeighbors, cachedNeighbors[atom_index], permutation);
 
 	// Bring neighbor coordinates into a form suitable for the PTM library.
 	env->correspondences[0] = 0;
@@ -115,7 +115,7 @@ static int get_neighbours(void* vdata, size_t _unused_lammps_variable, size_t at
 * Identifies the local structure of the given particle and builds the list of
 * nearest neighbors that form the structure.
 ******************************************************************************/
-PTMAlgorithm::StructureType PTMAlgorithm::Kernel::identifyStructure(size_t particleIndex, std::vector< uint64_t >& precachedNeighbors, Quaternion* qtarget)
+PTMAlgorithm::StructureType PTMAlgorithm::Kernel::identifyStructure(size_t particleIndex, std::vector< uint64_t >& cachedNeighbors, Quaternion* qtarget)
 {
 	// Validate input.
 	if(particleIndex >= _algo.particleCount())
@@ -129,7 +129,7 @@ PTMAlgorithm::StructureType PTMAlgorithm::Kernel::identifyStructure(size_t parti
 	ptmnbrdata_t nbrdata;
 	nbrdata.neighFinder = &_algo;
 	nbrdata.particleTypes = _algo._identifyOrdering ? _algo._particleTypes : nullptr;
-	nbrdata.precachedNeighbors = &precachedNeighbors;
+	nbrdata.cachedNeighbors = &cachedNeighbors;
 
 	int32_t flags = 0;
 	if(_algo._typesToIdentify[SC]) flags |= PTM_CHECK_SC;
@@ -142,27 +142,27 @@ PTMAlgorithm::StructureType PTMAlgorithm::Kernel::identifyStructure(size_t parti
 	if(_algo._typesToIdentify[GRAPHENE]) flags |= PTM_CHECK_GRAPHENE;
 
 	// Call PTM library to identify the local structure.
-	int32_t type;
-	double F_res[3];
-
+	ptm_result_t result;
 	int errorCode = ptm_index(_handle,
 			particleIndex, get_neighbours, (void*)&nbrdata,
 			flags,
 			true,
-			&type,
-			&_orderingType,
-			&_scale,
-			&_rmsd,
-			_q,
-			_algo._calculateDefGradient ? _F.elements() : nullptr,
-			_algo._calculateDefGradient ? F_res : nullptr,
-			nullptr,
-			nullptr,
-			&_interatomicDistance,
-			nullptr,
-			&_bestTemplateIndex,
-			&_bestTemplate,
+			true,
+			_algo._calculateDefGradient,
+			&result,
 			&_env);
+
+	int32_t type = result.structure_type;
+	_orderingType = result.structure_type;
+	_scale = result.scale;
+	_rmsd = result.rmsd;
+	_interatomicDistance = result.interatomic_distance;
+	_bestTemplateIndex = result.best_template_index;
+	_bestTemplate = result.best_template;
+	memcpy(_q, result.orientation, 4 * sizeof(double));
+	if (_algo._calculateDefGradient) {
+		memcpy(_F.elements(), result.F,  9 * sizeof(double));
+	}
 
 	OVITO_ASSERT(errorCode == PTM_NO_ERROR);
 
@@ -261,7 +261,7 @@ PTMAlgorithm::StructureType PTMAlgorithm::Kernel::identifyStructure(size_t parti
 #endif
 }
 
-int PTMAlgorithm::Kernel::precacheNeighbors(size_t particleIndex, uint64_t* res)
+int PTMAlgorithm::Kernel::cacheNeighbors(size_t particleIndex, uint64_t* res)
 {
 	// Validate input.
 	if(particleIndex >= _algo.particleCount())
@@ -283,6 +283,16 @@ int PTMAlgorithm::Kernel::precacheNeighbors(size_t particleIndex, uint64_t* res)
 	}
 
 	return ptm_preorder_neighbours(_handle, numNeighbors, points, res);
+}
+
+int PTMAlgorithm::Kernel::resetNeighbors(size_t particleIndex, std::vector< uint64_t >& cachedNeighbors)
+{
+	ptmnbrdata_t nbrdata;
+	nbrdata.neighFinder = &_algo;
+	nbrdata.particleTypes = _algo._identifyOrdering ? _algo._particleTypes : nullptr;
+	nbrdata.cachedNeighbors = &cachedNeighbors;
+
+	return get_neighbours((void*)&nbrdata, (size_t)(-1), particleIndex, 100, &_env);
 }
 
 /******************************************************************************

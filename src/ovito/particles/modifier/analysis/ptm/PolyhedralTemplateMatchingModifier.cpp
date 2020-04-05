@@ -185,7 +185,7 @@ void PolyhedralTemplateMatchingModifier::PTMEngine::perform()
 				continue;
 
 			// Calculate ordering of neighbors
-			kernel.precacheNeighbors(index, &cachedNeighbors[index]);
+			kernel.cacheNeighbors(index, &cachedNeighbors[index]);
 		}
 	});
 	if(isCanceled())

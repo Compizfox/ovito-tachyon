@@ -162,10 +162,10 @@ public:
         /// Identifies the local structure of the given particle and builds the list of nearest neighbors
         /// that form that structure. Subsequently, in case of a successful match, additional outputs of the calculation
         /// can be retrieved with the query methods below.
-        StructureType identifyStructure(size_t particleIndex, std::vector<uint64_t>& precachedNeighbors, Quaternion* qtarget);
+        StructureType identifyStructure(size_t particleIndex, std::vector<uint64_t>& cachedNeighbors, Quaternion* qtarget);
 
         // Calculates the topological ordering of a particle's neighbors.
-        int precacheNeighbors(size_t particleIndex, uint64_t* res);
+        int cacheNeighbors(size_t particleIndex, uint64_t* res);
 
         /// Returns the structure type identified by the PTM for the current particle.
         StructureType structureType() const { return _structureType; }
@@ -199,11 +199,11 @@ public:
 
         /// Returns the number of nearest neighbors that lie within a ball of twice the radius of the nearest neighbor distance.
 		int numGoodNeighbors() const {
-            return results().size();
-#if 0
+            //return results().size();
+
 			FloatType minDist = std::numeric_limits<FloatType>::infinity();;
 			FloatType distances[PTM_MAX_INPUT_POINTS];
-            qDebug() << "_env.num:" << _env.num << PTM_MAX_INPUT_POINTS << minDist;
+            //qDebug() << "_env.num:" << _env.num << PTM_MAX_INPUT_POINTS << minDist;
             OVITO_ASSERT(_env.num <= PTM_MAX_INPUT_POINTS);
 			for (int i=1;i<_env.num;i++) {
 				FloatType dx = _env.points[i][0];
@@ -220,8 +220,9 @@ public:
 			}
 
 			return n;
-#endif
 		}
+
+		int resetNeighbors(size_t particleIndex, std::vector< uint64_t >& cachedNeighbors);
 
         /// Returns the neighbor information for the i-th nearest neighbor of the current particle.
         const NearestNeighborFinder::Neighbor& getNearestNeighbor(int index) const {

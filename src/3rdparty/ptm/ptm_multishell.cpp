@@ -47,6 +47,11 @@ int calculate_two_shell_neighbour_ordering(	int num_inner, int num_outer,
 {
 	assert(num_inner <= MAX_INNER);
 
+	if (num_outer == 0) {
+		get_neighbours(nbrlist, -1, atom_index, PTM_MAX_INPUT_POINTS, output);
+		return 0;
+	}
+
 	ptm_atomicenv_t central;
 	int num_input_points = get_neighbours(nbrlist, -1, atom_index, PTM_MAX_INPUT_POINTS, &central);
 	if (num_input_points < num_inner + 1)

@@ -200,9 +200,6 @@ private:
 	// Dendrogram as list of cluster merges.
 	std::vector<DendrogramNode> _dendrogram;
 
-	/// Tells for each atom (being an orphan) what its parent atom is. 
-	std::vector<std::atomic<size_t>> _orphanParentAtoms;
-
 	// The output list of grain IDs.
 	PropertyPtr _grainIds;
 

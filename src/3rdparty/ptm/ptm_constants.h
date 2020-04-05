@@ -224,5 +224,22 @@ typedef struct
 	double points[PTM_MAX_INPUT_POINTS][3];
 } ptm_atomicenv_t;
 
+typedef struct
+{
+	int32_t structure_type;
+	int32_t ordering_type;
+	double scale;
+	double rmsd;
+	double orientation[4];
+	double F[9];
+	double F_res[3];
+	double U[9];
+	double P[9];
+	double interatomic_distance;
+	double lattice_constant;
+	int32_t best_template_index;
+	const double (*best_template)[3];
+} ptm_result_t;
+
 #endif
 

@@ -54,8 +54,7 @@ GrainSegmentationEngine::GrainSegmentationEngine(
 	_orientations(ParticlesObject::OOClass().createStandardStorage(_numParticles, ParticlesObject::OrientationProperty, true)),
 	_atomClusters(ParticlesObject::OOClass().createStandardStorage(_numParticles, ParticlesObject::ClusterProperty, true)),
 	_atomSuperclusters(_numParticles),
-	_outputBondsToPipeline(outputBonds),
-	_orphanParentAtoms(positions->size())
+	_outputBondsToPipeline(outputBonds)
 {
 }
 
@@ -117,14 +116,11 @@ bool GrainSegmentationEngine::identifyAtomicStructures()
 				break;
 
 			// Calculate ordering of neighbors
-			kernel.precacheNeighbors(index, &cachedNeighbors[index]);
+			kernel.cacheNeighbors(index, &cachedNeighbors[index]);
 		}
 	});
 	if(isCanceled() || positions()->size() == 0)
 		return false;
-
-	// Initially, no atom has a parent assigned to it. 
-	boost::fill(_orphanParentAtoms, std::numeric_limits<size_t>::max());
 
 	setProgressValue(0);
 	setProgressText(GrainSegmentationModifier::tr("Performing polyhedral template matching"));
@@ -172,12 +168,15 @@ bool GrainSegmentationEngine::identifyAtomicStructures()
 			if(type == PTMAlgorithm::OTHER) {
 				rmsdArray[index] = -1.0; // Store invalid RMSD value to exclude it from the RMSD histogram.
 
+				kernel.resetNeighbors(index, cachedNeighbors);
+
 				// Don't need more than 8 nearest neighbors to establish connectivity between non-crystalline atoms.
 				numNeighbors = std::min(8, kernel.numGoodNeighbors());
 			}
 			else {
-				rmsdArray[index] = kernel.rmsd();
 				numNeighbors = ptm_num_nbrs[type];
+				rmsdArray[index] = kernel.rmsd();
+				orientationsArray[index] = kernel.orientation().normalized();
 
 				if(_rmsdCutoff != 0.0 && kernel.rmsd() > _rmsdCutoff) {
 					// Mark atom as OTHER, but still store its RMSD value. It'll be needed to build the RMSD histogram below.
@@ -186,9 +185,6 @@ bool GrainSegmentationEngine::identifyAtomicStructures()
 			}
 
 			if (structuresArray[index] != PTMAlgorithm::OTHER) {
-				// Store computed local lattice orientation in the output property array.
-				orientationsArray[index] = kernel.orientation().normalized();
-
 				// Store neighbor list for later use.
 				for(int j = 0; j < numNeighbors; j++) {
 
@@ -197,13 +193,6 @@ bool GrainSegmentationEngine::identifyAtomicStructures()
 					// Create a bond to the neighbor, but skip every other bond to create just one bond per particle pair.
 					if(index < neighborIndex)
 						threadlocalNeighborBonds.push_back({index, neighborIndex});
-
-					// Crystalline atoms become the parents of their neighbors.
-					// Note: The while loop is required to make the assignment of parents thread-safe and stable (the lowest index atom wins and becomes the parent!).
-					// Atomic memory access is used to make the algorithm lock-free.
-					size_t oldParent = _orphanParentAtoms[neighborIndex];
-					size_t newParent = index;
-					while(newParent < oldParent && !_orphanParentAtoms[neighborIndex].compare_exchange_weak(oldParent, newParent));
 
 					// Check if neighbor vector spans more than half of a periodic simulation cell.
 					double* delta = kernel._env.points[j + 1];
@@ -269,43 +258,6 @@ bool GrainSegmentationEngine::identifyAtomicStructures()
 
 	// Sort the bonds list by first atom index to accelerate search for bonds belonging to a particular atom. 
 	boost::stable_sort(_noncrystallineBonds);
-	if(isCanceled())
-		return false;
-
-	// Build the initial front of non-crystalline atoms, which consists of those atoms having a crystalline atom as a parent.
-	std::vector<size_t> frontAtoms;
-	for(size_t index = 0; index < _numParticles; index++)
-		if(_orphanParentAtoms[index].load(std::memory_order_relaxed) != std::numeric_limits<size_t>::max())
-			frontAtoms.push_back(index);
-	if(isCanceled())
-		return false;
-	
-	// Advance the front in a step-wise manner.
-	while(!frontAtoms.empty()) {
-		std::vector<size_t> nextFrontAtoms;
-		for(size_t index : frontAtoms) {
-			size_t parentAtom = _orphanParentAtoms[index].load(std::memory_order_relaxed);
-
-			// Get the range of bonds adjacent to the current atom.
-			auto bondsRange = boost::range::equal_range(_noncrystallineBonds, ParticleIndexPair{{(qlonglong)index,0}},
-				[](const ParticleIndexPair& a, const ParticleIndexPair& b) { return a[0] < b[0]; });
-
-			for(const ParticleIndexPair& bond : boost::make_iterator_range(bondsRange.first, bondsRange.second)) {
-				OVITO_ASSERT(bond[0] == index);
-				size_t neighborIndex = bond[1];
-				size_t neighborParent = _orphanParentAtoms[neighborIndex].load(std::memory_order_relaxed);
-				if(neighborParent == std::numeric_limits<size_t>::max()) {
-					_orphanParentAtoms[neighborIndex].store(parentAtom, std::memory_order_relaxed);
-					nextFrontAtoms.push_back(neighborIndex);
-				}
-			}
-		}
-		nextFrontAtoms.swap(frontAtoms);
-
-		if(isCanceled())
-			return false;
-	}
-
 	return !isCanceled();
 }
 
@@ -818,34 +770,6 @@ void GrainSegmentationEngine::executeMergeSequence(int minGrainAtomCount, FloatT
 			mergeOrphanAtoms();
 	}
 }
-
-/******************************************************************************
-* Merges any orphan atoms into the closest cluster.
-******************************************************************************/
-#if 0
-void GrainSegmentationEngine::mergeOrphanAtoms()
-{
-	ConstPropertyAccess<int> structuresArray(structures());
-	PropertyAccess<qlonglong> atomClustersArray(atomClusters());
-	PropertyAccess<qlonglong> grainSizeArray(_grainSizes);
-
-	// Attribute non-crystalline atoms to their nearest crystal cluster.
-	for(size_t i = 0; i < _numParticles; i++) {
-		if(atomClustersArray[i] == 0) {
-			size_t parentAtom = _orphanParentAtoms[i].load(std::memory_order_relaxed);
-			if(parentAtom != std::numeric_limits<size_t>::max()) {
-//				_atomSuperclusters[i] = _atomSuperclusters[parentAtom];
-				size_t grain = atomClustersArray[parentAtom];
-				if(grain != 0) {
-					OVITO_ASSERT(atomClustersArray[i] == 0);
-					atomClustersArray[i] = grain;
-					grainSizeArray[grain - 1]++;
-				}
-			}
-		}
-	}
-}
-#endif
 
 /******************************************************************************
 * Merges any orphan atoms into the closest cluster.
