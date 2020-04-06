@@ -215,15 +215,6 @@ bool GrainSegmentationEngine::identifyAtomicStructures()
 				qlonglong neighborIndex = kernel._env.atom_indices[j + 1];
 				threadlocalNoncrystallineBonds.push_back({(qlonglong)index, neighborIndex});
 			}
-#if 0
-			else {
-				// Store neighbor bonds for later use (note: we create two bonds per pair of particles).
-				for(int j = 0; j < numNeighbors; j++) {
-					qlonglong neighborIndex = kernel._env.atom_indices[j + 1];
-					threadlocalNoncrystallineBonds.push_back({(qlonglong)index, neighborIndex});
-				}
-			}
-#endif
 		}
 
 		// Append thread-local bonds to global bonds list.
@@ -252,9 +243,6 @@ bool GrainSegmentationEngine::identifyAtomicStructures()
 	}
 	if(isCanceled())
 		return false;
-
-	// Give each non-crystalline atom a crystalline parent atom, which will be used to attribute the non-crystalline
-	// atoms to one of the nearby grains.
 
 	// Sort the bonds list by first atom index to accelerate search for bonds belonging to a particular atom. 
 	boost::stable_sort(_noncrystallineBonds);
