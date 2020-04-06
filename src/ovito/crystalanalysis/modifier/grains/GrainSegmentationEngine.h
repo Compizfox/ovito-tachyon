@@ -132,11 +132,7 @@ private:
 	bool minimum_spanning_tree_clustering(boost::iterator_range<std::vector<NeighborBond>::iterator> edgeRange, DendrogramNode* dendrogram, int structureType, std::vector<Quaternion>& qsum, DisjointSet& uf);
 	bool node_pair_sampling_clustering(boost::iterator_range<std::vector<NeighborBond>::const_iterator> edgeRange, DendrogramNode* dendrogram, int structureType, std::vector<Quaternion>& qsum, FloatType totalWeight);
 
-	// Statistical functions
-	FloatType calculate_median(std::vector< FloatType >& data);
-	std::vector< FloatType > theil_sen_estimator(size_t num_samples, std::vector< std::tuple< FloatType, FloatType> >& data,
-												 FloatType& gradient, FloatType& intercept);
-
+	// Selects a threshold for Node Pair Sampling algorithm
     FloatType calculate_threshold_suggestion();
 
 private:

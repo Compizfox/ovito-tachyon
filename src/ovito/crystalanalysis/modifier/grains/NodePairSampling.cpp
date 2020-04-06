@@ -220,15 +220,6 @@ bool GrainSegmentationEngine::node_pair_sampling_clustering(
 		}
 	}
 
-	// add connected components to the dendrogram
-	//size_t u = graph.next;
-	//a, s = components.pop()
-	//for b, t in components:
-	//	s += t
-	//	D.append([min(a, b), max(a, b), float("inf"), s])
-	//	a = u
-	//	u += 1
-
 	return true;
 }
 

@@ -26,6 +26,68 @@
 
 namespace Ovito { namespace CrystalAnalysis {
 
+namespace {
+
+FloatType calculate_median(std::vector< FloatType >& data)
+{
+	size_t n = data.size();
+	std::sort(data.begin(), data.end());
+	FloatType median = data[n / 2];
+	if (n % 2 == 0) {
+		median += data[n / 2 - 1];
+		median /= 2;
+	}
+
+	return median;
+}
+
+std::vector< FloatType > theil_sen_estimator(size_t num_samples, std::vector< std::tuple< FloatType, FloatType> >& data,
+											  FloatType& gradient, FloatType& intercept)
+{
+	std::random_device rd;
+	std::mt19937 gen(rd());
+	std::uniform_int_distribution<> dis(0, data.size() - 1);
+
+	// Fit gradient (median of random gradient samples)
+	std::vector< FloatType > gradients;
+	for (size_t it=0;it<num_samples;it++) {
+		size_t i = dis(gen);
+		size_t j = i;
+		while (i == j) {
+			j = dis(gen);
+		}
+
+		auto a = data[i];
+		auto b = data[j];
+		if (std::get<0>(b) < std::get<0>(a)) {
+			std::swap(a, b);
+		}
+
+		FloatType dy = std::get<1>(b) - std::get<1>(a);
+		FloatType dx = std::get<0>(b) - std::get<0>(a);
+		gradients.push_back(dy / dx);
+	}
+
+	gradient = calculate_median(gradients);
+
+	// Fit intercept (median of residuals)
+	std::vector< FloatType > residuals;
+	for (auto point: data) {
+		FloatType x = std::get<0>(point);
+		FloatType y = std::get<1>(point);
+		residuals.push_back(y - gradient * x);
+	}
+
+	intercept = calculate_median(residuals);
+	for (size_t i=0;i<residuals.size();i++) {
+		residuals[i] -= intercept;
+	}
+
+	return residuals;
+}
+
+} // End of anonymous namespace
+
 /******************************************************************************
 * Calculate a threshold suggestion
 ******************************************************************************/
@@ -72,14 +134,12 @@ FloatType GrainSegmentationEngine::calculate_threshold_suggestion()
 
 	// Use Theil-Sen estimator to perform a robust linear regression
 	FloatType gradient, intercept;
-	auto residuals = GrainSegmentationEngine::theil_sen_estimator(100000, transformed, gradient, intercept);
+	auto residuals = theil_sen_estimator(100000, transformed, gradient, intercept);
 	for (size_t i=0;i<residuals.size();i++) {
 		residuals[i] = fabs(residuals[i]);
 	}
 
-    // Calculate a robust estimate of the standard deviation of the residuals
-    // c.f. https://en.wikipedia.org/wiki/Median_absolute_deviation#relation_to_standard_deviation
-	FloatType sigma = 1.4826 * calculate_median(residuals);
+	FloatType mean_absolute_deviation = calculate_median(residuals);
 
     // Select the threshold as the inlier with the largest distance.
 	FloatType minSuggestion = 0;
@@ -89,25 +149,14 @@ FloatType GrainSegmentationEngine::calculate_threshold_suggestion()
 
 		FloatType prediction = x * gradient + intercept;
 		FloatType residual = y - prediction;
-		if (residual < 2. * sigma) {
+		if (residual < 3. * mean_absolute_deviation) {
 			minSuggestion = std::max(minSuggestion, log(node.distance));
 		}
 	}
 
 	// Sort dendrogram entries by distance (undoing the lexicographic sorting performed above).
 	boost::sort(_dendrogram, [](const DendrogramNode& a, const DendrogramNode& b) { return a.distance < b.distance; });
-
-#if 0
-	// Set a slightly higher threshold, ignoring small merges
-	FloatType maxSuggestion = minSuggestion;
-	for(DendrogramNode& node : _dendrogram) {
-		if (log(node.distance) <= maxSuggestion) continue;
-		if (node.size >= _minPlotSize) break;
-		maxSuggestion = log(node.distance);
-	}
-#endif
-
-	return minSuggestion;//(minSuggestion + maxSuggestion) / 2;
+	return minSuggestion;
 }
 
 }	// End of namespace
