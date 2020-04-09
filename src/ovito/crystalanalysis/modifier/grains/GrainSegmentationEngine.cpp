@@ -71,8 +71,9 @@ void GrainSegmentationEngine::perform()
 
 	// Release data that is no longer needed.
 	releaseWorkingData();
-	if(!_outputBondsToPipeline)
-		decltype(_neighborBonds){}.swap(_neighborBonds);
+
+	//if(!_outputBondsToPipeline)
+	//	decltype(_neighborBonds){}.swap(_neighborBonds);
 }
 
 /******************************************************************************
@@ -133,9 +134,6 @@ bool GrainSegmentationEngine::identifyAtomicStructures()
 	// Mutex is needed to synchronize access to bonds list in parallelized loop.
 	std::mutex bondsMutex;
 
-	// List of bonds between non-crystalline atoms.
-	//std::vector<ParticleIndexPair> noncrystallineBonds;
-
 	// Perform analysis on each particle.
 	parallelForChunks(_numParticles, *this, [&](size_t startIndex, size_t count, Task& task) {
 		// Create a thread-local kernel for the PTM algorithm.
@@ -143,9 +141,6 @@ bool GrainSegmentationEngine::identifyAtomicStructures()
 
 		// Thread-local list of generated bonds connecting neighboring lattice atoms.
 		std::vector<NeighborBond> threadlocalNeighborBonds;
-
-		// Thread-local list of bonds between non-crystalline atoms.
-		std::vector<ParticleIndexPair> threadlocalNoncrystallineBonds;
 
 		// Loop over a range of input particles.
 		for(size_t index = startIndex, endIndex = startIndex + count; index < endIndex; index++) {
@@ -184,43 +179,32 @@ bool GrainSegmentationEngine::identifyAtomicStructures()
 				}
 			}
 
-			if (structuresArray[index] != PTMAlgorithm::OTHER) {
-				// Store neighbor list for later use.
-				for(int j = 0; j < numNeighbors; j++) {
+			for(int j = 0; j < numNeighbors; j++) {
 
-					size_t neighborIndex = kernel._env.atom_indices[j + 1];
+				size_t neighborIndex = kernel._env.atom_indices[j + 1];
 
-					// Create a bond to the neighbor, but skip every other bond to create just one bond per particle pair.
-					if(index < neighborIndex)
-						threadlocalNeighborBonds.push_back({index, neighborIndex});
+				// Create a bond to the neighbor, but skip every other bond to create just one bond per particle pair.
+				if(index < neighborIndex)
+					threadlocalNeighborBonds.push_back({index, neighborIndex});
 
-					// Check if neighbor vector spans more than half of a periodic simulation cell.
-					double* delta = kernel._env.points[j + 1];
-					Vector3 neighborVector(delta[0], delta[1], delta[2]);
-					for(size_t dim = 0; dim < 3; dim++) {
-						if(cell().pbcFlags()[dim]) {
-							if(std::abs(cell().inverseMatrix().prodrow(neighborVector, dim)) >= FloatType(0.5)+FLOATTYPE_EPSILON) {
-								static const QString axes[3] = { QStringLiteral("X"), QStringLiteral("Y"), QStringLiteral("Z") };
-								throw Exception(GrainSegmentationModifier::tr("Simulation box is too short along cell vector %1 (%2) to perform analysis. "
-										"Please extend it first using the 'Replicate' modifier.").arg(dim+1).arg(axes[dim]));
-							}
+				// Check if neighbor vector spans more than half of a periodic simulation cell.
+				double* delta = kernel._env.points[j + 1];
+				Vector3 neighborVector(delta[0], delta[1], delta[2]);
+				for(size_t dim = 0; dim < 3; dim++) {
+					if(cell().pbcFlags()[dim]) {
+						if(std::abs(cell().inverseMatrix().prodrow(neighborVector, dim)) >= FloatType(0.5)+FLOATTYPE_EPSILON) {
+							static const QString axes[3] = { QStringLiteral("X"), QStringLiteral("Y"), QStringLiteral("Z") };
+							throw Exception(GrainSegmentationModifier::tr("Simulation box is too short along cell vector %1 (%2) to perform analysis. "
+									"Please extend it first using the 'Replicate' modifier.").arg(dim+1).arg(axes[dim]));
 						}
 					}
 				}
-
-			}
-
-			// Store neighbor bonds for later use (note: we create two bonds per pair of particles).
-			for(int j = 0; j < numNeighbors; j++) {
-				qlonglong neighborIndex = kernel._env.atom_indices[j + 1];
-				threadlocalNoncrystallineBonds.push_back({(qlonglong)index, neighborIndex});
 			}
 		}
 
 		// Append thread-local bonds to global bonds list.
 		std::lock_guard<std::mutex> lock(bondsMutex);
 		_neighborBonds.insert(_neighborBonds.end(), threadlocalNeighborBonds.cbegin(), threadlocalNeighborBonds.cend());
-		_noncrystallineBonds.insert(_noncrystallineBonds.end(), threadlocalNoncrystallineBonds.cbegin(), threadlocalNoncrystallineBonds.cend());
 	});
 	if(isCanceled())
 		return false;
@@ -244,8 +228,6 @@ bool GrainSegmentationEngine::identifyAtomicStructures()
 	if(isCanceled())
 		return false;
 
-	// Sort the bonds list by first atom index to accelerate search for bonds belonging to a particular atom. 
-	boost::stable_sort(_noncrystallineBonds);
 	return !isCanceled();
 }
 
@@ -265,29 +247,25 @@ bool GrainSegmentationEngine::computeDisorientationAngles()
 
 		int a = bond.a;
 		int b = bond.b;
-		int structureTypeA = structuresArray[bond.a];
-		int structureTypeB = structuresArray[bond.b];
-		if (structureTypeB < structureTypeA) {
-			std::swap(structureTypeA, structureTypeB);
+		if (structuresArray[b] < structuresArray[a]) {
 			std::swap(a, b);
 		}
 
-		if(structureTypeA == structureTypeB) {
+		if(structuresArray[a] == structuresArray[b]) {
 
-			int structureType = structureTypeA;
-			const Quaternion& qA = orientationsArray[bond.a];
-			const Quaternion& qB = orientationsArray[bond.b];
+			int structureType = structuresArray[a];
+			const Quaternion& qA = orientationsArray[a];
+			const Quaternion& qB = orientationsArray[b];
 
 			double orientA[4] = { qA.w(), qA.x(), qA.y(), qA.z() };
 			double orientB[4] = { qB.w(), qB.x(), qB.y(), qB.z() };
-
 			if(structureType == PTMAlgorithm::SC || structureType == PTMAlgorithm::FCC || structureType == PTMAlgorithm::BCC || structureType == PTMAlgorithm::CUBIC_DIAMOND)
 				bond.disorientation = (FloatType)ptm::quat_disorientation_cubic(orientA, orientB);
 			else if(structureType == PTMAlgorithm::HCP || structureType == PTMAlgorithm::HEX_DIAMOND || structureType == PTMAlgorithm::GRAPHENE)
 				bond.disorientation = (FloatType)ptm::quat_disorientation_hcp_conventional(orientA, orientB);
 		}
 #if 0
-		else if(structureTypeA == PTMAlgorithm::FCC && structureTypeB == PTMAlgorithm::HCP) {
+		else if(structuresArray[a] == PTMAlgorithm::FCC && structuresArray[b] == PTMAlgorithm::HCP) {
 
 			const Quaternion& qA = orientationsArray[a];
 			const Quaternion& qB = orientationsArray[b];
@@ -774,6 +752,18 @@ bool GrainSegmentationEngine::mergeOrphanAtoms()
 			orphanAtoms.push_back(i);
 	}
 
+	/// The bonds connecting neighboring non-crystalline atoms.
+	std::vector<ParticleIndexPair> noncrystallineBonds;
+	for (auto nb: neighborBonds()) {
+        if (atomClustersArray[nb.a] == 0 || atomClustersArray[nb.b] == 0) {
+            // Add bonds for both atoms
+            noncrystallineBonds.push_back({(qlonglong)nb.a, (qlonglong)nb.b});
+            noncrystallineBonds.push_back({(qlonglong)nb.b, (qlonglong)nb.a});
+        }
+    }
+
+    boost::stable_sort(noncrystallineBonds);
+
 	setProgressText(GrainSegmentationModifier::tr("Grain segmentation - merging orphan atoms"));
 	setProgressValue(0);
 	setProgressMaximum(orphanAtoms.size());
@@ -788,7 +778,7 @@ bool GrainSegmentationEngine::mergeOrphanAtoms()
 			size_t index = orphanAtoms[i];
 
 			// Get the range of bonds adjacent to the current atom.
-			auto bondsRange = boost::range::equal_range(_noncrystallineBonds, ParticleIndexPair{{(qlonglong)index,0}},
+			auto bondsRange = boost::range::equal_range(noncrystallineBonds, ParticleIndexPair{{(qlonglong)index,0}},
 				[](const ParticleIndexPair& a, const ParticleIndexPair& b) { return a[0] < b[0]; });
 
 			// Find the closest cluster atom in the neighborhood (using PTM ordering).

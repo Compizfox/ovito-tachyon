@@ -186,26 +186,35 @@ void GrainSegmentationEngine::emitResults(TimePoint time, ModifierApplication* m
 	// Output the edges of the neighbor graph.
 	if(_outputBondsToPipeline && modifier->outputBonds()) {
 
-		// Output disorientation angles as a bond property.
-		PropertyAccessAndRef<FloatType> neighborDisorientationAngles = std::make_shared<PropertyStorage>(neighborBonds().size(), PropertyStorage::Float, 1, 0, QStringLiteral("Disorientation"), false);
-		// Allocate the bonds array.
-		std::vector<Bond> bonds(neighborBonds().size());
-
+		std::vector<Bond> bonds;
+		std::vector<FloatType> disorientations;
 		ConstPropertyAccess<Point3> positionsArray(particles->expectProperty(ParticlesObject::PositionProperty));
-		for(size_t i = 0; i < bonds.size(); i++) {
-			Bond& bond = bonds[i];
-			bond.index1 = neighborBonds()[i].a;
-			bond.index2 = neighborBonds()[i].b;
-			neighborDisorientationAngles[i] = neighborBonds()[i].disorientation;
+		ConstPropertyAccess<int> structuresArray(structures());
 
-			// Determine PBC bond shift using minimum image convention.
-			Vector3 delta = positionsArray[bond.index1] - positionsArray[bond.index2];
-			for(size_t dim = 0; dim < 3; dim++) {
-				if(cell().pbcFlags()[dim])
-					bond.pbcShift[dim] = (int)std::floor(cell().inverseMatrix().prodrow(delta, dim) + FloatType(0.5));
-				else
-					bond.pbcShift[dim] = 0;
+		for (auto nb: neighborBonds()) {
+			if (structuresArray[nb.a] == structuresArray[nb.b]) {
+				Bond bond;
+				bond.index1 = nb.a;
+				bond.index2 = nb.b;
+				disorientations.push_back(nb.disorientation);
+
+				// Determine PBC bond shift using minimum image convention.
+				Vector3 delta = positionsArray[bond.index1] - positionsArray[bond.index2];
+				for(size_t dim = 0; dim < 3; dim++) {
+					if(cell().pbcFlags()[dim])
+						bond.pbcShift[dim] = (int)std::floor(cell().inverseMatrix().prodrow(delta, dim) + FloatType(0.5));
+					else
+						bond.pbcShift[dim] = 0;
+				}
+
+				bonds.push_back(bond);
 			}
+		}
+
+		// Output disorientation angles as a bond property.
+		PropertyAccessAndRef<FloatType> neighborDisorientationAngles = std::make_shared<PropertyStorage>(bonds.size(), PropertyStorage::Float, 1, 0, QStringLiteral("Disorientation"), false);
+		for (size_t i=0;i<disorientations.size();i++) {
+			neighborDisorientationAngles[i] = disorientations[i];
 		}
 
 		particles->addBonds(bonds, modifier->bondsVis(), { neighborDisorientationAngles.takeStorage() });

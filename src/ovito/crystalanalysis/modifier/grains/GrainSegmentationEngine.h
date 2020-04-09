@@ -184,9 +184,6 @@ private:
 	/// The bonds connecting neighboring lattice atoms.
 	std::vector<NeighborBond> _neighborBonds;
 
-	/// The bonds connecting neighboring non-crystalline atoms.
-	std::vector<ParticleIndexPair> _noncrystallineBonds;
-
 	/// Controls the output of neighbor bonds to the data pipeline for visualization purposes.
 	bool _outputBondsToPipeline;
 

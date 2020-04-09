@@ -201,6 +201,7 @@ void PolyhedralTemplateMatchingModifier::PTMEngine::perform()
 	PropertyAccess<Quaternion> orientationsArray(orientations());
 	PropertyAccess<Matrix3> deformationGradientsArray(deformationGradients());
 	PropertyAccess<int> orderingTypesArray(orderingTypes());
+	PropertyAccess<long int> correspondencesArray(correspondences());
 
 	// Perform analysis on each particle.
 	parallelForChunks(positions()->size(), *this, [&](size_t startIndex, size_t count, Task& task) {
@@ -235,9 +236,10 @@ void PolyhedralTemplateMatchingModifier::PTMEngine::perform()
 			rmsdArray[index] = kernel.rmsd();
 			if(type != PTMAlgorithm::OTHER) {
 				if(interatomicDistancesArray) interatomicDistancesArray[index] = kernel.interatomicDistance();
-				if(orientationsArray) orientationsArray[index] = kernel.orientation();
 				if(deformationGradientsArray) deformationGradientsArray[index] = kernel.deformationGradient();
+				if(orientationsArray) orientationsArray[index] = kernel.orientation();
 				if(orderingTypesArray) orderingTypesArray[index] = kernel.orderingType();
+				if (correspondencesArray) correspondencesArray[index] = kernel.correspondence();
 			}
 		}
 	});
@@ -331,8 +333,13 @@ void PolyhedralTemplateMatchingModifier::PTMEngine::emitResults(TimePoint time, 
 	if(interatomicDistances() && modifier->outputInteratomicDistance()) {
 		particles->createProperty(interatomicDistances());
 	}
-	if(orientations() && modifier->outputOrientation()) {
-		particles->createProperty(orientations());
+	if(modifier->outputOrientation()) {
+		if(orientations()) {
+			particles->createProperty(orientations());
+		}
+		if(correspondences()) {
+			particles->createProperty(correspondences());
+		}
 	}
 	if(deformationGradients() && modifier->outputDeformationGradient()) {
 		particles->createProperty(deformationGradients());

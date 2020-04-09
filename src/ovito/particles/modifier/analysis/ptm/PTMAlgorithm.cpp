@@ -75,7 +75,7 @@ static int get_neighbours(void* vdata, size_t _unused_lammps_variable, size_t at
 	int numNeighbors = std::min(num_requested - 1, neighQuery.results().size());
 	OVITO_ASSERT(numNeighbors <= PTMAlgorithm::MAX_INPUT_NEIGHBORS);
 
-	int permutation[PTM_MAX_INPUT_POINTS];
+	int8_t permutation[PTM_MAX_INPUT_POINTS];
 	ptm_index_to_permutation(numNeighbors, cachedNeighbors[atom_index], permutation);
 
 	// Bring neighbor coordinates into a form suitable for the PTM library.
@@ -86,7 +86,7 @@ static int get_neighbours(void* vdata, size_t _unused_lammps_variable, size_t at
 	env->points[0][2] = 0;
 	for(int i = 0; i < numNeighbors; i++) {
 
-		//env->correspondences[index] = permutation[i] + 1;
+		env->correspondences[i+1] = permutation[i] + 1;
 		env->atom_indices[i+1] = neighQuery.results()[permutation[i]].index;
 		env->points[i+1][0] = neighQuery.results()[permutation[i]].delta.x();
 		env->points[i+1][1] = neighQuery.results()[permutation[i]].delta.y();

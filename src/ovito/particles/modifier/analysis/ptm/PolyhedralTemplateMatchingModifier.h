@@ -80,7 +80,8 @@ private:
 			_interatomicDistances(outputInteratomicDistance ? std::make_shared<PropertyStorage>(positions->size(), PropertyStorage::Float, 1, 0, tr("Interatomic Distance"), true) : nullptr),
 			_orientations(outputOrientation ? ParticlesObject::OOClass().createStandardStorage(positions->size(), ParticlesObject::OrientationProperty, true) : nullptr),
 			_deformationGradients(outputDeformationGradient ? ParticlesObject::OOClass().createStandardStorage(positions->size(), ParticlesObject::ElasticDeformationGradientProperty, true) : nullptr),
-			_orderingTypes(particleTypes ? std::make_shared<PropertyStorage>(positions->size(), PropertyStorage::Int, 1, 0, tr("Ordering Type"), true) : nullptr)
+			_orderingTypes(particleTypes ? std::make_shared<PropertyStorage>(positions->size(), PropertyStorage::Int, 1, 0, tr("Ordering Type"), true) : nullptr),
+			_correspondences(outputOrientation ? std::make_shared<PropertyStorage>(positions->size(), PropertyStorage::Int64, 1, 0, tr("Correspondences"), true) : nullptr)	// only output correspondences if orientations are selected
 			{
 				_algorithm.emplace();
 				_algorithm->setCalculateDefGradient(outputDeformationGradient);
@@ -99,6 +100,7 @@ private:
 		const PropertyPtr& orientations() const { return _orientations; }
 		const PropertyPtr& deformationGradients() const { return _deformationGradients; }
 		const PropertyPtr& orderingTypes() const { return _orderingTypes; }
+		const PropertyPtr& correspondences() const { return _correspondences; }
 
 		/// Returns the RMSD value range of the histogram.
 		FloatType rmsdHistogramRange() const { return _rmsdHistogramRange; }
@@ -123,6 +125,7 @@ private:
 		const PropertyPtr _orientations;
 		const PropertyPtr _deformationGradients;
 		const PropertyPtr _orderingTypes;
+		const PropertyPtr _correspondences;
 		PropertyPtr _rmsdHistogram;
 		FloatType _rmsdHistogramRange;
 	};

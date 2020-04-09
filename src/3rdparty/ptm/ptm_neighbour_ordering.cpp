@@ -203,7 +203,7 @@ void voronoi_uninitialize_local(void* _ptr)
 }
 
 // taken from http://antoinecomeau.blogspot.com/2014/07/mapping-between-permutations-and.html
-void index_to_permutation(int n, uint64_t k, int* permuted)
+void index_to_permutation(int n, uint64_t k, int8_t* permuted)
 {
 	int elems[PTM_MAX_INPUT_POINTS];
 	for(int i=0;i<n;i++)
@@ -220,7 +220,7 @@ void index_to_permutation(int n, uint64_t k, int* permuted)
 }
 
 // taken from http://antoinecomeau.blogspot.com/2014/07/mapping-between-permutations-and.html
-uint64_t permutation_to_index(int n, int* perm)
+uint64_t permutation_to_index(int n, int8_t* permutation)
 {
 	int pos[PTM_MAX_INPUT_POINTS];
 	int elems[PTM_MAX_INPUT_POINTS];
@@ -234,10 +234,10 @@ uint64_t permutation_to_index(int n, int* perm)
 	uint64_t k = 0;
 	for(int i=0;i<n-1;i++)
 	{
-		k += m * pos[perm[i]];
+		k += m * pos[permutation[i]];
 		m = m * (n - i);
-		pos[elems[n - i - 1]] = pos[perm[i]];
-		elems[pos[perm[i]]] = elems[n - i - 1];
+		pos[elems[n - i - 1]] = pos[permutation[i]];
+		elems[pos[permutation[i]]] = elems[n - i - 1];
 	}
 
 	return k;
@@ -253,7 +253,7 @@ int preorder_neighbours(void* _voronoi_handle, int num_input_points, double (*in
 		return ret;
 
 	//TODO: replace with max nbrs
-	int indices[PTM_MAX_INPUT_POINTS];
+	int8_t indices[PTM_MAX_INPUT_POINTS];
 	for (int i=0;i<num;i++)
 		indices[i] = data[i].ordering;
 
@@ -275,9 +275,14 @@ int ptm_preorder_neighbours(void* _voronoi_handle, int num_input_points, double 
 	return ptm::preorder_neighbours(_voronoi_handle, num_input_points, input_points, res);
 }
 
-void ptm_index_to_permutation(int n, uint64_t k, int* permuted)
+void ptm_index_to_permutation(int n, uint64_t k, int8_t* permuted)
 {
 	return ptm::index_to_permutation(n, k, permuted);
+}
+
+uint64_t ptm_permutation_to_index(int n, int8_t* permutation)
+{
+	return ptm::permutation_to_index(n, permutation);
 }
 
 #ifdef __cplusplus

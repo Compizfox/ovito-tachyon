@@ -36,7 +36,10 @@ int ptm_remap_template(	int type, bool output_conventional_orientation, int inpu
 int ptm_undo_conventional_orientation(int type, int input_template_index, double* q, int8_t* mapping);
 
 int ptm_preorder_neighbours(void* _voronoi_handle, int num_input_points, double (*input_points)[3], uint64_t* res);
-void ptm_index_to_permutation(int n, uint64_t k, int* permuted);
+
+void ptm_index_to_permutation(int n, uint64_t k, int8_t* permuted);
+
+uint64_t ptm_permutation_to_index(int n, int8_t* permutation);
 
 
 #ifdef __cplusplus

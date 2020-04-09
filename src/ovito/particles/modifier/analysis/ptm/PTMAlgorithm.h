@@ -222,7 +222,23 @@ public:
 			return n;
 		}
 
-		int resetNeighbors(size_t particleIndex, std::vector< uint64_t >& cachedNeighbors);
+		int resetNeighbors(size_t particleIndex, std::vector< uint64_t >& cachedNeighbors);	// TODO: remove this
+
+		int correspondence()
+		{
+			return 0;
+/*
+			bool hit[PTM_MAX_INPUT_POINTS] = {false};
+			int8_t permutation[PTM_MAX_INPUT_POINTS];
+
+			for (int i=0;i<PTM_MAX_INPUT_POINTS;i++) {
+				if (_env.m
+			}
+
+			return ptm_permutation_to_index( correspondences
+			return ptm_preorder_neighbours(_handle, numNeighbors, points, res);
+*/
+		}
 
         /// Returns the neighbor information for the i-th nearest neighbor of the current particle.
         const NearestNeighborFinder::Neighbor& getNearestNeighbor(int index) const {
