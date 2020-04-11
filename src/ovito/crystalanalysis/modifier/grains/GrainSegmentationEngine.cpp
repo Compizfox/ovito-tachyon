@@ -390,9 +390,9 @@ bool GrainSegmentationEngine::minimum_spanning_tree_clustering(
 		boost::iterator_range<std::vector<NeighborBond>::iterator> edgeRange,
 		DendrogramNode* dendrogram, int structureType, std::vector<Quaternion>& qsum, DisjointSet& uf)
 {
-	// Sort graph edges by weight.
+	// Sort graph edges by disorientation.
 	boost::sort(edgeRange, [](NeighborBond& a, NeighborBond& b) {
-		return a.weight < b.weight;
+		return a.disorientation < b.disorientation;
 	});
 	if(isCanceled()) return false;
 
@@ -405,7 +405,7 @@ bool GrainSegmentationEngine::minimum_spanning_tree_clustering(
 			size_t child = (parent == pa) ? pb : pa;
 			FloatType disorientation = calculate_disorientation(structureType, qsum[parent], qsum[child]);
 			OVITO_ASSERT(edge.a < edge.b);
-			*dendrogram++ = DendrogramNode(edge.a, edge.b, edge.weight, disorientation, 1, qsum[parent]);
+			*dendrogram++ = DendrogramNode(edge.a, edge.b, edge.disorientation, disorientation, 1, qsum[parent]);
 
 			// Update progress indicator.
 			if((progress++ % 1024) == 0) {
@@ -435,7 +435,6 @@ bool GrainSegmentationEngine::determineMergeSequence()
 	setProgressMaximum(neighborBonds().size());
 
 	// Build initial graph.
-	FloatType totalWeight = 0;
 	std::vector<size_t> bondCount(_numSuperclusters, 0); // Number of bonds in each supercluster.
 	ConstPropertyAccess<int> structuresArray(structures());
 
@@ -457,11 +456,8 @@ bool GrainSegmentationEngine::determineMergeSequence()
 			}
 			else
 				bond.weight = deg;
-
-			totalWeight += bond.weight;
 		}
 		else {
-			bond.weight = 0;
 			bond.superCluster = 0;
 		}
 		bondCount[bond.superCluster]++;
@@ -509,7 +505,6 @@ bool GrainSegmentationEngine::determineMergeSequence()
 		int structureType = structuresArray[neighborBonds()[start].a];
 
 		if(_algorithmType == GrainSegmentationModifier::NodePairSamplingAutomatic || _algorithmType == GrainSegmentationModifier::NodePairSamplingManual) {
-			// setting the total weight to 1 is an effective multi-frame normalization
 			node_pair_sampling_clustering(
 				boost::make_iterator_range_n(neighborBonds().cbegin() + start, count), 
 				&_dendrogram[index], structureType, qsum, 1);
@@ -536,13 +531,6 @@ gettimeofday(&tp, NULL);
 long int ms = tp.tv_sec * 1000 + tp.tv_usec / 1000;
 sprintf(filename, "dump_%lu.txt", ms);
 FILE* fout = fopen(filename, "w");
-
-size_t count = 0;
-for(size_t particleIndex = 0; particleIndex < _numParticles; particleIndex++)
-	count += structuresArray[particleIndex] == PTMAlgorithm::OTHER ? 0 : 1;
-
-if (fout)
-	fprintf(fout, "%lu %e\n", count, totalWeight);
 #endif
 
 	// Scan through the entire merge list to determine merge sizes.
