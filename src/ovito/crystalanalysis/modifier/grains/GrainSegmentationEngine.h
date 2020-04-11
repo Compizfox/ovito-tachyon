@@ -188,7 +188,7 @@ private:
 	bool _outputBondsToPipeline;
 
 	// A hardcoded cutoff used for defining superclusters
-	const FloatType _misorientationThreshold = qDegreesToRadians(4.0);
+	const FloatType _misorientationThreshold = 4.0;
 
 	// Dendrogram as list of cluster merges.
 	std::vector<DendrogramNode> _dendrogram;

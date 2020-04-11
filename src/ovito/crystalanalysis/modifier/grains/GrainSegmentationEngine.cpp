@@ -263,6 +263,8 @@ bool GrainSegmentationEngine::computeDisorientationAngles()
 				bond.disorientation = (FloatType)ptm::quat_disorientation_cubic(orientA, orientB);
 			else if(structureType == PTMAlgorithm::HCP || structureType == PTMAlgorithm::HEX_DIAMOND || structureType == PTMAlgorithm::GRAPHENE)
 				bond.disorientation = (FloatType)ptm::quat_disorientation_hcp_conventional(orientA, orientB);
+
+            bond.disorientation = qRadiansToDegrees(bond.disorientation);
 		}
 #if 0
 		else if(structuresArray[a] == PTMAlgorithm::FCC && structuresArray[b] == PTMAlgorithm::HCP) {
@@ -446,7 +448,7 @@ bool GrainSegmentationEngine::determineMergeSequence()
 		// Skip high-angle edges.
 		if(bond.superCluster != 0 && bond.disorientation <= _misorientationThreshold) {
 			// Convert disorientations to graph weights.
-			FloatType deg = qRadiansToDegrees(bond.disorientation);
+			FloatType deg = bond.disorientation;
 			if(_algorithmType == GrainSegmentationModifier::NodePairSamplingAutomatic || _algorithmType == GrainSegmentationModifier::NodePairSamplingManual) {
 				bond.weight = std::exp(-FloatType(1)/3 * deg * deg);	// This is fairly arbitrary but it works well.
 				if (structuresArray[bond.a] != structuresArray[bond.b]) {
@@ -551,7 +553,6 @@ if (fout)
 		size_t sb = uf.nodesize(uf.find(node.b));
 		size_t dsize = std::min(sa, sb);
 		uf.merge(node.a, node.b);
-		node.disorientation = qRadiansToDegrees(node.disorientation);
 
 #if DEBUG_OUTPUT
 if (fout)
