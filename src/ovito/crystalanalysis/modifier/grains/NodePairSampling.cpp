@@ -155,7 +155,13 @@ bool GrainSegmentationEngine::node_pair_sampling_clustering(
 {
 	Graph graph;
 	for(const NeighborBond& edge : edgeRange) {
-		graph.add_edge(edge.a, edge.b, edge.weight);
+        // Calculate edge weight based on disorientation. This is fairly arbitrary but it works well.
+		FloatType weight = std::exp(-FloatType(1)/3 * edge.disorientation * edge.disorientation);
+		//if (structuresArray[bond.a] != structuresArray[bond.b]) {
+		//	bond.weight /= 2;
+		//}
+
+		graph.add_edge(edge.a, edge.b, weight);
 	}
 
 	size_t progress = 0;

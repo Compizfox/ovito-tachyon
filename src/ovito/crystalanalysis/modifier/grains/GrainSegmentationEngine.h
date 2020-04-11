@@ -46,7 +46,6 @@ public:
 		size_t a;
 		size_t b;
 		FloatType disorientation;
-		FloatType weight;
 		size_t superCluster;
 	};
 

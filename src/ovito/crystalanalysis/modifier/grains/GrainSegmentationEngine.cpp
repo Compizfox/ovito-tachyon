@@ -442,24 +442,13 @@ bool GrainSegmentationEngine::determineMergeSequence()
 	for(NeighborBond& bond : neighborBonds()) {
 		if(!setProgressValueIntermittent(progress++)) return false;
 
-		bond.superCluster = _atomSuperclusters[bond.a];
-
 		// Skip high-angle edges.
-		if(bond.superCluster != 0 && bond.disorientation <= _misorientationThreshold) {
-			// Convert disorientations to graph weights.
-			FloatType deg = bond.disorientation;
-			if(_algorithmType == GrainSegmentationModifier::NodePairSamplingAutomatic || _algorithmType == GrainSegmentationModifier::NodePairSamplingManual) {
-				bond.weight = std::exp(-FloatType(1)/3 * deg * deg);	// This is fairly arbitrary but it works well.
-				if (structuresArray[bond.a] != structuresArray[bond.b]) {
-					bond.weight /= 2;
-				}
-			}
-			else
-				bond.weight = deg;
-		}
-		else {
+		if(bond.disorientation > _misorientationThreshold) {
 			bond.superCluster = 0;
 		}
+        else {
+   		    bond.superCluster = _atomSuperclusters[bond.a];
+        }
 		bondCount[bond.superCluster]++;
 	}
 
