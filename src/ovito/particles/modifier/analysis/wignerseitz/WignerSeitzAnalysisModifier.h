@@ -54,7 +54,7 @@ public:
 protected:
 
 	/// Creates a computation engine that will compute the modifier's results.
-	virtual Future<ComputeEnginePtr> createEngineInternal(const PipelineEvaluationRequest& request, ModifierApplication* modApp, PipelineFlowState input, const PipelineFlowState& referenceState, TimeInterval validityInterval) override;
+	virtual Future<EnginePtr> createEngineInternal(const PipelineEvaluationRequest& request, ModifierApplication* modApp, PipelineFlowState input, const PipelineFlowState& referenceState, TimeInterval validityInterval) override;
 
 private:
 
@@ -79,7 +79,7 @@ private:
 		virtual void perform() override;
 
 		/// Injects the computed results into the data pipeline.
-		virtual void emitResults(TimePoint time, ModifierApplication* modApp, PipelineFlowState& state) override;
+		virtual void applyResults(TimePoint time, ModifierApplication* modApp, PipelineFlowState& state) override;
 
 		/// Returns the number of vacant sites found during the last analysis run.
 		size_t vacancyCount() const { return _vacancyCount; }

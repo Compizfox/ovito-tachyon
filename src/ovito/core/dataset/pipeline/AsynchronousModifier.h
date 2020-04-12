@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Copyright 2017 Alexander Stukowski
+//  Copyright 2020 Alexander Stukowski
 //
 //  This file is part of OVITO (Open Visualization Tool).
 //
@@ -40,41 +40,52 @@ class OVITO_CORE_EXPORT AsynchronousModifier : public Modifier
 public:
 
 	/**
-	 * Abstract base class for compute engines.
+	 * Abstract base class for algorithm engines performing the modifier's computation in a background thread.
 	 */
-	class OVITO_CORE_EXPORT ComputeEngine : public AsynchronousTaskBase
+	class OVITO_CORE_EXPORT Engine : public AsynchronousTaskBase
 	{
 	public:
 
 		/// Constructor.
-		explicit ComputeEngine(const TimeInterval& validityInterval = TimeInterval::infinite()) :
+		explicit Engine(const TimeInterval& validityInterval = TimeInterval::infinite()) :
 			_validityInterval(validityInterval) {}
 
 #ifdef Q_OS_LINUX
 		/// Destructor.
-		virtual ~ComputeEngine();
+		virtual ~Engine();
 #endif
 
-		/// Computes the modifier's results.
-		virtual void perform() = 0;
-
 		/// Injects the computed results into the data pipeline.
-		virtual void emitResults(TimePoint time, ModifierApplication* modApp, PipelineFlowState& state) = 0;
+		virtual void applyResults(TimePoint time, ModifierApplication* modApp, PipelineFlowState& state) = 0;
 
-		/// Returns the validity period of the stored results.
+		/// This method is called by the system whenever a parameter of the modifier changes.
+		/// The method can be overriden by subclasses to indicate to the caller whether the engine object should be 
+		/// discarded (false) or may be kept in the cache, because the computation results are not affected by the changing parameter (true). 
+		virtual bool modifierChanged(const PropertyFieldEvent& event) { return false; }
+
+		/// This method is called by the system whenever the preliminary pipeline input changes.
+		/// The method should indicate to the caller whether the cached engine object can be 
+		/// kept around in a transient phase until a full evaluation is started (return true) or 
+		/// should rather be immediately discarded (return false).
+		virtual bool pipelineInputChanged() { return true; }
+
+		/// Creates another engine that performs the next stage of the computation. 
+		virtual std::shared_ptr<Engine> createContinuationEngine(ModifierApplication* modApp, const PipelineFlowState& input) { return {}; }
+
+		/// Returns the validity interval of the stored computation results.
 		const TimeInterval& validityInterval() const { return _validityInterval; }
 
-		/// Changes the stored validity period of the results.
+		/// Changes the validity interval of the computation results.
 		void setValidityInterval(const TimeInterval& iv) { _validityInterval = iv; }
 
 	private:
 
-		/// The validity period of the stored results.
+		/// The validity time interval of the stored computation results.
 		TimeInterval _validityInterval;
 	};
 
-	/// A managed pointer to a ComputeEngine instance.
-	using ComputeEnginePtr = std::shared_ptr<ComputeEngine>;
+	/// A managed pointer to an Engine instance.
+	using EnginePtr = std::shared_ptr<Engine>;
 
 public:
 
@@ -86,18 +97,6 @@ public:
 
 	/// Suppress preliminary viewport updates when a parameter of the asynchronous modifier changes.
 	virtual bool performPreliminaryUpdateAfterChange() override { return false; }
-
-	/// This method indicates whether outdated computation results should be immediately discarded
-	/// whenever the inputs of the modifier changes. By default, the method returns false to indicate
-	/// that the results should be kept as long as a new computation is in progress. During this
-	/// transient phase, the old resuls may still be used by the pipeline for preliminary viewport updates.
-	virtual bool discardResultsOnInputChange() const { return false; }
-
-	/// This method indicates whether cached computation results of the modifier should be discarded whenever
-	/// a parameter of the modifier changes. The default implementation returns true. Subclasses can override
-	/// this method if the asynchronous computation results do not depend on certain parameters and their change
-	/// should not trigger a recomputation.
-	virtual bool discardResultsOnModifierChange(const PropertyFieldEvent& event) const { return true; }
 
 protected:
 
@@ -111,10 +110,10 @@ protected:
 	virtual Future<PipelineFlowState> evaluate(const PipelineEvaluationRequest& request, ModifierApplication* modApp, const PipelineFlowState& input) override;
 
 	/// Creates a computation engine that will compute the modifier's results.
-	virtual Future<ComputeEnginePtr> createEngine(const PipelineEvaluationRequest& request, ModifierApplication* modApp, const PipelineFlowState& input) = 0;
+	virtual Future<EnginePtr> createEngine(const PipelineEvaluationRequest& request, ModifierApplication* modApp, const PipelineFlowState& input) = 0;
 };
 
 // Export this class template specialization from the DLL under Windows.
-extern template class OVITO_CORE_EXPORT Future<AsynchronousModifier::ComputeEnginePtr>;
+extern template class OVITO_CORE_EXPORT Future<AsynchronousModifier::EnginePtr>;
 
 }	// End of namespace

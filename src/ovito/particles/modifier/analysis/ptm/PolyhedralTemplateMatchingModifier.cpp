@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Copyright 2018 Alexander Stukowski
+//  Copyright 2020 Alexander Stukowski
 //
 //  This file is part of OVITO (Open Visualization Tool).
 //
@@ -107,7 +107,7 @@ void PolyhedralTemplateMatchingModifier::propertyChanged(const PropertyFieldDesc
 /******************************************************************************
 * Creates and initializes a computation engine that will compute the modifier's results.
 ******************************************************************************/
-Future<AsynchronousModifier::ComputeEnginePtr> PolyhedralTemplateMatchingModifier::createEngine(const PipelineEvaluationRequest& request, ModifierApplication* modApp, const PipelineFlowState& input)
+Future<AsynchronousModifier::EnginePtr> PolyhedralTemplateMatchingModifier::createEngine(const PipelineEvaluationRequest& request, ModifierApplication* modApp, const PipelineFlowState& input)
 {
 	if(structureTypes().size() != PTMAlgorithm::NUM_STRUCTURE_TYPES)
 		throwException(tr("The number of structure types has changed. Please remove this modifier from the data pipeline and insert it again."));
@@ -307,9 +307,9 @@ PropertyPtr PolyhedralTemplateMatchingModifier::PTMEngine::postProcessStructureT
 /******************************************************************************
 * Injects the computed results of the engine into the data pipeline.
 ******************************************************************************/
-void PolyhedralTemplateMatchingModifier::PTMEngine::emitResults(TimePoint time, ModifierApplication* modApp, PipelineFlowState& state)
+void PolyhedralTemplateMatchingModifier::PTMEngine::applyResults(TimePoint time, ModifierApplication* modApp, PipelineFlowState& state)
 {
-	StructureIdentificationEngine::emitResults(time, modApp, state);
+	StructureIdentificationEngine::applyResults(time, modApp, state);
 
 	// Also output structure type counts, which have been computed by the base class.
 	state.addAttribute(QStringLiteral("PolyhedralTemplateMatching.counts.OTHER"), QVariant::fromValue(getTypeCount(PTMAlgorithm::OTHER)), modApp);

@@ -55,13 +55,12 @@ class OVITO_PARTICLES_EXPORT StructureIdentificationModifier : public Asynchrono
 public:
 
 	/// Computes the modifier's results.
-	class StructureIdentificationEngine : public ComputeEngine
+	class StructureIdentificationEngine : public Engine
 	{
 	public:
 
 		/// Constructor.
 		StructureIdentificationEngine(ParticleOrderingFingerprint fingerprint, ConstPropertyPtr positions, const SimulationCell& simCell, QVector<bool> typesToIdentify, ConstPropertyPtr selection = {}) :
-			ComputeEngine(),
 			_positions(std::move(positions)),
 			_simCell(simCell),
 			_typesToIdentify(std::move(typesToIdentify)),
@@ -70,8 +69,30 @@ public:
 			_inputFingerprint(std::move(fingerprint)) {}
 
 		/// Injects the computed results into the data pipeline.
-		virtual void emitResults(TimePoint time, ModifierApplication* modApp, PipelineFlowState& state) override;
+		virtual void applyResults(TimePoint time, ModifierApplication* modApp, PipelineFlowState& state) override;
 
+		/// This method is called by the system whenever a parameter of the modifier changes.
+		/// The method can be overriden by subclasses to indicate to the caller whether the engine object should be 
+		/// discarded (false) or may be kept in the cache, because the computation results are not affected by the changing parameter (true). 
+		virtual bool modifierChanged(const PropertyFieldEvent& event) override {
+			// Avoid a recomputation if the user toggles just the color-by-type option.
+			if(event.field() == &PROPERTY_FIELD(colorByType))
+				return true;
+			return Engine::modifierChanged(event);
+		}
+
+		/// Reinitializes the compute engine in order to reperform a computation.
+		/// Data structures that have been discarded after the last run by releaseWorkingData() will be
+		/// reinitialized with the new inputs.
+		void startOver(ParticleOrderingFingerprint fingerprint, ConstPropertyPtr positions, QVector<bool> typesToIdentify, ConstPropertyPtr selection = {}) {
+			// Reset the asynchronous task state.
+			Engine::startOver();
+			
+			_positions = std::move(positions);
+			_typesToIdentify = std::move(typesToIdentify);
+			_selection = std::move(selection);
+		}
+		
 		/// Returns the property storage that contains the computed per-particle structure types.
 		const PropertyPtr& structures() const { return _structures; }
 
@@ -123,14 +144,6 @@ public:
 
 	/// Constructor.
 	StructureIdentificationModifier(DataSet* dataset);
-
-	/// This method indicates whether cached computation results of the modifier should be discarded whenever
-	/// a parameter of the modifier changes.
-	virtual bool discardResultsOnModifierChange(const PropertyFieldEvent& event) const override {
-		// Avoid a recomputation from scratch if the color-by-type option is being changed.
-		if(event.field() == &PROPERTY_FIELD(colorByType)) return false;
-		return AsynchronousModifier::discardResultsOnModifierChange(event);
-	}
 
 protected:
 

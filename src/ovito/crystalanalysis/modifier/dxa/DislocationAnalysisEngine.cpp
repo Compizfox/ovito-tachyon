@@ -273,10 +273,10 @@ void DislocationAnalysisEngine::perform()
 /******************************************************************************
 * Injects the computed results of the engine into the data pipeline.
 ******************************************************************************/
-void DislocationAnalysisEngine::emitResults(TimePoint time, ModifierApplication* modApp, PipelineFlowState& state)
+void DislocationAnalysisEngine::applyResults(TimePoint time, ModifierApplication* modApp, PipelineFlowState& state)
 {
 	DislocationAnalysisModifier* modifier = static_object_cast<DislocationAnalysisModifier>(modApp->modifier());
-	StructureIdentificationEngine::emitResults(time, modApp, state);
+	StructureIdentificationEngine::applyResults(time, modApp, state);
 
 	// Output defect mesh.
 	SurfaceMesh* defectMeshObj = state.createObject<SurfaceMesh>(QStringLiteral("dxa-defect-mesh"), modApp, DislocationAnalysisModifier::tr("Defect mesh"));

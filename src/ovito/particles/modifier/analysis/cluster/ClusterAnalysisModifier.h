@@ -70,12 +70,12 @@ public:
 protected:
 
 	/// Creates a computation engine that will compute the modifier's results.
-	virtual Future<ComputeEnginePtr> createEngine(const PipelineEvaluationRequest& request, ModifierApplication* modApp, const PipelineFlowState& input) override;
+	virtual Future<EnginePtr> createEngine(const PipelineEvaluationRequest& request, ModifierApplication* modApp, const PipelineFlowState& input) override;
 
 private:
 
 	/// Computes the modifier's results.
-	class ClusterAnalysisEngine : public ComputeEngine
+	class ClusterAnalysisEngine : public Engine
 	{
 	public:
 
@@ -99,7 +99,7 @@ private:
 		virtual void perform() override;
 
 		/// Injects the computed results into the data pipeline.
-		virtual void emitResults(TimePoint time, ModifierApplication* modApp, PipelineFlowState& state) override;
+		virtual void applyResults(TimePoint time, ModifierApplication* modApp, PipelineFlowState& state) override;
 
 		/// Returns the property storage that contains the computed cluster number of each particle.
 		const PropertyPtr& particleClusters() const { return _particleClusters; }

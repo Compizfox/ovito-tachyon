@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Copyright 2019 Alexander Stukowski
+//  Copyright 2020 Alexander Stukowski
 //
 //  This file is part of OVITO (Open Visualization Tool).
 //
@@ -42,11 +42,17 @@ public:
 	/// \brief Constructs a modifier application.
 	Q_INVOKABLE AsynchronousModifierApplication(DataSet* dataset);
 
-	/// Returns the cached results of the AsynchronousModifier from the last pipeline evaluation.
-	const AsynchronousModifier::ComputeEnginePtr& lastComputeResults() const { return _lastComputeResults; }
+	/// Returns the sequence of compute engines from a recent successfully completed modifier evaluation which are still valid.
+	const std::vector<AsynchronousModifier::EnginePtr>& validStages() const { return _validStages; }
 
-	/// Sets the cached results of the AsynchronousModifier from the last pipeline evaluation.
-	void setLastComputeResults(AsynchronousModifier::ComputeEnginePtr results) { _lastComputeResults = std::move(results); }
+	/// Stores the sequence of compute engines from a recent successfully completed modifier evaluation.
+	void setValidStages(std::vector<AsynchronousModifier::EnginePtr> validStages) { _validStages = std::move(validStages); }
+
+	/// Returns a compute engine containing the results of a fully completed algorithm, which may be outdated.
+	const AsynchronousModifier::EnginePtr& completedEngine() const { return _completedEngine; }
+
+	/// Stores the compute engine containing the results of a fully completed algorithm.
+	void setCompletedEngine(AsynchronousModifier::EnginePtr eng) { _completedEngine = std::move(eng); }
 
 protected:
 
@@ -58,8 +64,11 @@ protected:
 
 private:
 
-	/// The cached results of the AsynchronousModifier from the last pipeline evaluation.
-	AsynchronousModifier::ComputeEnginePtr _lastComputeResults;
+	/// The sequence of compute engines from a recent successfully completed modifier evaluation which are still valid.
+	std::vector<AsynchronousModifier::EnginePtr> _validStages;
+
+	/// A compute engine containing the results of a fully completed algorithm, which may be outdated.
+	AsynchronousModifier::EnginePtr _completedEngine;
 };
 
 }	// End of namespace

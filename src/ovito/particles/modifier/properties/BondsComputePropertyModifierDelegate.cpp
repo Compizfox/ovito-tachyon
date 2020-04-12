@@ -59,7 +59,7 @@ std::shared_ptr<ComputePropertyModifierDelegate::PropertyComputeEngine> BondsCom
 				QStringList expressions)
 {
 	// Create engine object. Pass all relevant modifier parameters to the engine as well as the input data.
-	return std::make_shared<ComputeEngine>(
+	return std::make_shared<Engine>(
 			input.stateValidity(),
 			time,
 			std::move(outputProperty),
@@ -73,7 +73,7 @@ std::shared_ptr<ComputePropertyModifierDelegate::PropertyComputeEngine> BondsCom
 /******************************************************************************
 * Constructor.
 ******************************************************************************/
-BondsComputePropertyModifierDelegate::ComputeEngine::ComputeEngine(
+BondsComputePropertyModifierDelegate::Engine::Engine(
 		const TimeInterval& validityInterval,
 		TimePoint time,
 		PropertyPtr outputProperty,
@@ -140,7 +140,7 @@ BondsComputePropertyModifierDelegate::ComputeEngine::ComputeEngine(
 /********************************§**********************************************
 * Returns a human-readable text listing the input variables.
 ******************************************************************************/
-QString BondsComputePropertyModifierDelegate::ComputeEngine::inputVariableTable() const
+QString BondsComputePropertyModifierDelegate::Engine::inputVariableTable() const
 {
 	QString table = ComputePropertyModifierDelegate::PropertyComputeEngine::inputVariableTable();
 	table.append(QStringLiteral("<p><b>Accessing particle properties:</b><ul>"));
@@ -153,7 +153,7 @@ QString BondsComputePropertyModifierDelegate::ComputeEngine::inputVariableTable(
 /******************************************************************************
 * Performs the actual computation. This method is executed in a worker thread.
 ******************************************************************************/
-void BondsComputePropertyModifierDelegate::ComputeEngine::perform()
+void BondsComputePropertyModifierDelegate::Engine::perform()
 {
 	setProgressText(tr("Computing property '%1'").arg(outputProperty()->name()));
 	setProgressMaximum(outputProperty()->size());
@@ -207,12 +207,12 @@ void BondsComputePropertyModifierDelegate::ComputeEngine::perform()
 /******************************************************************************
 * Injects the computed results of the engine into the data pipeline.
 ******************************************************************************/
-void BondsComputePropertyModifierDelegate::ComputeEngine::emitResults(TimePoint time, ModifierApplication* modApp, PipelineFlowState& state)
+void BondsComputePropertyModifierDelegate::Engine::applyResults(TimePoint time, ModifierApplication* modApp, PipelineFlowState& state)
 {
 	if(_inputFingerprint.hasChanged(state.expectObject<ParticlesObject>()))
 		modApp->throwException(tr("Cached modifier results are obsolete, because the number or the storage order of input particles has changed."));
 
-	PropertyComputeEngine::emitResults(time, modApp, state);
+	PropertyComputeEngine::applyResults(time, modApp, state);
 }
 
 }	// End of namespace

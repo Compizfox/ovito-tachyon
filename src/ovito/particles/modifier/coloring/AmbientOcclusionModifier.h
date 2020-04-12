@@ -28,8 +28,6 @@
 #include <ovito/stdobj/properties/PropertyStorage.h>
 #include <ovito/core/dataset/pipeline/AsynchronousModifier.h>
 
-#include <QOffscreenSurface>
-
 namespace Ovito { namespace Particles {
 
 class AmbientOcclusionRenderer;		// defined in AmbientOcclusionRenderer.h
@@ -66,7 +64,7 @@ public:
 	enum { MAX_AO_RENDER_BUFFER_RESOLUTION = 4 };
 
 	/// Computes the modifier's results.
-	class AmbientOcclusionEngine : public ComputeEngine
+	class AmbientOcclusionEngine : public Engine
 	{
 	public:
 
@@ -81,7 +79,17 @@ public:
 		virtual void perform() override;
 
 		/// Injects the computed results into the data pipeline.
-		virtual void emitResults(TimePoint time, ModifierApplication* modApp, PipelineFlowState& state) override;
+		virtual void applyResults(TimePoint time, ModifierApplication* modApp, PipelineFlowState& state) override;
+
+		/// This method is called by the system whenever a parameter of the modifier changes.
+		/// The method can be overriden by subclasses to indicate to the caller whether the engine object should be 
+		/// discarded (false) or may be kept in the cache, because the computation results are not affected by the changing parameter (true). 
+		virtual bool modifierChanged(const PropertyFieldEvent& event) override {
+			// Avoid a recomputation if the user changes just the intensity parameter.
+			if(event.field() == &PROPERTY_FIELD(intensity))
+				return true;
+			return Engine::modifierChanged(event);
+		}
 
 		/// Returns the property storage that contains the computed per-particle brightness values.
 		const PropertyPtr& brightness() const { return _brightness; }
@@ -106,18 +114,10 @@ public:
 	/// Constructor.
 	Q_INVOKABLE AmbientOcclusionModifier(DataSet* dataset);
 
-	/// This method indicates whether cached computation results of the modifier should be discarded whenever
-	/// a parameter of the modifier changes.
-	virtual bool discardResultsOnModifierChange(const PropertyFieldEvent& event) const override {
-		// Avoid a full recomputation when the user changes the intensity parameter.
-		if(event.field() == &PROPERTY_FIELD(intensity)) return false;
-		return AsynchronousModifier::discardResultsOnModifierChange(event);
-	}
-
 protected:
 
 	/// Creates a computation engine that will compute the modifier's results.
-	virtual Future<ComputeEnginePtr> createEngine(const PipelineEvaluationRequest& request, ModifierApplication* modApp, const PipelineFlowState& input) override;
+	virtual Future<EnginePtr> createEngine(const PipelineEvaluationRequest& request, ModifierApplication* modApp, const PipelineFlowState& input) override;
 
 private:
 

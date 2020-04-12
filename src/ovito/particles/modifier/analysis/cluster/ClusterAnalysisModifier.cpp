@@ -76,7 +76,7 @@ bool ClusterAnalysisModifier::OOMetaClass::isApplicableTo(const DataCollection& 
 /******************************************************************************
 * Creates and initializes a computation engine that will compute the modifier's results.
 ******************************************************************************/
-Future<AsynchronousModifier::ComputeEnginePtr> ClusterAnalysisModifier::createEngine(const PipelineEvaluationRequest& request, ModifierApplication* modApp, const PipelineFlowState& input)
+Future<AsynchronousModifier::EnginePtr> ClusterAnalysisModifier::createEngine(const PipelineEvaluationRequest& request, ModifierApplication* modApp, const PipelineFlowState& input)
 {
 	// Get the current particle positions.
 	const ParticlesObject* particles = input.expectObject<ParticlesObject>();
@@ -376,7 +376,7 @@ void ClusterAnalysisModifier::BondClusterAnalysisEngine::doClustering()
 /******************************************************************************
 * Injects the computed results of the engine into the data pipeline.
 ******************************************************************************/
-void ClusterAnalysisModifier::ClusterAnalysisEngine::emitResults(TimePoint time, ModifierApplication* modApp, PipelineFlowState& state)
+void ClusterAnalysisModifier::ClusterAnalysisEngine::applyResults(TimePoint time, ModifierApplication* modApp, PipelineFlowState& state)
 {
 	ClusterAnalysisModifier* modifier = static_object_cast<ClusterAnalysisModifier>(modApp->modifier());
 	ParticlesObject* particles = state.expectMutableObject<ParticlesObject>();

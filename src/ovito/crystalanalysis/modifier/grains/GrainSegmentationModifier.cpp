@@ -101,9 +101,9 @@ void GrainSegmentationModifier::propertyChanged(const PropertyFieldDescriptor& f
 }
 
 /******************************************************************************
-* Creates a computation engine that finds the grains in a single frame.
+* Creates a computation engine that will compute the modifier's results.
 ******************************************************************************/
-std::shared_ptr<GrainSegmentationEngine> GrainSegmentationModifier::createSegmentationEngine(TimePoint time, ModifierApplication* modApp, const PipelineFlowState& input)
+Future<AsynchronousModifier::EnginePtr> GrainSegmentationModifier::createEngine(const PipelineEvaluationRequest& request, ModifierApplication* modApp, const PipelineFlowState& input)
 {
 	if(structureTypes().size() != PTMAlgorithm::NUM_STRUCTURE_TYPES)
 		throwException(tr("The number of structure types has changed. Please remove this modifier from the modification pipeline and insert it again."));
@@ -125,36 +125,26 @@ std::shared_ptr<GrainSegmentationEngine> GrainSegmentationModifier::createSegmen
 	ptm_initialize_global();
 
 	// Create engine object. Pass all relevant modifier parameters to the engine as well as the input data.
-	return std::make_shared<GrainSegmentationEngine>(particles, posProperty->storage(), simCell->data(),
-			getTypesToIdentify(PTMAlgorithm::NUM_STRUCTURE_TYPES), std::move(selectionProperty),
-			rmsdCutoff(), mergeAlgorithm(), outputBonds());
-}
-
-/******************************************************************************
-* Creates a computation engine that will compute the modifier's results.
-******************************************************************************/
-Future<AsynchronousModifier::ComputeEnginePtr> GrainSegmentationModifier::createEngine(const PipelineEvaluationRequest& request, ModifierApplication* modApp, const PipelineFlowState& input)
-{
-	return createSegmentationEngine(request.time(), modApp, input);
+	return std::make_shared<GrainSegmentationEngine1>(
+			particles,
+			posProperty->storage(),
+			simCell->data(),
+			getTypesToIdentify(PTMAlgorithm::NUM_STRUCTURE_TYPES),
+			std::move(selectionProperty),
+			rmsdCutoff(),
+			mergeAlgorithm(),
+			outputBonds());
 }
 
 /******************************************************************************
 * Injects the computed results of the engine into the data pipeline.
 ******************************************************************************/
-void GrainSegmentationEngine::emitResults(TimePoint time, ModifierApplication* modApp, PipelineFlowState& state)
+void GrainSegmentationEngine1::applyResults(TimePoint time, ModifierApplication* modApp, PipelineFlowState& state)
 {
-	StructureIdentificationEngine::emitResults(time, modApp, state);
+	StructureIdentificationEngine::applyResults(time, modApp, state);
 
 	GrainSegmentationModifier* modifier = static_object_cast<GrainSegmentationModifier>(modApp->modifier());
 	OVITO_ASSERT(modifier);
-
-	// Complete the segmentation by executing the merge steps up to the threshold set by the user or the adaptively determined threshold.
-	FloatType mergingThreshold = modifier->mergingThreshold();
-	if(modifier->mergeAlgorithm() == GrainSegmentationModifier::NodePairSamplingAutomatic) {
-		mergingThreshold = this->suggestedMergingThreshold();
-		state.addAttribute(QStringLiteral("GrainSegmentation.auto_merge_threshold"), QVariant::fromValue(mergingThreshold), modApp);
-	}
-	executeMergeSequence(modifier->minGrainAtomCount(), mergingThreshold, modifier->orphanAdoption());
 
 	ParticlesObject* particles = state.expectMutableObject<ParticlesObject>();
 
@@ -163,25 +153,9 @@ void GrainSegmentationEngine::emitResults(TimePoint time, ModifierApplication* m
 		particles->createProperty(rmsd());
 	if(orientations())
 		particles->createProperty(orientations());
-	if(atomClusters()) {
-		particles->createProperty(atomClusters());
 
-		PropertyAccess<qlonglong> superClustersArray = particles->createProperty(QStringLiteral("Supercluster"), PropertyStorage::Int64, 1, 0, false);
-		boost::copy(_atomSuperclusters, superClustersArray.begin());
-
-		if(modifier->colorParticlesByGrain()) {
-			
-			// Assign colors to particles according to the grains they belong to.
-			ConstPropertyAccess<Color> grainColorsArray(_grainColors);
-			PropertyAccess<Color> particleColorsArray = particles->createProperty(ParticlesObject::ColorProperty, false);
-			boost::transform(ConstPropertyAccess<qlonglong>(atomClusters()), particleColorsArray.begin(), [&](qlonglong cluster) { 
-				if(cluster != 0)
-					return grainColorsArray[cluster - 1];
-				else
-					return Color(0.8, 0.8, 0.8); // Special color for non-crystalline particles not part of any grain.
-			});
-		}
-	}
+	PropertyAccess<qlonglong> superClustersArray = particles->createProperty(QStringLiteral("Supercluster"), PropertyStorage::Int64, 1, 0, false);
+	boost::copy(_atomSuperclusters, superClustersArray.begin());
 
 	// Output the edges of the neighbor graph.
 	if(_outputBondsToPipeline && modifier->outputBonds()) {
@@ -230,6 +204,41 @@ void GrainSegmentationEngine::emitResults(TimePoint time, ModifierApplication* m
 	if(mergeSize() && mergeDistance())
 		state.createObject<DataTable>(QStringLiteral("grains-merge"), modApp, DataTable::Scatter, GrainSegmentationModifier::tr("Merge size vs. Merge distance"), mergeSize(), mergeDistance());
 
+	if(modifier->mergeAlgorithm() == GrainSegmentationModifier::NodePairSamplingAutomatic)
+		state.addAttribute(QStringLiteral("GrainSegmentation.auto_merge_threshold"), QVariant::fromValue(suggestedMergingThreshold()), modApp);
+}
+
+/******************************************************************************
+* Injects the computed results of the engine into the data pipeline.
+******************************************************************************/
+void GrainSegmentationEngine2::applyResults(TimePoint time, ModifierApplication* modApp, PipelineFlowState& state)
+{
+	// Output the results from the 1st algorithm stage.
+	_engine1->applyResults(time, modApp, state);
+
+	GrainSegmentationModifier* modifier = static_object_cast<GrainSegmentationModifier>(modApp->modifier());
+	OVITO_ASSERT(modifier);
+
+	ParticlesObject* particles = state.expectMutableObject<ParticlesObject>();
+
+	// Output per-particle properties.
+	if(atomClusters()) {
+		particles->createProperty(atomClusters());
+
+		if(modifier->colorParticlesByGrain()) {
+			
+			// Assign colors to particles according to the grains they belong to.
+			ConstPropertyAccess<Color> grainColorsArray(_grainColors);
+			PropertyAccess<Color> particleColorsArray = particles->createProperty(ParticlesObject::ColorProperty, false);
+			boost::transform(ConstPropertyAccess<qlonglong>(atomClusters()), particleColorsArray.begin(), [&](qlonglong cluster) { 
+				if(cluster != 0)
+					return grainColorsArray[cluster - 1];
+				else
+					return Color(0.8, 0.8, 0.8); // Special color for non-crystalline particles not part of any grain.
+			});
+		}
+	}
+
 	// Output a data table with the list of grains.
 	// The X-column consists of the grain IDs, the Y-column contains the grain sizes. 
 	DataTable* grainTable = state.createObject<DataTable>(QStringLiteral("grains"), modApp, DataTable::Scatter, GrainSegmentationModifier::tr("Grain list"), _grainSizes, _grainIds);
@@ -249,7 +258,8 @@ void GrainSegmentationEngine::emitResults(TimePoint time, ModifierApplication* m
 		numGrains = *boost::max_element(ConstPropertyAccess<qlonglong>(atomClusters()));
 
 	state.addAttribute(QStringLiteral("GrainSegmentation.grain_count"), QVariant::fromValue(numGrains), modApp);
-	state.setStatus(PipelineStatus(PipelineStatus::Success, GrainSegmentationModifier::tr("Found %1 grains\n(%2 superclusters)").arg(numGrains).arg(_numSuperclusters)));
+
+	state.setStatus(PipelineStatus(PipelineStatus::Success, GrainSegmentationModifier::tr("Found %1 grains\n(%2 superclusters)").arg(numGrains).arg(_engine1->_numSuperclusters)));
 }
 
 }	// End of namespace

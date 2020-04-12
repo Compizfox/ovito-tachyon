@@ -52,7 +52,7 @@ IdentifyDiamondModifier::IdentifyDiamondModifier(DataSet* dataset) : StructureId
 * Creates and initializes a computation engine that will compute the
 * modifier's results.
 ******************************************************************************/
-Future<AsynchronousModifier::ComputeEnginePtr> IdentifyDiamondModifier::createEngine(const PipelineEvaluationRequest& request, ModifierApplication* modApp, const PipelineFlowState& input)
+Future<AsynchronousModifier::EnginePtr> IdentifyDiamondModifier::createEngine(const PipelineEvaluationRequest& request, ModifierApplication* modApp, const PipelineFlowState& input)
 {
 	if(structureTypes().size() != NUM_STRUCTURE_TYPES)
 		throwException(tr("The number of structure types has changed. Please remove this modifier from the modification pipeline and insert it again."));
@@ -236,9 +236,9 @@ void IdentifyDiamondModifier::DiamondIdentificationEngine::perform()
 /******************************************************************************
 * Injects the computed results of the engine into the data pipeline.
 ******************************************************************************/
-void IdentifyDiamondModifier::DiamondIdentificationEngine::emitResults(TimePoint time, ModifierApplication* modApp, PipelineFlowState& state)
+void IdentifyDiamondModifier::DiamondIdentificationEngine::applyResults(TimePoint time, ModifierApplication* modApp, PipelineFlowState& state)
 {
-	StructureIdentificationEngine::emitResults(time, modApp, state);
+	StructureIdentificationEngine::applyResults(time, modApp, state);
 
 	// Also output structure type counts, which have been computed by the base class.
 	state.addAttribute(QStringLiteral("IdentifyDiamond.counts.CUBIC_DIAMOND"), QVariant::fromValue(getTypeCount(CUBIC_DIAMOND)), modApp);
