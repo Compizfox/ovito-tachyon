@@ -93,6 +93,9 @@ std::vector< FloatType > theil_sen_estimator(size_t num_samples, std::vector< st
 ******************************************************************************/
 FloatType GrainSegmentationEngine1::calculate_threshold_suggestion()
 {
+    if (_dendrogram.size() == 0)
+        return 0;
+
 	// Temporarily sort dendrogram entries lexicographically, by (merge size, distance).
     // (we revert this at the end of the function).
 	boost::sort(_dendrogram, [](const DendrogramNode& a, const DendrogramNode& b)
