@@ -37,7 +37,7 @@ namespace Ovito { namespace CrystalAnalysis {
 /*
  * Computation engine of the GrainSegmentationModifier, which decomposes a polycrystalline microstructure into individual grains.
  */
-class GrainSegmentationEngine : public StructureIdentificationModifier::StructureIdentificationEngine
+class GrainSegmentationEngine1 : public StructureIdentificationModifier::StructureIdentificationEngine
 {
 public:
 
@@ -64,16 +64,39 @@ public:
 	};
 
 	/// Constructor.
-	GrainSegmentationEngine(
-			ParticleOrderingFingerprint fingerprint, ConstPropertyPtr positions, const SimulationCell& simCell,
-			const QVector<bool>& typesToIdentify, ConstPropertyPtr selection,
-			FloatType rmsdCutoff, GrainSegmentationModifier::MergeAlgorithm algorithmType, bool outputBonds);
+	GrainSegmentationEngine1(
+			ParticleOrderingFingerprint fingerprint, 
+			ConstPropertyPtr positions, 
+			const SimulationCell& simCell,
+			const QVector<bool>& typesToIdentify, 
+			ConstPropertyPtr selection,
+			FloatType rmsdCutoff, 
+			GrainSegmentationModifier::MergeAlgorithm algorithmType,
+			bool outputBonds);
 
 	/// Performs the computation.
 	virtual void perform() override;
 
 	/// Injects the computed results into the data pipeline.
-	virtual void emitResults(TimePoint time, ModifierApplication* modApp, PipelineFlowState& state) override;
+	virtual void applyResults(TimePoint time, ModifierApplication* modApp, PipelineFlowState& state) override;
+
+	/// This method is called by the system whenever a parameter of the modifier changes.
+	/// The method can be overriden by subclasses to indicate to the caller whether the engine object should be 
+	/// discarded (false) or may be kept in the cache, because the computation results are not affected by the changing parameter (true). 
+	virtual bool modifierChanged(const PropertyFieldEvent& event) override {
+
+		// Avoid a recomputation if a parameters changes that does not affect this algorithm stage.
+		if(event.field() == &PROPERTY_FIELD(GrainSegmentationModifier::colorParticlesByGrain)
+				|| event.field() == &PROPERTY_FIELD(GrainSegmentationModifier::mergingThreshold) 
+				|| event.field() == &PROPERTY_FIELD(GrainSegmentationModifier::minGrainAtomCount)
+				|| event.field() == &PROPERTY_FIELD(GrainSegmentationModifier::orphanAdoption))
+			return true;
+
+		return StructureIdentificationModifier::StructureIdentificationEngine::modifierChanged(event);
+	}
+
+	/// Creates another engine that performs the next stage of the computation. 
+	virtual std::shared_ptr<Engine> createContinuationEngine(ModifierApplication* modApp, const PipelineFlowState& input) override;
 
 	/// Returns the per-atom RMSD values computed by the PTM algorithm.
 	const PropertyPtr& rmsd() const { return _rmsd; }
@@ -92,9 +115,6 @@ public:
 
 	/// Returns the computed per-particle lattice orientations.
 	const PropertyPtr& orientations() const { return _orientations; }
-
-	/// Returns the array storing the cluster ID of each particle.
-	const PropertyPtr& atomClusters() const { return _atomClusters; }
 
 	/// Returns the adaptively determined merge threshold.
 	FloatType suggestedMergingThreshold() const { return _suggestedMergingThreshold; }
@@ -115,12 +135,6 @@ private:
 
 	/// Builds grains by iterative region merging.
 	bool determineMergeSequence();
-
-	/// Executes precomputed merge steps up to the threshold value set by the user.
-	void executeMergeSequence(int minGrainAtomCount, FloatType mergingThreshold, bool adoptOrphanAtoms);
-
-	/// Merges any orphan atoms into the closest cluster.
-	bool mergeOrphanAtoms();
 
 	/// Computes the disorientation angle between two crystal clusters of the given lattice type. 
 	/// Furthermore, the function computes the weighted average of the two cluster orientations. 
@@ -153,9 +167,6 @@ private:
 	/// The cutoff parameter used by the PTM algorithm.
 	FloatType _rmsdCutoff;
 
-	/// Counts the number of clusters
-	size_t _numClusters = 0;
-
 	/// The per-atom RMSD values computed by the PTM algorithm.
 	const PropertyPtr _rmsd;
 
@@ -177,9 +188,6 @@ private:
 	/// The computed per-particle lattice orientations.
 	PropertyPtr _orientations;
 
-	/// The particle to cluster assignment.
-	PropertyPtr _atomClusters;
-
 	/// The bonds connecting neighboring lattice atoms.
 	std::vector<NeighborBond> _neighborBonds;
 
@@ -191,6 +199,72 @@ private:
 
 	// Dendrogram as list of cluster merges.
 	std::vector<DendrogramNode> _dendrogram;
+
+	/// The adaptively computed merge threshold.
+	FloatType _suggestedMergingThreshold = 0;
+
+	friend class GrainSegmentationEngine2;
+};
+
+/*
+ * Computation engine of the GrainSegmentationModifier, which decomposes a polycrystalline microstructure into individual grains.
+ */
+class GrainSegmentationEngine2 : public AsynchronousModifier::Engine
+{
+public:
+
+	/// Constructor.
+	GrainSegmentationEngine2(
+			std::shared_ptr<GrainSegmentationEngine1> engine1,
+			FloatType mergingThreshold, 
+			bool adoptOrphanAtoms, 
+			size_t minGrainAtomCount) :
+		_engine1(std::move(engine1)),
+		_numParticles(_engine1->_numParticles),
+		_mergingThreshold(mergingThreshold),
+		_adoptOrphanAtoms(adoptOrphanAtoms),
+		_minGrainAtomCount(minGrainAtomCount),
+		_atomClusters(ParticlesObject::OOClass().createStandardStorage(_numParticles, ParticlesObject::ClusterProperty, true)) {}
+	
+	/// Performs the computation.
+	virtual void perform() override;
+
+	/// Injects the computed results into the data pipeline.
+	virtual void applyResults(TimePoint time, ModifierApplication* modApp, PipelineFlowState& state) override;
+
+	/// This method is called by the system whenever a parameter of the modifier changes.
+	/// The method can be overriden by subclasses to indicate to the caller whether the engine object should be 
+	/// discarded (false) or may be kept in the cache, because the computation results are not affected by the changing parameter (true). 
+	virtual bool modifierChanged(const PropertyFieldEvent& event) override {
+
+		// Avoid a recomputation if a parameters changes that does not affect the algorithm's results.
+		if(event.field() == &PROPERTY_FIELD(GrainSegmentationModifier::colorParticlesByGrain))
+			return true; // Indicate that the stored results are not affected by the parameter change.
+
+		return Engine::modifierChanged(event);
+	}
+
+	/// Returns the array storing the cluster ID of each particle.
+	const PropertyPtr& atomClusters() const { return _atomClusters; }
+
+private:
+
+	/// Merges any orphan atoms into the closest cluster.
+	bool mergeOrphanAtoms();
+
+private:
+
+	/// Pointer to the first algorithm stage.
+	std::shared_ptr<GrainSegmentationEngine1> _engine1;
+
+	/// The number of input particles.
+	size_t _numParticles;
+
+	/// The particle to cluster assignment.
+	PropertyPtr _atomClusters;
+
+	/// Counts the number of clusters
+	size_t _numClusters = 1;
 
 	// The output list of grain IDs.
 	PropertyPtr _grainIds;
@@ -207,8 +281,14 @@ private:
 	/// The output list of mean grain orientations.
 	PropertyPtr _grainOrientations;
 
-	/// The adaptively computed merge threshold.
-	FloatType _suggestedMergingThreshold = 0;
+	/// The user-defined merge threshold.
+	FloatType _mergingThreshold;
+
+	/// The minimum number of atoms a grain must have.
+	size_t _minGrainAtomCount;
+
+	/// Contrals the adoption of orphan atoms after the grains have been formed.
+	bool _adoptOrphanAtoms;
 };
 
 }	// End of namespace

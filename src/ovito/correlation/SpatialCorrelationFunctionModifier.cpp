@@ -159,7 +159,7 @@ void SpatialCorrelationFunctionModifier::initializeModifier(ModifierApplication*
 /******************************************************************************
 * Creates and initializes a computation engine that will compute the modifier's results.
 ******************************************************************************/
-Future<AsynchronousModifier::ComputeEnginePtr> SpatialCorrelationFunctionModifier::createEngine(const PipelineEvaluationRequest& request, ModifierApplication* modApp, const PipelineFlowState& input)
+Future<AsynchronousModifier::EnginePtr> SpatialCorrelationFunctionModifier::createEngine(const PipelineEvaluationRequest& request, ModifierApplication* modApp, const PipelineFlowState& input)
 {
 	// Get the source data.
 	if(sourceProperty1().isNull())
@@ -792,7 +792,7 @@ void SpatialCorrelationFunctionModifier::CorrelationAnalysisEngine::perform()
 /******************************************************************************
 * Injects the computed results of the engine into the data pipeline.
 ******************************************************************************/
-void SpatialCorrelationFunctionModifier::CorrelationAnalysisEngine::emitResults(TimePoint time, ModifierApplication* modApp, PipelineFlowState& state)
+void SpatialCorrelationFunctionModifier::CorrelationAnalysisEngine::applyResults(TimePoint time, ModifierApplication* modApp, PipelineFlowState& state)
 {
 	// Output real-space correlation function to the pipeline as a data table.
 	DataTable* realSpaceCorrelationObj = state.createObject<DataTable>(QStringLiteral("correlation-real-space"), modApp, DataTable::Line, tr("Real-space correlation"), realSpaceCorrelation());

@@ -1,7 +1,7 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Copyright 2019 Alexander Stukowski
-//  Copyright 2019 Peter Mahler Larsen
+//  Copyright 2020 Alexander Stukowski
+//  Copyright 2020 Peter Mahler Larsen
 //
 //  This file is part of OVITO (Open Visualization Tool).
 //
@@ -91,7 +91,7 @@ std::vector< FloatType > theil_sen_estimator(size_t num_samples, std::vector< st
 /******************************************************************************
 * Calculate a threshold suggestion
 ******************************************************************************/
-FloatType GrainSegmentationEngine::calculate_threshold_suggestion()
+FloatType GrainSegmentationEngine1::calculate_threshold_suggestion()
 {
 	// Temporarily sort dendrogram entries lexicographically, by (merge size, distance).
     // (we revert this at the end of the function).

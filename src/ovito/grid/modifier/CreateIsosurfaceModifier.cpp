@@ -107,7 +107,7 @@ void CreateIsosurfaceModifier::initializeModifier(ModifierApplication* modApp)
 * Creates and initializes a computation engine that will compute the
 * modifier's results.
 ******************************************************************************/
-Future<AsynchronousModifier::ComputeEnginePtr> CreateIsosurfaceModifier::createEngine(const PipelineEvaluationRequest& request, ModifierApplication* modApp, const PipelineFlowState& input)
+Future<AsynchronousModifier::EnginePtr> CreateIsosurfaceModifier::createEngine(const PipelineEvaluationRequest& request, ModifierApplication* modApp, const PipelineFlowState& input)
 {
 	if(!subject())
 		throwException(tr("No input voxel grid set."));
@@ -205,7 +205,7 @@ void CreateIsosurfaceModifier::ComputeIsosurfaceEngine::perform()
 /******************************************************************************
 * Injects the computed results of the engine into the data pipeline.
 ******************************************************************************/
-void CreateIsosurfaceModifier::ComputeIsosurfaceEngine::emitResults(TimePoint time, ModifierApplication* modApp, PipelineFlowState& state)
+void CreateIsosurfaceModifier::ComputeIsosurfaceEngine::applyResults(TimePoint time, ModifierApplication* modApp, PipelineFlowState& state)
 {
 	CreateIsosurfaceModifier* modifier = static_object_cast<CreateIsosurfaceModifier>(modApp->modifier());
 

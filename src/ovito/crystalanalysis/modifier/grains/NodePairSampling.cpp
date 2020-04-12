@@ -1,7 +1,7 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Copyright 2019 Alexander Stukowski
-//  Copyright 2019 Peter Mahler Larsen
+//  Copyright 2020 Alexander Stukowski
+//  Copyright 2020 Peter Mahler Larsen
 //
 //  This file is part of OVITO (Open Visualization Tool).
 //
@@ -149,7 +149,7 @@ public:
 /******************************************************************************
 * Clustering using pair sampling algorithm.
 ******************************************************************************/
-bool GrainSegmentationEngine::node_pair_sampling_clustering(
+bool GrainSegmentationEngine1::node_pair_sampling_clustering(
 	boost::iterator_range<std::vector<NeighborBond>::const_iterator> edgeRange, 
 	DendrogramNode* dendrogram, int structureType, std::vector<Quaternion>& qsum, FloatType totalWeight)
 {

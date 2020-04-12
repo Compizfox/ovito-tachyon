@@ -55,24 +55,13 @@ public:
 	/// Constructor.
 	Q_INVOKABLE GrainSegmentationModifier(DataSet* dataset);
 
-	/// This method indicates whether cached computation results of the modifier should be discarded whenever
-	/// a parameter of the modifier changes.
-	virtual bool discardResultsOnModifierChange(const PropertyFieldEvent& event) const override {
-		// Avoid a recomputation from scratch if parameters are changed that only affect the second algorithm stage.
-		if(event.field() == &PROPERTY_FIELD(mergingThreshold) || event.field() == &PROPERTY_FIELD(minGrainAtomCount) || event.field() == &PROPERTY_FIELD(colorParticlesByGrain) || event.field() == &PROPERTY_FIELD(orphanAdoption)) return false;
-		return StructureIdentificationModifier::discardResultsOnModifierChange(event);
-	}
-
 protected:
 
 	/// Is called when the value of a property of this object has changed.
 	virtual void propertyChanged(const PropertyFieldDescriptor& field) override;
 
-	/// Creates a computation engine that finds the grains in a single frame.
-	std::shared_ptr<GrainSegmentationEngine> createSegmentationEngine(TimePoint time, ModifierApplication* modApp, const PipelineFlowState& input);
-
 	/// Creates a computation engine that will compute the modifier's results.
-	virtual Future<ComputeEnginePtr> createEngine(const PipelineEvaluationRequest& request, ModifierApplication* modApp, const PipelineFlowState& input) override;
+	virtual Future<EnginePtr> createEngine(const PipelineEvaluationRequest& request, ModifierApplication* modApp, const PipelineFlowState& input) override;
 
 private:
 

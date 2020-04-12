@@ -84,6 +84,10 @@ public:
 	/// Returns the current progress value (taking into account sub-steps).
     virtual qlonglong totalProgressValue() const override { return _totalProgressValue; }
 
+    /// \brief Resets the task object to its initial state, so that it can be run again.
+    /// \note This method may only be called on a task that has finished running.
+    virtual void startOver() override;
+
 protected:
 
 	/// Constructor.

@@ -139,6 +139,19 @@ void Task::setException(std::exception_ptr&& ex)
 	_exceptionStore = std::move(ex); // NOLINT
 }
 
+void Task::startOver()
+{
+	OVITO_ASSERT(isFinished());
+	OVITO_ASSERT(_continuations.empty());
+
+	_exceptionStore = std::exception_ptr{};
+	_state = NoState;
+
+#ifdef OVITO_DEBUG
+    _resultSet = false;
+#endif
+}
+
 void Task::registerWatcher(TaskWatcher* watcher)
 {
 	if(isStarted())

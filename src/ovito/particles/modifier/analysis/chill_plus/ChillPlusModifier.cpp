@@ -57,7 +57,7 @@ ChillPlusModifier::ChillPlusModifier(DataSet* dataset) : StructureIdentification
 * Creates and initializes a computation engine that will compute the
 * modifier's results.
 ******************************************************************************/
-Future<AsynchronousModifier::ComputeEnginePtr> ChillPlusModifier::createEngine(const PipelineEvaluationRequest& request, ModifierApplication* modApp, const PipelineFlowState& input)
+Future<AsynchronousModifier::EnginePtr> ChillPlusModifier::createEngine(const PipelineEvaluationRequest& request, ModifierApplication* modApp, const PipelineFlowState& input)
 {
     if(structureTypes().size() != NUM_STRUCTURE_TYPES)
         throwException(tr("The number of structure types has changed. Please remove this modifier from the pipeline and insert it again."));
@@ -197,9 +197,9 @@ ChillPlusModifier::StructureType ChillPlusModifier::ChillPlusEngine::determineSt
 /******************************************************************************
 * Injects the computed results of the engine into the data pipeline.
 ******************************************************************************/
-void ChillPlusModifier::ChillPlusEngine::emitResults(TimePoint time, ModifierApplication* modApp, PipelineFlowState& state)
+void ChillPlusModifier::ChillPlusEngine::applyResults(TimePoint time, ModifierApplication* modApp, PipelineFlowState& state)
 {
-    StructureIdentificationEngine::emitResults(time, modApp, state);
+    StructureIdentificationEngine::applyResults(time, modApp, state);
 
     // Also output structure type counts, which have been computed by the base class.
     state.addAttribute(QStringLiteral("ChillPlus.counts.OTHER"), QVariant::fromValue(getTypeCount(OTHER)), modApp);

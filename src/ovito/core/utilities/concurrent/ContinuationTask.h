@@ -123,8 +123,8 @@ public:
 			_continuedTask->finally(Ovito::detail::InlineExecutor(), false, [this,promise = std::move(promise)](const TaskPtr&) {
 				if(TaskDependency finishedTask = this->takeContinuedTask()) {
 					if(!finishedTask->isCanceled()) {
-						if(finishedTask->_exceptionStore)
-							this->setException(std::exception_ptr(finishedTask->_exceptionStore));
+						if(finishedTask->exceptionStore())
+							this->setException(finishedTask->exceptionStore());
 						else
 							this->setResultsDirect(finishedTask->template getResults<tuple_type>());
 						this->setFinished();

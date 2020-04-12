@@ -168,7 +168,7 @@ const ElementType* CreateBondsModifier::lookupParticleType(const PropertyObject*
 * Creates and initializes a computation engine that will compute the
 * modifier's results.
 ******************************************************************************/
-Future<AsynchronousModifier::ComputeEnginePtr> CreateBondsModifier::createEngine(const PipelineEvaluationRequest& request, ModifierApplication* modApp, const PipelineFlowState& input)
+Future<AsynchronousModifier::EnginePtr> CreateBondsModifier::createEngine(const PipelineEvaluationRequest& request, ModifierApplication* modApp, const PipelineFlowState& input)
 {
 	// Get modifier input.
 	const ParticlesObject* particles = input.expectObject<ParticlesObject>();
@@ -290,7 +290,7 @@ void CreateBondsModifier::BondsEngine::perform()
 /******************************************************************************
 * Injects the computed results of the engine into the data pipeline.
 ******************************************************************************/
-void CreateBondsModifier::BondsEngine::emitResults(TimePoint time, ModifierApplication* modApp, PipelineFlowState& state)
+void CreateBondsModifier::BondsEngine::applyResults(TimePoint time, ModifierApplication* modApp, PipelineFlowState& state)
 {
 	CreateBondsModifier* modifier = static_object_cast<CreateBondsModifier>(modApp->modifier());
 	OVITO_ASSERT(modifier);

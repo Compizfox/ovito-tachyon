@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Copyright 2019 Alexander Stukowski
+//  Copyright 2020 Alexander Stukowski
 //
 //  This file is part of OVITO (Open Visualization Tool).
 //
@@ -48,7 +48,7 @@ protected:
 	using AsynchronousModifierDelegate::AsynchronousModifierDelegate;
 
 	/// Asynchronous compute engine that does the actual work in a separate thread.
-	class OVITO_STDMOD_EXPORT PropertyComputeEngine : public AsynchronousModifier::ComputeEngine
+	class OVITO_STDMOD_EXPORT PropertyComputeEngine : public AsynchronousModifier::Engine
 	{
 	public:
 
@@ -82,7 +82,7 @@ protected:
 		}
 
 		/// Injects the computed results into the data pipeline.
-		virtual void emitResults(TimePoint time, ModifierApplication* modApp, PipelineFlowState& state) override;
+		virtual void applyResults(TimePoint time, ModifierApplication* modApp, PipelineFlowState& state) override;
 
 		/// Returns the property storage that will receive the computed values.
 		const PropertyPtr& outputProperty() const { return _outputProperty; }
@@ -93,6 +93,11 @@ protected:
 		/// Determines whether any of the math expressions is explicitly time-dependent.
 		virtual bool isTimeDependent() { return _evaluator->isTimeDependent(); }
 
+		/// This method is called by the system whenever a parameter of the modifier changes.
+		/// The method can be overriden by subclasses to indicate to the caller whether the engine object should be 
+		/// discarded or may be kept in the cache, because the computation results are not affected by the changing parameter. 
+		virtual bool modifierChanged(const PropertyFieldEvent& event) override;
+		
 	protected:
 
 		/// Releases data that is no longer needed.
@@ -201,20 +206,13 @@ public:
 	/// \undoable
 	void setPropertyComponentCount(int newComponentCount);
 
-	/// This method indicates whether cached computation results of the modifier should be discarded whenever
-	/// a parameter of the modifier changes.
-	virtual bool discardResultsOnModifierChange(const PropertyFieldEvent& event) const override {
-		if(event.field() == &PROPERTY_FIELD(useMultilineFields)) return false;
-		return AsynchronousDelegatingModifier::discardResultsOnModifierChange(event);
-	}
-
 protected:
 
 	/// \brief Is called when the value of a reference field of this RefMaker changes.
 	virtual void referenceReplaced(const PropertyFieldDescriptor& field, RefTarget* oldTarget, RefTarget* newTarget) override;
 
 	/// Creates a computation engine that will compute the modifier's results.
-	virtual Future<ComputeEnginePtr> createEngine(const PipelineEvaluationRequest& request, ModifierApplication* modApp, const PipelineFlowState& input) override;
+	virtual Future<EnginePtr> createEngine(const PipelineEvaluationRequest& request, ModifierApplication* modApp, const PipelineFlowState& input) override;
 
 protected:
 

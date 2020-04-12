@@ -96,7 +96,7 @@ std::shared_ptr<ComputePropertyModifierDelegate::PropertyComputeEngine> Particle
 	const PropertyObject* positions = particles->expectProperty(ParticlesObject::PositionProperty);
 
 	// Create engine object. Pass all relevant modifier parameters to the engine as well as the input data.
-	return std::make_shared<ComputeEngine>(
+	return std::make_shared<Engine>(
 			input.stateValidity(),
 			time,
 			std::move(outputProperty),
@@ -113,7 +113,7 @@ std::shared_ptr<ComputePropertyModifierDelegate::PropertyComputeEngine> Particle
 /******************************************************************************
 * Constructor.
 ******************************************************************************/
-ParticlesComputePropertyModifierDelegate::ComputeEngine::ComputeEngine(
+ParticlesComputePropertyModifierDelegate::Engine::Engine(
 		const TimeInterval& validityInterval,
 		TimePoint time,
 		PropertyPtr outputProperty,
@@ -182,7 +182,7 @@ ParticlesComputePropertyModifierDelegate::ComputeEngine::ComputeEngine(
 /********************************§**********************************************
 * Returns a human-readable text listing the input variables.
 ******************************************************************************/
-QString ParticlesComputePropertyModifierDelegate::ComputeEngine::inputVariableTable() const
+QString ParticlesComputePropertyModifierDelegate::Engine::inputVariableTable() const
 {
 	QString table = ComputePropertyModifierDelegate::PropertyComputeEngine::inputVariableTable();
 	table.append(QStringLiteral("<p><b>Neighbor expression variables:</b><ul>"));
@@ -200,7 +200,7 @@ QString ParticlesComputePropertyModifierDelegate::ComputeEngine::inputVariableTa
 /******************************************************************************
 * Determines whether any of the math expressions is explicitly time-dependent.
 ******************************************************************************/
-QStringList ParticlesComputePropertyModifierDelegate::ComputeEngine::delegateInputVariableNames() const
+QStringList ParticlesComputePropertyModifierDelegate::Engine::delegateInputVariableNames() const
 {
 	return _neighborEvaluator->inputVariableNames();
 }
@@ -209,7 +209,7 @@ QStringList ParticlesComputePropertyModifierDelegate::ComputeEngine::delegateInp
 * Determines whether the math expressions are time-dependent,
 * i.e. if they reference the animation frame number.
 ******************************************************************************/
-bool ParticlesComputePropertyModifierDelegate::ComputeEngine::isTimeDependent()
+bool ParticlesComputePropertyModifierDelegate::Engine::isTimeDependent()
 {
 	if(ComputePropertyModifierDelegate::PropertyComputeEngine::isTimeDependent())
 		return true;
@@ -223,7 +223,7 @@ bool ParticlesComputePropertyModifierDelegate::ComputeEngine::isTimeDependent()
 /******************************************************************************
 * Performs the actual computation. This method is executed in a worker thread.
 ******************************************************************************/
-void ParticlesComputePropertyModifierDelegate::ComputeEngine::perform()
+void ParticlesComputePropertyModifierDelegate::Engine::perform()
 {
 	setProgressText(tr("Computing property '%1'").arg(outputProperty()->name()));
 
@@ -323,12 +323,12 @@ void ParticlesComputePropertyModifierDelegate::ComputeEngine::perform()
 /******************************************************************************
 * Injects the computed results of the engine into the data pipeline.
 ******************************************************************************/
-void ParticlesComputePropertyModifierDelegate::ComputeEngine::emitResults(TimePoint time, ModifierApplication* modApp, PipelineFlowState& state)
+void ParticlesComputePropertyModifierDelegate::Engine::applyResults(TimePoint time, ModifierApplication* modApp, PipelineFlowState& state)
 {
 	if(_inputFingerprint.hasChanged(state.expectObject<ParticlesObject>()))
 		modApp->throwException(tr("Cached modifier results are obsolete, because the number or the storage order of input particles has changed."));
 
-	PropertyComputeEngine::emitResults(time, modApp, state);
+	PropertyComputeEngine::applyResults(time, modApp, state);
 }
 
 }	// End of namespace

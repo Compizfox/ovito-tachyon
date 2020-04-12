@@ -62,7 +62,7 @@ CommonNeighborAnalysisModifier::CommonNeighborAnalysisModifier(DataSet* dataset)
 * Creates and initializes a computation engine that will compute the
 * modifier's results.
 ******************************************************************************/
-Future<AsynchronousModifier::ComputeEnginePtr> CommonNeighborAnalysisModifier::createEngine(const PipelineEvaluationRequest& request, ModifierApplication* modApp, const PipelineFlowState& input)
+Future<AsynchronousModifier::EnginePtr> CommonNeighborAnalysisModifier::createEngine(const PipelineEvaluationRequest& request, ModifierApplication* modApp, const PipelineFlowState& input)
 {
 	if(structureTypes().size() != NUM_STRUCTURE_TYPES)
 		throwException(tr("The number of structure types has changed. Please remove this modifier from the pipeline and insert it again."));
@@ -843,9 +843,9 @@ CommonNeighborAnalysisModifier::StructureType CommonNeighborAnalysisModifier::de
 /******************************************************************************
 * Injects the computed results of the engine into the data pipeline.
 ******************************************************************************/
-void CommonNeighborAnalysisModifier::CNAEngine::emitResults(TimePoint time, ModifierApplication* modApp, PipelineFlowState& state)
+void CommonNeighborAnalysisModifier::CNAEngine::applyResults(TimePoint time, ModifierApplication* modApp, PipelineFlowState& state)
 {
-	StructureIdentificationEngine::emitResults(time, modApp, state);
+	StructureIdentificationEngine::applyResults(time, modApp, state);
 
 	// Also output structure type counts, which have been computed by the base class.
 	state.addAttribute(QStringLiteral("CommonNeighborAnalysis.counts.OTHER"), QVariant::fromValue(getTypeCount(OTHER)), modApp);
@@ -858,9 +858,9 @@ void CommonNeighborAnalysisModifier::CNAEngine::emitResults(TimePoint time, Modi
 /******************************************************************************
 * Lets the modifier insert the cached computation results into the modification pipeline.
 ******************************************************************************/
-void CommonNeighborAnalysisModifier::BondCNAEngine::emitResults(TimePoint time, ModifierApplication* modApp, PipelineFlowState& state)
+void CommonNeighborAnalysisModifier::BondCNAEngine::applyResults(TimePoint time, ModifierApplication* modApp, PipelineFlowState& state)
 {
-	CNAEngine::emitResults(time, modApp, state);
+	CNAEngine::applyResults(time, modApp, state);
 	ParticlesObject* particles = state.expectMutableObject<ParticlesObject>();
 	particles->makeMutable(particles->expectBonds())->createProperty(cnaIndices());
 }

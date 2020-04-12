@@ -176,6 +176,7 @@ void TaskManager::taskFinishedInternal()
 
 	Q_EMIT taskFinished(watcher);
 
+	watcher->reset();
 	watcher->deleteLater();
 }
 

@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Copyright 2019 Alexander Stukowski
+//  Copyright 2020 Alexander Stukowski
 //
 //  This file is part of OVITO (Open Visualization Tool).
 //
@@ -102,7 +102,7 @@ void ComputePropertyModifier::referenceReplaced(const PropertyFieldDescriptor& f
 * Creates and initializes a computation engine that will compute the
 * modifier's results.
 ******************************************************************************/
-Future<AsynchronousModifier::ComputeEnginePtr> ComputePropertyModifier::createEngine(const PipelineEvaluationRequest& request, ModifierApplication* modApp, const PipelineFlowState& input)
+Future<AsynchronousModifier::EnginePtr> ComputePropertyModifier::createEngine(const PipelineEvaluationRequest& request, ModifierApplication* modApp, const PipelineFlowState& input)
 {
 	// Get the delegate object that will take of the specific details.
 	if(!delegate())
@@ -197,7 +197,7 @@ ComputePropertyModifierDelegate::PropertyComputeEngine::PropertyComputeEngine(
 		QStringList expressions,
 		int frameNumber,
 		std::unique_ptr<PropertyExpressionEvaluator> evaluator) :
-	AsynchronousModifier::ComputeEngine(validityInterval),
+	AsynchronousModifier::Engine(validityInterval),
 	_selectionArray(std::move(selectionProperty)),
 	_expressions(std::move(expressions)),
 	_frameNumber(frameNumber),
@@ -269,9 +269,23 @@ QStringList ComputePropertyModifierDelegate::PropertyComputeEngine::inputVariabl
 }
 
 /******************************************************************************
+* This method is called by the system whenever a parameter of the modifier changes.
+* The method can be overriden by subclasses to indicate to the caller whether the engine object should be 
+* discarded or may be kept in the cache, because the computation results are not affected by the changing parameter. 
+******************************************************************************/
+bool ComputePropertyModifierDelegate::PropertyComputeEngine::modifierChanged(const PropertyFieldEvent& event) 
+{
+	// Do not recompute results if just the 'useMultilineFields' option is toggled by the user.
+	if(event.field() == &PROPERTY_FIELD(ComputePropertyModifier::useMultilineFields)) 
+		return true; // This return value tells the system to hold on to the cached engine object.
+
+	return AsynchronousModifier::Engine::modifierChanged(event);
+}
+
+/******************************************************************************
 * Injects the computed results of the engine into the data pipeline.
 ******************************************************************************/
-void ComputePropertyModifierDelegate::PropertyComputeEngine::emitResults(TimePoint time, ModifierApplication* modApp, PipelineFlowState& state)
+void ComputePropertyModifierDelegate::PropertyComputeEngine::applyResults(TimePoint time, ModifierApplication* modApp, PipelineFlowState& state)
 {
 	ComputePropertyModifierApplication* myModApp = dynamic_object_cast<ComputePropertyModifierApplication>(modApp);
 	ComputePropertyModifier* modifier = static_object_cast<ComputePropertyModifier>(modApp->modifier());
