@@ -32,7 +32,6 @@ class DisjointSet
 public:
 
 	DisjointSet(size_t n) {
-		ranks.resize(n);
 		parents.resize(n);
 		sizes.resize(n);
 		clear();
@@ -62,8 +61,8 @@ public:
 		size_t parentB = find(index2);
 		if(parentA == parentB) return index1;
 
-		// Attach smaller rank tree under root of high rank tree (Union by Rank)
-		if(ranks[parentA] < ranks[parentB]) {
+		// Attach smaller tree under root of larger tree
+		if(sizes[parentA] < sizes[parentB]) {
 			parents[parentA] = parentB;
 			sizes[parentB] += sizes[parentA];
 			return index2;
@@ -71,11 +70,6 @@ public:
 		else {
 			parents[parentB] = parentA;
 			sizes[parentA] += sizes[parentB];
-
-			// If ranks are same, then make one as root and increment its rank by one
-			if(ranks[parentA] == ranks[parentB])
-				ranks[parentA]++;
-
 			return index1;
 		}
 	}
@@ -85,7 +79,6 @@ public:
 private:
 
 	std::vector<size_t> parents;
-	std::vector<size_t> ranks;
 	std::vector<size_t> sizes;
 };
 
