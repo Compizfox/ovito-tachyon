@@ -41,12 +41,120 @@ class GrainSegmentationEngine1 : public StructureIdentificationModifier::Structu
 {
 public:
 
+    class Graph
+    {
+    public:
+	    size_t next = 0;
+	    std::map<size_t, std::map<size_t, FloatType>> adj;
+	    std::map<size_t, FloatType> wnode;
+
+	    size_t num_nodes() const {
+		    return wnode.size();
+	    }
+
+	    size_t next_node() const {
+		    return wnode.begin()->first;
+	    }
+
+	    std::tuple<FloatType, size_t> nearest_neighbor(size_t a) const {
+		    FloatType dmin = std::numeric_limits<FloatType>::max();
+		    size_t vmin = std::numeric_limits<size_t>::max();
+
+		    OVITO_ASSERT(adj.find(a) != adj.end());
+		    for (const auto& x : adj.find(a)->second) {
+			    size_t v = x.first;
+			    FloatType weight = x.second;
+
+			    OVITO_ASSERT(v != a); // Graph has self loops.
+			    if(v == a) {
+				    qWarning() << "Graph has self loops";
+				    exit(3);
+			    }
+
+			    OVITO_ASSERT(wnode.find(v) != wnode.end());
+			    FloatType d = wnode.find(v)->second / weight;
+			    OVITO_ASSERT(!std::isnan(d));
+
+			    if (d < dmin) {
+				    dmin = d;
+				    vmin = v;
+			    }
+			    else if (d == dmin) {
+				    vmin = std::min(vmin, v);
+			    }
+		    }
+
+		    OVITO_ASSERT(wnode.find(a) != wnode.end());
+		    FloatType check = dmin * wnode.find(a)->second;
+		    OVITO_ASSERT(!std::isnan(check));
+
+		    return std::make_tuple(dmin * wnode.find(a)->second, vmin);
+	    }
+
+	    void add_node(size_t u) {
+		    next = u + 1;
+		    wnode[u] = 0;
+	    }
+
+	    void add_edge(size_t u, size_t v, FloatType w) {
+
+		    auto it_u = adj.find(u);
+		    if (it_u == adj.end()) {
+			    add_node(u);
+			    it_u = adj.emplace(u, std::map<size_t, FloatType>{{{v,w}}}).first;
+		    }
+		    else it_u->second[v] = w;
+
+		    auto it_v = adj.find(v);
+		    if (it_v == adj.end()) {
+			    add_node(v);
+			    it_v = adj.emplace(v, std::map<size_t, FloatType>{{{u,w}}}).first;
+		    }
+		    else it_v->second[u] = w;
+
+		    wnode[u] += w;
+		    wnode[v] += w;
+	    }
+
+	    void remove_node(size_t u) {
+
+		    for (auto const& x: adj[u]) {
+			    size_t v = x.first;
+			    adj[v].erase(u);
+		    }
+
+		    adj.erase(u);
+		    wnode.erase(u);
+	    }
+
+	    size_t contract_edge(size_t a, size_t b) {
+
+		    if (adj[b].size() > adj[a].size()) {
+			    std::swap(a, b);
+		    }
+
+		    adj[a].erase(b);
+		    adj[b].erase(a);
+
+		    for (auto const& x: adj[b]) {
+			    size_t v = x.first;
+			    FloatType w = x.second;
+
+			    (adj[a])[v] += w;
+			    (adj[v])[a] += w;
+		    }
+
+		    wnode[a] += wnode[b];
+		    remove_node(b);
+		    return a;
+	    }
+    };
+
 	/// Represents a single bond connecting two neighboring lattice atoms.
 	struct NeighborBond {
 		size_t a;
 		size_t b;
 		FloatType disorientation;
-		size_t superCluster;
 	};
 
 	struct DendrogramNode {
@@ -130,9 +238,6 @@ private:
 	/// Calculates the disorientation angle for each graph edge (i.e. bond).
 	bool computeDisorientationAngles();
 
-	/// Groups lattice atoms with similar orientations into superclusters.
-	bool formSuperclusters();
-
 	/// Builds grains by iterative region merging.
 	bool determineMergeSequence();
 
@@ -142,11 +247,18 @@ private:
 	static FloatType calculate_disorientation(int structureType, Quaternion& qa, const Quaternion& qb);
 
 	// Algorithm types:
-	bool minimum_spanning_tree_clustering(boost::iterator_range<std::vector<NeighborBond>::iterator> edgeRange, DendrogramNode* dendrogram, int structureType, std::vector<Quaternion>& qsum, DisjointSet& uf);
-	bool node_pair_sampling_clustering(boost::iterator_range<std::vector<NeighborBond>::const_iterator> edgeRange, DendrogramNode* dendrogram, int structureType, std::vector<Quaternion>& qsum, FloatType totalWeight);
+	bool minimum_spanning_tree_clustering(std::vector<NeighborBond>& neighborBonds, ConstPropertyAccess<int>& structuresArray, std::vector<Quaternion>& qsum, DisjointSet& uf);
+	bool node_pair_sampling_clustering(Graph& graph, ConstPropertyAccess<int>& structuresArray, std::vector<Quaternion>& qsum);
 
 	// Selects a threshold for Node Pair Sampling algorithm
     FloatType calculate_threshold_suggestion();
+
+    // Determines if a bond is crystalline
+    bool isCrystallineBond(ConstPropertyAccess<int>& structuresArray, const NeighborBond& bond)
+    {
+        return structuresArray[bond.a] != PTMAlgorithm::OTHER
+               && structuresArray[bond.a] == structuresArray[bond.b];
+    }
 
 private:
 
@@ -154,15 +266,6 @@ private:
 
 	/// The number of input particles.
 	size_t _numParticles;
-
-	/// Supercluster ID of each particle.
-	std::vector<size_t> _atomSuperclusters;
-
-	/// Counts the number of superclusters.
-	size_t _numSuperclusters = 0;
-
-	/// Stores the number of particle in each supercluster.
-	std::vector<size_t> _superclusterSizes;
 
 	/// The cutoff parameter used by the PTM algorithm.
 	FloatType _rmsdCutoff;
@@ -193,9 +296,6 @@ private:
 
 	/// Controls the output of neighbor bonds to the data pipeline for visualization purposes.
 	bool _outputBondsToPipeline;
-
-	// A hardcoded cutoff used for defining superclusters
-	const FloatType _misorientationThreshold = 4.0;
 
 	// Dendrogram as list of cluster merges.
 	std::vector<DendrogramNode> _dendrogram;

@@ -58,7 +58,6 @@ GrainSegmentationEngine1::GrainSegmentationEngine1(
 	_algorithmType(algorithmType),
 	_rmsd(std::make_shared<PropertyStorage>(_numParticles, PropertyStorage::Float, 1, 0, QStringLiteral("RMSD"), false)),
 	_orientations(ParticlesObject::OOClass().createStandardStorage(_numParticles, ParticlesObject::OrientationProperty, true)),
-	_atomSuperclusters(_numParticles),
 	_outputBondsToPipeline(outputBonds)
 {
 }
@@ -71,7 +70,6 @@ void GrainSegmentationEngine1::perform()
 	// First phase of grain segmentation algorithm:
 	if(!identifyAtomicStructures()) return;
 	if(!computeDisorientationAngles()) return;
-	if(!formSuperclusters()) return;
 	if(!determineMergeSequence()) return;
 
 	// Release data that is no longer needed.
@@ -291,62 +289,12 @@ bool GrainSegmentationEngine1::computeDisorientationAngles()
 		}
 #endif
 	});
-
-	return !isCanceled();
-}
-
-/******************************************************************************
-* Groups lattice atoms with similar orientations into superclusters
-******************************************************************************/
-bool GrainSegmentationEngine1::formSuperclusters()
-{
-	ConstPropertyAccess<int> structuresArray(structures());
-
-	setProgressText(GrainSegmentationModifier::tr("Grain segmentation - supercluster merging"));
-	setProgressValue(0);
-	setProgressMaximum(neighborBonds().size());
-
-	// Group connected particles having similar lattice orientations into superclusters.
-	DisjointSet uf(_numParticles);
-	size_t progress = 0;
-	for(const NeighborBond& bond : neighborBonds()) {
-		if(!setProgressValueIntermittent(progress++)) return false;
-
-		// Skip high-angle edges.
-		if(bond.disorientation > _misorientationThreshold) continue;
-
-		OVITO_ASSERT(structuresArray[bond.a] != PTMAlgorithm::OTHER);
-		//OVITO_ASSERT(structuresArray[bond.a] == structuresArray[bond.b]);	 // TODO: fix this for stacking faults
-
-		uf.merge(bond.a, bond.b);
-	}
-
-	// Relabel the superclusters to obtain a contiguous sequence of cluster IDs.
-	_superclusterSizes.resize(1);
-	std::vector<size_t> superclusterRemapping(_numParticles);
-	// Assign new consecutive IDs to root superclusters.
-	for(size_t i = 0; i < _numParticles; i++) {
-		if(uf.find(i) == i && structuresArray[i] != PTMAlgorithm::OTHER) {
-			superclusterRemapping[i] = _superclusterSizes.size();
-			_superclusterSizes.push_back(uf.nodesize(i));
-		}
-	}
-	_numSuperclusters = _superclusterSizes.size();
-
 	if(isCanceled()) return false;
 
-	// Supercluster 0 contains all atoms that are not part of a regular supercluster.
-	_superclusterSizes[0] = _numParticles - std::accumulate(_superclusterSizes.begin() + 1, _superclusterSizes.end(), (size_t)0);
-
-	// Determine supercluster IDs for non-root clusters.
-	for(size_t particleIndex = 0; particleIndex < _numParticles; particleIndex++)
-		superclusterRemapping[particleIndex] = superclusterRemapping[uf.find(particleIndex)];
-
-	if(isCanceled()) return false;
-
-	// Relabel atoms after cluster IDs have changed.
-	for(size_t particleIndex = 0; particleIndex < _numParticles; particleIndex++)
-		_atomSuperclusters[particleIndex] = superclusterRemapping[particleIndex];
+	// Sort graph edges by disorientation.
+	boost::sort(_neighborBonds, [](NeighborBond& a, NeighborBond& b) {
+		return a.disorientation < b.disorientation;
+	});
 
 	return !isCanceled();
 }
@@ -366,7 +314,11 @@ FloatType GrainSegmentationEngine1::calculate_disorientation(int structureType, 
 
 	// Convert structure type back to PTM representation
 	int type = 0;
-	if(structureType == PTMAlgorithm::FCC) type = PTM_MATCH_FCC;
+    if(structureType == PTMAlgorithm::OTHER) {
+		qWarning() << "Grain segmentation: remap failure - disordered structure input";
+        return std::numeric_limits<FloatType>::max();
+    }
+	else if(structureType == PTMAlgorithm::FCC) type = PTM_MATCH_FCC;
 	else if(structureType == PTMAlgorithm::HCP) type = PTM_MATCH_HCP;
 	else if(structureType == PTMAlgorithm::BCC) type = PTM_MATCH_BCC;
 	else if(structureType == PTMAlgorithm::SC) type = PTM_MATCH_SC;
@@ -392,25 +344,19 @@ FloatType GrainSegmentationEngine1::calculate_disorientation(int structureType, 
 * Clustering using minimum spanning tree algorithm.
 ******************************************************************************/
 bool GrainSegmentationEngine1::minimum_spanning_tree_clustering(
-		boost::iterator_range<std::vector<NeighborBond>::iterator> edgeRange,
-		DendrogramNode* dendrogram, int structureType, std::vector<Quaternion>& qsum, DisjointSet& uf)
+        std::vector<NeighborBond>& neighborBonds, ConstPropertyAccess<int>& structuresArray,
+        std::vector<Quaternion>& qsum, DisjointSet& uf)
 {
-	// Sort graph edges by disorientation.
-	boost::sort(edgeRange, [](NeighborBond& a, NeighborBond& b) {
-		return a.disorientation < b.disorientation;
-	});
-	if(isCanceled()) return false;
-
 	size_t progress = 0;
-	for(const NeighborBond& edge : edgeRange) {
-		if(uf.find(edge.a) != uf.find(edge.b)) {
+	for(const NeighborBond& edge : neighborBonds) {
+		if(isCrystallineBond(structuresArray, edge) && uf.find(edge.a) != uf.find(edge.b)) {
 			size_t pa = uf.find(edge.a);
 			size_t pb = uf.find(edge.b);
 			size_t parent = uf.merge(pa, pb);
 			size_t child = (parent == pa) ? pb : pa;
-			FloatType disorientation = calculate_disorientation(structureType, qsum[parent], qsum[child]);
+			FloatType disorientation = calculate_disorientation(structuresArray[parent], qsum[parent], qsum[child]);
 			OVITO_ASSERT(edge.a < edge.b);
-			*dendrogram++ = DendrogramNode(edge.a, edge.b, edge.disorientation, disorientation, 1, qsum[parent]);
+			_dendrogram.emplace_back(edge.a, edge.b, edge.disorientation, disorientation, 1, qsum[parent]);
 
 			// Update progress indicator.
 			if((progress++ % 1024) == 0) {
@@ -428,80 +374,46 @@ bool GrainSegmentationEngine1::minimum_spanning_tree_clustering(
 ******************************************************************************/
 bool GrainSegmentationEngine1::determineMergeSequence()
 {
-	setProgressText(GrainSegmentationModifier::tr("Grain segmentation - building graph"));
-	setProgressValue(0);
-	setProgressMaximum(neighborBonds().size());
-
-	// Build initial graph.
-	std::vector<size_t> bondCount(_numSuperclusters, 0); // Number of bonds in each supercluster.
+	// Build graph.
 	ConstPropertyAccess<int> structuresArray(structures());
+	Graph graph;
+	if(_algorithmType == GrainSegmentationModifier::NodePairSamplingAutomatic || _algorithmType == GrainSegmentationModifier::NodePairSamplingManual) {
 
-	size_t progress = 0;
-	for(NeighborBond& bond : neighborBonds()) {
-		if(!setProgressValueIntermittent(progress++)) return false;
+	    setProgressText(GrainSegmentationModifier::tr("Grain segmentation - building graph"));
+	    setProgressValue(0);
+	    setProgressMaximum(neighborBonds().size());
 
-		// Skip high-angle edges.
-		if(bond.disorientation > _misorientationThreshold) {
-			bond.superCluster = 0;
-		}
-        else {
-   		    bond.superCluster = _atomSuperclusters[bond.a];
-        }
-		bondCount[bond.superCluster]++;
-	}
+    	size_t progress = 0;
+		for (auto edge: neighborBonds()) {
+			if (isCrystallineBond(structuresArray, edge)) {
+                // Calculate edge weight based on disorientation. This is fairly arbitrary but it works well.
+		        FloatType weight = std::exp(-FloatType(1)/3 * edge.disorientation * edge.disorientation);
+		        graph.add_edge(edge.a, edge.b, weight);
+            }
 
-	// Group graph edges by supercluster.
-	boost::sort(neighborBonds(), [](const NeighborBond& a, const NeighborBond& b) {
-		return a.superCluster < b.superCluster;
-	});
+			if((progress++ % 1024) == 0) {
+				if(!incrementProgressValue(1024)) 
+					return false;
+            }
+	    }
+    }
 
-	// Compute the start index in the global edge list for each supercluster.
-	std::vector<size_t> bondStart(_numSuperclusters);
-	bondStart[0] = 0;
-	std::partial_sum(bondCount.cbegin(), bondCount.cend() - 1, bondStart.begin() + 1);
-
-	if(isCanceled())
-		return false;
-
-	// Allocate memory for the dendrograms.
-	size_t dendrogramSize = 0;
-	std::vector<size_t> dendrogramOffsets(_numSuperclusters);
-	dendrogramOffsets[0] = 0;
-	for(size_t sc = 1; sc < _numSuperclusters; sc++) {
-		dendrogramOffsets[sc] = dendrogramSize;
-		dendrogramSize += _superclusterSizes[sc] - 1;	// Number of edges in a tree = number of vertices - 1.
-	}
-	_dendrogram.resize(dendrogramSize);
-
-	setProgressText(GrainSegmentationModifier::tr("Grain segmentation - region merging"));
-	setProgressValue(0);
-	setProgressMaximum(dendrogramSize);
-
-	// Build dendrograms.
+	// Build dendrogram.
 	ConstPropertyAccess<Quaternion> orientationsArray(orientations());
 	std::vector<Quaternion> qsum(orientationsArray.cbegin(), orientationsArray.cend());
 	DisjointSet uf(_numParticles);
+	_dendrogram.resize(0);
 
-	// Parallelize dendrogram computation over superclusters.
-	parallelFor(_numSuperclusters - 1, [&](size_t sc) {
-		sc++;
-		size_t start = bondStart[sc];
-		size_t count = bondCount[sc];
-		if(count == 0) return;
-		size_t index = dendrogramOffsets[sc];
-		int structureType = structuresArray[neighborBonds()[start].a];
+	setProgressText(GrainSegmentationModifier::tr("Grain segmentation - region merging"));
+	setProgressValue(0);
+	setProgressMaximum(_numParticles);  //TODO: make this num. crystalline particles
 
-		if(_algorithmType == GrainSegmentationModifier::NodePairSamplingAutomatic || _algorithmType == GrainSegmentationModifier::NodePairSamplingManual) {
-			node_pair_sampling_clustering(
-				boost::make_iterator_range_n(neighborBonds().cbegin() + start, count), 
-				&_dendrogram[index], structureType, qsum, 1);
-		}
-		else {
-			minimum_spanning_tree_clustering(
-				boost::make_iterator_range_n(neighborBonds().begin() + start, count), 
-				&_dendrogram[index], structureType, qsum, uf);
-		}
-	});
+	if(_algorithmType == GrainSegmentationModifier::NodePairSamplingAutomatic || _algorithmType == GrainSegmentationModifier::NodePairSamplingManual) {
+		node_pair_sampling_clustering(graph, structuresArray, qsum);
+	}
+	else {
+		minimum_spanning_tree_clustering(neighborBonds(), structuresArray, qsum, uf);
+	}
 	if(isCanceled())
 		return false;
 
