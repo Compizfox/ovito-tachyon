@@ -35,7 +35,6 @@ public:
 	std::map<size_t, std::map<size_t, FloatType>> adj;
 	std::map<size_t, FloatType> wnode;
 	std::map<size_t, size_t> snode;
-	std::map<size_t, size_t> rep;
 
 	size_t num_nodes() const {
 		return adj.size();
@@ -81,7 +80,6 @@ public:
 	}
 
 	void add_node(size_t u) {
-		rep[u] = u;
 		next = u + 1;
 		snode[u] = 1;
 		wnode[u] = 0;
@@ -125,7 +123,6 @@ public:
 			std::swap(a, b);
 		}
 
-		rep[a] = next++;
 		adj[a].erase(b);
 		adj[b].erase(a);
 
