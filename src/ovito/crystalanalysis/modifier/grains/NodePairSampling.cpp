@@ -34,7 +34,6 @@ public:
 	size_t next = 0;
 	std::map<size_t, std::map<size_t, FloatType>> adj;
 	std::map<size_t, FloatType> wnode;
-	std::map<size_t, size_t> snode;
 
 	size_t num_nodes() const {
 		return adj.size();
@@ -81,7 +80,6 @@ public:
 
 	void add_node(size_t u) {
 		next = u + 1;
-		snode[u] = 1;
 		wnode[u] = 0;
 	}
 
@@ -114,7 +112,6 @@ public:
 
 		adj.erase(u);
 		wnode.erase(u);
-		snode.erase(u);
 	}
 
 	size_t contract_edge(size_t a, size_t b) {
@@ -135,7 +132,6 @@ public:
 		}
 
 		wnode[a] += wnode[b];
-		snode[a] += snode[b];
 		remove_node(b);
 		return a;
 	}
@@ -182,7 +178,6 @@ bool GrainSegmentationEngine1::node_pair_sampling_clustering(
 			if(b == std::numeric_limits<size_t>::max()) {
 				OVITO_ASSERT(chain.size() == 0);
 				// Remove the connected component
-				size_t sa = graph.snode[a];
 				graph.remove_node(a);
 			}
 			else if(chain.size()) {
@@ -190,14 +185,12 @@ bool GrainSegmentationEngine1::node_pair_sampling_clustering(
 				chain.pop_back();
 
 				if(b == c) {
-					size_t size = graph.snode[a] + graph.snode[b];
-					OVITO_ASSERT(size != 0);
 					size_t parent = graph.contract_edge(a, b);
 					size_t child = (parent == a) ? b : a;
 
 					FloatType disorientation = calculate_disorientation(structureType, qsum[parent], qsum[child]);
 
-					*dendrogram++ = DendrogramNode(std::min(a, b), std::max(a, b), d / totalWeight, disorientation, size, qsum[parent]);
+					*dendrogram++ = DendrogramNode(std::min(a, b), std::max(a, b), d / totalWeight, disorientation, 1, qsum[parent]);
 
 					// Update progress indicator.
 					if((progress++ % 1024) == 0) {
