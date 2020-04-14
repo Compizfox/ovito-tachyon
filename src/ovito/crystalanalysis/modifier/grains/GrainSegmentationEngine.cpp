@@ -376,7 +376,6 @@ bool GrainSegmentationEngine1::determineMergeSequence()
 {
 	// Build graph.
 	ConstPropertyAccess<int> structuresArray(structures());
-	Graph graph;
 	if(_algorithmType == GrainSegmentationModifier::NodePairSamplingAutomatic || _algorithmType == GrainSegmentationModifier::NodePairSamplingManual) {
 
 	    setProgressText(GrainSegmentationModifier::tr("Grain segmentation - building graph"));
@@ -385,7 +384,7 @@ bool GrainSegmentationEngine1::determineMergeSequence()
 
     	size_t progress = 0;
 		for (auto edge: neighborBonds()) {
-			if (isCrystallineBond(structuresArray, edge) && edge.disorientation < 4) {
+			if (isCrystallineBond(structuresArray, edge) && edge.disorientation < _misorientationThreshold) {
                 // Calculate edge weight based on disorientation. This is fairly arbitrary but it works well.
 		        FloatType weight = std::exp(-FloatType(1)/3 * edge.disorientation * edge.disorientation);
 		        graph.add_edge(edge.a, edge.b, weight);
@@ -503,15 +502,29 @@ void GrainSegmentationEngine2::perform()
 
 	// Either use user-defined merge threshold or automatically computed threshold.
 	FloatType mergingThreshold = _mergingThreshold;
-	if(_engine1->_algorithmType == GrainSegmentationModifier::NodePairSamplingAutomatic)
+	if(_engine1->_algorithmType == GrainSegmentationModifier::NodePairSamplingAutomatic) {
 		mergingThreshold = _engine1->suggestedMergingThreshold();
+    }
+
+	const std::vector<GrainSegmentationEngine1::DendrogramNode>& dendrogram = _engine1->_dendrogram;
+
+	if(_engine1->_algorithmType == GrainSegmentationModifier::NodePairSamplingAutomatic) {
+        auto graph = _engine1->graph;
+        for (int i=dendrogram.size() - 1;i>=0;i--) {
+            auto node = &dendrogram[i];
+            if (1) {
+                graph.reinstate_edge(node->a, node->b);
+                printf("%e %e\n", node->distance, graph.wnode[node->a] * graph.wnode[node->b] / graph.adj[node->a][node->b]);
+            }
+        }
+    }
+
 
 	PropertyAccess<Quaternion> orientationsArray(_engine1->orientations());
 	std::vector<Quaternion> meanOrientation(orientationsArray.cbegin(), orientationsArray.cend());
 
 	// Iterate through merge list until distance cutoff is met.
 	DisjointSet uf(_numParticles);
-	const std::vector<GrainSegmentationEngine1::DendrogramNode>& dendrogram = _engine1->_dendrogram;
 	auto node = dendrogram.cbegin();
 	for(; node != dendrogram.cend(); ++node) {
 		if(isCanceled()) 

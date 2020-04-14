@@ -50,11 +50,11 @@ public:
 	    std::map<size_t, std::map<size_t, FloatType>> deleted_adj;
 
 	    size_t num_nodes() const {
-		    return wnode.size();
+		    return adj.size();
 	    }
 
 	    size_t next_node() const {
-		    return wnode.begin()->first;
+		    return adj.begin()->first;
 	    }
 
 	    std::tuple<FloatType, size_t> nearest_neighbor(size_t a) const {
@@ -124,10 +124,10 @@ public:
 			    adj[v].erase(u);
 		    }
 
-		    adj.erase(u);
-		    wnode.erase(u);
-            //deleted_adj[u] = adj[u];
-            //adj.erase(u);
+		    //adj.erase(u);
+		    //wnode.erase(u);
+            deleted_adj[u] = adj[u];
+            adj.erase(u);
 	    }
 
 	    void reinstate_node(size_t u) {
@@ -164,7 +164,7 @@ public:
 	    }
 
 	    size_t reinstate_edge(size_t a, size_t b) {
-            // TODO: check component sizes
+            // TODO: investigate whether component sizes must obey > relation
 
 		    for (auto const& x: deleted_adj[b]) {
 			    size_t v = x.first;
@@ -177,7 +177,6 @@ public:
                 // TODO: if edge weight is now ~=zero, remove edge
 		    }
 
-		    (adj[a])[b] = (deleted_adj[b])[a];
 		    wnode[a] -= wnode[b];
 		    reinstate_node(b);
 		    return a;
@@ -331,11 +330,17 @@ private:
 	/// Controls the output of neighbor bonds to the data pipeline for visualization purposes.
 	bool _outputBondsToPipeline;
 
+	// A hardcoded cutoff, in degrees, used for skipping low-weight edges in Node Pair Sampling mode
+	const FloatType _misorientationThreshold = 4.0;
+
 	// Dendrogram as list of cluster merges.
 	std::vector<DendrogramNode> _dendrogram;
 
 	/// The adaptively computed merge threshold.
 	FloatType _suggestedMergingThreshold = 0;
+
+    // The graph used for the Node Pair Sampling methods
+	Graph graph;
 
 	friend class GrainSegmentationEngine2;
 };
