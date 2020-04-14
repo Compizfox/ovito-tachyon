@@ -26,136 +26,13 @@
 
 namespace Ovito { namespace CrystalAnalysis {
 
-namespace {
-
-class Graph
-{
-public:
-	size_t next = 0;
-	std::map<size_t, std::map<size_t, FloatType>> adj;
-	std::map<size_t, FloatType> wnode;
-
-	size_t num_nodes() const {
-		return adj.size();
-	}
-
-	size_t next_node() const {
-		return adj.begin()->first;
-	}
-
-	std::tuple<FloatType, size_t> nearest_neighbor(size_t a) const {
-		FloatType dmin = std::numeric_limits<FloatType>::max();
-		size_t vmin = std::numeric_limits<size_t>::max();
-
-		OVITO_ASSERT(adj.find(a) != adj.end());
-		for (const auto& x : adj.find(a)->second) {
-			size_t v = x.first;
-			FloatType weight = x.second;
-
-			OVITO_ASSERT(v != a); // Graph has self loops.
-			if(v == a) {
-				qWarning() << "Graph has self loops";
-				exit(3);
-			}
-
-			OVITO_ASSERT(wnode.find(v) != wnode.end());
-			FloatType d = wnode.find(v)->second / weight;
-			OVITO_ASSERT(!std::isnan(d));
-
-			if (d < dmin) {
-				dmin = d;
-				vmin = v;
-			}
-			else if (d == dmin) {
-				vmin = std::min(vmin, v);
-			}
-		}
-
-		OVITO_ASSERT(wnode.find(a) != wnode.end());
-		FloatType check = dmin * wnode.find(a)->second;
-		OVITO_ASSERT(!std::isnan(check));
-
-		return std::make_tuple(dmin * wnode.find(a)->second, vmin);
-	}
-
-	void add_node(size_t u) {
-		next = u + 1;
-		wnode[u] = 0;
-	}
-
-	void add_edge(size_t u, size_t v, FloatType w) {
-
-		auto it_u = adj.find(u);
-		if (it_u == adj.end()) {
-			add_node(u);
-			it_u = adj.emplace(u, std::map<size_t, FloatType>{{{v,w}}}).first;
-		}
-		else it_u->second[v] = w;
-
-		auto it_v = adj.find(v);
-		if (it_v == adj.end()) {
-			add_node(v);
-			it_v = adj.emplace(v, std::map<size_t, FloatType>{{{u,w}}}).first;
-		}
-		else it_v->second[u] = w;
-
-		wnode[u] += w;
-		wnode[v] += w;
-	}
-
-	void remove_node(size_t u) {
-
-		for (auto const& x: adj[u]) {
-			size_t v = x.first;
-			adj[v].erase(u);
-		}
-
-		adj.erase(u);
-		wnode.erase(u);
-	}
-
-	size_t contract_edge(size_t a, size_t b) {
-
-		if (adj[b].size() > adj[a].size()) {
-			std::swap(a, b);
-		}
-
-		adj[a].erase(b);
-		adj[b].erase(a);
-
-		for (auto const& x: adj[b]) {
-			size_t v = x.first;
-			FloatType w = x.second;
-
-			(adj[a])[v] += w;
-			(adj[v])[a] += w;
-		}
-
-		wnode[a] += wnode[b];
-		remove_node(b);
-		return a;
-	}
-};
-
-} // End of anonymous namespace
-
 /******************************************************************************
 * Clustering using pair sampling algorithm.
 ******************************************************************************/
 bool GrainSegmentationEngine1::node_pair_sampling_clustering(
-	boost::iterator_range<std::vector<NeighborBond>::const_iterator> edgeRange, 
-	DendrogramNode* dendrogram, int structureType, std::vector<Quaternion>& qsum, FloatType totalWeight)
+	GrainSegmentationEngine1::Graph& graph, ConstPropertyAccess<int>& structuresArray, std::vector<Quaternion>& qsum)
 {
-	Graph graph;
-	for(const NeighborBond& edge : edgeRange) {
-        // Calculate edge weight based on disorientation. This is fairly arbitrary but it works well.
-		FloatType weight = std::exp(-FloatType(1)/3 * edge.disorientation * edge.disorientation);
-		//if (structuresArray[bond.a] != structuresArray[bond.b]) {
-		//	bond.weight /= 2;
-		//}
-
-		graph.add_edge(edge.a, edge.b, weight);
-	}
+    FloatType totalWeight = 1;
 
 	size_t progress = 0;
 	size_t n = graph.num_nodes();
@@ -188,9 +65,8 @@ bool GrainSegmentationEngine1::node_pair_sampling_clustering(
 					size_t parent = graph.contract_edge(a, b);
 					size_t child = (parent == a) ? b : a;
 
-					FloatType disorientation = calculate_disorientation(structureType, qsum[parent], qsum[child]);
-
-					*dendrogram++ = DendrogramNode(std::min(a, b), std::max(a, b), d / totalWeight, disorientation, 1, qsum[parent]);
+					FloatType disorientation = calculate_disorientation(structuresArray[parent], qsum[parent], qsum[child]);
+        			_dendrogram.emplace_back(std::min(a, b), std::max(a, b), d / totalWeight, disorientation, 1, qsum[parent]);
 
 					// Update progress indicator.
 					if((progress++ % 1024) == 0) {

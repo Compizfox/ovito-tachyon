@@ -154,9 +154,6 @@ void GrainSegmentationEngine1::applyResults(TimePoint time, ModifierApplication*
 	if(orientations())
 		particles->createProperty(orientations());
 
-	PropertyAccess<qlonglong> superClustersArray = particles->createProperty(QStringLiteral("Supercluster"), PropertyStorage::Int64, 1, 0, false);
-	boost::copy(_atomSuperclusters, superClustersArray.begin());
-
 	// Output the edges of the neighbor graph.
 	if(_outputBondsToPipeline && modifier->outputBonds()) {
 
@@ -165,12 +162,12 @@ void GrainSegmentationEngine1::applyResults(TimePoint time, ModifierApplication*
 		ConstPropertyAccess<Point3> positionsArray(particles->expectProperty(ParticlesObject::PositionProperty));
 		ConstPropertyAccess<int> structuresArray(structures());
 
-		for (auto nb: neighborBonds()) {
-			if (structuresArray[nb.a] == structuresArray[nb.b]) {
+		for (auto edge: neighborBonds()) {
+			if (isCrystallineBond(structuresArray, edge)) {
 				Bond bond;
-				bond.index1 = nb.a;
-				bond.index2 = nb.b;
-				disorientations.push_back(nb.disorientation);
+				bond.index1 = edge.a;
+				bond.index2 = edge.b;
+				disorientations.push_back(edge.disorientation);
 
 				// Determine PBC bond shift using minimum image convention.
 				Vector3 delta = positionsArray[bond.index1] - positionsArray[bond.index2];
@@ -259,7 +256,7 @@ void GrainSegmentationEngine2::applyResults(TimePoint time, ModifierApplication*
 
 	state.addAttribute(QStringLiteral("GrainSegmentation.grain_count"), QVariant::fromValue(numGrains), modApp);
 
-	state.setStatus(PipelineStatus(PipelineStatus::Success, GrainSegmentationModifier::tr("Found %1 grains\n(%2 superclusters)").arg(numGrains).arg(_engine1->_numSuperclusters)));
+	state.setStatus(PipelineStatus(PipelineStatus::Success, GrainSegmentationModifier::tr("Found %1 grains").arg(numGrains)));
 }
 
 }	// End of namespace

@@ -107,10 +107,9 @@ FloatType GrainSegmentationEngine1::calculate_threshold_suggestion()
 	});
 
 	// Transform the data into x = log size, y = log median distance
-	size_t i = 0;
 	size_t start = 0, currentSize = _dendrogram[0].size;
 	std::vector< std::tuple< FloatType, FloatType > > transformed; // median of y values for each dsize
-	for(i=0;i<_dendrogram.size();i++) {
+	for(size_t i=0;i<_dendrogram.size();i++) {
 		DendrogramNode& node = _dendrogram[i];
 
 		if (node.size != currentSize) {
@@ -127,10 +126,10 @@ FloatType GrainSegmentationEngine1::calculate_threshold_suggestion()
 		}
 	}
 
-	size_t count = i - start;
-	FloatType median = _dendrogram[i + count / 2].distance;
+	size_t count = _dendrogram.size() - start;
+	FloatType median = _dendrogram[start + count / 2].distance;
 	if (count % 2 == 0) {
-		median += _dendrogram[i + count / 2 - 1].distance;
+		median += _dendrogram[start + count / 2 - 1].distance;
 		median /= 2;
 	}
 	transformed.push_back(std::make_tuple(log(currentSize), log(median)));
@@ -142,6 +141,8 @@ FloatType GrainSegmentationEngine1::calculate_threshold_suggestion()
 		residuals[i] = fabs(residuals[i]);
 	}
 
+printf("%e %e\n", gradient, intercept);
+
 	FloatType mean_absolute_deviation = calculate_median(residuals);
 
     // Select the threshold as the inlier with the largest distance.
@@ -152,10 +153,16 @@ FloatType GrainSegmentationEngine1::calculate_threshold_suggestion()
 
 		FloatType prediction = x * gradient + intercept;
 		FloatType residual = y - prediction;
+
+printf("%e %e %e\n", x, y, residual / mean_absolute_deviation);
+
 		if (residual < 3. * mean_absolute_deviation) {
-			minSuggestion = std::max(minSuggestion, log(node.distance));
+			minSuggestion = std::max(minSuggestion, y);
 		}
 	}
+
+    printf("minSuggestion: %e\n", minSuggestion);
+    printf("mean_absolute_deviation: %e\n", mean_absolute_deviation);
 
 	// Sort dendrogram entries by distance (undoing the lexicographic sorting performed above).
 	boost::sort(_dendrogram, [](const DendrogramNode& a, const DendrogramNode& b) { return a.distance < b.distance; });
