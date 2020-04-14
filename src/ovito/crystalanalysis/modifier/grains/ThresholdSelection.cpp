@@ -141,8 +141,6 @@ FloatType GrainSegmentationEngine1::calculate_threshold_suggestion()
 		residuals[i] = fabs(residuals[i]);
 	}
 
-printf("%e %e\n", gradient, intercept);
-
 	FloatType mean_absolute_deviation = calculate_median(residuals);
 
     // Select the threshold as the inlier with the largest distance.
@@ -154,15 +152,10 @@ printf("%e %e\n", gradient, intercept);
 		FloatType prediction = x * gradient + intercept;
 		FloatType residual = y - prediction;
 
-printf("%e %e %e\n", x, y, residual / mean_absolute_deviation);
-
 		if (residual < 3. * mean_absolute_deviation) {
 			minSuggestion = std::max(minSuggestion, y);
 		}
 	}
-
-    printf("minSuggestion: %e\n", minSuggestion);
-    printf("mean_absolute_deviation: %e\n", mean_absolute_deviation);
 
 	// Sort dendrogram entries by distance (undoing the lexicographic sorting performed above).
 	boost::sort(_dendrogram, [](const DendrogramNode& a, const DendrogramNode& b) { return a.distance < b.distance; });
