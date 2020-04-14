@@ -11,7 +11,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 #define PTM_CONSTANTS_H
 
 #include <cmath>
-#include <cstdlib>
+#include <cstdint>
 
 //------------------------------------
 //    definitions
