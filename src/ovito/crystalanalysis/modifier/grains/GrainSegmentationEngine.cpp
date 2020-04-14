@@ -507,25 +507,27 @@ void GrainSegmentationEngine2::perform()
 
 	const std::vector<GrainSegmentationEngine1::DendrogramNode>& dendrogram = _engine1->_dendrogram;
 
+    // Refine the graph partitions
 	if(_engine1->_algorithmType == GrainSegmentationModifier::NodePairSamplingAutomatic) {
         auto graph = _engine1->graph;
-        for (int i=dendrogram.size() - 1;i>=0;i--) {
-            auto node = &dendrogram[i];
-            if (1) {
-                graph.reinstate_edge(node->a, node->b);
-                printf("%e %e\n", node->distance, graph.wnode[node->a] * graph.wnode[node->b] / graph.adj[node->a][node->b]);
+        FloatType gamma = 1 / mergingThreshold;     // resolution parameter
+
+    	for(auto node = dendrogram.crbegin(); node != dendrogram.crend(); ++node) {
+            graph.reinstate_edge(node->a, node->b);
+            //printf("%e %e\n", node->distance, graph.wnode[node->a] * graph.wnode[node->b] / graph.adj[node->a][node->b]);
+
+            if (std::log(node->distance) < mergingThreshold) {
+                // test all options for reassignment
             }
         }
     }
-
 
 	PropertyAccess<Quaternion> orientationsArray(_engine1->orientations());
 	std::vector<Quaternion> meanOrientation(orientationsArray.cbegin(), orientationsArray.cend());
 
 	// Iterate through merge list until distance cutoff is met.
 	DisjointSet uf(_numParticles);
-	auto node = dendrogram.cbegin();
-	for(; node != dendrogram.cend(); ++node) {
+	for(auto node = dendrogram.cbegin(); node != dendrogram.cend(); ++node) {
 		if(isCanceled()) 
 			return;
 
