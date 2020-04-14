@@ -349,14 +349,14 @@ bool GrainSegmentationEngine1::minimum_spanning_tree_clustering(
 {
 	size_t progress = 0;
 	for(const NeighborBond& edge : neighborBonds) {
-		if(isCrystallineBond(structuresArray, edge) && uf.find(edge.a) != uf.find(edge.b)) {
-			size_t pa = uf.find(edge.a);
-			size_t pb = uf.find(edge.b);
+        size_t pa = uf.find(edge.a);
+        size_t pb = uf.find(edge.b);
+		if(pa != pb && isCrystallineBond(structuresArray, edge)) {
 			size_t parent = uf.merge(pa, pb);
 			size_t child = (parent == pa) ? pb : pa;
 			FloatType disorientation = calculate_disorientation(structuresArray[parent], qsum[parent], qsum[child]);
 			OVITO_ASSERT(edge.a < edge.b);
-			_dendrogram.emplace_back(edge.a, edge.b, edge.disorientation, disorientation, 1, qsum[parent]);
+			_dendrogram.emplace_back(parent, child, edge.disorientation, disorientation, 1, qsum[parent]);
 
 			// Update progress indicator.
 			if((progress++ % 1024) == 0) {
@@ -546,33 +546,6 @@ void GrainSegmentationEngine2::perform()
 				clusterStructureTypes.push_back(structuresArray[i]);
 				clusterOrientations.push_back(meanOrientation[i].normalized());
 			}
-		}
-	}
-	if(isCanceled()) 
-		return;
-
-	// Continue iterating through merge list to merge dissolved grains into adjacent grains.
-	// Makes sure that sub-critical clusters that are isolated (i.e. not connected to any super-critical cluster)
-	// remain dissolved even if they grow in size by eating other sub-critical clusters.
-	for(; node != dendrogram.cend(); ++node) {
-		size_t clusterA = uf.find(node->a);
-		size_t clusterB = uf.find(node->b);
-		
-		// Don't merge two super-critical clusters.
-		if(clusterRemapping[clusterA] != 0 && clusterRemapping[clusterB] != 0)
-			continue;
-
-		// Merge the two clusters.
-		uf.merge(node->a, node->b);
-		size_t parent = uf.find(node->a);
-		meanOrientation[parent] = node->orientation;
-
-		// When merging a super-critical and a sub-critical cluster:
-		if(clusterRemapping[clusterB] == 0) {
-			clusterRemapping[parent] = clusterRemapping[clusterA];
-		}
-		else if(clusterRemapping[clusterA] == 0) {
-			clusterRemapping[parent] = clusterRemapping[clusterB];
 		}
 	}
 	if(isCanceled()) 

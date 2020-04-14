@@ -66,7 +66,7 @@ bool GrainSegmentationEngine1::node_pair_sampling_clustering(
 					size_t child = (parent == a) ? b : a;
 
 					FloatType disorientation = calculate_disorientation(structuresArray[parent], qsum[parent], qsum[child]);
-        			_dendrogram.emplace_back(std::min(a, b), std::max(a, b), d / totalWeight, disorientation, 1, qsum[parent]);
+        			_dendrogram.emplace_back(parent, child, d / totalWeight, disorientation, 1, qsum[parent]);
 
 					// Update progress indicator.
 					if((progress++ % 1024) == 0) {

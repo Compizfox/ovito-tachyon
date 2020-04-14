@@ -59,18 +59,18 @@ public:
 	size_t merge(size_t index1, size_t index2) {
 		size_t parentA = find(index1);
 		size_t parentB = find(index2);
-		if(parentA == parentB) return index1;
+		if(parentA == parentB) return parentA;
 
 		// Attach smaller tree under root of larger tree
 		if(sizes[parentA] < sizes[parentB]) {
 			parents[parentA] = parentB;
 			sizes[parentB] += sizes[parentA];
-			return index2;
+			return parentB;
 		}
 		else {
 			parents[parentB] = parentA;
 			sizes[parentA] += sizes[parentB];
-			return index1;
+			return parentA;
 		}
 	}
 

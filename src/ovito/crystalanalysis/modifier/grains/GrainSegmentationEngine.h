@@ -45,8 +45,9 @@ public:
     {
     public:
 	    size_t next = 0;
-	    std::map<size_t, std::map<size_t, FloatType>> adj;
 	    std::map<size_t, FloatType> wnode;
+	    std::map<size_t, std::map<size_t, FloatType>> adj;
+	    std::map<size_t, std::map<size_t, FloatType>> deleted_adj;
 
 	    size_t num_nodes() const {
 		    return wnode.size();
@@ -125,6 +126,20 @@ public:
 
 		    adj.erase(u);
 		    wnode.erase(u);
+            //deleted_adj[u] = adj[u];
+            //adj.erase(u);
+	    }
+
+	    void reinstate_node(size_t u) {
+
+            adj[u] = deleted_adj[u];
+            deleted_adj.erase(u);
+
+		    for (auto const& x: adj[u]) {
+			    size_t v = x.first;
+			    FloatType w = x.second;
+			    (adj[v])[u] += w;
+		    }
 	    }
 
 	    size_t contract_edge(size_t a, size_t b) {
@@ -133,19 +148,38 @@ public:
 			    std::swap(a, b);
 		    }
 
-		    adj[a].erase(b);
-		    adj[b].erase(a);
-
 		    for (auto const& x: adj[b]) {
 			    size_t v = x.first;
 			    FloatType w = x.second;
+                if (v == a) continue;
 
 			    (adj[a])[v] += w;
 			    (adj[v])[a] += w;
 		    }
 
+		    adj[a].erase(b);
 		    wnode[a] += wnode[b];
 		    remove_node(b);
+		    return a;
+	    }
+
+	    size_t reinstate_edge(size_t a, size_t b) {
+            // TODO: check component sizes
+
+		    for (auto const& x: deleted_adj[b]) {
+			    size_t v = x.first;
+			    FloatType w = x.second;
+                if (v == a) continue;
+
+			    (adj[a])[v] -= w;
+			    (adj[v])[a] -= w;
+
+                // TODO: if edge weight is now ~=zero, remove edge
+		    }
+
+		    (adj[a])[b] = (deleted_adj[b])[a];
+		    wnode[a] -= wnode[b];
+		    reinstate_node(b);
 		    return a;
 	    }
     };
