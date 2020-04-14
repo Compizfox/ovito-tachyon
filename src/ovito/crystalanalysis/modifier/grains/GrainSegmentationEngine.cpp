@@ -385,8 +385,7 @@ bool GrainSegmentationEngine1::determineMergeSequence()
     	size_t progress = 0;
 		for (auto edge: neighborBonds()) {
 			if (isCrystallineBond(structuresArray, edge) && edge.disorientation < _misorientationThreshold) {
-                // Calculate edge weight based on disorientation. This is fairly arbitrary but it works well.
-		        FloatType weight = std::exp(-FloatType(1)/3 * edge.disorientation * edge.disorientation);
+		        FloatType weight = calculateGraphWeight(edge.disorientation);
 		        graph.add_edge(edge.a, edge.b, weight);
             }
 

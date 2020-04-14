@@ -174,7 +174,13 @@ public:
 			    (adj[a])[v] -= w;
 			    (adj[v])[a] -= w;
 
-                // TODO: if edge weight is now ~=zero, remove edge
+                // remove edge if weight is approximately zero;
+                FloatType minWeight = calculateGraphWeight(_misorientationThreshold);
+                if ((adj[a])[v] < minWeight / 2)
+                    adj[a].erase(v);
+
+                if ((adj[v])[a] < minWeight / 2)
+                    adj[v].erase(a);
 		    }
 
 		    wnode[a] -= wnode[b];
@@ -287,10 +293,16 @@ private:
     FloatType calculate_threshold_suggestion();
 
     // Determines if a bond is crystalline
-    bool isCrystallineBond(ConstPropertyAccess<int>& structuresArray, const NeighborBond& bond)
+    static bool isCrystallineBond(ConstPropertyAccess<int>& structuresArray, const NeighborBond& bond)
     {
         return structuresArray[bond.a] != PTMAlgorithm::OTHER
                && structuresArray[bond.a] == structuresArray[bond.b];
+    }
+
+    // Converts a disorientation to an edge weight for Node Pair Sampling algorithm
+    static FloatType calculateGraphWeight(FloatType disorientation) {
+        // This is fairly arbitrary but it works well.
+        return std::exp(-FloatType(1)/3 * disorientation * disorientation);
     }
 
 private:
@@ -331,7 +343,7 @@ private:
 	bool _outputBondsToPipeline;
 
 	// A hardcoded cutoff, in degrees, used for skipping low-weight edges in Node Pair Sampling mode
-	const FloatType _misorientationThreshold = 4.0;
+	static constexpr FloatType _misorientationThreshold = 4.0;
 
 	// Dendrogram as list of cluster merges.
 	std::vector<DendrogramNode> _dendrogram;
