@@ -189,6 +189,13 @@ public:
 	    }
     };
 
+#ifndef Q_CC_MSVC
+	/// The maximum number of neighbor atoms taken into account for orphan atom adoption.
+	static constexpr int MAX_DISORDERED_NEIGHBORS = 8;
+#else
+	enum { MAX_DISORDERED_NEIGHBORS = 8 };
+#endif
+
 	/// Represents a single bond connecting two neighboring lattice atoms.
 	struct NeighborBond {
 		size_t a;

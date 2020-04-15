@@ -167,9 +167,7 @@ bool GrainSegmentationEngine1::identifyAtomicStructures()
 				rmsdArray[index] = -1.0; // Store invalid RMSD value to exclude it from the RMSD histogram.
 
 				kernel.resetNeighbors(index, cachedNeighbors);
-
-				// Don't need more than 8 nearest neighbors to establish connectivity between non-crystalline atoms.
-				numNeighbors = std::min(8, kernel.numGoodNeighbors());
+				numNeighbors = std::min(MAX_DISORDERED_NEIGHBORS, kernel.numGoodNeighbors());
 			}
 			else {
 				numNeighbors = ptm_num_nbrs[type];
