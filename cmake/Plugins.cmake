@@ -44,8 +44,8 @@ MACRO(OVITO_STANDARD_PLUGIN target_name)
 	# Make the name of current plugin available to the source code.
 	TARGET_COMPILE_DEFINITIONS(${target_name} PRIVATE "OVITO_PLUGIN_NAME=\"${target_name}\"")
 
-	IF(WIN32)
-		# Add a suffix to the library filename to avoid name clashes with other shared libraries in the installation directory.
+	IF(WIN32 AND NOT OVITO_BUILD_MONOLITHIC)
+		# Add a suffix to the shared library filename to avoid name clashes with other libraries in the installation directory.
 		SET_TARGET_PROPERTIES(${target_name} PROPERTIES OUTPUT_NAME "${target_name}.ovito")
 	ENDIF()
 
