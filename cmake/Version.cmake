@@ -75,20 +75,23 @@ ELSE()
 	SET(OVITO_VERSION_STRING "${OVITO_VERSION_MAJOR}.${OVITO_VERSION_MINOR}.${OVITO_VERSION_REVISION}")
 ENDIF()
 
-# The application's name:
-SET(OVITO_APPLICATION_NAME "Ovito" CACHE STRING "The name of the application being built.")
-MARK_AS_ADVANCED(OVITO_APPLICATION_NAME)
+# The application's name shown in the main window's title bar:
+SET(OVITO_APPLICATION_NAME "Ovito")
+IF(OVITO_APPLICATION_NAME_OVERRIDE)
+	SET(OVITO_APPLICATION_NAME "${OVITO_APPLICATION_NAME_OVERRIDE}")
+ENDIF()
 
 # The copyright notice shown in the application's About dialog:
-IF(NOT OVITO_COPYRIGHT_NOTICE)
-	STRING(TIMESTAMP _CURRENT_YEAR "%Y")
-	SET(OVITO_COPYRIGHT_NOTICE
-		"<p>A scientific visualization and analysis software for atomistic simulation data.</p>\
-		 <p>Copyright (C) ${_CURRENT_YEAR}, OVITO GmbH, Germany</p>\
-		 <p>\
-		 This is free, open-source software, and you are welcome to redistribute\
-		 it under certain conditions. See the user manual for copying conditions.</p>\
-		 <p><a href=\\\"https://www.ovito.org/\\\">https://www.ovito.org/</a></p>")
+STRING(TIMESTAMP _CURRENT_YEAR "%Y")
+SET(OVITO_COPYRIGHT_NOTICE
+	"<p>A scientific visualization and analysis software for atomistic simulation data.</p>\
+	 <p>Copyright (C) ${_CURRENT_YEAR}, OVITO GmbH, Germany</p>\
+	 <p>\
+	 This is free, open-source software, and you are welcome to redistribute\
+	 it under certain conditions. See the user manual for copying conditions.</p>\
+	 <p><a href=\\\"https://www.ovito.org/\\\">https://www.ovito.org/</a></p>")
+IF(OVITO_COPYRIGHT_NOTICE_OVERRIDE)
+	SET(OVITO_COPYRIGHT_NOTICE "${OVITO_COPYRIGHT_NOTICE_OVERRIDE}")
 ENDIF()
 
 # Export variables to parent scope.
