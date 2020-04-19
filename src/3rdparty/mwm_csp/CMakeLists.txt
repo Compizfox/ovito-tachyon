@@ -20,6 +20,12 @@
 #
 #######################################################################################
 
+IF(WIN32)
+	# Always build this module as a static library under Windows, because Voro++ does not explicitly export any symbols.
+	# Building as a DLL would require tagging all symbols to be exported with __declspec(dllexport) in the source  code.
+	SET(BUILD_SHARED_LIBS OFF)
+ENDIF()
+
 # Build library.
 ADD_LIBRARY(MinimumWeightMatchingCentrosymmetry
 	matching.cpp

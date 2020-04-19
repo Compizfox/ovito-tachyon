@@ -44,6 +44,11 @@ MACRO(OVITO_STANDARD_PLUGIN target_name)
 	# Make the name of current plugin available to the source code.
 	TARGET_COMPILE_DEFINITIONS(${target_name} PRIVATE "OVITO_PLUGIN_NAME=\"${target_name}\"")
 
+	IF(WIN32)
+		# Add a suffix to the library filename to avoid name clashes with other shared libraries in the installation directory.
+		SET_TARGET_PROPERTIES(${target_name} PROPERTIES OUTPUT_NAME "${target_name}.ovito")
+	ENDIF()
+
 	# Link to OVITO's core module (unless it's the core plugin itself we are defining).
 	IF(NOT ${target_name} STREQUAL "Core")
 		TARGET_LINK_LIBRARIES(${target_name} PUBLIC Core)

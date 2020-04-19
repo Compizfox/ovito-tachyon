@@ -149,7 +149,7 @@ private:
 	}
 
 	template<typename T> friend SaveStream& operator<<(SaveStream& stream, const T& v);
-	friend SaveStream& operator<<(SaveStream& stream, const QUrl& url);
+	friend OVITO_CORE_EXPORT SaveStream& operator<<(SaveStream& stream, const QUrl& url);
 
 private:
 

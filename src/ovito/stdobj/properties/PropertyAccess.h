@@ -178,7 +178,7 @@ public:
 
 	/// \brief Returns a pointer to the end of the property array.
 	const T* cend() const {
-		return this->cbegin() + (this->size() * this->elementCount());
+		return this->cbegin() + (this->size() * this->componentCount());
 	}
 
 	/// \brief Returns a range of iterators over the i-th vector component of all elements stored in this array.

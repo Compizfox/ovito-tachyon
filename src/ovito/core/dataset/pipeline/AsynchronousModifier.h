@@ -115,6 +115,6 @@ protected:
 };
 
 // Export this class template specialization from the DLL under Windows.
-extern template class OVITO_CORE_EXPORT Future<AsynchronousModifier::ComputeEnginePtr>;
+extern template class Future<AsynchronousModifier::ComputeEnginePtr>;
 
 }	// End of namespace

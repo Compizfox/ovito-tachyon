@@ -142,7 +142,7 @@ void XYZImporterEditor::createUI(const RolloutInsertionParameters& rolloutParams
 	// The following signal handler updates the parameter UI whenever the isMultiTimestepFile parameter of the current file source importer changes.
 	// It is needed, because target-changed messages are surpressed for this property field and the normal update mechanism for the parameter UI doesn't work.
 	connect(this, &PropertiesEditor::contentsReplaced, this, [con = QMetaObject::Connection(), multitimestepUI](RefTarget* editObject) mutable {
-		disconnect(con);
+		QObject::disconnect(con);
 		con = editObject ? connect(static_object_cast<FileSourceImporter>(editObject), &FileSourceImporter::isMultiTimestepFileChanged, multitimestepUI, &ParameterUI::updateUI) : QMetaObject::Connection();
 	});
 	sublayout->addWidget(multitimestepUI->checkBox());

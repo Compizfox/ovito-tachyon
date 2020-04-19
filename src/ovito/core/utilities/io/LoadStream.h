@@ -187,7 +187,7 @@ private:
 	}
 
 	template<typename T> friend LoadStream& operator>>(LoadStream& stream, T& v);
-	friend LoadStream& operator>>(LoadStream& stream, QUrl& url);
+	friend OVITO_CORE_EXPORT LoadStream& operator>>(LoadStream& stream, QUrl& url);
 
 private:
 

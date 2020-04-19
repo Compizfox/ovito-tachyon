@@ -1,4 +1,4 @@
-////////////////////////////////////////////////////////////////////////////////////////
+x`////////////////////////////////////////////////////////////////////////////////////////
 //
 //  Copyright 2020 Alexander Stukowski
 //
@@ -35,7 +35,7 @@ namespace Ovito {
 IMPLEMENT_OVITO_CLASS(AsynchronousModifier);
 
 // Export this class template specialization from the DLL under Windows.
-template class Future<AsynchronousModifier::ComputeEnginePtr>;
+template class OVITO_CORE_EXPORT Future<AsynchronousModifier::ComputeEnginePtr>;
 
 /******************************************************************************
 * Constructs the modifier object.

@@ -145,7 +145,7 @@ protected:
 	};
 
 	/// Data structure representing an input variable.
-	struct ExpressionVariable {
+	struct OVITO_STDOBJ_EXPORT ExpressionVariable {
 		/// Indicates whether this variable has been successfully registered with the muParser.
 		bool isRegistered = false;
 		/// Indicates whether this variable is referenced by at least one of the expressions.
@@ -180,7 +180,7 @@ protected:
 public:
 
 	/// One instance of this class is created per thread.
-	class Worker : boost::noncopyable {
+	class OVITO_STDOBJ_EXPORT Worker : boost::noncopyable {
 	public:
 
 		/// Initializes the worker instance.

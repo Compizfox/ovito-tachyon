@@ -394,6 +394,13 @@ private:
 
 	/// The ID to assign to the voxel grid data object.
 	QString _voxelGridId;
+	
+#if defined(Q_CC_MSVC) && _MSC_VER <= 1916
+	/// Needed as a workaround for a compiler bug in MVSC 2017.
+	/// See https://stackoverflow.com/questions/21056872/c-stdunique-ptr-wont-compile-in-map
+	/// Problem seems to be fixed in MSVC 2019.
+	std::unique_ptr<TypeList> _dummyWorkaroundForMVSCCompilerBug;
+#endif
 
 	/// Stores the lists of types for typed properties (both particle and bond properties).
 	std::map<const PropertyStorage*, std::unique_ptr<TypeList>> _typeLists;

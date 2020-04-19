@@ -46,7 +46,7 @@ class OVITO_CORE_EXPORT ModifierApplication : public CachingPipelineObject
 public:
 
 	/// Registry for modifier application classes.
-	class OVITO_CORE_EXPORT Registry : private std::map<OvitoClassPtr, OvitoClassPtr>
+	class Registry : private std::map<OvitoClassPtr, OvitoClassPtr>
 	{
 	public:
 		void registerModAppClass(OvitoClassPtr modifierClass, OvitoClassPtr modAppClass) {
