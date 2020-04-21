@@ -104,6 +104,7 @@ SET(SourceFiles
 	utilities/io/ObjectSaveStream.cpp
 	utilities/io/ObjectLoadStream.cpp
 	utilities/io/FileManager.cpp
+	utilities/io/RemoteFileJob.cpp
 	utilities/io/CompressedTextReader.cpp
 	utilities/io/CompressedTextWriter.cpp
 	utilities/concurrent/TaskWatcher.cpp
@@ -144,7 +145,6 @@ ENDIF()
 # Include optional SSH client code.
 IF(LIBSSH_FOUND)
 	LIST(APPEND SourceFiles
-		utilities/io/RemoteFileJob.cpp
 		utilities/io/ssh/SshConnection.cpp
 		utilities/io/ssh/SshChannel.cpp
 		utilities/io/ssh/ProcessChannel.cpp

@@ -65,7 +65,8 @@ Future<QStringList> WasmFileManager::listDirectoryContents(TaskManager& taskMana
 
         QStringList fileList;
         for(const auto& importEntry : _importedFiles) {
-            if(importEntry.first.host() == url.host() && importEntry.first.path().startsWith(url.path()))
+			QString path = importEntry.first.adjusted(QUrl::RemoveFilename | QUrl::StripTrailingSlash).path();
+            if(importEntry.first.host() == url.host() && path == url.path())
                 fileList.push_back(importEntry.first.fileName());
         }
         return std::move(fileList);

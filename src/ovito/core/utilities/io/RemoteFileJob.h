@@ -30,6 +30,7 @@
 
 namespace Ovito {
 
+#ifdef OVITO_SSH_CLIENT
 namespace Ssh {
 	// These classes are defined elsewhere:
 	class SshConnection;
@@ -37,6 +38,7 @@ namespace Ssh {
 	class LsChannel;
 	class CatChannel;
 }
+#endif
 
 /**
  * \brief Base class for background jobs that access remote files and directories via SSH.
@@ -55,33 +57,46 @@ public:
 
 protected:
 
-	/// Opens the SSH connection.
+	/// Opens the network connection.
 	Q_INVOKABLE void start();
 
-	/// Closes the SSH connection.
+	/// Closes the network connection.
 	virtual void shutdown(bool success);
 
 protected Q_SLOTS:
 
-	/// Handles SSH connection errors.
+#ifdef OVITO_SSH_CLIENT
+	/// Handles network connection errors.
 	void connectionError();
 
-	/// Handles SSH authentication errors.
+	/// Handles network authentication errors.
 	void authenticationFailed();
 
-	/// Handles SSH connection cancelation by user.
+	/// Is called when the network connection has been established.
+    virtual void connectionEstablished() = 0;
+#endif
+
+	/// Handles network connection cancelation by user.
 	void connectionCanceled();
 
-	/// Is called when the SSH connection has been established.
-    virtual void connectionEstablished() = 0;
+	/// Handles QNetworkReply finished signals.
+	void networkReplyFinished();
+
+	/// Handles QNetworkReply progress signals.
+	virtual void networkReplyDownloadProgress(qint64 bytesReceived, qint64 bytesTotal) {}
 
 protected:
 
 	/// The URL of the file or directory.
 	const QUrl _url;
 
+#ifdef OVITO_SSH_CLIENT
 	/// The SSH connection.
 	Ovito::Ssh::SshConnection* _connection = nullptr;
+#endif
+
+	/// The Qt network request reply.
+	QNetworkReply* _networkReply = nullptr;
 
     /// The associated asynchronous task of the job.
     PromiseBase& _promise;
@@ -117,14 +132,23 @@ public:
 
 protected:
 
-	/// Closes the SSH connection.
+	/// Closes the network connection.
 	virtual void shutdown(bool success) override;
 
-	/// Is called when the SSH connection has been established.
+#ifdef OVITO_SSH_CLIENT
+	/// Is called when the network connection has been established.
     virtual void connectionEstablished() override;
+#endif
+
+	/// Handles QNetworkReply progress signals.
+	virtual void networkReplyDownloadProgress(qint64 bytesReceived, qint64 bytesTotal) override;
+
+	/// Writes the data received from the server so far to the local file. 
+	void storeReceivedData();
 
 protected Q_SLOTS:
 
+#ifdef OVITO_SSH_CLIENT
     /// Is called when the remote host starts sending the file.
 	void receivingFile(qint64 fileSize);
 
@@ -139,11 +163,14 @@ protected Q_SLOTS:
 
 	/// Handles SSH channel close.
 	void channelClosed();
+#endif
 
 private:
 
+#ifdef OVITO_SSH_CLIENT
 	/// The SCP channel.
     Ovito::Ssh::ScpChannel* _scpChannel = nullptr;
+#endif
 
     /// The local copy of the file.
     QScopedPointer<QTemporaryFile> _localFile;
@@ -176,14 +203,17 @@ public:
 
 protected:
 
-	/// Closes the SSH connection.
+	/// Closes the network connection.
 	virtual void shutdown(bool success) override;
 
-	/// Is called when the SSH connection has been established.
+#ifdef OVITO_SSH_CLIENT
+	/// Is called when the network connection has been established.
     virtual void connectionEstablished() override;
+#endif
 
 protected Q_SLOTS:
 
+#ifdef OVITO_SSH_CLIENT
     /// Is called before transmission of the directory listing begins.
     void receivingDirectory();
 
@@ -195,11 +225,14 @@ protected Q_SLOTS:
 
 	/// Handles SSH channel close.
 	void channelClosed();
+#endif
 
 private:
 
+#ifdef OVITO_SSH_CLIENT
 	/// The listing channel.
     Ovito::Ssh::LsChannel* _lsChannel = nullptr;
+#endif
 
 	/// The promise through which the result of this job is returned.
 	Promise<QStringList> _promise;

@@ -187,9 +187,9 @@ private:
 
 	/// Holds SSH connections, which are still open but not in use.
     QList<Ssh::SshConnection*> _unacquiredConnections;
+#endif
 
 	friend class DownloadRemoteFileJob;
-#endif
 };
 
 }	// End of namespace
