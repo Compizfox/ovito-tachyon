@@ -16,8 +16,9 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
 namespace ptm {
 
-void index_to_permutation(int n, uint64_t k, int8_t* permuted);
-uint64_t permutation_to_index(int n, int8_t* permutation);
+void complete_correspondences(int n, int8_t* correspondences);
+uint64_t encode_correspondences(int type, int8_t* correspondences);
+void decode_correspondences(int type, uint64_t encoded, int8_t* correspondences);
 
 }
 

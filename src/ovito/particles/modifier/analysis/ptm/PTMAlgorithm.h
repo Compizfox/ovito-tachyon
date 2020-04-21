@@ -94,6 +94,34 @@ public:
     enum { MAX_OUTPUT_NEIGHBORS = 16 };
 #endif
 
+    /// Converts a PTM Ovito StructureType to the PTM index.
+    static StructureType ptm_to_ovito_structure_type(int type) {
+		if(type == PTM_MATCH_NONE) return OTHER;
+		if(type == PTM_MATCH_SC) return SC;
+		if(type == PTM_MATCH_FCC) return FCC;
+		if(type == PTM_MATCH_HCP) return HCP;
+		if(type == PTM_MATCH_ICO) return ICO;
+		if(type == PTM_MATCH_BCC) return BCC;
+		if(type == PTM_MATCH_DCUB) return CUBIC_DIAMOND;
+		if(type == PTM_MATCH_DHEX) return HEX_DIAMOND;
+		if(type == PTM_MATCH_GRAPHENE) return GRAPHENE;
+        OVITO_ASSERT(0);
+    }
+
+    /// Converts an Ovito StructureType to the PTM index.
+    static int ovito_to_ptm_structure_type(StructureType type) {
+		if(type == OTHER) return PTM_MATCH_NONE;
+		if(type == SC) return PTM_MATCH_SC;
+		if(type == FCC) return PTM_MATCH_FCC;
+		if(type == HCP) return PTM_MATCH_HCP;
+		if(type == ICO) return PTM_MATCH_ICO;
+		if(type == BCC) return PTM_MATCH_BCC;
+		if(type == CUBIC_DIAMOND) return PTM_MATCH_DCUB;
+		if(type == HEX_DIAMOND) return PTM_MATCH_DHEX;
+		if(type == GRAPHENE) return PTM_MATCH_GRAPHENE;
+        OVITO_ASSERT(0);
+    }
+
     /// Creates the algorithm object.
     PTMAlgorithm();
 
@@ -226,18 +254,8 @@ public:
 
 		int correspondence()
 		{
-			return 0;
-/*
-			bool hit[PTM_MAX_INPUT_POINTS] = {false};
-			int8_t permutation[PTM_MAX_INPUT_POINTS];
-
-			for (int i=0;i<PTM_MAX_INPUT_POINTS;i++) {
-				if (_env.m
-			}
-
-			return ptm_permutation_to_index( correspondences
-			return ptm_preorder_neighbours(_handle, numNeighbors, points, res);
-*/
+            int type = ovito_to_ptm_structure_type(structureType());
+            return ptm_encode_correspondences(type, _env.correspondences);
 		}
 
         /// Returns the neighbor information for the i-th nearest neighbor of the current particle.

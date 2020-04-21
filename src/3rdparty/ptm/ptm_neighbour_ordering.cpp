@@ -180,15 +180,14 @@ int preorder_neighbours(void* _voronoi_handle, int num_input_points, double (*in
 	if (ret != 0)
 		return ret;
 
-	//TODO: replace with max nbrs
-	int8_t indices[PTM_MAX_INPUT_POINTS];
+	int8_t correspondences[PTM_MAX_INPUT_POINTS];
+    correspondences[0] = 0;
 	for (int i=0;i<num;i++)
-		indices[i] = data[i].ordering;
+		correspondences[i + 1] = data[i].ordering + 1;
 
-	for (int i=num;i<PTM_MAX_INPUT_POINTS - 1;i++)
-		indices[i] = i;
-
-	*res = permutation_to_index(PTM_MAX_INPUT_POINTS - 1, indices);
+    complete_correspondences(num + 1, correspondences);
+    *res = encode_correspondences(PTM_MATCH_FCC,    //this gives us default behaviour
+                                  correspondences);
 	return PTM_NO_ERROR;
 }
 

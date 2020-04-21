@@ -75,29 +75,28 @@ static int get_neighbours(void* vdata, size_t _unused_lammps_variable, size_t at
 	int numNeighbors = std::min(num_requested - 1, neighQuery.results().size());
 	OVITO_ASSERT(numNeighbors <= PTMAlgorithm::MAX_INPUT_NEIGHBORS);
 
-	int8_t permutation[PTM_MAX_INPUT_POINTS];
-	ptm_index_to_permutation(numNeighbors, cachedNeighbors[atom_index], permutation);
+    ptm_decode_correspondences(PTM_MATCH_FCC,   //this gives us default behaviour
+                               cachedNeighbors[atom_index], env->correspondences);
 
 	// Bring neighbor coordinates into a form suitable for the PTM library.
-	env->correspondences[0] = 0;
 	env->atom_indices[0] = atom_index;
 	env->points[0][0] = 0;
 	env->points[0][1] = 0;
 	env->points[0][2] = 0;
 	for(int i = 0; i < numNeighbors; i++) {
-
-		env->correspondences[i+1] = permutation[i] + 1;
-		env->atom_indices[i+1] = neighQuery.results()[permutation[i]].index;
-		env->points[i+1][0] = neighQuery.results()[permutation[i]].delta.x();
-		env->points[i+1][1] = neighQuery.results()[permutation[i]].delta.y();
-		env->points[i+1][2] = neighQuery.results()[permutation[i]].delta.z();
+		int p = env->correspondences[i+1] - 1;
+		env->atom_indices[i+1] = neighQuery.results()[p].index;
+		env->points[i+1][0] = neighQuery.results()[p].delta.x();
+		env->points[i+1][1] = neighQuery.results()[p].delta.y();
+		env->points[i+1][2] = neighQuery.results()[p].delta.z();
 	}
 
 	// Build list of particle types for ordering identification.
 	if(particleTypes) {
 		env->numbers[0] = particleTypes[atom_index];
 		for(int i = 0; i < numNeighbors; i++) {
-			env->numbers[i+1] = particleTypes[neighQuery.results()[permutation[i]].index];
+    		int p = env->correspondences[i+1] - 1;
+			env->numbers[i+1] = particleTypes[neighQuery.results()[p].index];
 		}
 	}
 	else {
@@ -178,18 +177,7 @@ PTMAlgorithm::StructureType PTMAlgorithm::Kernel::identifyStructure(size_t parti
 		_F.setZero();
 	}
 	else {
-		if(type == PTM_MATCH_SC) _structureType = SC;
-		else if(type == PTM_MATCH_FCC) _structureType = FCC;
-		else if(type == PTM_MATCH_HCP) _structureType = HCP;
-		else if(type == PTM_MATCH_ICO) _structureType = ICO;
-		else if(type == PTM_MATCH_BCC) _structureType = BCC;
-		else if(type == PTM_MATCH_DCUB) _structureType = CUBIC_DIAMOND;
-		else if(type == PTM_MATCH_DHEX) _structureType = HEX_DIAMOND;
-		else if(type == PTM_MATCH_GRAPHENE) _structureType = GRAPHENE;
-		else {
-			OVITO_ASSERT(false);
-			_structureType = OTHER;
-		}
+		_structureType = ptm_to_ovito_structure_type(type);
 	}
 
 #if 0

@@ -239,7 +239,7 @@ void PolyhedralTemplateMatchingModifier::PTMEngine::perform()
 				if(deformationGradientsArray) deformationGradientsArray[index] = kernel.deformationGradient();
 				if(orientationsArray) orientationsArray[index] = kernel.orientation();
 				if(orderingTypesArray) orderingTypesArray[index] = kernel.orderingType();
-				if (correspondencesArray) correspondencesArray[index] = kernel.correspondence();
+				if(correspondencesArray) correspondencesArray[index] = kernel.correspondence();
 			}
 		}
 	});

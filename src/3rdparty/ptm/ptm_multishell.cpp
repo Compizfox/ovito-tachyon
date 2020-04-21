@@ -39,6 +39,22 @@ static bool atomorder_compare(atomorder_t const& a, atomorder_t const& b)
 	return a.rank < b.rank;
 }
 
+// Correspondence encoding doesn't allow a neighbour index higher than 16.
+// A structure which needs a neighbour with an index higher than 16 is in
+// any case not graphene or a diamond structure.
+#define  MAX_MULTISHELL_NEIGHBOURS 16
+
+static void filter_neighbours(ptm_atomicenv_t* env)
+{
+    for (int i=0;i<env->num;i++) {
+        if (env->correspondences[i] > MAX_MULTISHELL_NEIGHBOURS) {
+            env->correspondences[i] = env->correspondences[env->num - 1];
+            env->num--;
+            i--;
+        }
+    }
+}
+
 #define MAX_INNER 4
 
 int calculate_two_shell_neighbour_ordering(	int num_inner, int num_outer,
@@ -52,9 +68,11 @@ int calculate_two_shell_neighbour_ordering(	int num_inner, int num_outer,
 		return 0;
 	}
 
+    // TODO: re-use the central neighbour list rather than fetching it again.
 	ptm_atomicenv_t central;
-	int num_input_points = get_neighbours(nbrlist, -1, atom_index, PTM_MAX_INPUT_POINTS, &central);
-	if (num_input_points < num_inner + 1)
+	get_neighbours(nbrlist, -1, atom_index, PTM_MAX_INPUT_POINTS, &central);
+    filter_neighbours(&central);
+	if (central.num < num_inner + 1)
 		return -1;
 
 	std::unordered_set<size_t> claimed;
@@ -73,11 +91,12 @@ int calculate_two_shell_neighbour_ordering(	int num_inner, int num_outer,
 	for (int i=0;i<num_inner;i++)
 	{
 		ptm_atomicenv_t inner;
-		int num_points = get_neighbours(nbrlist, -1, central.atom_indices[1 + i], PTM_MAX_INPUT_POINTS, &inner);
-		if (num_points < num_inner + 1)
+		get_neighbours(nbrlist, -1, central.atom_indices[1 + i], PTM_MAX_INPUT_POINTS, &inner);
+        filter_neighbours(&inner);
+		if (inner.num < num_inner + 1)
 			return -1;
 
-		for (int j=0;j<num_points;j++)
+		for (int j=0;j<inner.num;j++)
 		{
 			size_t key = inner.atom_indices[j];
 
