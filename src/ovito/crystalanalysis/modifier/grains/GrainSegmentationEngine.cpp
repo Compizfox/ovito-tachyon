@@ -362,21 +362,24 @@ bool GrainSegmentationEngine1::minimum_spanning_tree_clustering(
 {
 	size_t progress = 0;
 	for(const NeighborBond& edge : neighborBonds) {
-        size_t pa = uf.find(edge.a);
-        size_t pb = uf.find(edge.b);
-		if(pa != pb && isCrystallineBond(structuresArray, edge)) {
-			size_t parent = uf.merge(pa, pb);
-			size_t child = (parent == pa) ? pb : pa;
-			FloatType disorientation = calculate_disorientation(structuresArray[parent], qsum[parent], qsum[child]);
-			OVITO_ASSERT(edge.a < edge.b);
-			_dendrogram.emplace_back(parent, child, edge.disorientation, disorientation, 1, qsum[parent]);
 
-			// Update progress indicator.
-			if((progress++ % 1024) == 0) {
-				if(!incrementProgressValue(1024)) 
-					return false;
-			}
-		}
+        if (edge.disorientation < _misorientationThreshold) {
+            size_t pa = uf.find(edge.a);
+            size_t pb = uf.find(edge.b);
+		    if(pa != pb && isCrystallineBond(structuresArray, edge)) {
+			    size_t parent = uf.merge(pa, pb);
+			    size_t child = (parent == pa) ? pb : pa;
+			    FloatType disorientation = calculate_disorientation(structuresArray[parent], qsum[parent], qsum[child]);
+			    OVITO_ASSERT(edge.a < edge.b);
+			    _dendrogram.emplace_back(parent, child, edge.disorientation, disorientation, 1, qsum[parent]);
+            }
+        }
+
+		// Update progress indicator.
+		if((progress++ % 1024) == 0) {
+			if(!incrementProgressValue(1024)) 
+				return false;
+        }
 	}
 
 	return !isCanceled();
@@ -502,12 +505,9 @@ fclose(fout);
 	    // Generate output data plot points from dendrogram data.
 	    FloatType* logMergeDistanceIter = logMergeDistanceArray.begin();
 	    FloatType* logMergeSizeIter = logMergeSizeArray.begin();
-	    for(auto x: regressor.dsize) {
-		    *logMergeSizeIter++ = x;
-        }
-
-	    for(auto y: regressor.medianDistance) {
-		    *logMergeDistanceIter++ = y;
+        for (size_t i=0;i<size;i++) {
+		    *logMergeSizeIter++ = regressor.dsize[i];
+		    *logMergeDistanceIter++ = regressor.medianDistance[i];
 	    }
 
 	}
