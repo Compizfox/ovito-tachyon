@@ -24,7 +24,6 @@
 #include <ovito/crystalanalysis/CrystalAnalysis.h>
 #include <ovito/crystalanalysis/modifier/grains/GrainSegmentationEngine.h>
 #include <ovito/crystalanalysis/modifier/grains/GrainSegmentationModifier.h>
-#include <ovito/particles/gui/modifier/analysis/StructureListParameterUI.h>
 #include <ovito/gui/desktop/properties/FloatParameterUI.h>
 #include <ovito/gui/desktop/properties/IntegerParameterUI.h>
 #include <ovito/gui/desktop/properties/BooleanParameterUI.h>
@@ -80,10 +79,6 @@ void GrainSegmentationModifierEditor::createUI(const RolloutInsertionParameters&
 	sublayout2->addWidget(minGrainAtomCountUI->label(), 2, 0);
 	sublayout2->addLayout(minGrainAtomCountUI->createFieldLayout(), 2, 1);
 
-	FloatParameterUI* rmsdCutoffUI = new FloatParameterUI(this, PROPERTY_FIELD(GrainSegmentationModifier::rmsdCutoff));
-	sublayout2->addWidget(rmsdCutoffUI->label(), 3, 0);
-	sublayout2->addLayout(rmsdCutoffUI->createFieldLayout(), 3, 1);
-
 	QGroupBox* optionsBox = new QGroupBox(tr("Options"));
 	layout->addWidget(optionsBox);
 	sublayout2 = new QGridLayout(optionsBox);
@@ -111,12 +106,6 @@ void GrainSegmentationModifierEditor::createUI(const RolloutInsertionParameters&
 	});
 	layout->addWidget(btn);
 
-	// Structure list.
-	StructureListParameterUI* structureTypesPUI = new StructureListParameterUI(this, true);
-	layout->addSpacing(10);
-	layout->addWidget(new QLabel(tr("Structure types:")));
-	layout->addWidget(structureTypesPUI->tableWidget());
-
 	// Create plot widget for merge distances
 	_mergePlotWidget = new DataTablePlotWidget();
 	_mergePlotWidget->setMinimumHeight(200);
@@ -129,19 +118,6 @@ void GrainSegmentationModifierEditor::createUI(const RolloutInsertionParameters&
 	layout->addSpacing(10);
 	layout->addWidget(_mergePlotWidget);
 	connect(this, &GrainSegmentationModifierEditor::contentsReplaced, this, &GrainSegmentationModifierEditor::plotMerges);
-
-	// Create plot widget for RMSD distribution.
-	_rmsdPlotWidget = new DataTablePlotWidget();
-	_rmsdPlotWidget->setMinimumHeight(200);
-	_rmsdPlotWidget->setMaximumHeight(200);
-	_rmsdRangeIndicator = new QwtPlotZoneItem();
-	_rmsdRangeIndicator->setOrientation(Qt::Vertical);
-	_rmsdRangeIndicator->setZ(1);
-	_rmsdRangeIndicator->attach(_rmsdPlotWidget);
-	_rmsdRangeIndicator->hide();
-	layout->addSpacing(10);
-	layout->addWidget(_rmsdPlotWidget);
-	connect(this, &GrainSegmentationModifierEditor::contentsReplaced, this, &GrainSegmentationModifierEditor::plotHistogram);
 }
 
 /******************************************************************************
@@ -150,37 +126,9 @@ void GrainSegmentationModifierEditor::createUI(const RolloutInsertionParameters&
 bool GrainSegmentationModifierEditor::referenceEvent(RefTarget* source, const ReferenceEvent& event)
 {
 	if(source == modifierApplication() && event.type() == ReferenceEvent::PipelineCacheUpdated) {
-		plotHistogramLater(this);
 		plotLater(this);
 	}
 	return ModifierPropertiesEditor::referenceEvent(source, event);
-}
-
-/******************************************************************************
-* Replots the RMSD value histogram computed by the modifier.
-******************************************************************************/
-void GrainSegmentationModifierEditor::plotHistogram()
-{
-	GrainSegmentationModifier* modifier = static_object_cast<GrainSegmentationModifier>(editObject());
-
-	if(modifier && modifier->rmsdCutoff() > 0) {
-		_rmsdRangeIndicator->setInterval(0, modifier->rmsdCutoff());
-		_rmsdRangeIndicator->show();
-	}
-	else {
-		_rmsdRangeIndicator->hide();
-	}
-
-	if(modifierApplication()) {
-		// Request the modifier's pipeline output.
-		const PipelineFlowState& state = getModifierOutput();
-
-		// Look up the data table in the modifier's pipeline output.
-		_rmsdPlotWidget->setTable(state.getObjectBy<DataTable>(modifierApplication(), QStringLiteral("grains-rmsd")));
-	}
-	else {
-		_rmsdPlotWidget->reset();
-	}
 }
 
 /******************************************************************************

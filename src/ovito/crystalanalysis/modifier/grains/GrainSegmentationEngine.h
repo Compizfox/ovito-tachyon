@@ -220,11 +220,13 @@ public:
 	/// Constructor.
 	GrainSegmentationEngine1(
 			ParticleOrderingFingerprint fingerprint, 
-			ConstPropertyPtr positions, 
+			ConstPropertyPtr positions,
+			ConstPropertyPtr structureProperty,
+			ConstPropertyPtr orientationProperty,
+			ConstPropertyPtr correspondenceProperty,
 			const SimulationCell& simCell,
 			const QVector<bool>& typesToIdentify, 
 			ConstPropertyPtr selection,
-			FloatType rmsdCutoff, 
 			GrainSegmentationModifier::MergeAlgorithm algorithmType,
 			bool outputBonds);
 
@@ -252,23 +254,20 @@ public:
 	/// Creates another engine that performs the next stage of the computation. 
 	virtual std::shared_ptr<Engine> createContinuationEngine(ModifierApplication* modApp, const PipelineFlowState& input) override;
 
-	/// Returns the per-atom RMSD values computed by the PTM algorithm.
-	const PropertyPtr& rmsd() const { return _rmsd; }
-
-	/// Returns the RMSD value range of the histogram.
-	FloatType rmsdHistogramRange() const { return _rmsdHistogramRange; }
-
-	/// Returns the histogram of computed RMSD values.
-	const PropertyPtr& rmsdHistogram() const { return _rmsdHistogram; }
-
 	// Returns the merge distances for the scatter plot
 	const PropertyPtr& mergeDistance() const { return _mergeDistance; }
 
 	// Returns the merge sizes for the scatter plot
 	const PropertyPtr& mergeSize() const { return _mergeSize; }
 
-	/// Returns the computed per-particle lattice orientations.
-	const PropertyPtr& orientations() const { return _orientations; }
+	/// Returns the per-particle structure types.
+	const ConstPropertyPtr& structureTypes() const { return _structureTypes; }
+
+	/// Returns the per-particle lattice orientations.
+	const ConstPropertyPtr& orientations() const { return _orientations; }
+
+	/// Returns the per-particle template correspondences.
+	const ConstPropertyPtr& correspondences() const { return _correspondences; }
 
 	/// Returns the adaptively determined merge threshold.
 	FloatType suggestedMergingThreshold() const { return _suggestedMergingThreshold; }
@@ -319,18 +318,6 @@ private:
 	/// The number of input particles.
 	size_t _numParticles;
 
-	/// The cutoff parameter used by the PTM algorithm.
-	FloatType _rmsdCutoff;
-
-	/// The per-atom RMSD values computed by the PTM algorithm.
-	const PropertyPtr _rmsd;
-
-	/// Histogram of the RMSD values computed by the PTM algorithm.
-	PropertyPtr _rmsdHistogram;
-
-	/// The value range of the RMSD histogram.
-	FloatType _rmsdHistogramRange;
-
 	// The merge distances
 	PropertyPtr _mergeDistance;
 
@@ -340,8 +327,14 @@ private:
 	// The linkage criterion used in the merge algorithm
 	GrainSegmentationModifier::MergeAlgorithm _algorithmType;
 
-	/// The computed per-particle lattice orientations.
-	PropertyPtr _orientations;
+	/// The per-particle structure types.
+	ConstPropertyPtr _structureTypes;
+
+	/// The per-particle lattice orientations.
+	ConstPropertyPtr _orientations;
+
+	/// The per-particle template correspondences.
+	ConstPropertyPtr _correspondences;
 
 	/// The bonds connecting neighboring lattice atoms.
 	std::vector<NeighborBond> _neighborBonds;

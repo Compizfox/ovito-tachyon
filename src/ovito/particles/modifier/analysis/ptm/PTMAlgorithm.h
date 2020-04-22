@@ -250,10 +250,7 @@ public:
 			return n;
 		}
 
-		int resetNeighbors(size_t particleIndex, std::vector< uint64_t >& cachedNeighbors);	// TODO: remove this
-
-		int correspondence()
-		{
+		int correspondence() {
             int type = ovito_to_ptm_structure_type(structureType());
             return ptm_encode_correspondences(type, _env.correspondences);
 		}
@@ -271,9 +268,6 @@ public:
         /// Returns the ideal vector corresponding to the i-th neighbor in the PTM template
         /// identified for the current particle.
         const Vector_3<double>& getIdealNeighborVector(int index) const;
-
-//TODO: don't leave this public
-        ptm_atomicenv_t _env;
 
     private:
         /// Reference to the parent algorithm object.
@@ -294,6 +288,7 @@ public:
         const double (*_bestTemplate)[3] = nullptr;
         //int8_t _correspondences[MAX_INPUT_NEIGHBORS+1];
         std::vector<uint64_t> _cachedNeighbors;
+        ptm_atomicenv_t _env;
     };
 
 private:

@@ -273,16 +273,6 @@ int PTMAlgorithm::Kernel::cacheNeighbors(size_t particleIndex, uint64_t* res)
 	return ptm_preorder_neighbours(_handle, numNeighbors, points, res);
 }
 
-int PTMAlgorithm::Kernel::resetNeighbors(size_t particleIndex, std::vector< uint64_t >& cachedNeighbors)
-{
-	ptmnbrdata_t nbrdata;
-	nbrdata.neighFinder = &_algo;
-	nbrdata.particleTypes = _algo._identifyOrdering ? _algo._particleTypes : nullptr;
-	nbrdata.cachedNeighbors = &cachedNeighbors;
-
-	return get_neighbours((void*)&nbrdata, (size_t)(-1), particleIndex, 100, &_env);
-}
-
 /******************************************************************************
 * Returns the number of neighbors for the PTM structure found for the current particle.
 ******************************************************************************/

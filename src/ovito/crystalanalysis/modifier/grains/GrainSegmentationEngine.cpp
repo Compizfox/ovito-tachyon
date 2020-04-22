@@ -45,19 +45,21 @@ namespace Ovito { namespace CrystalAnalysis {
 ******************************************************************************/
 GrainSegmentationEngine1::GrainSegmentationEngine1(
 			ParticleOrderingFingerprint fingerprint, 
-			ConstPropertyPtr positions, 
+			ConstPropertyPtr positions,
+			ConstPropertyPtr structureProperty,
+			ConstPropertyPtr orientationProperty,
+			ConstPropertyPtr correspondenceProperty,
 			const SimulationCell& simCell,
-			const QVector<bool>& typesToIdentify, 
+			const QVector<bool>& typesToIdentify, // TODO: remove this
 			ConstPropertyPtr selection,
-			FloatType rmsdCutoff, 
 			GrainSegmentationModifier::MergeAlgorithm algorithmType, 
 			bool outputBonds) :
 	StructureIdentificationModifier::StructureIdentificationEngine(std::move(fingerprint), positions, simCell, std::move(typesToIdentify), std::move(selection)),
 	_numParticles(positions->size()),
-	_rmsdCutoff(rmsdCutoff),
 	_algorithmType(algorithmType),
-	_rmsd(std::make_shared<PropertyStorage>(_numParticles, PropertyStorage::Float, 1, 0, QStringLiteral("RMSD"), false)),
-	_orientations(ParticlesObject::OOClass().createStandardStorage(_numParticles, ParticlesObject::OrientationProperty, true)),
+	_structureTypes(structureProperty),
+	_orientations(orientationProperty),
+	_correspondences(correspondenceProperty),
 	_outputBondsToPipeline(outputBonds)
 {
 }
@@ -79,68 +81,114 @@ void GrainSegmentationEngine1::perform()
 	//	decltype(_neighborBonds){}.swap(_neighborBonds);
 }
 
+
+static bool fill_neighbors(NearestNeighborFinder::Query<PTMAlgorithm::MAX_INPUT_NEIGHBORS>& neighQuery,
+                           size_t particleIndex,
+                           size_t offset,
+                           size_t num,
+                           ptm_atomicenv_t* env)
+{
+    neighQuery.findNeighbors(particleIndex);
+    int numNeighbors = neighQuery.results().size();
+
+    if (numNeighbors < num) {
+        return false;
+    }
+
+    if (offset == 0) {
+        env->atom_indices[0] = particleIndex;
+        env->points[0][0] = 0;
+        env->points[0][1] = 0;
+        env->points[0][2] = 0;
+    }
+
+    for(int i = 0; i < num; i++) {
+		int p = env->correspondences[i + 1 + offset] - 1;
+	    env->atom_indices[i + 1 + offset] = neighQuery.results()[p].index;
+	    env->points[i + 1 + offset][0] = neighQuery.results()[p].delta.x();
+	    env->points[i + 1 + offset][1] = neighQuery.results()[p].delta.y();
+	    env->points[i + 1 + offset][2] = neighQuery.results()[p].delta.z();
+    }
+
+    return true;
+}
+
+// TODO: add numbers
+static void establish_atomic_environment(NearestNeighborFinder::Query<PTMAlgorithm::MAX_INPUT_NEIGHBORS>& neighQuery,
+                                         ConstPropertyAccess<uint64_t> correspondenceArray,
+                                         PTMAlgorithm::StructureType structureType,
+                                         size_t particleIndex,
+                                         ptm_atomicenv_t* env)
+{
+    int ptm_type = PTMAlgorithm::ovito_to_ptm_structure_type(structureType);
+
+    neighQuery.findNeighbors(particleIndex);
+    int numNeighbors = neighQuery.results().size();
+    int num_inner = ptm_num_nbrs[ptm_type], num_outer = 0;
+
+	if (ptm_type == PTM_MATCH_NONE) {
+        for (int i=0;i<PTM_MAX_INPUT_POINTS;i++) {
+            env->correspondences[i] = i;
+        }
+
+        num_inner = numNeighbors;
+	}
+	else {
+		numNeighbors = ptm_num_nbrs[ptm_type];
+        ptm_decode_correspondences(ptm_type, correspondenceArray[particleIndex], env->correspondences);
+	}
+
+	env->num = numNeighbors + 1;
+
+    if (ptm_type == PTM_MATCH_DCUB || ptm_type == PTM_MATCH_DHEX) {
+        num_inner = 4;
+        num_outer = 3;
+    }
+    else if (ptm_type == PTM_MATCH_GRAPHENE) {
+        num_inner = 3;
+        num_outer = 2;
+    }
+
+    fill_neighbors(neighQuery, particleIndex, 0, num_inner, env);
+    if (num_outer) {
+        for (int i=0;i<num_inner;i++) {
+            fill_neighbors(neighQuery, env->atom_indices[1 + i], num_inner + i * num_outer, num_outer, env);
+        }
+    }
+}
+
 /******************************************************************************
 * Performs the PTM algorithm. Determines the local structure type and the
 * local lattice orientation at each atomic site.
 ******************************************************************************/
 bool GrainSegmentationEngine1::identifyAtomicStructures()
 {
-	// Initialize the PTMAlgorithm object.
-	PTMAlgorithm algorithm;
-	algorithm.setRmsdCutoff(0.0); // Note: We'll do our own RMSD threshold filtering below.
-
-	// Specify the structure types the PTM should look for.
-	for(int i = 0; i < typesToIdentify().size() && i < PTMAlgorithm::NUM_STRUCTURE_TYPES; i++) {
-		algorithm.setStructureTypeIdentification(static_cast<PTMAlgorithm::StructureType>(i), typesToIdentify()[i]);
-	}
-
-	if(!algorithm.prepare(*positions(), cell(), selection(), this))
+	NearestNeighborFinder neighFinder(PTMAlgorithm::MAX_INPUT_NEIGHBORS);
+	if(!neighFinder.prepare(*positions(), cell(), selection(), this))
 		return false;
 
 	setProgressValue(0);
 	setProgressMaximum(_numParticles);
-	setProgressText(GrainSegmentationModifier::tr("Pre-calculating neighbor ordering"));
+	setProgressText(GrainSegmentationModifier::tr("Getting neighbors"));
 
-	// Pre-order neighbors of each particle.
-	std::vector<uint64_t> cachedNeighbors(_numParticles);
-	parallelForChunks(_numParticles, *this, [this, &cachedNeighbors, &algorithm](size_t startIndex, size_t count, Task& task) {
-		// Create a thread-local kernel for the PTM algorithm.
-		PTMAlgorithm::Kernel kernel(algorithm);
-
-		// Loop over input particles.
-		size_t endIndex = startIndex + count;
-		for(size_t index = startIndex; index < endIndex; index++) {
-
-			// Update progress indicator.
-			if((index % 256) == 0)
-				task.incrementProgressValue(256);
-
-			// Break out of loop when operation was canceled.
-			if(task.isCanceled())
-				break;
-
-			// Calculate ordering of neighbors
-			kernel.cacheNeighbors(index, &cachedNeighbors[index]);
-		}
-	});
-	if(isCanceled() || positions()->size() == 0)
-		return false;
-
-	setProgressValue(0);
-	setProgressText(GrainSegmentationModifier::tr("Performing polyhedral template matching"));
-
-	// Prepare access to output memory arrays.
+	// Copy structures from input property to StructureIdentificationModifier property
+    // TODO: find a better way of doing this
 	PropertyAccess<int> structuresArray(structures());
-	PropertyAccess<FloatType> rmsdArray(rmsd());
-	PropertyAccess<Quaternion> orientationsArray(orientations());
+	ConstPropertyAccess<int> inputStructuresArray(structureTypes());
+    for (size_t particleIndex=0;particleIndex<_numParticles;particleIndex++) {
+        structuresArray[particleIndex] = inputStructuresArray[particleIndex];
+    }
+
+	ConstPropertyAccess<uint64_t> correspondenceArray(correspondences());
 
 	// Mutex is needed to synchronize access to bonds list in parallelized loop.
 	std::mutex bondsMutex;
 
 	// Perform analysis on each particle.
 	parallelForChunks(_numParticles, *this, [&](size_t startIndex, size_t count, Task& task) {
-		// Create a thread-local kernel for the PTM algorithm.
-		PTMAlgorithm::Kernel kernel(algorithm);
+
+        // Construct local neighbor list builder.
+        NearestNeighborFinder::Query<PTMAlgorithm::MAX_INPUT_NEIGHBORS> neighQuery(neighFinder);
 
 		// Thread-local list of generated bonds connecting neighboring lattice atoms.
 		std::vector<NeighborBond> threadlocalNeighborBonds;
@@ -156,40 +204,25 @@ bool GrainSegmentationEngine1::identifyAtomicStructures()
 			if(task.isCanceled())
 				break;
 
-			// Perform the PTM analysis for the current particle.
-			PTMAlgorithm::StructureType type = kernel.identifyStructure(index, cachedNeighbors, nullptr);
+            // Decode the PTM correspondence
+            ptm_atomicenv_t env;
+            auto structureType = (PTMAlgorithm::StructureType)structuresArray[index];
+            establish_atomic_environment(neighQuery, correspondenceArray, structureType, index, &env);
 
-			// Store identification result in the output property array.
-			structuresArray[index] = type;
-
-			int numNeighbors = 0;
-			if(type == PTMAlgorithm::OTHER) {
-				rmsdArray[index] = -1.0; // Store invalid RMSD value to exclude it from the RMSD histogram.
-
-				kernel.resetNeighbors(index, cachedNeighbors);
-				numNeighbors = std::min(MAX_DISORDERED_NEIGHBORS, kernel.numGoodNeighbors());
-			}
-			else {
-				numNeighbors = ptm_num_nbrs[type];
-				rmsdArray[index] = kernel.rmsd();
-				orientationsArray[index] = kernel.orientation().normalized();
-
-				if(_rmsdCutoff != 0.0 && kernel.rmsd() > _rmsdCutoff) {
-					// Mark atom as OTHER, but still store its RMSD value. It'll be needed to build the RMSD histogram below.
-					structuresArray[index] = PTMAlgorithm::OTHER;
-				}
-			}
+            int numNeighbors = env.num - 1;
+            if (structureType == PTMAlgorithm::OTHER) {
+                numNeighbors = std::min(numNeighbors, MAX_DISORDERED_NEIGHBORS);
+            }
 
 			for(int j = 0; j < numNeighbors; j++) {
-
-				size_t neighborIndex = kernel._env.atom_indices[j + 1];
+				size_t neighborIndex = env.atom_indices[j + 1];
 
 				// Create a bond to the neighbor, but skip every other bond to create just one bond per particle pair.
 				if(index < neighborIndex)
 					threadlocalNeighborBonds.push_back({index, neighborIndex});
 
 				// Check if neighbor vector spans more than half of a periodic simulation cell.
-				double* delta = kernel._env.points[j + 1];
+				double* delta = env.points[j + 1];
 				Vector3 neighborVector(delta[0], delta[1], delta[2]);
 				for(size_t dim = 0; dim < 3; dim++) {
 					if(cell().pbcFlags()[dim]) {
@@ -207,25 +240,6 @@ bool GrainSegmentationEngine1::identifyAtomicStructures()
 		std::lock_guard<std::mutex> lock(bondsMutex);
 		_neighborBonds.insert(_neighborBonds.end(), threadlocalNeighborBonds.cbegin(), threadlocalNeighborBonds.cend());
 	});
-	if(isCanceled())
-		return false;
-
-	// Determine histogram bin size based on maximum RMSD value.
-	const size_t numHistogramBins = 100;
-	_rmsdHistogram = std::make_shared<PropertyStorage>(numHistogramBins, PropertyStorage::Int64, 1, 0, GrainSegmentationModifier::tr("Count"), true, DataTable::YProperty);
-	FloatType rmsdHistogramBinSize = (_numParticles != 0) ? (FloatType(1.01) * *boost::max_element(rmsdArray) / numHistogramBins) : 0.01;
-	if(rmsdHistogramBinSize <= 0) rmsdHistogramBinSize = 1;
-	_rmsdHistogramRange = rmsdHistogramBinSize * numHistogramBins;
-
-	// Bin RMSD values.
-	PropertyAccess<qlonglong> histogramCounts(_rmsdHistogram);
-	for(FloatType& rmsd : rmsdArray) {
-		if(rmsd >= 0.0) {
-			int binIndex = rmsd / rmsdHistogramBinSize;
-			histogramCounts[binIndex]++;
-		}
-		else rmsd = 0.0;
-	}
 	if(isCanceled())
 		return false;
 
@@ -520,7 +534,7 @@ void GrainSegmentationEngine2::perform()
         }
     }
 
-	PropertyAccess<Quaternion> orientationsArray(_engine1->orientations());
+	ConstPropertyAccess<Quaternion> orientationsArray(_engine1->orientations());
 	std::vector<Quaternion> meanOrientation(orientationsArray.cbegin(), orientationsArray.cend());
 
 	// Iterate through merge list until distance cutoff is met.

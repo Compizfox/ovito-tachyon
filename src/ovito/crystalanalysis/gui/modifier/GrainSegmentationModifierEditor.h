@@ -63,12 +63,6 @@ protected:
 
 private:
 
-	/// The graph widget to display the RMSD histogram.
-	DataTablePlotWidget* _rmsdPlotWidget;
-
-	/// Marks the RMSD cutoff in the histogram plot.
-	QwtPlotZoneItem* _rmsdRangeIndicator;
-
 	/// For deferred invocation of the plot repaint function.
 	DeferredMethodInvocation<GrainSegmentationModifierEditor, &GrainSegmentationModifierEditor::plotHistogram> plotHistogramLater;
 

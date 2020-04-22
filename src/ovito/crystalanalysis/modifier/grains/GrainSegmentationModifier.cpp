@@ -38,7 +38,6 @@
 namespace Ovito { namespace CrystalAnalysis {
 
 IMPLEMENT_OVITO_CLASS(GrainSegmentationModifier);
-DEFINE_PROPERTY_FIELD(GrainSegmentationModifier, rmsdCutoff);
 DEFINE_PROPERTY_FIELD(GrainSegmentationModifier, mergeAlgorithm);
 DEFINE_PROPERTY_FIELD(GrainSegmentationModifier, mergingThreshold);
 DEFINE_PROPERTY_FIELD(GrainSegmentationModifier, minGrainAtomCount);
@@ -47,7 +46,6 @@ DEFINE_PROPERTY_FIELD(GrainSegmentationModifier, onlySelectedParticles);
 DEFINE_PROPERTY_FIELD(GrainSegmentationModifier, outputBonds);
 DEFINE_PROPERTY_FIELD(GrainSegmentationModifier, colorParticlesByGrain);
 DEFINE_REFERENCE_FIELD(GrainSegmentationModifier, bondsVis);
-SET_PROPERTY_FIELD_LABEL(GrainSegmentationModifier, rmsdCutoff, "RMSD cutoff");
 SET_PROPERTY_FIELD_LABEL(GrainSegmentationModifier, mergeAlgorithm, "Linkage type");
 SET_PROPERTY_FIELD_LABEL(GrainSegmentationModifier, mergingThreshold, "Log merge threshold");
 SET_PROPERTY_FIELD_LABEL(GrainSegmentationModifier, minGrainAtomCount, "Minimum grain size (# of atoms)");
@@ -56,14 +54,12 @@ SET_PROPERTY_FIELD_LABEL(GrainSegmentationModifier, onlySelectedParticles, "Use 
 SET_PROPERTY_FIELD_LABEL(GrainSegmentationModifier, outputBonds, "Output bonds");
 SET_PROPERTY_FIELD_LABEL(GrainSegmentationModifier, colorParticlesByGrain, "Color particles by grain");
 SET_PROPERTY_FIELD_LABEL(GrainSegmentationModifier, bondsVis, "Bonds display");
-SET_PROPERTY_FIELD_UNITS_AND_MINIMUM(GrainSegmentationModifier, rmsdCutoff, FloatParameterUnit, 0);
 SET_PROPERTY_FIELD_UNITS_AND_MINIMUM(GrainSegmentationModifier, minGrainAtomCount, IntegerParameterUnit, 1);
 
 /******************************************************************************
 * Constructs the modifier object.
 ******************************************************************************/
 GrainSegmentationModifier::GrainSegmentationModifier(DataSet* dataset) : StructureIdentificationModifier(dataset),
-		_rmsdCutoff(0.1),
 		_mergeAlgorithm(NodePairSamplingAutomatic),
 		_minGrainAtomCount(100),
 		_onlySelectedParticles(false),
@@ -112,6 +108,10 @@ Future<AsynchronousModifier::EnginePtr> GrainSegmentationModifier::createEngine(
 	const ParticlesObject* particles = input.expectObject<ParticlesObject>();
 	particles->verifyIntegrity();
 	const PropertyObject* posProperty = particles->expectProperty(ParticlesObject::PositionProperty);
+	const PropertyObject* structureProperty = particles->expectProperty(ParticlesObject::StructureTypeProperty);
+	const PropertyObject* orientationProperty = particles->expectProperty(ParticlesObject::OrientationProperty);
+	const PropertyObject* correspondenceProperty = particles->expectProperty("Correspondences", PropertyStorage::Int64);
+
 	const SimulationCellObject* simCell = input.expectObject<SimulationCellObject>();
 	if(simCell->is2D())
 		throwException(tr("The grain segmentation modifier does not support 2d simulation cells."));
@@ -128,10 +128,12 @@ Future<AsynchronousModifier::EnginePtr> GrainSegmentationModifier::createEngine(
 	return std::make_shared<GrainSegmentationEngine1>(
 			particles,
 			posProperty->storage(),
+            structureProperty->storage(),
+            orientationProperty->storage(),
+            correspondenceProperty->storage(),
 			simCell->data(),
 			getTypesToIdentify(PTMAlgorithm::NUM_STRUCTURE_TYPES),
 			std::move(selectionProperty),
-			rmsdCutoff(),
 			mergeAlgorithm(),
 			outputBonds());
 }
@@ -147,12 +149,6 @@ void GrainSegmentationEngine1::applyResults(TimePoint time, ModifierApplication*
 	OVITO_ASSERT(modifier);
 
 	ParticlesObject* particles = state.expectMutableObject<ParticlesObject>();
-
-	// Output per-particle properties.
-	if(rmsd())
-		particles->createProperty(rmsd());
-	if(orientations())
-		particles->createProperty(orientations());
 
 	// Output the edges of the neighbor graph.
 	if(_outputBondsToPipeline && modifier->outputBonds()) {
@@ -190,12 +186,6 @@ void GrainSegmentationEngine1::applyResults(TimePoint time, ModifierApplication*
 
 		particles->addBonds(bonds, modifier->bondsVis(), { neighborDisorientationAngles.takeStorage() });
 	}
-
-	// Output RMSD histogram.
-	DataTable* rmsdTable = state.createObject<DataTable>(QStringLiteral("grains-rmsd"), modApp, DataTable::Line, GrainSegmentationModifier::tr("RMSD distribution"), rmsdHistogram());
-	rmsdTable->setAxisLabelX(GrainSegmentationModifier::tr("RMSD"));
-	rmsdTable->setIntervalStart(0);
-	rmsdTable->setIntervalEnd(rmsdHistogramRange());
 
 	// Output a data plot with the dendrogram points.
 	if(mergeSize() && mergeDistance())
