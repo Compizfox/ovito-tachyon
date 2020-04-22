@@ -468,21 +468,21 @@ if (fout)
 fclose(fout);
 #endif
 
-	// Create PropertyStorage objects for the output plot.
-	PropertyAccess<FloatType> mergeDistanceArray = _mergeDistance = std::make_shared<PropertyStorage>(numPlot, PropertyStorage::Float, 1, 0, GrainSegmentationModifier::tr("Log merge distance"), false, DataTable::XProperty);
-	PropertyAccess<FloatType> mergeSizeArray = _mergeSize = std::make_shared<PropertyStorage>(numPlot, PropertyStorage::Float, 1, 0, GrainSegmentationModifier::tr("Merge size"), false, DataTable::YProperty);
-
-	// Generate output data plot points from dendrogram data.
-	FloatType* mergeDistanceIter = mergeDistanceArray.begin();
-	FloatType* mergeSizeIter = mergeSizeArray.begin();
-	for(const DendrogramNode& node : _dendrogram) {
-		if(node.size >= _minPlotSize) {
-			*mergeDistanceIter++ = std::log(node.distance);
-			*mergeSizeIter++ = node.size;
-		}
-	}
-
 	if(_algorithmType == GrainSegmentationModifier::NodePairSamplingAutomatic || _algorithmType == GrainSegmentationModifier::NodePairSamplingManual) {
+
+	    // Create PropertyStorage objects for the output plot.
+	    PropertyAccess<FloatType> mergeDistanceArray = _mergeDistance = std::make_shared<PropertyStorage>(numPlot, PropertyStorage::Float, 1, 0, GrainSegmentationModifier::tr("Log merge distance"), false, DataTable::XProperty);
+	    PropertyAccess<FloatType> mergeSizeArray = _mergeSize = std::make_shared<PropertyStorage>(numPlot, PropertyStorage::Float, 1, 0, GrainSegmentationModifier::tr("Merge size"), false, DataTable::YProperty);
+
+	    // Generate output data plot points from dendrogram data.
+	    FloatType* mergeDistanceIter = mergeDistanceArray.begin();
+	    FloatType* mergeSizeIter = mergeSizeArray.begin();
+	    for(const DendrogramNode& node : _dendrogram) {
+		    if(node.size >= _minPlotSize) {
+			    *mergeDistanceIter++ = std::log(node.distance);
+			    *mergeSizeIter++ = node.size;
+		    }
+	    }
 
 	    // Temporarily sort dendrogram entries lexicographically, by (merge size, distance).
 	    boost::sort(_dendrogram, [](const DendrogramNode& a, const DendrogramNode& b) {if (a.size == b.size) return a.distance < b.distance; else return a.size < b.size;});
@@ -511,6 +511,21 @@ fclose(fout);
 	    }
 
 	}
+    else {
+	    // Create PropertyStorage objects for the output plot.
+	    PropertyAccess<FloatType> mergeDistanceArray = _mergeDistance = std::make_shared<PropertyStorage>(numPlot, PropertyStorage::Float, 1, 0, GrainSegmentationModifier::tr("Misorientation (degrees)"), false, DataTable::XProperty);
+	    PropertyAccess<FloatType> mergeSizeArray = _mergeSize = std::make_shared<PropertyStorage>(numPlot, PropertyStorage::Float, 1, 0, GrainSegmentationModifier::tr("Merge size"), false, DataTable::YProperty);
+
+	    // Generate output data plot points from dendrogram data.
+	    FloatType* mergeDistanceIter = mergeDistanceArray.begin();
+	    FloatType* mergeSizeIter = mergeSizeArray.begin();
+	    for(const DendrogramNode& node : _dendrogram) {
+		    if(node.size >= _minPlotSize) {
+			    *mergeDistanceIter++ = node.distance;
+			    *mergeSizeIter++ = node.size;
+		    }
+	    }
+    }
 
 	return !isCanceled();
 }
@@ -542,6 +557,10 @@ void GrainSegmentationEngine2::perform()
 	FloatType mergingThreshold = _mergingThreshold;
 	if(_engine1->_algorithmType == GrainSegmentationModifier::NodePairSamplingAutomatic) {
 		mergingThreshold = _engine1->suggestedMergingThreshold();
+    }
+
+	if(_engine1->_algorithmType == GrainSegmentationModifier::MinimumSpanningTree) {
+		mergingThreshold = log(mergingThreshold);
     }
 
 	const std::vector<GrainSegmentationEngine1::DendrogramNode>& dendrogram = _engine1->_dendrogram;
