@@ -72,6 +72,12 @@ private:
 	/// Marks the merge distance cutoff in the scatter plot.
 	QwtPlotZoneItem* _mergeRangeIndicator;
 
+	/// The graph widget to display the log-log scatter plot.
+	DataTablePlotWidget* _logPlotWidget;
+
+	/// Marks the merge distance cutoff in the log-log scatter plot.
+	QwtPlotZoneItem* _logRangeIndicator;
+
 	/// For deferred invocation of the plot repaint function.
 	DeferredMethodInvocation<GrainSegmentationModifierEditor, &GrainSegmentationModifierEditor::plotMerges> plotLater;
 };

@@ -191,6 +191,10 @@ void GrainSegmentationEngine1::applyResults(TimePoint time, ModifierApplication*
 	if(mergeSize() && mergeDistance())
 		state.createObject<DataTable>(QStringLiteral("grains-merge"), modApp, DataTable::Scatter, GrainSegmentationModifier::tr("Merge size vs. Merge distance"), mergeSize(), mergeDistance());
 
+	// Output a data plot with the log-log dendrogram points.
+	if(logMergeSize() && logMergeDistance())
+		state.createObject<DataTable>(QStringLiteral("grains-log"), modApp, DataTable::Scatter, GrainSegmentationModifier::tr("Merge distance vs. Merge size"), logMergeSize(), logMergeDistance());
+
 	if(modifier->mergeAlgorithm() == GrainSegmentationModifier::NodePairSamplingAutomatic)
 		state.addAttribute(QStringLiteral("GrainSegmentation.auto_merge_threshold"), QVariant::fromValue(suggestedMergingThreshold()), modApp);
 }

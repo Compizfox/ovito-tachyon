@@ -29,6 +29,7 @@
 #include "GrainSegmentationEngine.h"
 #include "GrainSegmentationModifier.h"
 #include "DisjointSet.h"
+#include "ThresholdSelection.h"
 
 #include <ptm/ptm_functions.h>
 #include <ptm/ptm_quat.h>
@@ -481,8 +482,34 @@ fclose(fout);
 		}
 	}
 
-	if(_algorithmType == GrainSegmentationModifier::NodePairSamplingAutomatic) {
-		_suggestedMergingThreshold = calculate_threshold_suggestion();
+	if(_algorithmType == GrainSegmentationModifier::NodePairSamplingAutomatic || _algorithmType == GrainSegmentationModifier::NodePairSamplingManual) {
+
+	    // Temporarily sort dendrogram entries lexicographically, by (merge size, distance).
+	    boost::sort(_dendrogram, [](const DendrogramNode& a, const DendrogramNode& b) {if (a.size == b.size) return a.distance < b.distance; else return a.size < b.size;});
+
+        auto regressor = ThresholdSelection::Regressor(_dendrogram);
+
+	    // Sort dendrogram entries by distance (undoing the lexicographic sorting performed above).
+	    boost::sort(_dendrogram, [](const DendrogramNode& a, const DendrogramNode& b) { return a.distance < b.distance; });
+
+        _suggestedMergingThreshold = regressor.calculate_threshold(_dendrogram, 3.0);
+
+	    // Create PropertyStorage objects for the output plot.
+        auto size = regressor.dsize.size();
+	    PropertyAccess<FloatType> logMergeSizeArray = _logMergeSize = std::make_shared<PropertyStorage>(size, PropertyStorage::Float, 1, 0, GrainSegmentationModifier::tr("Log merge size"), false, DataTable::XProperty);
+	    PropertyAccess<FloatType> logMergeDistanceArray = _logMergeDistance = std::make_shared<PropertyStorage>(size, PropertyStorage::Float, 1, 0, GrainSegmentationModifier::tr("Log merge distance"), false, DataTable::YProperty);
+
+	    // Generate output data plot points from dendrogram data.
+	    FloatType* logMergeDistanceIter = logMergeDistanceArray.begin();
+	    FloatType* logMergeSizeIter = logMergeSizeArray.begin();
+	    for(auto x: regressor.dsize) {
+		    *logMergeSizeIter++ = x;
+        }
+
+	    for(auto y: regressor.medianDistance) {
+		    *logMergeDistanceIter++ = y;
+	    }
+
 	}
 
 	return !isCanceled();

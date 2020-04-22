@@ -118,6 +118,19 @@ void GrainSegmentationModifierEditor::createUI(const RolloutInsertionParameters&
 	layout->addSpacing(10);
 	layout->addWidget(_mergePlotWidget);
 	connect(this, &GrainSegmentationModifierEditor::contentsReplaced, this, &GrainSegmentationModifierEditor::plotMerges);
+
+	// Create plot widget for log distances
+	_logPlotWidget = new DataTablePlotWidget();
+	_logPlotWidget->setMinimumHeight(200);
+	_logPlotWidget->setMaximumHeight(200);
+	_logRangeIndicator = new QwtPlotZoneItem();
+	_logRangeIndicator->setOrientation(Qt::Vertical);
+	_logRangeIndicator->setZ(1);
+	_logRangeIndicator->attach(_logPlotWidget);
+	_logRangeIndicator->hide();
+	layout->addSpacing(10);
+	layout->addWidget(_logPlotWidget);
+	connect(this, &GrainSegmentationModifierEditor::contentsReplaced, this, &GrainSegmentationModifierEditor::plotMerges);
 }
 
 /******************************************************************************
@@ -152,10 +165,25 @@ void GrainSegmentationModifierEditor::plotMerges()
 		}
 		_mergeRangeIndicator->setInterval(std::numeric_limits<double>::lowest(), mergingThreshold);
 		_mergeRangeIndicator->show();
+
+
+		// Look up the data table in the modifier's pipeline output.
+		_logPlotWidget->setTable(state.getObjectBy<DataTable>(modifierApplication(), QStringLiteral("grains-log")));
+
+		// Indicate the current log threshold in the plot.
+		//FloatType mergingThreshold = modifier->mergingThreshold();
+		//if(modifier->mergeAlgorithm() == GrainSegmentationModifier::NodePairSamplingAutomatic) {
+		//	mergingThreshold = state.getAttributeValue(modifierApplication(), QStringLiteral("GrainSegmentation.auto_merge_threshold"), mergingThreshold).value<FloatType>();
+		//}
+		//_mergeRangeIndicator->setInterval(std::numeric_limits<double>::lowest(), mergingThreshold);
+		//_mergeRangeIndicator->show();
 	}
 	else {
 		_mergePlotWidget->reset();
 		_mergeRangeIndicator->hide();
+
+		_logPlotWidget->reset();
+		_logRangeIndicator->hide();
 	}
 }
 

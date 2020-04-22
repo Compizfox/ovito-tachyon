@@ -260,6 +260,12 @@ public:
 	// Returns the merge sizes for the scatter plot
 	const PropertyPtr& mergeSize() const { return _mergeSize; }
 
+	// Returns the log merge distances for the scatter plot
+	const PropertyPtr& logMergeDistance() const { return _logMergeDistance; }
+
+	// Returns the log merge sizes for the scatter plot
+	const PropertyPtr& logMergeSize() const { return _logMergeSize; }
+
 	/// Returns the per-particle structure types.
 	const ConstPropertyPtr& structureTypes() const { return _structureTypes; }
 
@@ -323,6 +329,12 @@ private:
 
 	// The merge sizes
 	PropertyPtr _mergeSize;
+
+	// The log merge distances
+	PropertyPtr _logMergeDistance;
+
+	// The merge sizes
+	PropertyPtr _logMergeSize;
 
 	// The linkage criterion used in the merge algorithm
 	GrainSegmentationModifier::MergeAlgorithm _algorithmType;
