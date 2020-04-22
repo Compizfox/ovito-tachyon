@@ -392,7 +392,7 @@ bool GrainSegmentationEngine1::determineMergeSequence()
 {
 	// Build graph.
 	ConstPropertyAccess<int> structuresArray(structures());
-	if(_algorithmType == GrainSegmentationModifier::NodePairSamplingAutomatic || _algorithmType == GrainSegmentationModifier::NodePairSamplingManual) {
+	if(_algorithmType == GrainSegmentationModifier::GraphClusteringAutomatic || _algorithmType == GrainSegmentationModifier::GraphClusteringManual) {
 
 	    setProgressText(GrainSegmentationModifier::tr("Grain segmentation - building graph"));
 	    setProgressValue(0);
@@ -422,7 +422,7 @@ bool GrainSegmentationEngine1::determineMergeSequence()
 	setProgressValue(0);
 	setProgressMaximum(_numParticles);  //TODO: make this num. crystalline particles
 
-	if(_algorithmType == GrainSegmentationModifier::NodePairSamplingAutomatic || _algorithmType == GrainSegmentationModifier::NodePairSamplingManual) {
+	if(_algorithmType == GrainSegmentationModifier::GraphClusteringAutomatic || _algorithmType == GrainSegmentationModifier::GraphClusteringManual) {
 		node_pair_sampling_clustering(graph, structuresArray, qsum);
 	}
 	else {
@@ -471,7 +471,7 @@ if (fout)
 fclose(fout);
 #endif
 
-	if(_algorithmType == GrainSegmentationModifier::NodePairSamplingAutomatic || _algorithmType == GrainSegmentationModifier::NodePairSamplingManual) {
+	if(_algorithmType == GrainSegmentationModifier::GraphClusteringAutomatic || _algorithmType == GrainSegmentationModifier::GraphClusteringManual) {
 
 	    // Create PropertyStorage objects for the output plot.
 	    PropertyAccess<FloatType> mergeDistanceArray = _mergeDistance = std::make_shared<PropertyStorage>(numPlot, PropertyStorage::Float, 1, 0, GrainSegmentationModifier::tr("Log merge distance"), false, DataTable::XProperty);
@@ -555,7 +555,7 @@ void GrainSegmentationEngine2::perform()
 
 	// Either use user-defined merge threshold or automatically computed threshold.
 	FloatType mergingThreshold = _mergingThreshold;
-	if(_engine1->_algorithmType == GrainSegmentationModifier::NodePairSamplingAutomatic) {
+	if(_engine1->_algorithmType == GrainSegmentationModifier::GraphClusteringAutomatic) {
 		mergingThreshold = _engine1->suggestedMergingThreshold();
     }
 
@@ -567,7 +567,7 @@ void GrainSegmentationEngine2::perform()
 
 #if 0
     // Refine the graph partitions
-	if(_engine1->_algorithmType == GrainSegmentationModifier::NodePairSamplingAutomatic) {
+	if(_engine1->_algorithmType == GrainSegmentationModifier::GraphClusteringAutomatic) {
         auto graph = _engine1->graph;
         FloatType gamma = 1 / mergingThreshold;     // resolution parameter
 

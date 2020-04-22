@@ -60,7 +60,7 @@ SET_PROPERTY_FIELD_UNITS_AND_MINIMUM(GrainSegmentationModifier, minGrainAtomCoun
 * Constructs the modifier object.
 ******************************************************************************/
 GrainSegmentationModifier::GrainSegmentationModifier(DataSet* dataset) : StructureIdentificationModifier(dataset),
-		_mergeAlgorithm(NodePairSamplingAutomatic),
+		_mergeAlgorithm(GraphClusteringAutomatic),
 		_minGrainAtomCount(100),
 		_onlySelectedParticles(false),
 		_mergingThreshold(0.0),
@@ -195,7 +195,7 @@ void GrainSegmentationEngine1::applyResults(TimePoint time, ModifierApplication*
 	if(logMergeSize() && logMergeDistance())
 		state.createObject<DataTable>(QStringLiteral("grains-log"), modApp, DataTable::Scatter, GrainSegmentationModifier::tr("Merge distance vs. Merge size"), logMergeSize(), logMergeDistance());
 
-	if(modifier->mergeAlgorithm() == GrainSegmentationModifier::NodePairSamplingAutomatic)
+	if(modifier->mergeAlgorithm() == GrainSegmentationModifier::GraphClusteringAutomatic)
 		state.addAttribute(QStringLiteral("GrainSegmentation.auto_merge_threshold"), QVariant::fromValue(suggestedMergingThreshold()), modApp);
 }
 

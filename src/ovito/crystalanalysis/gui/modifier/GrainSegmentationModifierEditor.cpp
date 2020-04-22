@@ -64,9 +64,9 @@ void GrainSegmentationModifierEditor::createUI(const RolloutInsertionParameters&
 	sublayout3->setSpacing(4);
 	sublayout2->setColumnStretch(1, 1);
 	sublayout3->addWidget(new QLabel(tr("Algorithm:")), 0, 0);
-	QRadioButton* automaticModeButton = algorithmTypeUI->addRadioButton(GrainSegmentationModifier::NodePairSamplingAutomatic, tr("Node Pair Sampling (automatic)"));
+	QRadioButton* automaticModeButton = algorithmTypeUI->addRadioButton(GrainSegmentationModifier::GraphClusteringAutomatic, tr("Graph Clustering (automatic)"));
 	sublayout3->addWidget(automaticModeButton, 0, 1);
-	sublayout3->addWidget(algorithmTypeUI->addRadioButton(GrainSegmentationModifier::NodePairSamplingManual, tr("Node Pair Sampling (manual)")), 1, 1);
+	sublayout3->addWidget(algorithmTypeUI->addRadioButton(GrainSegmentationModifier::GraphClusteringManual, tr("Graph Clustering (manual)")), 1, 1);
 	sublayout3->addWidget(algorithmTypeUI->addRadioButton(GrainSegmentationModifier::MinimumSpanningTree, tr("Minimum Spanning Tree")), 2, 1);
 	sublayout2->addLayout(sublayout3, 0, 0, 1, 2);
 
@@ -160,7 +160,7 @@ void GrainSegmentationModifierEditor::plotMerges()
 
 		// Indicate the current merge threshold in the plot.
 		FloatType mergingThreshold = modifier->mergingThreshold();
-		if(modifier->mergeAlgorithm() == GrainSegmentationModifier::NodePairSamplingAutomatic) {
+		if(modifier->mergeAlgorithm() == GrainSegmentationModifier::GraphClusteringAutomatic) {
 			mergingThreshold = state.getAttributeValue(modifierApplication(), QStringLiteral("GrainSegmentation.auto_merge_threshold"), mergingThreshold).value<FloatType>();
 		}
 		_mergeRangeIndicator->setInterval(std::numeric_limits<double>::lowest(), mergingThreshold);

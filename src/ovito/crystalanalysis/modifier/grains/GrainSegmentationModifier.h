@@ -46,8 +46,8 @@ class OVITO_CRYSTALANALYSIS_EXPORT GrainSegmentationModifier : public StructureI
 public:
 
 	enum MergeAlgorithm {
-		NodePairSamplingAutomatic,	///< Use node pair sampling algorithm to build merge sequence and choose threshold adaptively.
-		NodePairSamplingManual,		///< Use node pair sampling algorithm to build merge sequence and let user choose merge threshold.
+		GraphClusteringAutomatic,	///< Use graph clustering algorithm to build merge sequence and choose threshold adaptively.
+		GraphClusteringManual,		///< Use graph clustering algorithm to build merge sequence and let user choose merge threshold.
 		MinimumSpanningTree,		///< Use minimum spanning tree algorithm to build merge sequence.
 	};
 	Q_ENUMS(MergeAlgorithm);
