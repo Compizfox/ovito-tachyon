@@ -124,7 +124,7 @@ void GrainSegmentationModifierEditor::createUI(const RolloutInsertionParameters&
 	_logPlotWidget->setMinimumHeight(200);
 	_logPlotWidget->setMaximumHeight(200);
 	_logRangeIndicator = new QwtPlotZoneItem();
-	_logRangeIndicator->setOrientation(Qt::Vertical);
+	_logRangeIndicator->setOrientation(Qt::Horizontal);
 	_logRangeIndicator->setZ(1);
 	_logRangeIndicator->attach(_logPlotWidget);
 	_logRangeIndicator->hide();
@@ -171,12 +171,8 @@ void GrainSegmentationModifierEditor::plotMerges()
 		_logPlotWidget->setTable(state.getObjectBy<DataTable>(modifierApplication(), QStringLiteral("grains-log")));
 
 		// Indicate the current log threshold in the plot.
-		//FloatType mergingThreshold = modifier->mergingThreshold();
-		//if(modifier->mergeAlgorithm() == GrainSegmentationModifier::NodePairSamplingAutomatic) {
-		//	mergingThreshold = state.getAttributeValue(modifierApplication(), QStringLiteral("GrainSegmentation.auto_merge_threshold"), mergingThreshold).value<FloatType>();
-		//}
-		//_mergeRangeIndicator->setInterval(std::numeric_limits<double>::lowest(), mergingThreshold);
-		//_mergeRangeIndicator->show();
+		_logRangeIndicator->setInterval(0, mergingThreshold);
+		_logRangeIndicator->show();
 	}
 	else {
 		_mergePlotWidget->reset();

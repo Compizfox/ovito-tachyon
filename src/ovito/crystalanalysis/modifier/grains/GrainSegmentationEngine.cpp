@@ -565,6 +565,7 @@ void GrainSegmentationEngine2::perform()
 
 	const std::vector<GrainSegmentationEngine1::DendrogramNode>& dendrogram = _engine1->_dendrogram;
 
+#if 0
     // Refine the graph partitions
 	if(_engine1->_algorithmType == GrainSegmentationModifier::NodePairSamplingAutomatic) {
         auto graph = _engine1->graph;
@@ -579,6 +580,7 @@ void GrainSegmentationEngine2::perform()
             }
         }
     }
+#endif
 
 	ConstPropertyAccess<Quaternion> orientationsArray(_engine1->orientations());
 	std::vector<Quaternion> meanOrientation(orientationsArray.cbegin(), orientationsArray.cend());
