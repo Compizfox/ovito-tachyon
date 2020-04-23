@@ -311,10 +311,19 @@ private:
     FloatType calculate_threshold_suggestion();
 
     // Determines if a bond is crystalline
-    static bool isCrystallineBond(ConstPropertyAccess<int>& structuresArray, const NeighborBond& bond)
+    bool isCrystallineBond(ConstPropertyAccess<int>& structuresArray, const NeighborBond& bond)
     {
-        return structuresArray[bond.a] != PTMAlgorithm::OTHER
-               && structuresArray[bond.a] == structuresArray[bond.b];
+        auto a = structuresArray[bond.a];
+        auto b = structuresArray[bond.b];
+
+        if (a == PTMAlgorithm::OTHER) return false;
+        if (b == PTMAlgorithm::OTHER) return false;
+        if (a == b) return true;
+
+        if (_stackingFaultHandling == GrainSegmentationModifier::None)
+            return false;
+
+        return (a == PTMAlgorithm::FCC && b == PTMAlgorithm::HCP) || (a == PTMAlgorithm::HCP && b == PTMAlgorithm::FCC);
     }
 
     // Converts a disorientation to an edge weight for Node Pair Sampling algorithm
