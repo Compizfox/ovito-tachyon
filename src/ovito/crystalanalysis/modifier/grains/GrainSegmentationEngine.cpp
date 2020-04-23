@@ -264,14 +264,14 @@ bool GrainSegmentationEngine1::computeDisorientationAngles()
 			std::swap(a, b);
 		}
 
+		const Quaternion& qa = orientationsArray[a];
+		const Quaternion& qb = orientationsArray[b];
+		double orientA[4] = { qa.w(), qa.x(), qa.y(), qa.z() };
+		double orientB[4] = { qb.w(), qb.x(), qb.y(), qb.z() };
+
 		if(structuresArray[a] == structuresArray[b]) {
-
 			int structureType = structuresArray[a];
-			const Quaternion& qA = orientationsArray[a];
-			const Quaternion& qB = orientationsArray[b];
 
-			double orientA[4] = { qA.w(), qA.x(), qA.y(), qA.z() };
-			double orientB[4] = { qB.w(), qB.x(), qB.y(), qB.z() };
 			if(structureType == PTMAlgorithm::SC || structureType == PTMAlgorithm::FCC || structureType == PTMAlgorithm::BCC || structureType == PTMAlgorithm::CUBIC_DIAMOND)
 				bond.disorientation = (FloatType)ptm::quat_disorientation_cubic(orientA, orientB);
 			else if(structureType == PTMAlgorithm::HCP || structureType == PTMAlgorithm::HEX_DIAMOND || structureType == PTMAlgorithm::GRAPHENE)
@@ -282,14 +282,8 @@ bool GrainSegmentationEngine1::computeDisorientationAngles()
 #if 0
 		else if(structuresArray[a] == PTMAlgorithm::FCC && structuresArray[b] == PTMAlgorithm::HCP) {
 
-			const Quaternion& qA = orientationsArray[a];
-			const Quaternion& qB = orientationsArray[b];
-
-			double orientA[4] = { qA.w(), qA.x(), qA.y(), qA.z() };
-			double orientB[4] = { qB.w(), qB.x(), qB.y(), qB.z() };
-
-			double map_hcp_to_fcc[49][4] = {{0.11591690,  0.3647052, 0.27984814,  0.88047624},
-											{0.45576804, -0.5406251, 0.70455634, -0.06000300}};
+			double map_hcp_to_fcc[2][4] = {{0.11591690,  0.3647052, 0.27984814,  0.88047624},
+                                           {0.45576804, -0.5406251, 0.70455634, -0.06000300}};
 			for (int i=0;i<2;i++) {
 				double testB[4];
 				ptm::quat_rot(orientB, map_hcp_to_fcc[i], testB);
@@ -496,8 +490,8 @@ fclose(fout);
 
 	    // Create PropertyStorage objects for the output plot.
         auto size = regressor.dsize.size();
-	    PropertyAccess<FloatType> logMergeSizeArray = _logMergeSize = std::make_shared<PropertyStorage>(size, PropertyStorage::Float, 1, 0, GrainSegmentationModifier::tr("Log merge size"), false, DataTable::YProperty);
-	    PropertyAccess<FloatType> logMergeDistanceArray = _logMergeDistance = std::make_shared<PropertyStorage>(size, PropertyStorage::Float, 1, 0, GrainSegmentationModifier::tr("Log merge distance"), false, DataTable::XProperty);
+	    PropertyAccess<FloatType> logMergeSizeArray = _logMergeSize = std::make_shared<PropertyStorage>(size, PropertyStorage::Float, 1, 0, GrainSegmentationModifier::tr("Log merge size"), false, DataTable::XProperty);
+	    PropertyAccess<FloatType> logMergeDistanceArray = _logMergeDistance = std::make_shared<PropertyStorage>(size, PropertyStorage::Float, 1, 0, GrainSegmentationModifier::tr("Log merge distance"), false, DataTable::YProperty);
 
 	    // Generate output data plot points from dendrogram data.
 	    FloatType* logMergeDistanceIter = logMergeDistanceArray.begin();
