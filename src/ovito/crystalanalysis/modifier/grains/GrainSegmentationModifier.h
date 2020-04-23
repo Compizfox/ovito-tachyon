@@ -25,8 +25,8 @@
 
 
 #include <ovito/crystalanalysis/CrystalAnalysis.h>
-#include <ovito/particles/modifier/analysis/StructureIdentificationModifier.h>
 #include <ovito/particles/objects/BondsVis.h>
+#include <ovito/core/dataset/pipeline/AsynchronousModifier.h>
 
 namespace Ovito { namespace CrystalAnalysis {
 
@@ -35,10 +35,22 @@ class GrainSegmentationEngine;  // defined in GrainSegmentationEngine.h
 /*
  * Decomposes a polycrystalline microstructure into individual grains.
  */
-class OVITO_CRYSTALANALYSIS_EXPORT GrainSegmentationModifier : public StructureIdentificationModifier
+class OVITO_CRYSTALANALYSIS_EXPORT GrainSegmentationModifier : public AsynchronousModifier
 {
+	/// Give this modifier class its own metaclass.
+	class OVITO_CRYSTALANALYSIS_EXPORT GrainSegmentationModifierClass : public AsynchronousModifier::OOMetaClass
+	{
+	public:
+
+		/// Inherit constructor from base metaclass.
+		using AsynchronousModifier::OOMetaClass::OOMetaClass;
+
+		/// Asks the metaclass whether the modifier can be applied to the given input data.
+		virtual bool isApplicableTo(const DataCollection& input) const override;
+	};
+
 	Q_OBJECT
-	OVITO_CLASS(GrainSegmentationModifier)
+	OVITO_CLASS_META(GrainSegmentationModifier, GrainSegmentationModifierClass)
 
 	Q_CLASSINFO("DisplayName", "Grain segmentation (experimental)");
 	Q_CLASSINFO("ModifierCategory", "Analysis");

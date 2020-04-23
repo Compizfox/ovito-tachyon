@@ -41,6 +41,10 @@
 
 namespace Ovito { namespace CrystalAnalysis {
 
+#ifndef Q_CC_MSVC
+constexpr int GrainSegmentationEngine1::MAX_DISORDERED_NEIGHBORS; // Definition is required by C++14 but not C++17 or later.
+#endif
+
 /******************************************************************************
 * Constructor.
 ******************************************************************************/
@@ -51,18 +55,18 @@ GrainSegmentationEngine1::GrainSegmentationEngine1(
 			ConstPropertyPtr orientationProperty,
 			ConstPropertyPtr correspondenceProperty,
 			const SimulationCell& simCell,
-			const QVector<bool>& typesToIdentify, // TODO: remove this
-			ConstPropertyPtr selection,
 			GrainSegmentationModifier::MergeAlgorithm algorithmType, 
 			bool outputBonds) :
-	StructureIdentificationModifier::StructureIdentificationEngine(std::move(fingerprint), positions, simCell, std::move(typesToIdentify), std::move(selection)),
-	_numParticles(positions->size()),
+	_inputFingerprint(std::move(fingerprint)),
+	_positions(std::move(positions)),
+	_simCell(simCell),
 	_algorithmType(algorithmType),
 	_structureTypes(structureProperty),
 	_orientations(orientationProperty),
 	_correspondences(correspondenceProperty),
 	_outputBondsToPipeline(outputBonds)
 {
+	_numParticles = _positions->size();
 }
 
 /******************************************************************************
@@ -76,7 +80,7 @@ void GrainSegmentationEngine1::perform()
 	if(!determineMergeSequence()) return;
 
 	// Release data that is no longer needed.
-	releaseWorkingData();
+	_positions.reset();
 
 	//if(!_outputBondsToPipeline)
 	//	decltype(_neighborBonds){}.swap(_neighborBonds);
@@ -116,7 +120,7 @@ static bool fill_neighbors(NearestNeighborFinder::Query<PTMAlgorithm::MAX_INPUT_
 
 // TODO: add numbers
 static void establish_atomic_environment(NearestNeighborFinder::Query<PTMAlgorithm::MAX_INPUT_NEIGHBORS>& neighQuery,
-                                         ConstPropertyAccess<uint64_t> correspondenceArray,
+                                         ConstPropertyAccess<qlonglong> correspondenceArray,
                                          PTMAlgorithm::StructureType structureType,
                                          size_t particleIndex,
                                          ptm_atomicenv_t* env)
@@ -165,22 +169,15 @@ static void establish_atomic_environment(NearestNeighborFinder::Query<PTMAlgorit
 bool GrainSegmentationEngine1::identifyAtomicStructures()
 {
 	NearestNeighborFinder neighFinder(PTMAlgorithm::MAX_INPUT_NEIGHBORS);
-	if(!neighFinder.prepare(*positions(), cell(), selection(), this))
+	if(!neighFinder.prepare(*positions(), cell(), nullptr, this))
 		return false;
 
 	setProgressValue(0);
 	setProgressMaximum(_numParticles);
 	setProgressText(GrainSegmentationModifier::tr("Getting neighbors"));
 
-	// Copy structures from input property to StructureIdentificationModifier property
-    // TODO: find a better way of doing this
-	PropertyAccess<int> structuresArray(structures());
-	ConstPropertyAccess<int> inputStructuresArray(structureTypes());
-    for (size_t particleIndex=0;particleIndex<_numParticles;particleIndex++) {
-        structuresArray[particleIndex] = inputStructuresArray[particleIndex];
-    }
-
-	ConstPropertyAccess<uint64_t> correspondenceArray(correspondences());
+	ConstPropertyAccess<qlonglong> correspondenceArray(correspondences());
+	ConstPropertyAccess<int> structuresArray(structureTypes());
 
 	// Mutex is needed to synchronize access to bonds list in parallelized loop.
 	std::mutex bondsMutex;
@@ -254,7 +251,7 @@ bool GrainSegmentationEngine1::computeDisorientationAngles()
 {
 	// Compute disorientation angles associated with the neighbor graph edges.
 	setProgressText(GrainSegmentationModifier::tr("Grain segmentation - misorientation calculation"));
-	ConstPropertyAccess<int> structuresArray(structures());
+	ConstPropertyAccess<int> structuresArray(structureTypes());
 	ConstPropertyAccess<Quaternion> orientationsArray(orientations());
 
 	parallelFor(_neighborBonds.size(), *this, [&](size_t bondIndex) {
@@ -391,7 +388,7 @@ bool GrainSegmentationEngine1::minimum_spanning_tree_clustering(
 bool GrainSegmentationEngine1::determineMergeSequence()
 {
 	// Build graph.
-	ConstPropertyAccess<int> structuresArray(structures());
+	ConstPropertyAccess<int> structuresArray(structureTypes());
 	if(_algorithmType == GrainSegmentationModifier::GraphClusteringAutomatic || _algorithmType == GrainSegmentationModifier::GraphClusteringManual) {
 
 	    setProgressText(GrainSegmentationModifier::tr("Grain segmentation - building graph"));
@@ -499,8 +496,8 @@ fclose(fout);
 
 	    // Create PropertyStorage objects for the output plot.
         auto size = regressor.dsize.size();
-	    PropertyAccess<FloatType> logMergeSizeArray = _logMergeSize = std::make_shared<PropertyStorage>(size, PropertyStorage::Float, 1, 0, GrainSegmentationModifier::tr("Log merge size"), false, DataTable::XProperty);
-	    PropertyAccess<FloatType> logMergeDistanceArray = _logMergeDistance = std::make_shared<PropertyStorage>(size, PropertyStorage::Float, 1, 0, GrainSegmentationModifier::tr("Log merge distance"), false, DataTable::YProperty);
+	    PropertyAccess<FloatType> logMergeSizeArray = _logMergeSize = std::make_shared<PropertyStorage>(size, PropertyStorage::Float, 1, 0, GrainSegmentationModifier::tr("Log merge size"), false, DataTable::YProperty);
+	    PropertyAccess<FloatType> logMergeDistanceArray = _logMergeDistance = std::make_shared<PropertyStorage>(size, PropertyStorage::Float, 1, 0, GrainSegmentationModifier::tr("Log merge distance"), false, DataTable::XProperty);
 
 	    // Generate output data plot points from dendrogram data.
 	    FloatType* logMergeDistanceIter = logMergeDistanceArray.begin();
@@ -605,7 +602,7 @@ void GrainSegmentationEngine2::perform()
 
 	// Assign new consecutive IDs to root clusters.
 	_numClusters = 1;
-	ConstPropertyAccess<int> structuresArray(_engine1->structures());
+	ConstPropertyAccess<int> structuresArray(_engine1->structureTypes());
 	std::vector<int> clusterStructureTypes;
 	std::vector<Quaternion> clusterOrientations;
 	for(size_t i = 0; i < _numParticles; i++) {

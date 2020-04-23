@@ -48,9 +48,7 @@ public:
 
 protected Q_SLOTS:
 
-	/// Replots the histogram computed by the modifier.
-	void plotHistogram();
-
+	/// Replots the merge sequence computed by the modifier.
 	void plotMerges();
 
 protected:
@@ -62,9 +60,6 @@ protected:
 	virtual bool referenceEvent(RefTarget* source, const ReferenceEvent& event) override;
 
 private:
-
-	/// For deferred invocation of the plot repaint function.
-	DeferredMethodInvocation<GrainSegmentationModifierEditor, &GrainSegmentationModifierEditor::plotHistogram> plotHistogramLater;
 
 	/// The graph widget to display the merge size scatter plot.
 	DataTablePlotWidget* _mergePlotWidget;

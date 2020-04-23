@@ -25,10 +25,11 @@
 
 
 #include <ovito/crystalanalysis/CrystalAnalysis.h>
-#include <ovito/particles/modifier/analysis/StructureIdentificationModifier.h>
 #include <ovito/particles/objects/ParticlesObject.h>
 #include <ovito/particles/objects/BondsObject.h>
 #include <ovito/particles/modifier/analysis/ptm/PTMAlgorithm.h>
+#include <ovito/particles/util/ParticleOrderingFingerprint.h>
+#include <ovito/core/dataset/pipeline/AsynchronousModifier.h>
 #include "DisjointSet.h"
 #include "GrainSegmentationModifier.h"
 
@@ -37,7 +38,7 @@ namespace Ovito { namespace CrystalAnalysis {
 /*
  * Computation engine of the GrainSegmentationModifier, which decomposes a polycrystalline microstructure into individual grains.
  */
-class GrainSegmentationEngine1 : public StructureIdentificationModifier::StructureIdentificationEngine
+class GrainSegmentationEngine1 : public AsynchronousModifier::Engine
 {
 public:
 
@@ -225,8 +226,6 @@ public:
 			ConstPropertyPtr orientationProperty,
 			ConstPropertyPtr correspondenceProperty,
 			const SimulationCell& simCell,
-			const QVector<bool>& typesToIdentify, 
-			ConstPropertyPtr selection,
 			GrainSegmentationModifier::MergeAlgorithm algorithmType,
 			bool outputBonds);
 
@@ -248,11 +247,17 @@ public:
 				|| event.field() == &PROPERTY_FIELD(GrainSegmentationModifier::orphanAdoption))
 			return true;
 
-		return StructureIdentificationModifier::StructureIdentificationEngine::modifierChanged(event);
+		return AsynchronousModifier::Engine::modifierChanged(event);
 	}
 
 	/// Creates another engine that performs the next stage of the computation. 
 	virtual std::shared_ptr<Engine> createContinuationEngine(ModifierApplication* modApp, const PipelineFlowState& input) override;
+
+	/// Returns the property storage that contains the input particle positions.
+	const ConstPropertyPtr& positions() const { return _positions; }
+
+	/// Returns the simulation cell data.
+	const SimulationCell& cell() const { return _simCell; }
 
 	// Returns the merge distances for the scatter plot
 	const PropertyPtr& mergeDistance() const { return _mergeDistance; }
@@ -323,6 +328,15 @@ private:
 
 	/// The number of input particles.
 	size_t _numParticles;
+
+	/// The coordinates of the input particles.
+	ConstPropertyPtr _positions;
+
+	/// The simulation cell geometry.
+	const SimulationCell _simCell;
+
+	/// Used to detect changes in the input dataset that invalidate cached computation results.
+	ParticleOrderingFingerprint _inputFingerprint;
 
 	// The merge distances
 	PropertyPtr _mergeDistance;

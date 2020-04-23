@@ -80,18 +80,6 @@ public:
 				return true;
 			return Engine::modifierChanged(event);
 		}
-
-		/// Reinitializes the compute engine in order to reperform a computation.
-		/// Data structures that have been discarded after the last run by releaseWorkingData() will be
-		/// reinitialized with the new inputs.
-		void startOver(ParticleOrderingFingerprint fingerprint, ConstPropertyPtr positions, QVector<bool> typesToIdentify, ConstPropertyPtr selection = {}) {
-			// Reset the asynchronous task state.
-			Engine::startOver();
-			
-			_positions = std::move(positions);
-			_typesToIdentify = std::move(typesToIdentify);
-			_selection = std::move(selection);
-		}
 		
 		/// Returns the property storage that contains the computed per-particle structure types.
 		const PropertyPtr& structures() const { return _structures; }

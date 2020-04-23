@@ -201,7 +201,7 @@ void PolyhedralTemplateMatchingModifier::PTMEngine::perform()
 	PropertyAccess<Quaternion> orientationsArray(orientations());
 	PropertyAccess<Matrix3> deformationGradientsArray(deformationGradients());
 	PropertyAccess<int> orderingTypesArray(orderingTypes());
-	PropertyAccess<long int> correspondencesArray(correspondences());
+	PropertyAccess<qlonglong> correspondencesArray(correspondences());
 
 	// Perform analysis on each particle.
 	parallelForChunks(positions()->size(), *this, [&](size_t startIndex, size_t count, Task& task) {

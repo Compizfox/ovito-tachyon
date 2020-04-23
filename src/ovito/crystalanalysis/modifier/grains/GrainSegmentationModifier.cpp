@@ -42,15 +42,13 @@ DEFINE_PROPERTY_FIELD(GrainSegmentationModifier, mergeAlgorithm);
 DEFINE_PROPERTY_FIELD(GrainSegmentationModifier, mergingThreshold);
 DEFINE_PROPERTY_FIELD(GrainSegmentationModifier, minGrainAtomCount);
 DEFINE_PROPERTY_FIELD(GrainSegmentationModifier, orphanAdoption);
-DEFINE_PROPERTY_FIELD(GrainSegmentationModifier, onlySelectedParticles);
 DEFINE_PROPERTY_FIELD(GrainSegmentationModifier, outputBonds);
 DEFINE_PROPERTY_FIELD(GrainSegmentationModifier, colorParticlesByGrain);
 DEFINE_REFERENCE_FIELD(GrainSegmentationModifier, bondsVis);
-SET_PROPERTY_FIELD_LABEL(GrainSegmentationModifier, mergeAlgorithm, "Linkage type");
+SET_PROPERTY_FIELD_LABEL(GrainSegmentationModifier, mergeAlgorithm, "Algorithm");
 SET_PROPERTY_FIELD_LABEL(GrainSegmentationModifier, mergingThreshold, "Merge threshold");
 SET_PROPERTY_FIELD_LABEL(GrainSegmentationModifier, minGrainAtomCount, "Minimum grain size (# of atoms)");
 SET_PROPERTY_FIELD_LABEL(GrainSegmentationModifier, orphanAdoption, "Adopt orphan atoms");
-SET_PROPERTY_FIELD_LABEL(GrainSegmentationModifier, onlySelectedParticles, "Use only selected particles");
 SET_PROPERTY_FIELD_LABEL(GrainSegmentationModifier, outputBonds, "Output bonds");
 SET_PROPERTY_FIELD_LABEL(GrainSegmentationModifier, colorParticlesByGrain, "Color particles by grain");
 SET_PROPERTY_FIELD_LABEL(GrainSegmentationModifier, bondsVis, "Bonds display");
@@ -59,29 +57,24 @@ SET_PROPERTY_FIELD_UNITS_AND_MINIMUM(GrainSegmentationModifier, minGrainAtomCoun
 /******************************************************************************
 * Constructs the modifier object.
 ******************************************************************************/
-GrainSegmentationModifier::GrainSegmentationModifier(DataSet* dataset) : StructureIdentificationModifier(dataset),
+GrainSegmentationModifier::GrainSegmentationModifier(DataSet* dataset) : AsynchronousModifier(dataset),
 		_mergeAlgorithm(GraphClusteringAutomatic),
 		_minGrainAtomCount(100),
-		_onlySelectedParticles(false),
 		_mergingThreshold(0.0),
 		_orphanAdoption(true),
 		_outputBonds(false),
 		_colorParticlesByGrain(true)
 {
-	// Define the structure types.
-	createStructureType(PTMAlgorithm::OTHER, ParticleType::PredefinedStructureType::OTHER);
-	createStructureType(PTMAlgorithm::FCC, ParticleType::PredefinedStructureType::FCC);
-	createStructureType(PTMAlgorithm::HCP, ParticleType::PredefinedStructureType::HCP);
-	createStructureType(PTMAlgorithm::BCC, ParticleType::PredefinedStructureType::BCC);
-
-	createStructureType(PTMAlgorithm::ICO, ParticleType::PredefinedStructureType::ICO)->setEnabled(false);
-	createStructureType(PTMAlgorithm::SC, ParticleType::PredefinedStructureType::SC)->setEnabled(false);
-	createStructureType(PTMAlgorithm::CUBIC_DIAMOND, ParticleType::PredefinedStructureType::CUBIC_DIAMOND)->setEnabled(false);
-	createStructureType(PTMAlgorithm::HEX_DIAMOND, ParticleType::PredefinedStructureType::HEX_DIAMOND)->setEnabled(false);
-	createStructureType(PTMAlgorithm::GRAPHENE, ParticleType::PredefinedStructureType::GRAPHENE)->setEnabled(false);
-
 	// Create the visual element for the bonds.
 	setBondsVis(new BondsVis(dataset));
+}
+
+/******************************************************************************
+* Asks the modifier whether it can be applied to the given input data.
+******************************************************************************/
+bool GrainSegmentationModifier::OOMetaClass::isApplicableTo(const DataCollection& input) const
+{
+	return input.containsObject<ParticlesObject>();
 }
 
 /******************************************************************************
@@ -93,7 +86,7 @@ void GrainSegmentationModifier::propertyChanged(const PropertyFieldDescriptor& f
 		// Immediately update viewports if parameters are changed by the user that don't require a full recalculation.
 		notifyDependents(ReferenceEvent::PreliminaryStateAvailable);
 	}
-	StructureIdentificationModifier::propertyChanged(field);
+	AsynchronousModifier::propertyChanged(field);
 }
 
 /******************************************************************************
@@ -101,9 +94,6 @@ void GrainSegmentationModifier::propertyChanged(const PropertyFieldDescriptor& f
 ******************************************************************************/
 Future<AsynchronousModifier::EnginePtr> GrainSegmentationModifier::createEngine(const PipelineEvaluationRequest& request, ModifierApplication* modApp, const PipelineFlowState& input)
 {
-	if(structureTypes().size() != PTMAlgorithm::NUM_STRUCTURE_TYPES)
-		throwException(tr("The number of structure types has changed. Please remove this modifier from the modification pipeline and insert it again."));
-
 	// Get modifier input.
 	const ParticlesObject* particles = input.expectObject<ParticlesObject>();
 	particles->verifyIntegrity();
@@ -116,11 +106,6 @@ Future<AsynchronousModifier::EnginePtr> GrainSegmentationModifier::createEngine(
 	if(simCell->is2D())
 		throwException(tr("The grain segmentation modifier does not support 2d simulation cells."));
 
-	// Get particle selection.
-	ConstPropertyPtr selectionProperty;
-	if(onlySelectedParticles())
-		selectionProperty = particles->expectProperty(ParticlesObject::SelectionProperty)->storage();
-
 	// Initialize PTM library.
 	ptm_initialize_global();
 
@@ -132,8 +117,6 @@ Future<AsynchronousModifier::EnginePtr> GrainSegmentationModifier::createEngine(
             orientationProperty->storage(),
             correspondenceProperty->storage(),
 			simCell->data(),
-			getTypesToIdentify(PTMAlgorithm::NUM_STRUCTURE_TYPES),
-			std::move(selectionProperty),
 			mergeAlgorithm(),
 			outputBonds());
 }
@@ -143,12 +126,14 @@ Future<AsynchronousModifier::EnginePtr> GrainSegmentationModifier::createEngine(
 ******************************************************************************/
 void GrainSegmentationEngine1::applyResults(TimePoint time, ModifierApplication* modApp, PipelineFlowState& state)
 {
-	StructureIdentificationEngine::applyResults(time, modApp, state);
-
 	GrainSegmentationModifier* modifier = static_object_cast<GrainSegmentationModifier>(modApp->modifier());
 	OVITO_ASSERT(modifier);
 
 	ParticlesObject* particles = state.expectMutableObject<ParticlesObject>();
+	particles->verifyIntegrity();
+
+	if(_inputFingerprint.hasChanged(particles))
+		modApp->throwException(GrainSegmentationModifier::tr("Cached modifier results are obsolete, because the number or the storage order of input particles has changed."));
 
 	// Output the edges of the neighbor graph.
 	if(_outputBondsToPipeline && modifier->outputBonds()) {
@@ -156,7 +141,7 @@ void GrainSegmentationEngine1::applyResults(TimePoint time, ModifierApplication*
 		std::vector<Bond> bonds;
 		std::vector<FloatType> disorientations;
 		ConstPropertyAccess<Point3> positionsArray(particles->expectProperty(ParticlesObject::PositionProperty));
-		ConstPropertyAccess<int> structuresArray(structures());
+		ConstPropertyAccess<int> structuresArray(particles->expectProperty(ParticlesObject::StructureTypeProperty));
 
 		for (auto edge: neighborBonds()) {
 			if (isCrystallineBond(structuresArray, edge)) {
@@ -189,11 +174,11 @@ void GrainSegmentationEngine1::applyResults(TimePoint time, ModifierApplication*
 
 	// Output a data plot with the dendrogram points.
 	if(mergeSize() && mergeDistance())
-		state.createObject<DataTable>(QStringLiteral("grains-merge"), modApp, DataTable::Scatter, GrainSegmentationModifier::tr("Merge size vs. Merge distance"), mergeSize(), mergeDistance());
+		state.createObject<DataTable>(QStringLiteral("grains-merge"), modApp, DataTable::Scatter, GrainSegmentationModifier::tr("Merge size vs. distance"), mergeSize(), mergeDistance());
 
 	// Output a data plot with the log-log dendrogram points.
 	if(logMergeSize() && logMergeDistance())
-		state.createObject<DataTable>(QStringLiteral("grains-log"), modApp, DataTable::Scatter, GrainSegmentationModifier::tr("Merge distance vs. Merge size"), logMergeSize(), logMergeDistance());
+		state.createObject<DataTable>(QStringLiteral("grains-log"), modApp, DataTable::Scatter, GrainSegmentationModifier::tr("Log merge size vs. distance"), logMergeSize(), logMergeDistance());
 
 	if(modifier->mergeAlgorithm() == GrainSegmentationModifier::GraphClusteringAutomatic)
 		state.addAttribute(QStringLiteral("GrainSegmentation.auto_merge_threshold"), QVariant::fromValue(suggestedMergingThreshold()), modApp);
@@ -238,8 +223,9 @@ void GrainSegmentationEngine2::applyResults(TimePoint time, ModifierApplication*
 	PropertyObject* grainStructureTypesProperty = grainTable->createProperty(_grainStructureTypes);
 	grainTable->createProperty(_grainOrientations);
 
-	// Transfer the set of crystal structure types to the structure column of the grain table. 
-	for(const ElementType* type : modifier->structureTypes()) {
+	// Transfer the set of PTM crystal structure types to the structure column of the grain table. 
+	const PropertyObject* structureProperty = particles->expectProperty(ParticlesObject::StructureTypeProperty);
+	for(const ElementType* type : structureProperty->elementTypes()) {
 		if(type->enabled())
 			grainStructureTypesProperty->addElementType(type);
 	}
