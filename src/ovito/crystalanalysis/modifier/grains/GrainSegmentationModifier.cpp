@@ -39,6 +39,7 @@ namespace Ovito { namespace CrystalAnalysis {
 
 IMPLEMENT_OVITO_CLASS(GrainSegmentationModifier);
 DEFINE_PROPERTY_FIELD(GrainSegmentationModifier, mergeAlgorithm);
+DEFINE_PROPERTY_FIELD(GrainSegmentationModifier, stackingFaultHandling);
 DEFINE_PROPERTY_FIELD(GrainSegmentationModifier, mergingThreshold);
 DEFINE_PROPERTY_FIELD(GrainSegmentationModifier, minGrainAtomCount);
 DEFINE_PROPERTY_FIELD(GrainSegmentationModifier, orphanAdoption);
@@ -46,6 +47,7 @@ DEFINE_PROPERTY_FIELD(GrainSegmentationModifier, outputBonds);
 DEFINE_PROPERTY_FIELD(GrainSegmentationModifier, colorParticlesByGrain);
 DEFINE_REFERENCE_FIELD(GrainSegmentationModifier, bondsVis);
 SET_PROPERTY_FIELD_LABEL(GrainSegmentationModifier, mergeAlgorithm, "Algorithm");
+SET_PROPERTY_FIELD_LABEL(GrainSegmentationModifier, stackingFaultHandling, "Stacking fault handling");
 SET_PROPERTY_FIELD_LABEL(GrainSegmentationModifier, mergingThreshold, "Merge threshold");
 SET_PROPERTY_FIELD_LABEL(GrainSegmentationModifier, minGrainAtomCount, "Minimum grain size (# of atoms)");
 SET_PROPERTY_FIELD_LABEL(GrainSegmentationModifier, orphanAdoption, "Adopt orphan atoms");
@@ -118,6 +120,7 @@ Future<AsynchronousModifier::EnginePtr> GrainSegmentationModifier::createEngine(
             correspondenceProperty->storage(),
 			simCell->data(),
 			mergeAlgorithm(),
+			stackingFaultHandling(),
 			outputBonds());
 }
 

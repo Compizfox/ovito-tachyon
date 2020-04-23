@@ -96,6 +96,18 @@ void GrainSegmentationModifierEditor::createUI(const RolloutInsertionParameters&
 	BooleanParameterUI* outputBondsUI = new BooleanParameterUI(this, PROPERTY_FIELD(GrainSegmentationModifier::outputBonds));
 	sublayout2->addWidget(outputBondsUI->checkBox(), 2, 0, 1, 2);
 
+	IntegerRadioButtonParameterUI* stackingFaultHandlingUI = new IntegerRadioButtonParameterUI(this, PROPERTY_FIELD(GrainSegmentationModifier::stackingFaultHandling));
+	QGridLayout* sublayout4 = new QGridLayout();
+	sublayout4->setContentsMargins(0,0,0,0);
+	sublayout4->setSpacing(4);
+	sublayout2->setColumnStretch(1, 1);
+	sublayout4->addWidget(new QLabel(tr("Stacking fault handling:")), 0, 0);
+	QRadioButton* stackingFaultButton = stackingFaultHandlingUI->addRadioButton(GrainSegmentationModifier::Handle, tr("Handle"));
+	sublayout4->addWidget(stackingFaultButton, 0, 1);
+	sublayout4->addWidget(stackingFaultHandlingUI->addRadioButton(GrainSegmentationModifier::Ignore, tr("Ignore")), 1, 1);
+	sublayout4->addWidget(stackingFaultHandlingUI->addRadioButton(GrainSegmentationModifier::None, tr("None")), 2, 1);
+	sublayout2->addLayout(sublayout4, 3, 0, 1, 2);
+
 	// Status label.
 	layout->addWidget(statusLabel());
 

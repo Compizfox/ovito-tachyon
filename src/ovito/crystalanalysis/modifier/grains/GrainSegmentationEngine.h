@@ -227,6 +227,7 @@ public:
 			ConstPropertyPtr correspondenceProperty,
 			const SimulationCell& simCell,
 			GrainSegmentationModifier::MergeAlgorithm algorithmType,
+			GrainSegmentationModifier::StackingFaultHandling stackingFaultHandling,
 			bool outputBonds);
 
 	/// Performs the computation.
@@ -352,6 +353,9 @@ private:
 
 	// The linkage criterion used in the merge algorithm
 	GrainSegmentationModifier::MergeAlgorithm _algorithmType;
+
+	// The type of stacking fault handling
+	GrainSegmentationModifier::StackingFaultHandling _stackingFaultHandling;
 
 	/// The per-particle structure types.
 	ConstPropertyPtr _structureTypes;

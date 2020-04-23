@@ -56,11 +56,13 @@ GrainSegmentationEngine1::GrainSegmentationEngine1(
 			ConstPropertyPtr correspondenceProperty,
 			const SimulationCell& simCell,
 			GrainSegmentationModifier::MergeAlgorithm algorithmType, 
+			GrainSegmentationModifier::StackingFaultHandling stackingFaultHandling,
 			bool outputBonds) :
 	_inputFingerprint(std::move(fingerprint)),
 	_positions(std::move(positions)),
 	_simCell(simCell),
 	_algorithmType(algorithmType),
+	_stackingFaultHandling(stackingFaultHandling),
 	_structureTypes(structureProperty),
 	_orientations(orientationProperty),
 	_correspondences(correspondenceProperty),
@@ -279,8 +281,8 @@ bool GrainSegmentationEngine1::computeDisorientationAngles()
 
             bond.disorientation = qRadiansToDegrees(bond.disorientation);
 		}
-#if 0
-		else if(structuresArray[a] == PTMAlgorithm::FCC && structuresArray[b] == PTMAlgorithm::HCP) {
+		else if(_stackingFaultHandling == GrainSegmentationModifier::Ignore
+                && structuresArray[a] == PTMAlgorithm::FCC && structuresArray[b] == PTMAlgorithm::HCP) {
 
 			double map_hcp_to_fcc[2][4] = {{0.11591690,  0.3647052, 0.27984814,  0.88047624},
                                            {0.45576804, -0.5406251, 0.70455634, -0.06000300}};
@@ -291,7 +293,6 @@ bool GrainSegmentationEngine1::computeDisorientationAngles()
 				bond.disorientation = std::min(bond.disorientation, disorientation);
 			}
 		}
-#endif
 	});
 	if(isCanceled()) return false;
 
