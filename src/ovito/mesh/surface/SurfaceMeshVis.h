@@ -77,7 +77,7 @@ protected:
 	virtual void propertyChanged(const PropertyFieldDescriptor& field) override;
 
 	/// Computation engine that builds the rendering mesh.
-	class PrepareSurfaceEngine : public AsynchronousTask<TriMesh, TriMesh, std::vector<ColorA>, std::vector<size_t>, bool>
+	class OVITO_MESH_EXPORT PrepareSurfaceEngine : public AsynchronousTask<TriMesh, TriMesh, std::vector<ColorA>, std::vector<size_t>, bool>
 	{
 	public:
 

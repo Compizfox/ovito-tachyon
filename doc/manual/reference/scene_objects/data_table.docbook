@@ -11,7 +11,20 @@
   <title>Data tables</title>
 
   <para>
-    Sorry, this docs section has not been written yet. Please check back later.
+    Data tables in OVITO consists of numeric data organized into one or more data columns. 
+    Each row of the data table represents one data point, and OVITO can plot the data points in various ways, for 
+    example in the form of scatter plots, curve plots or bar charts.
+  </para>
+  <para>
+    You can view all data tables produced by the current data pipeline by opening the 
+    <link linkend="data_inspector.data_tables">data inspector</link> panel in OVITO's main window.
+    Modifiers such as <link linkend="particles.modifiers.coordination_analysis">Coordination analysis</link>, <link linkend="particles.modifiers.common_neighbor_analysis">Common neighbor analysis</link> or
+    <link linkend="particles.modifiers.histogram">Histogram</link> output their computation results in the form 
+    of a data table.
+  </para>
+  <para>
+    You can export the contents of a data table to a text file using OVITO's <link linkend="usage.export">file export function</link>.
+    Exporting the graphical representation of the data table as plot or chart to a graphics file works in the same way.
   </para>
 
   <simplesect>

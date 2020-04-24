@@ -18,7 +18,7 @@
     </imageobject></mediaobject></screenshot></informalfigure>
 
     This <link linkend="visual_elements">visual element</link> renders bonds between pairs of particles.
-    Bonds can either be loaded from a data file, or can be created within OVITO, e.g. using the
+    <link linkend="scene_objects.bonds">Bonds</link> can either be loaded from the import data file, or they can be created within OVITO, e.g. using the
     <link linkend="particles.modifiers.create_bonds">Create bonds</link> modifier.
   </para>
 
@@ -40,7 +40,7 @@
 		    <variablelist>
 		      <varlistentry>
 		        <term>Low</term>
-		        <listitem><para>Bonds are rendered using triangular facets.</para></listitem>
+		        <listitem><para>Bonds are rendered as faceted cylinders.</para></listitem>
 		      </varlistentry>
 		      <varlistentry>
 		        <term>Medium</term>
@@ -48,7 +48,7 @@
 		      </varlistentry>
 		      <varlistentry>
 		        <term>High</term>
-		        <listitem><para>Bonds are rendered as true cylinders using a ray-tracing algorithm, which is implemented as a OpenGL fragment shader.</para></listitem>
+		        <listitem><para>Bonds are rendered as perfectly round cylinders using a ray-casting algorithm implemented in a OpenGL fragment shader.</para></listitem>
 		      </varlistentry>
 		    </variablelist>
           </para>

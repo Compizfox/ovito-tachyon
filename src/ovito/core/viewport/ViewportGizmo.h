@@ -31,7 +31,7 @@ namespace Ovito {
  * \brief Abstract base class for viewport gizmos that display additional content in the
  *        interactive viewports.
  */
-class OVITO_CORE_EXPORT ViewportGizmo
+class ViewportGizmo
 {
 public:
 

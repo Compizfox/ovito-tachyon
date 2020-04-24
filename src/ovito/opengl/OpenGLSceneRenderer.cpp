@@ -386,8 +386,11 @@ void OpenGLSceneRenderer::initializeGLState()
 ******************************************************************************/
 void OpenGLSceneRenderer::endFrame(bool renderSuccessful)
 {
-    OVITO_REPORT_OPENGL_ERRORS(this);
-	OVITO_CHECK_OPENGL(this, _vertexArrayObject.reset());
+	if(QOpenGLContext::currentContext()) {
+	    initializeOpenGLFunctions();
+	    OVITO_REPORT_OPENGL_ERRORS(this);
+	}
+	_vertexArrayObject.reset();
 	_glcontext = nullptr;
 
 	SceneRenderer::endFrame(renderSuccessful);

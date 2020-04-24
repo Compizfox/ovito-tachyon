@@ -27,6 +27,7 @@
 #include <ovito/gui/desktop/mainwin/MainWindow.h>
 #include <ovito/core/oo/RefTargetListener.h>
 #include <ovito/core/utilities/DeferredMethodInvocation.h>
+#include "DataInspectionApplet.h"
 
 namespace Ovito {
 

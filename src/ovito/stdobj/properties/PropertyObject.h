@@ -36,7 +36,7 @@ namespace Ovito { namespace StdObj {
 class OVITO_STDOBJ_EXPORT PropertyObject : public DataObject
 {
 	/// Define a new property metaclass for particle containers.
-	class OOMetaClass : public DataObject::OOMetaClass
+	class OVITO_STDOBJ_EXPORT OOMetaClass : public DataObject::OOMetaClass
 	{
 	public:
 		/// Inherit constructor from base class.

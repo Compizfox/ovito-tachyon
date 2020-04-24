@@ -393,11 +393,21 @@ bool DataCollection::getObjectImpl(const DataObject::OOMetaClass& objectClass, Q
 ******************************************************************************/
 const DataObject* DataCollection::getLeafObject(const DataObject::OOMetaClass& objectClass, const QString& pathString) const
 {
-	for(const DataObject* obj : objects()) {
-		if(const DataObject* result = getLeafObjectImpl(objectClass, &pathString, obj))
-			return result;
+	if(!pathString.isEmpty()) {
+		for(const DataObject* obj : objects()) {
+			if(const DataObject* result = getLeafObjectImpl(objectClass, &pathString, obj))
+				return result;
+		}
+		return nullptr;
 	}
-	return nullptr;
+	else {
+		// Without any path, perform a recursive search for the first object of the given type.
+		std::vector<ConstDataObjectPath> paths = getObjectsRecursive(objectClass);
+		if(!paths.empty())
+			return paths.front().back();
+		else
+			return {};
+	}
 }
 
 /******************************************************************************

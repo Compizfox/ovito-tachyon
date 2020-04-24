@@ -38,7 +38,7 @@ namespace Ovito { namespace Particles {
 class OVITO_PARTICLES_EXPORT StructureIdentificationModifier : public AsynchronousModifier
 {
 	/// Give this modifier class its own metaclass.
-	class StructureIdentificationModifierClass : public AsynchronousModifier::OOMetaClass
+	class OVITO_PARTICLES_EXPORT StructureIdentificationModifierClass : public AsynchronousModifier::OOMetaClass
 	{
 	public:
 
@@ -55,7 +55,7 @@ class OVITO_PARTICLES_EXPORT StructureIdentificationModifier : public Asynchrono
 public:
 
 	/// Computes the modifier's results.
-	class StructureIdentificationEngine : public Engine
+	class OVITO_PARTICLES_EXPORT StructureIdentificationEngine : public Engine
 	{
 	public:
 

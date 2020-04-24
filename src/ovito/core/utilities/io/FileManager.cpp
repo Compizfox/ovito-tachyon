@@ -81,8 +81,10 @@ SharedFuture<FileHandle> FileManager::fetchUrl(TaskManager& taskManager, const Q
 
 		return FileHandle(url, std::move(filePath));
 	}
-	else if(url.scheme() == QStringLiteral("sftp")) {
-#ifdef OVITO_SSH_CLIENT
+	else if(url.scheme() == QStringLiteral("sftp") || url.scheme() == QStringLiteral("http") || url.scheme() == QStringLiteral("https")) {
+#ifndef OVITO_SSH_CLIENT
+		return Future<FileHandle>::createFailed(Exception(tr("URL scheme not supported. This version of OVITO was built without support for the sftp:// protocol."), taskManager.datasetContainer()));
+#endif
 		QUrl normalizedUrl = normalizeUrl(url);
 		QMutexLocker lock(&mutex());
 
@@ -106,12 +108,9 @@ SharedFuture<FileHandle> FileManager::fetchUrl(TaskManager& taskManager, const Q
 		auto future = job->sharedFuture();
 		_pendingFiles.emplace(normalizedUrl, future);
 		return future;
-#else
-		return Future<FileHandle>::createFailed(Exception(tr("URL scheme not supported. This version of OVITO was built without support for the sftp:// protocol and can open local files only."), taskManager.datasetContainer()));
-#endif
 	}
 	else {
-		return Future<FileHandle>::createFailed(Exception(tr("URL scheme '%1' not supported. The program supports only the sftp:// scheme and local file paths.").arg(url.scheme()), taskManager.datasetContainer()));
+		return Future<FileHandle>::createFailed(Exception(tr("URL scheme '%1' not supported. The program supports only the sftp and http(s) URLs as well as local file paths.").arg(url.scheme()), taskManager.datasetContainer()));
 	}
 }
 
@@ -128,8 +127,22 @@ Future<QStringList> FileManager::listDirectoryContents(TaskManager& taskManager,
 		return Future<QStringList>::createFailed(Exception(tr("URL scheme not supported. This version fo OVITO was built without support for the sftp:// protocol and can open local files only."), taskManager.datasetContainer()));
 #endif
 	}
+	else if(url.scheme() == QStringLiteral("http") || url.scheme() == QStringLiteral("https")) {
+		QUrl normalizedUrl = normalizeUrl(url);
+		QMutexLocker lock(&mutex());
+
+		// The http(s) protocol doesn't support directory listings. Thus, we have no means of discovering files on the server.
+		// As a workaround, we simply look in our local cache for downloaded files that are located in the requested directory.
+        QStringList fileList;
+        for(const auto& cacheEntry : _downloadedFiles.keys()) {
+			QString path = cacheEntry.adjusted(QUrl::RemoveFilename | QUrl::StripTrailingSlash).path();
+            if(cacheEntry.host() == url.host() && path == url.path())
+                fileList.push_back(cacheEntry.fileName());
+        }
+        return std::move(fileList);
+	}
 	else {
-		return Future<QStringList>::createFailed(Exception(tr("URL scheme '%1' not supported. The program supports only the sftp:// scheme and local file paths.").arg(url.scheme()), taskManager.datasetContainer()));
+		return Future<QStringList>::createFailed(Exception(tr("Directory listings for URL scheme '%1' not supported. The program can only look for files in sftp:// locations and in local directories.").arg(url.scheme()), taskManager.datasetContainer()));
 	}
 }
 
@@ -171,7 +184,9 @@ QUrl FileManager::urlFromUserInput(const QString& path)
 {
 	if(path.isEmpty())
 		return QUrl();
-	else if(path.startsWith(QStringLiteral("sftp://")))
+	else if(path.startsWith(QStringLiteral("sftp://")) 
+			|| path.startsWith(QStringLiteral("http://")) 
+			|| path.startsWith(QStringLiteral("https://")))
 		return QUrl(path);
 	else
 		return QUrl::fromLocalFile(path);

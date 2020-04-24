@@ -38,7 +38,7 @@ class OVITO_CORE_EXPORT DataObject : public RefTarget
 public:
 
 	/// Give this object type its own metaclass.
-	class OOMetaClass : public RefTarget::OOMetaClass
+	class OVITO_CORE_EXPORT OOMetaClass : public RefTarget::OOMetaClass
 	{
 	public:
 

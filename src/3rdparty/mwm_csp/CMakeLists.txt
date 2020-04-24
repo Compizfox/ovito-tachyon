@@ -26,32 +26,25 @@ IF(WIN32)
 	SET(BUILD_SHARED_LIBS OFF)
 ENDIF()
 
-# Build the KISS FFT library.
-ADD_LIBRARY(kissfft
-	kiss_fft.c
-	kiss_fftnd.c
+# Build library.
+ADD_LIBRARY(MinimumWeightMatchingCentrosymmetry
+	matching.cpp
+	mwm_csp.cpp
 )
 
 # Give our library file a new name to not confuse it with any system versions of the library.
-SET_TARGET_PROPERTIES(kissfft PROPERTIES OUTPUT_NAME "ovito_kissfft")
-
-# Use double precision for FFT calculation.
-TARGET_COMPILE_DEFINITIONS(kissfft PUBLIC "kiss_fft_scalar=double")
+SET_TARGET_PROPERTIES(MinimumWeightMatchingCentrosymmetry PROPERTIES OUTPUT_NAME "ovito_mwm_csp")
 
 # Make header files of this library available to dependent targets.
-TARGET_INCLUDE_DIRECTORIES(kissfft INTERFACE "${CMAKE_CURRENT_SOURCE_DIR}/..")
-
-# Set visibility of symbols in this shared library to hidden by default, except those exported in the source code.
-SET_TARGET_PROPERTIES(kissfft PROPERTIES CXX_VISIBILITY_PRESET "hidden")
-SET_TARGET_PROPERTIES(kissfft PROPERTIES VISIBILITY_INLINES_HIDDEN ON)
+TARGET_INCLUDE_DIRECTORIES(MinimumWeightMatchingCentrosymmetry INTERFACE "${CMAKE_CURRENT_SOURCE_DIR}/..")
 
 IF(NOT BUILD_SHARED_LIBS AND OVITO_BUILD_PYTHON_PACKAGE)
 	# Since we will link this library into the dynamically loaded Python extension module, we need to use the fPIC flag.
-	SET_PROPERTY(TARGET kissfft PROPERTY POSITION_INDEPENDENT_CODE ON)
+	SET_PROPERTY(TARGET MinimumWeightMatchingCentrosymmetry PROPERTY POSITION_INDEPENDENT_CODE ON)
 ENDIF()
 
 # Export this target.
-INSTALL(TARGETS kissfft EXPORT OVITO
+INSTALL(TARGETS MinimumWeightMatchingCentrosymmetry EXPORT OVITO
 	RUNTIME DESTINATION "${OVITO_RELATIVE_LIBRARY_DIRECTORY}"
 	LIBRARY DESTINATION "${OVITO_RELATIVE_LIBRARY_DIRECTORY}"
 	ARCHIVE DESTINATION "${OVITO_RELATIVE_LIBRARY_DIRECTORY}" COMPONENT "development")

@@ -212,32 +212,149 @@
     </para>
     <para> 
       <emphasis>OVITO Basic</emphasis> is made available to the research community free of charge and provides the 
-      basic functionality typically needed by occasional users, who want an easy way to visualize molecular simulations or other particle-based data. 
+      basic functionality typically needed by occasional users, who want an easy way to visualize particle-based simulations. 
       This edition of OVITO is also meant for students and teachers, who use the software in a classroom setting. 
       The source code of <emphasis>OVITO Basic</emphasis> is freely available, giving you open access to the algorithms
-      that work behind the scenes. We also invite you to contribute new code to this version of OVITO under the MIT and GNU GPL open source licenses
+      that operate under the hood. We also invite you to contribute new code to this version of OVITO under the MIT and GNU GPL open source licenses
       and share your developments with the research community.
     </para>
     <para> 
-      <emphasis>OVITO Pro</emphasis> will be made available for a fee (coming in 2020) and addresses the needs of professional researchers, 
-      who require features such as scripting capabilities, advanced data analysis tools and high-quality rendering functions.
-      The proceeds from the sales of <emphasis>OVITO Pro</emphasis> will enable us to further extend the
+      <emphasis>OVITO Pro</emphasis> is made available for a fee (coming in Q2/2020) and addresses the needs of professional researchers, 
+      who require features such as scripting capabilities, advanced data analysis tools and high-quality image rendering functions.
+      The proceeds from the sales of <emphasis>OVITO Pro</emphasis> enable us to further extend the
       code and continue making well-maintained program packages available to the community on a long-term basis. Furthermore, buyers of a <emphasis>OVITO Pro</emphasis> license
-      will receive priority support directly from the OVITO team. Note that the development of OVITO is no longer funded by any
+      receive priority support directly from us, the OVITO team. Note that the development of OVITO is no longer funded by any
       public institution, and we now work on a freelance basis out of Germany. 
-      (Upside is we can now invest much more time into making OVITO better than ever before.)
+      The upside is we can now invest much more time into making OVITO better than ever before.
     </para>
     <para>
       Note that this user manual covers both editions of OVITO. Program features exclusively available in the <emphasis>Pro</emphasis>
-      edition are marked with this tag: 
+      edition are marked with the following tag throughout this manual: 
       <blockquote>
         <ovito-pro/>
       </blockquote>
     </para>
     <para>
-      If you have any questions or comments, please get in touch with us. You can find our email contacts and more up to date information 
-      on the website <link xlink:href="https://www.ovito.org/">www.ovito.org</link>.
+      If you have any questions or comments, please get in touch with us. You can find our email contacts and up to date information 
+      on OVITO Pro on our website <link xlink:href="https://www.ovito.org/about/ovito-pro/">www.ovito.org</link>.
     </para> 
+  </section>
+
+  <section xml:id="credits.ovito_pro_activation">
+    <title>License management</title>
+    <note>
+      <emphasis>This page contains preliminary information regarding a future version of the software. Please ignore it for the time being.</emphasis>
+    </note>
+    <para>
+      OVITO Pro must be activated after installation in order to use it on a new computer. During this one-time activation step
+      the validity of your license key and the entitlement to use the software will be checked by our cloud-based licensing server.
+    </para>
+    <simplesect>
+      <title>Activating OVITO Pro</title>
+      <para>
+        <informalfigure><screenshot><mediaobject><imageobject>
+          <imagedata fileref="images/licensing/license_activation_dialog_1.png" format="PNG" scale="90" />
+        </imageobject></mediaobject></screenshot></informalfigure>
+        The first time you start OVITO Pro after a fresh installation, or whenever a previous activation became invalid,
+        you will be presented with the <emphasis>License Activation Dialog</emphasis> shown on the right.
+      </para>
+      <para>
+        Important notes:
+        <itemizedlist>
+          <listitem>
+            You must successfully complete the following activation procedure in order to unlock and use the software. 
+            If you cancel the activation process, OVITO Pro will quit and the license activation dialog will reappear again next time 
+            you start the software.
+          </listitem>
+          <listitem>
+            The following steps require an active internet connection as OVITO Pro will send a web request to our cloud service 
+            in order to validate your license information and mark your installation of the software as active in our records.
+          </listitem>
+        </itemizedlist>
+      </para>
+      <para>
+        You need to enter the OVITO Pro <emphasis>license key</emphasis> that you received from us (in case you made the purchase yourself) or
+        that was handed to you by the person who bought the license (in case you are a member of a team owning a group license). 
+        If you don't remember your license key, in the former case, log in at <link xlink:href="https://www.ovito.org/account/purchases/">www.ovito.org/account/purchases/</link>,
+        and look up the license key in the history of purchases associated with your personal account. 
+      </para>
+      <para>
+        In the second input field, enter the login name of your user account, which you have previously created on our website <link xlink:href="https://www.ovito.org">www.ovito.org</link>.
+        Typically, this is the email address you specified during the registration process on our website.
+        This information is needed to mark your ovito.org account as an active user of the license,
+        giving you access to any online support services we provide to paying customers only.  
+        Note that the account you specify here does not have to be the one that 
+        was used to purchase the license, for example if you are a team member using a group license bought by  
+        somebody else. Multiple ovito.org accounts can be associated with the same group license.
+      </para>
+      <para>
+        Click <guibutton>Continue</guibutton> to perform the activation. OVITO Pro will now contact our licensing server to 
+        validate the license key and register your installation of the software. If either the entered license key or 
+        account name are invalid, OVITO Pro will display a corresponding error message and let you correct your input.
+      </para>
+      <para>
+        During the activation process, the <emphasis>Machine ID</emphasis> and the <emphasis>User ID</emphasis>, displayed
+        at the bottom of the dialog, will be transmitted to our licensing server. They are one-way hash values generated by OVITO Pro
+        to uniquely identify your local computer and your operating system account. To prevent unauthorized use
+        of the software, your activated installation will be tied to these identifiers.
+      </para>
+      <para>
+        If the activation was successful, you can close the dialog and start using OVITO Pro. A software entitlement record, 
+        issued by our licensing server and digitally signed, is now stored in your computer's home directory 
+        unlocking the software.
+      </para>
+    </simplesect>
+
+    <simplesect>
+      <title>Online license validation</title>
+      <para>
+        From time to time OVITO Pro has to check your entitlement to use the software by validating it against our own records. 
+        The license validation happens sporadically (typically once a week) on program startup and requires an active internet connection.
+      </para>
+      <para>
+        If no internet connection is currently available, you can continue using OVITO Pro offline &#x2013; but only for a limited period of time.
+        After a grace period of 14 days without successful validation attempts, OVITO Pro will block the further use of the software 
+        until the next time the license can be successfully validated through a connection to our licensing server.
+      </para>
+    </simplesect>
+
+    <simplesect>
+      <title>Deactivating an installation</title>
+      <para>
+        <informalfigure><screenshot><mediaobject><imageobject>
+          <imagedata fileref="images/licensing/deactivate_installation_screenshot.png" format="PNG" scale="104" />
+        </imageobject></mediaobject></screenshot></informalfigure>
+        Your OVITO Pro license permits you to use the software only on a limited number of computers at a time, as specified 
+        in the license agreement. This limit is enforced by the licensing server.
+        Once the maximum allowed number of installations has been exhausted, attempts to activate OVITO Pro on additional computers will be rejected by the licensing server. 
+      </para>
+      <para>
+        In order to be able to install OVITO on another machine again, for instance after a hardware replacement, employee turnover or reinstallation 
+        of the operating system, you should first deactivate an existing OVITO Pro installation that is no longer needed.
+        This is done online by visiting the URL 
+        <link xlink:href="https://www.ovito.org/account/myinstallations/">https://www.ovito.org/account/myinstallations/</link>.
+        After logging in with your ovito.org account, the page lists all active OVITO Pro installations currently linked to your 
+        account. Click on <emphasis>Deactivate installation</emphasis> to remove an installation from our records, 
+        which will also disable the software on your machine. 
+      </para>
+      <para>
+        This deactivation step decrements the usage counter of the license, and you will again be eligible for activating OVITO Pro 
+        on a new workstation. 
+      </para>
+    </simplesect>
+
+    <!--
+    <simplesect>
+      <title>Debugging license validation problems</title>
+      <para>
+        If any problems occur during online license activation or validation, you can 
+        have OVITO Pro print verbose logging messages to the console by setting the environment variable 
+        <literal>OVITO_LICENSING_VERBOSE=1</literal> before invoking OVITO Pro from a terminal.
+        In situations where you need to contact our customer support, this information can also help us to diagnose the problem.
+      </para>
+    </simplesect>
+    -->
+
   </section>
 
   <xi:include href="licenses/ovito_pro.docbook"/>

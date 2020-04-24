@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Copyright 2017 Alexander Stukowski
+//  Copyright 2020 Alexander Stukowski
 //
 //  This file is part of OVITO (Open Visualization Tool).
 //
@@ -56,6 +56,12 @@ class OVITO_PARTICLES_EXPORT CentroSymmetryModifier : public AsynchronousModifie
 
 public:
 
+	enum CSPMode {
+		ConventionalMode,	///< Performs the conventional CSP.
+		MatchingMode,		///< Performs the minimum-weight matching CSP.
+	};
+	Q_ENUMS(CSPMode);
+
 	/// The maximum number of neighbors that can be taken into account to compute the CSP.
 	enum { MAX_CSP_NEIGHBORS = 32 };
 
@@ -70,7 +76,7 @@ protected:
 	virtual Future<EnginePtr> createEngine(const PipelineEvaluationRequest& request, ModifierApplication* modApp, const PipelineFlowState& input) override;
 
 	/// Computes the centrosymmetry parameter of a single particle.
-	static FloatType computeCSP(NearestNeighborFinder& neighList, size_t particleIndex);
+	static FloatType computeCSP(NearestNeighborFinder& neighList, size_t particleIndex, CSPMode mode);
 
 private:
 
@@ -80,8 +86,9 @@ private:
 	public:
 
 		/// Constructor.
-		CentroSymmetryEngine(ParticleOrderingFingerprint fingerprint, ConstPropertyPtr positions, const SimulationCell& simCell, int nneighbors) :
+		CentroSymmetryEngine(ParticleOrderingFingerprint fingerprint, ConstPropertyPtr positions, const SimulationCell& simCell, int nneighbors, CSPMode mode) :
 			_nneighbors(nneighbors),
+			_mode(mode),
 			_positions(std::move(positions)),
 			_simCell(simCell),
 			_csp(ParticlesObject::OOClass().createStandardStorage(fingerprint.particleCount(), ParticlesObject::CentroSymmetryProperty, false)),
@@ -102,20 +109,31 @@ private:
 		/// Returns the simulation cell data.
 		const SimulationCell& cell() const { return _simCell; }
 
+		/// Returns the CSP value range of the histogram.
+		FloatType cspHistogramRange() const { return _cspHistogramRange; }
+
+		/// Returns the histogram of computed CSP values.
+		const PropertyPtr& cspHistogram() const { return _cspHistogram; }
+
 	private:
 
 		const int _nneighbors;
+        const CSPMode _mode;
 		const SimulationCell _simCell;
 		ConstPropertyPtr _positions;
 		const PropertyPtr _csp;
 		ParticleOrderingFingerprint _inputFingerprint;
+
+		PropertyPtr _cspHistogram;
+		FloatType _cspHistogramRange;
 	};
 
 	/// Specifies the number of nearest neighbors to take into account when computing the CSP.
 	DECLARE_MODIFIABLE_PROPERTY_FIELD_FLAGS(int, numNeighbors, setNumNeighbors, PROPERTY_FIELD_MEMORIZE);
+
+	/// Controls how the CSP is performed.
+	DECLARE_MODIFIABLE_PROPERTY_FIELD_FLAGS(CSPMode, mode, setMode, PROPERTY_FIELD_MEMORIZE);
 };
 
 }	// End of namespace
 }	// End of namespace
-
-

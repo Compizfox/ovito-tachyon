@@ -104,6 +104,7 @@ SET(SourceFiles
 	utilities/io/ObjectSaveStream.cpp
 	utilities/io/ObjectLoadStream.cpp
 	utilities/io/FileManager.cpp
+	utilities/io/RemoteFileJob.cpp
 	utilities/io/CompressedTextReader.cpp
 	utilities/io/CompressedTextWriter.cpp
 	utilities/concurrent/TaskWatcher.cpp
@@ -144,7 +145,6 @@ ENDIF()
 # Include optional SSH client code.
 IF(LIBSSH_FOUND)
 	LIST(APPEND SourceFiles
-		utilities/io/RemoteFileJob.cpp
 		utilities/io/ssh/SshConnection.cpp
 		utilities/io/ssh/SshChannel.cpp
 		utilities/io/ssh/ProcessChannel.cpp
@@ -252,6 +252,9 @@ ENDIF()
 IF(OVITO_EXPIRATION_DATE)
 	TARGET_COMPILE_DEFINITIONS(Core PUBLIC "OVITO_EXPIRATION_DATE=\"${OVITO_EXPIRATION_DATE}\"")
 ENDIF()
+IF(OVITO_BUILD_CONDA)
+	TARGET_COMPILE_DEFINITIONS(Core PUBLIC "OVITO_BUILD_CONDA")
+ENDIF()
 
 # Inject program release version into the source code.
 SET_PROPERTY(SOURCE app/Application.cpp app/StandaloneApplication.cpp
@@ -280,7 +283,7 @@ IF(FFMPEG_FOUND)
 	FOREACH(lib ${FFMPEG_LIBRARIES})
 		GET_FILENAME_COMPONENT(base_name "${lib}" NAME_WE)
 		GET_FILENAME_COMPONENT(lib_path "${lib}" PATH)
-		IF(WIN32)
+		IF(WIN32 AND NOT OVITO_BUILD_CONDA)
 			FILE(GLOB lib_dll "${lib_path}/${base_name}-*.dll")
 			IF(NOT lib_dll)
 				MESSAGE(FATAL_ERROR "Could not find corresponding DLL for ffmpeg library '${lib}' in same directory.")
@@ -298,7 +301,7 @@ IF(FFMPEG_FOUND)
 ENDIF()
 
 IF(ZLIB_FOUND)
-	IF(WIN32)
+	IF(WIN32 AND NOT OVITO_BUILD_CONDA)
 		# Deploy the zlib DLL.
 		GET_TARGET_PROPERTY(ZLIB_LIBRARY_LOCATION ZLIB::ZLIB LOCATION)
 		GET_FILENAME_COMPONENT(ZLIB_LIBRARY_PATH "${ZLIB_LIBRARY_LOCATION}" PATH)
@@ -308,7 +311,7 @@ ENDIF()
 
 # Deploy the libssh library and its dependencies.
 IF(LIBSSH_FOUND)
-	IF(WIN32)
+	IF(WIN32 AND NOT OVITO_BUILD_CONDA)
 		LIST(GET LIBSSH_LIBRARIES 0 LIBSSH_FIRST_LIBRARY)
 		GET_FILENAME_COMPONENT(LIBSSH_LIBRARY_DIR "${LIBSSH_FIRST_LIBRARY}" PATH)
 		GET_FILENAME_COMPONENT(LIBSSH_LIBRARY_NAME "${LIBSSH_FIRST_LIBRARY}" NAME_WE)

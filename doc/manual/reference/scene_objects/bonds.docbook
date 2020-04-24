@@ -11,13 +11,45 @@
   <title>Bonds</title>
 
   <para>
-    Sorry, this docs section has not been written yet. Please check back later.
+    Bonds are connections between pairs of <link linkend="scene_objects.particles">particles</link>. In OVITO they are managed in a separate, purely  
+    topological data structure holding the connectivity information (a list of pairs of indices into the particles list) as well as
+    any additional attributes associated with the individual bonds. Here is a simple example molecule made of three particles and two bonds. 
+    Note that indices are all zero-based.
+    <informalfigure role="inline"><screenshot><mediaobject><imageobject>
+      <imagedata fileref="images/scene_objects/bond_data_example.svg" format="SVG" scale="120" />
+    </imageobject></mediaobject></screenshot></informalfigure>
+  </para>
+  <para>
+    The bonds table is an optional part of a molecular dataset. Whether it exists depends on the imported simulation 
+    data file. Some file formats contain bonds information, some not. You have the option to let OVITO dynamically create 
+    bonds between particles by adding the <link linkend="particles.modifiers.create_bonds">Create bonds</link> modifier to the current data pipeline.  
+    The visual appearance of bonds is controlled by the settings made for the <link linkend="visual_elements.bonds">bonds visual element</link>.
+  </para>
+  <para>
+    Just like particles, bonds may be associated with an arbitrary set of additional attributes, so-called <emphasis>bond properties</emphasis>.
+    A bond property commonly present is the <literal>Bond Type</literal> property, which is an integer attribute playing a similar
+    role as the <literal>Particle Type</literal> property for particles. It allows you to assign different colors to different kinds of bonds in OVITO
+    and is typically used by molecular dynamics codes to assign different interaction models to certain pairs of atoms. Of course, it is 
+    also possible for you to control the color of each bond in the system individually by setting their <literal>Color</literal> property.
+    A common tool to do this in OVITO is the <link linkend="particles.modifiers.color_coding">Color coding</link> modifier. 
+  </para>
+  <para>
+    The <literal>Topology</literal> bond property, shown in the table above, is always present. It contains the actual connectivity information, 
+    encoded as pairs of indices into the particles list. OVITO automatically takes care of updating this information if you delete some particles and 
+    the particle indices shift.
+  </para>
+  <para>
+    The bonds tab of the <link linkend="data_inspector.bonds">Data inspector</link> lets you view the entire list of bonds and their current property values.
+    Another tool for creating bonds in OVITO is the <link linkend="particles.modifiers.voronoi_analysis">Voronoi analysis</link> modifier, which is able to generate bonds 
+    between nearest neighbor particles. Furthermore, general tool modifiers such as <link linkend="particles.modifiers.compute_property">Compute property</link>, 
+    <link linkend="particles.modifiers.expression_select">Expression selection</link>, <link linkend="particles.modifiers.assign_color">Assign color</link>
+    and <link linkend="particles.modifiers.delete_selected_particles">Delete selected</link> are available to manipulate bonds and their properties.
   </para>
 
   <simplesect>
     <title>See also</title>
     <para>
-        <pydoc-link href="modules/ovito_data" anchor="ovito.data.BondsObject"><classname>BondsObject</classname> (Python API)</pydoc-link>
+        <pydoc-link href="modules/ovito_data" anchor="ovito.data.Bonds"><classname>Bonds</classname> (Python API)</pydoc-link>
     </para>
   </simplesect>
 

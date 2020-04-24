@@ -154,8 +154,13 @@ bool FileSource::setSource(std::vector<QUrl> sourceUrls, FileSourceImporter* imp
 /******************************************************************************
 * Scans the input source for animation frames and updates the internal list of frames.
 ******************************************************************************/
-SharedFuture<QVector<FileSourceImporter::Frame>> FileSource::updateListOfFrames()
+SharedFuture<QVector<FileSourceImporter::Frame>> FileSource::updateListOfFrames(bool refetchCurrentFile)
 {
+	// Remove current data file from local file cache so that it will get downloaded again in case it came from a remote location.
+	if(refetchCurrentFile && _dataCollectionFrame >= 0 && _dataCollectionFrame < frames().size()) {
+		Application::instance()->fileManager()->removeFromCache(frames()[_dataCollectionFrame].sourceFile);
+	}
+
 	// Update the list of frames.
 	SharedFuture<QVector<FileSourceImporter::Frame>> framesFuture = requestFrameList(true);
 

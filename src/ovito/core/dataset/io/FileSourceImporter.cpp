@@ -49,6 +49,9 @@ void FileSourceImporter::propertyChanged(const PropertyFieldDescriptor& field)
 	if(field == PROPERTY_FIELD(isMultiTimestepFile)) {
 		// Automatically rescan input file for animation frames when this option has been changed.
 		requestFramesUpdate();
+
+		// Also update the UI explicitly, because target-changed messages are supressed for this property field.
+		Q_EMIT isMultiTimestepFileChanged();
 	}
 }
 
@@ -75,7 +78,7 @@ void FileSourceImporter::requestReload(bool refetchFiles, int frame)
 * Sends a request to the FileSource owning this importer to refresh the
 * animation frame sequence.
 ******************************************************************************/
-void FileSourceImporter::requestFramesUpdate()
+void FileSourceImporter::requestFramesUpdate(bool refetchCurrentFile)
 {
 	// Retrieve the FileSource that owns this importer by looking it up in the list of dependents.
 	for(RefMaker* refmaker : dependents()) {
@@ -108,7 +111,7 @@ void FileSourceImporter::requestFramesUpdate()
 #endif
 
 				// Scan input source for animation frames.
-				fileSource->updateListOfFrames();
+				fileSource->updateListOfFrames(refetchCurrentFile);
 			}
 			catch(const Exception& ex) {
 				ex.reportError();

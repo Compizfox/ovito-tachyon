@@ -319,7 +319,7 @@ void FileSourceEditor::onReloadAnimation()
 		// Let the FileSource update the list of source animation frames.
 		// After the update is complete, jump to the last of the newly added animation frames.
 		int oldFrameCount = fileSource->frames().size();
-		fileSource->updateListOfFrames().force_then(fileSource->executor(), [fileSource, oldFrameCount](const QVector<FileSourceImporter::Frame>& frames) {
+		fileSource->updateListOfFrames(true).force_then(fileSource->executor(), [fileSource, oldFrameCount](const QVector<FileSourceImporter::Frame>& frames) {
 			if(frames.size() > oldFrameCount) {
 				TimePoint time = fileSource->sourceFrameToAnimationTime(frames.size() - 1);
 				fileSource->dataset()->animationSettings()->setTime(time);

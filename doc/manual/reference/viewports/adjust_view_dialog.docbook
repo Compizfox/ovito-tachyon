@@ -15,7 +15,7 @@
        <imagedata fileref="images/adjust_view_dialog/adjust_view_dialog.png" format="PNG" scale="75" />
      </imageobject></mediaobject></screenshot></informalfigure>
      
-     This dialog box allows you to enter the position and orientation of a viewport's camera numerically.
+     This dialog box lets you to enter the position and orientation of a viewport's camera numerically.
      It can be opened from the <link linkend="usage.viewports.menu">viewport menu</link>.
    </para>
     
@@ -26,7 +26,7 @@
        <varlistentry>
         <term>View position</term>
         <listitem><para>
-           The coordinates of the virtual camera in space.
+           The Cartesian coordinates of the virtual camera in space.
 		</para></listitem>
       </varlistentry>
 
@@ -34,15 +34,23 @@
         <term>View direction</term>
         <listitem><para>
            The direction vector of the virtual camera.
-		</para></listitem>
+		    </para></listitem>
+      </varlistentry>
+
+       <varlistentry>
+        <term>Up direction</term>
+        <listitem><para>
+           The vertical direction vector in the projection plane of the virtual camera.
+           This vector is displayed for information purposes but cannot be edited in the dialog.
+    		</para></listitem>
       </varlistentry>
 
        <varlistentry>
         <term>Projection type</term>
         <listitem><para>
-            When a perspective projection is used, the vertical field of view angle is specified in degrees. 
+            When a perspective projection is used, the vertical field of view of the camera is specified as an angle in degrees. 
             For a parallel projection, the vertical field of view is specified in units of length.
-		</para></listitem>
+    		</para></listitem>
       </varlistentry>
     </variablelist>
   </simplesect>

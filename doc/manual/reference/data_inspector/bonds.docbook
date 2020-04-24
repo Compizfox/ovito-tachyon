@@ -18,7 +18,7 @@
       </imageobject></mediaobject>
     </informalfigure>
 
-    This page of the <link linkend="data_inspector">data inspector</link> shows all bonds and their property values
+    This page of the <link linkend="data_inspector">data inspector</link> shows all <link linkend="scene_objects.bonds">bonds</link> and their property values
     as a data table. The page appears only if the current dataset contains bonds.
   </para>
   <para>
