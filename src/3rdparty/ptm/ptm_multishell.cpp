@@ -118,7 +118,7 @@ int calculate_two_shell_neighbour_ordering(	int num_inner, int num_outer,
 		}
 	}
 
-	std::sort(data, data + num_inserted, &atomorder_compare);
+	std::stable_sort(data, data + num_inserted, &atomorder_compare);
 
 	int num_found = 0;
 	int counts[MAX_INNER] = {0};

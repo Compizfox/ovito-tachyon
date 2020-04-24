@@ -155,7 +155,7 @@ static int calculate_neighbour_ordering(void* _voronoi_handle, int num, double (
 		data[i].ordering = i;
 	}
 
-	std::sort(data, data + num, &sorthelper_compare);
+	std::stable_sort(data, data + num, &sorthelper_compare);
 	return ret;
 }
 
