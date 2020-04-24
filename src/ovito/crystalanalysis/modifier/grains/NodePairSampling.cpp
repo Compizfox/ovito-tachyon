@@ -29,8 +29,7 @@ namespace Ovito { namespace CrystalAnalysis {
 /******************************************************************************
 * Clustering using pair sampling algorithm.
 ******************************************************************************/
-bool GrainSegmentationEngine1::node_pair_sampling_clustering(
-	GrainSegmentationEngine1::Graph& graph, ConstPropertyAccess<int>& structuresArray, std::vector<Quaternion>& qsum)
+bool GrainSegmentationEngine1::node_pair_sampling_clustering(GrainSegmentationEngine1::Graph& graph, std::vector<Quaternion>& qsum)
 {
     FloatType totalWeight = 1;
 
@@ -65,7 +64,7 @@ bool GrainSegmentationEngine1::node_pair_sampling_clustering(
 					size_t parent = graph.contract_edge(a, b);
 					size_t child = (parent == a) ? b : a;
 
-					FloatType disorientation = calculate_disorientation(structuresArray[parent], qsum[parent], qsum[child]);
+					FloatType disorientation = calculate_disorientation(_adjustedStructureTypes[parent], qsum[parent], qsum[child]);
         			_dendrogram.emplace_back(parent, child, d / totalWeight, disorientation, 1, qsum[parent]);
 
 					// Update progress indicator.

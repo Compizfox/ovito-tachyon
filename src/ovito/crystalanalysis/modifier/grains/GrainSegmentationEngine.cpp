@@ -31,6 +31,7 @@
 #include "DisjointSet.h"
 #include "ThresholdSelection.h"
 
+#include <boost/heap/priority_queue.hpp>
 #include <ptm/ptm_functions.h>
 #include <ptm/ptm_quat.h>
 
@@ -252,86 +253,109 @@ bool GrainSegmentationEngine1::identifyAtomicStructures()
 ******************************************************************************/
 bool GrainSegmentationEngine1::rotateHCPAtoms()
 {
+	NearestNeighborFinder neighFinder(PTMAlgorithm::MAX_INPUT_NEIGHBORS);
+	if(!neighFinder.prepare(*positions(), cell(), nullptr, this))
+		return false;
+
+	ConstPropertyAccess<PTMAlgorithm::StructureType> structuresArray(structureTypes());
+	ConstPropertyAccess<Quaternion> orientationsArray(orientations());
+	ConstPropertyAccess<qlonglong> correspondenceArray(correspondences());
+
+    // Construct local neighbor list builder.
+    NearestNeighborFinder::Query<PTMAlgorithm::MAX_INPUT_NEIGHBORS> neighQuery(neighFinder);
+
+    // TODO: copy these properties in the correct way.
+    _adjustedStructureTypes.resize(structuresArray.size());
+    _adjustedOrientations.resize(orientationsArray.size());
+
+    for (size_t i=0;i<structuresArray.size();i++) {
+        _adjustedStructureTypes[i] = structuresArray[i];
+        _adjustedOrientations[i] = orientationsArray[i];
+    }
+
     // Only rotate HCP atoms if stacking fault handling is enabled
     if (_stackingFaultHandling != GrainSegmentationModifier::Handle)
         return true;
 
 	setProgressText(GrainSegmentationModifier::tr("Grain segmentation - rotating HCP atoms"));
 
-	ConstPropertyAccess<int> structuresArray(structureTypes());
-	ConstPropertyAccess<Quaternion> orientationsArray(orientations());
+    // TODO: replace comparator with a lambda function
+    boost::heap::priority_queue<NeighborBond, boost::heap::compare<PriorityQueueCompare>> pq;
 
-	std::vector<NeighborBond> links;
-    for (NeighborBond& bond : _neighborBonds) {
+    // Populate priority queue with bonds at an FCC-HCP interface
+    for (auto bond : _neighborBonds) {
         int a = bond.a;
         int b = bond.b;
-        if (structuresArray[b] < structuresArray[a]) {
+        if (_adjustedStructureTypes[b] < _adjustedStructureTypes[a]) {
 	        std::swap(a, b);
         }
 
-        if (structuresArray[a] == PTMAlgorithm::FCC && structuresArray[b] == PTMAlgorithm::HCP) {
-	        const Quaternion& qa = orientationsArray[a];
-	        const Quaternion& qb = orientationsArray[b];
+        if (_adjustedStructureTypes[a] == PTMAlgorithm::FCC && _adjustedStructureTypes[b] == PTMAlgorithm::HCP) {
+	        const Quaternion& qa = _adjustedOrientations[a];
+	        const Quaternion& qb = _adjustedOrientations[b];
 	        double orientA[4] = { qa.w(), qa.x(), qa.y(), qa.z() };
 	        double orientB[4] = { qb.w(), qb.x(), qb.y(), qb.z() };
             FloatType disorientation = (FloatType)ptm::quat_disorientation_fcc_hcp(orientA, orientB);
-            if (bond.disorientation < _misorientationThreshold) {
-                links.push_back(bond);
+            disorientation = qRadiansToDegrees(disorientation);
+            if (disorientation < _misorientationThreshold) {
+                pq.push(bond);
             }
         }
     }
 
-	// Sort graph edges by disorientation.
-	boost::sort(links, [](const NeighborBond& a, const NeighborBond& b) {
-		return a.disorientation < b.disorientation;
-	});
+    while (pq.size()) {
+        auto bond = *pq.begin();
+        pq.pop();
 
-#if 0
-	size_t oldOrphanCount = orphanAtoms.size();
-	for(;;) {
-		std::vector<size_t> newlyAssignedClusters(orphanAtoms.size(), 0);
-		for(size_t i = 0; i < orphanAtoms.size(); i++) {
-			if(isCanceled()) return false;
+        int a = bond.a;
+        int b = bond.b;
+        if (_adjustedStructureTypes[b] < _adjustedStructureTypes[a]) {
+	        std::swap(a, b);
+        }
 
-			size_t index = orphanAtoms[i];
+        if (_adjustedStructureTypes[a] == PTMAlgorithm::FCC && _adjustedStructureTypes[b] == PTMAlgorithm::HCP) {
+	        const Quaternion& qa = _adjustedOrientations[a];
+	        const Quaternion& qb = _adjustedOrientations[b];
+	        double orientA[4] = { qa.w(), qa.x(), qa.y(), qa.z() };
+	        double orientB[4] = { qb.w(), qb.x(), qb.y(), qb.z() };
+            FloatType disorientation = (FloatType)ptm::quat_disorientation_fcc_hcp(orientA, orientB);
+            disorientation = qRadiansToDegrees(disorientation);
+            OVITO_ASSERT(disorientation < _misorientationThreshold);
 
-			// Get the range of bonds adjacent to the current atom.
-			auto bondsRange = boost::range::equal_range(noncrystallineBonds, ParticleIndexPair{{(qlonglong)index,0}},
-				[](const ParticleIndexPair& a, const ParticleIndexPair& b) { return a[0] < b[0]; });
+            size_t index = b;
 
-			// Find the closest cluster atom in the neighborhood (using PTM ordering).
-			for(const ParticleIndexPair& bond : boost::make_iterator_range(bondsRange.first, bondsRange.second)) {
-				OVITO_ASSERT(bond[0] == index);
+            // flip structure from HCP to FCC and adjust orientation
+            _adjustedStructureTypes[index] = PTMAlgorithm::FCC;
+            _adjustedOrientations[index].w() = orientB[0];
+            _adjustedOrientations[index].x() = orientB[1];
+            _adjustedOrientations[index].y() = orientB[2];
+            _adjustedOrientations[index].z() = orientB[3];
 
-				auto neighborIndex = bond[1];
-				if(neighborIndex == std::numeric_limits<size_t>::max()) break;
-				auto grain = atomClustersArray[neighborIndex];
-				if(grain != 0) {
-					newlyAssignedClusters[i] = grain;
-					break;
-				}
-			}
-		}
+            // Decode the PTM correspondence
+            ptm_atomicenv_t env;
+            auto structureType = (PTMAlgorithm::StructureType)structuresArray[index];   //use original structure type for decoding correspondences
+            establish_atomic_environment(neighQuery, correspondenceArray, structureType, index, &env);
 
-		// Assign atoms to closest cluster and compress orphan list.
-		size_t newOrphanCount = 0;
-		for(size_t i = 0; i < orphanAtoms.size(); i++) {
-			atomClustersArray[orphanAtoms[i]] = newlyAssignedClusters[i];
-			if(newlyAssignedClusters[i] == 0) {
-				orphanAtoms[newOrphanCount++] = orphanAtoms[i];
-			}
-			else {
-				grainSizeArray[newlyAssignedClusters[i] - 1]++;
-				if(!incrementProgressValue()) return false;
-			}
-		}
+            int numNeighbors = env.num - 1;
+		    for(int j = 0; j < numNeighbors; j++) {
+			    size_t neighborIndex = env.atom_indices[j + 1];
 
-		orphanAtoms.resize(newOrphanCount);
-		if(newOrphanCount == oldOrphanCount)
-			break;
-		oldOrphanCount = newOrphanCount;
-	}
-#endif
+                if (_adjustedStructureTypes[neighborIndex] == PTMAlgorithm::HCP) {
+                    a = index;
+                    b = neighborIndex;
+                    const Quaternion& qa = _adjustedOrientations[a];
+                    const Quaternion& qb = _adjustedOrientations[b];
+                    double orientA[4] = { qa.w(), qa.x(), qa.y(), qa.z() };
+                    double orientB[4] = { qb.w(), qb.x(), qb.y(), qb.z() };
+                    FloatType disorientation = (FloatType)ptm::quat_disorientation_fcc_hcp(orientA, orientB);
+                    disorientation = qRadiansToDegrees(disorientation);
+                    if (disorientation < _misorientationThreshold) {
+                        pq.push({index, neighborIndex, disorientation});
+                    }
+                }
+            }
+        }
+    }
 
 	return !isCanceled();
 }
@@ -343,8 +367,6 @@ bool GrainSegmentationEngine1::computeDisorientationAngles()
 {
 	// Compute disorientation angles associated with the neighbor graph edges.
 	setProgressText(GrainSegmentationModifier::tr("Grain segmentation - misorientation calculation"));
-	ConstPropertyAccess<int> structuresArray(structureTypes());
-	ConstPropertyAccess<Quaternion> orientationsArray(orientations());
 
 	parallelFor(_neighborBonds.size(), *this, [&](size_t bondIndex) {
 		NeighborBond& bond = _neighborBonds[bondIndex];
@@ -352,17 +374,17 @@ bool GrainSegmentationEngine1::computeDisorientationAngles()
 
 		int a = bond.a;
 		int b = bond.b;
-		if (structuresArray[b] < structuresArray[a]) {
+		if (_adjustedStructureTypes[b] < _adjustedStructureTypes[a]) {
 			std::swap(a, b);
 		}
 
-		const Quaternion& qa = orientationsArray[a];
-		const Quaternion& qb = orientationsArray[b];
+		const Quaternion& qa = _adjustedOrientations[a];
+		const Quaternion& qb = _adjustedOrientations[b];
 		double orientA[4] = { qa.w(), qa.x(), qa.y(), qa.z() };
 		double orientB[4] = { qb.w(), qb.x(), qb.y(), qb.z() };
 
-		if(structuresArray[a] == structuresArray[b]) {
-			int structureType = structuresArray[a];
+		if(_adjustedStructureTypes[a] == _adjustedStructureTypes[b]) {
+			int structureType = _adjustedStructureTypes[a];
 
 			if(structureType == PTMAlgorithm::SC || structureType == PTMAlgorithm::FCC || structureType == PTMAlgorithm::BCC || structureType == PTMAlgorithm::CUBIC_DIAMOND)
 				bond.disorientation = (FloatType)ptm::quat_disorientation_cubic(orientA, orientB);
@@ -372,9 +394,9 @@ bool GrainSegmentationEngine1::computeDisorientationAngles()
             bond.disorientation = qRadiansToDegrees(bond.disorientation);
 		}
 		else if(_stackingFaultHandling == GrainSegmentationModifier::Ignore
-                && structuresArray[a] == PTMAlgorithm::FCC && structuresArray[b] == PTMAlgorithm::HCP) {
+                && _adjustedStructureTypes[a] == PTMAlgorithm::FCC && _adjustedStructureTypes[b] == PTMAlgorithm::HCP) {
 
-            FloatType disorientation = (FloatType)ptm::quat_disorientation_fcc_hcp(orientA, orientB);
+            bond.disorientation = (FloatType)ptm::quat_disorientation_fcc_hcp(orientA, orientB);
             bond.disorientation = qRadiansToDegrees(bond.disorientation);
 		}
 	});
@@ -433,19 +455,18 @@ FloatType GrainSegmentationEngine1::calculate_disorientation(int structureType, 
 * Clustering using minimum spanning tree algorithm.
 ******************************************************************************/
 bool GrainSegmentationEngine1::minimum_spanning_tree_clustering(
-        std::vector<NeighborBond>& neighborBonds, ConstPropertyAccess<int>& structuresArray,
         std::vector<Quaternion>& qsum, DisjointSet& uf)
 {
 	size_t progress = 0;
-	for(const NeighborBond& edge : neighborBonds) {
+	for(const NeighborBond& edge : _neighborBonds) {
 
         if (edge.disorientation < _misorientationThreshold) {
             size_t pa = uf.find(edge.a);
             size_t pb = uf.find(edge.b);
-		    if(pa != pb && isCrystallineBond(structuresArray, edge)) {
+		    if(pa != pb && isCrystallineBond(edge)) {
 			    size_t parent = uf.merge(pa, pb);
 			    size_t child = (parent == pa) ? pb : pa;
-			    FloatType disorientation = calculate_disorientation(structuresArray[parent], qsum[parent], qsum[child]);
+			    FloatType disorientation = calculate_disorientation(_adjustedStructureTypes[parent], qsum[parent], qsum[child]);
 			    OVITO_ASSERT(edge.a < edge.b);
 			    _dendrogram.emplace_back(parent, child, edge.disorientation, disorientation, 1, qsum[parent]);
             }
@@ -467,7 +488,6 @@ bool GrainSegmentationEngine1::minimum_spanning_tree_clustering(
 bool GrainSegmentationEngine1::determineMergeSequence()
 {
 	// Build graph.
-	ConstPropertyAccess<int> structuresArray(structureTypes());
 	if(_algorithmType == GrainSegmentationModifier::GraphClusteringAutomatic || _algorithmType == GrainSegmentationModifier::GraphClusteringManual) {
 
 	    setProgressText(GrainSegmentationModifier::tr("Grain segmentation - building graph"));
@@ -476,7 +496,7 @@ bool GrainSegmentationEngine1::determineMergeSequence()
 
     	size_t progress = 0;
 		for (auto edge: neighborBonds()) {
-			if (isCrystallineBond(structuresArray, edge) && edge.disorientation < _misorientationThreshold) {
+			if (isCrystallineBond(edge) && edge.disorientation < _misorientationThreshold) {
 		        FloatType weight = calculateGraphWeight(edge.disorientation);
 		        graph.add_edge(edge.a, edge.b, weight);
             }
@@ -489,8 +509,7 @@ bool GrainSegmentationEngine1::determineMergeSequence()
     }
 
 	// Build dendrogram.
-	ConstPropertyAccess<Quaternion> orientationsArray(orientations());
-	std::vector<Quaternion> qsum(orientationsArray.cbegin(), orientationsArray.cend());
+	std::vector<Quaternion> qsum(_adjustedOrientations.cbegin(), _adjustedOrientations.cend());
 	DisjointSet uf(_numParticles);
 	_dendrogram.resize(0);
 
@@ -499,10 +518,10 @@ bool GrainSegmentationEngine1::determineMergeSequence()
 	setProgressMaximum(_numParticles);  //TODO: make this num. crystalline particles
 
 	if(_algorithmType == GrainSegmentationModifier::GraphClusteringAutomatic || _algorithmType == GrainSegmentationModifier::GraphClusteringManual) {
-		node_pair_sampling_clustering(graph, structuresArray, qsum);
+		node_pair_sampling_clustering(graph, qsum);
 	}
 	else {
-		minimum_spanning_tree_clustering(neighborBonds(), structuresArray, qsum, uf);
+		minimum_spanning_tree_clustering(qsum, uf);
 	}
 	if(isCanceled())
 		return false;

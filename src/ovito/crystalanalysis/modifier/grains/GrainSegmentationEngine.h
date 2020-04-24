@@ -307,17 +307,17 @@ private:
 	static FloatType calculate_disorientation(int structureType, Quaternion& qa, const Quaternion& qb);
 
 	// Algorithm types:
-	bool minimum_spanning_tree_clustering(std::vector<NeighborBond>& neighborBonds, ConstPropertyAccess<int>& structuresArray, std::vector<Quaternion>& qsum, DisjointSet& uf);
-	bool node_pair_sampling_clustering(Graph& graph, ConstPropertyAccess<int>& structuresArray, std::vector<Quaternion>& qsum);
+	bool minimum_spanning_tree_clustering(std::vector<Quaternion>& qsum, DisjointSet& uf);
+	bool node_pair_sampling_clustering(Graph& graph, std::vector<Quaternion>& qsum);
 
 	// Selects a threshold for Node Pair Sampling algorithm
     FloatType calculate_threshold_suggestion();
 
     // Determines if a bond is crystalline
-    bool isCrystallineBond(ConstPropertyAccess<int>& structuresArray, const NeighborBond& bond)
+    bool isCrystallineBond(const NeighborBond& bond)
     {
-        auto a = structuresArray[bond.a];
-        auto b = structuresArray[bond.b];
+        auto a = _adjustedStructureTypes[bond.a];
+        auto b = _adjustedStructureTypes[bond.b];
 
         if (a == PTMAlgorithm::OTHER) return false;
         if (b == PTMAlgorithm::OTHER) return false;
@@ -334,6 +334,12 @@ private:
         // This is fairly arbitrary but it works well.
         return std::exp(-FloatType(1)/3 * disorientation * disorientation);
     }
+
+    // TODO: remove this and replace with a lambda function if possible
+    struct PriorityQueueCompare
+    {
+        bool operator()(const NeighborBond &a, const NeighborBond &b) const {return a.disorientation < b.disorientation;}
+    };
 
 private:
 

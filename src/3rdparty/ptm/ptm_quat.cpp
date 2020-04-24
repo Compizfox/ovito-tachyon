@@ -429,15 +429,21 @@ double quat_disorientation_fcc_hcp(double* qfcc, double* qhcp)
     // TODO: find exact expressions for these terms
 	double map_hcp_to_fcc[2][4] = {{0.11591690,  0.3647052, 0.27984814,  0.88047624},
                                    {0.45576804, -0.5406251, 0.70455634, -0.06000300}};
+    double closest[4];
 
     double min_disorientation = INFINITY;
 	for (int i=0;i<2;i++) {
 		double rotated[4];
 		ptm::quat_rot(qhcp, map_hcp_to_fcc[i], rotated);
 		double disorientation = ptm::quat_disorientation_cubic(qfcc, rotated);
-		min_disorientation = std::min(min_disorientation, disorientation);
+        if (disorientation < min_disorientation) {
+            memcpy(closest, rotated, 4 * sizeof(double));
+    		min_disorientation = disorientation;
+        }
 	}
 
+    memcpy(qhcp, closest, 4 * sizeof(double));
+	rotate_quaternion_into_cubic_fundamental_zone(qhcp);
     return min_disorientation;
 }
 }

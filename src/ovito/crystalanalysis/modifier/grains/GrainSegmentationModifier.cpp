@@ -144,10 +144,9 @@ void GrainSegmentationEngine1::applyResults(TimePoint time, ModifierApplication*
 		std::vector<Bond> bonds;
 		std::vector<FloatType> disorientations;
 		ConstPropertyAccess<Point3> positionsArray(particles->expectProperty(ParticlesObject::PositionProperty));
-		ConstPropertyAccess<int> structuresArray(particles->expectProperty(ParticlesObject::StructureTypeProperty));
 
 		for (auto edge: neighborBonds()) {
-			if (isCrystallineBond(structuresArray, edge)) {
+			if (isCrystallineBond(edge)) {
 				Bond bond;
 				bond.index1 = edge.a;
 				bond.index2 = edge.b;
