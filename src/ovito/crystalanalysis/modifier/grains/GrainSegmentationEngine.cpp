@@ -247,25 +247,6 @@ bool GrainSegmentationEngine1::identifyAtomicStructures()
 	return !isCanceled();
 }
 
-namespace {
-
-    double disorientation_fcc_hcp(double* qfcc, double* qhcp)
-    {
-		double map_hcp_to_fcc[2][4] = {{0.11591690,  0.3647052, 0.27984814,  0.88047624},
-                                       {0.45576804, -0.5406251, 0.70455634, -0.06000300}};
-
-        double min_disorientation = INFINITY;
-		for (int i=0;i<2;i++) {
-			double rotated[4];
-			ptm::quat_rot(qhcp, map_hcp_to_fcc[i], rotated);
-			double disorientation = ptm::quat_disorientation_cubic(qfcc, rotated);
-			min_disorientation = std::min(min_disorientation, disorientation);
-		}
-
-        return min_disorientation;
-    }
-}
-
 /******************************************************************************
 * Rotates HCP atoms to an equivalent FCC orientation.
 ******************************************************************************/
@@ -293,7 +274,7 @@ bool GrainSegmentationEngine1::rotateHCPAtoms()
 	        const Quaternion& qb = orientationsArray[b];
 	        double orientA[4] = { qa.w(), qa.x(), qa.y(), qa.z() };
 	        double orientB[4] = { qb.w(), qb.x(), qb.y(), qb.z() };
-            FloatType disorientation = (FloatType)disorientation_fcc_hcp(orientA, orientB);
+            FloatType disorientation = (FloatType)ptm::quat_disorientation_fcc_hcp(orientA, orientB);
             if (bond.disorientation < _misorientationThreshold) {
                 links.push_back(bond);
             }
@@ -393,14 +374,8 @@ bool GrainSegmentationEngine1::computeDisorientationAngles()
 		else if(_stackingFaultHandling == GrainSegmentationModifier::Ignore
                 && structuresArray[a] == PTMAlgorithm::FCC && structuresArray[b] == PTMAlgorithm::HCP) {
 
-			double map_hcp_to_fcc[2][4] = {{0.11591690,  0.3647052, 0.27984814,  0.88047624},
-                                           {0.45576804, -0.5406251, 0.70455634, -0.06000300}};
-			for (int i=0;i<2;i++) {
-				double testB[4];
-				ptm::quat_rot(orientB, map_hcp_to_fcc[i], testB);
-				FloatType disorientation = (FloatType)ptm::quat_disorientation_cubic(orientA, testB);
-				bond.disorientation = std::min(bond.disorientation, disorientation);
-			}
+            FloatType disorientation = (FloatType)ptm::quat_disorientation_fcc_hcp(orientA, orientB);
+            bond.disorientation = qRadiansToDegrees(bond.disorientation);
 		}
 	});
 	if(isCanceled()) return false;

@@ -339,6 +339,18 @@ private:
 
 	const size_t _minPlotSize = 20;
 
+	// A hardcoded cutoff, in degrees, used for skipping low-weight edges in Node Pair Sampling mode
+	static constexpr FloatType _misorientationThreshold = 4.0;
+
+	// The linkage criterion used in the merge algorithm
+	GrainSegmentationModifier::MergeAlgorithm _algorithmType;
+
+	// The type of stacking fault handling
+	GrainSegmentationModifier::StackingFaultHandling _stackingFaultHandling;
+
+	/// Controls the output of neighbor bonds to the data pipeline for visualization purposes.
+	bool _outputBondsToPipeline;
+
 	/// The number of input particles.
 	size_t _numParticles;
 
@@ -363,29 +375,23 @@ private:
 	// The merge sizes
 	PropertyPtr _logMergeSize;
 
-	// The linkage criterion used in the merge algorithm
-	GrainSegmentationModifier::MergeAlgorithm _algorithmType;
-
-	// The type of stacking fault handling
-	GrainSegmentationModifier::StackingFaultHandling _stackingFaultHandling;
-
 	/// The per-particle structure types.
 	ConstPropertyPtr _structureTypes;
 
 	/// The per-particle lattice orientations.
 	ConstPropertyPtr _orientations;
 
+	/// The per-particle structure types, adjusted for stacking fault handling.
+	std::vector<PTMAlgorithm::StructureType> _adjustedStructureTypes;
+
+	/// The per-particle lattice orientations.
+	std::vector<Quaternion> _adjustedOrientations;
+
 	/// The per-particle template correspondences.
 	ConstPropertyPtr _correspondences;
 
 	/// The bonds connecting neighboring lattice atoms.
 	std::vector<NeighborBond> _neighborBonds;
-
-	/// Controls the output of neighbor bonds to the data pipeline for visualization purposes.
-	bool _outputBondsToPipeline;
-
-	// A hardcoded cutoff, in degrees, used for skipping low-weight edges in Node Pair Sampling mode
-	static constexpr FloatType _misorientationThreshold = 4.0;
 
 	// Dendrogram as list of cluster merges.
 	std::vector<DendrogramNode> _dendrogram;
