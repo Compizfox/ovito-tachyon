@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Copyright 2013 Alexander Stukowski
+//  Copyright 2020 Alexander Stukowski
 //
 //  This file is part of OVITO (Open Visualization Tool).
 //
@@ -110,6 +110,8 @@ LoadStream& operator>>(LoadStream& stream, ImageInfo& i);
 ******************************************************************************/
 class OVITO_CORE_EXPORT FrameBuffer : public QObject
 {
+	Q_OBJECT
+
 public:
 
 	/// Constructor.
@@ -161,6 +163,9 @@ public:
 		contentChanged(changedRegion);
 	}
 
+	/// Removes unnecessary pixels along the outer edges of the image.
+	void autoCrop();
+
 Q_SIGNALS:
 
 	/// This signal is emitted by the framebuffer when a part of its content has changed.
@@ -176,12 +181,6 @@ private:
 
 	/// The descriptor of the image.
 	ImageInfo _info;
-
-private:
-
-	Q_OBJECT
 };
 
 }	// End of namespace
-
-

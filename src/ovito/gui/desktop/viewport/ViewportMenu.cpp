@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Copyright 2019 Alexander Stukowski
+//  Copyright 2020 Alexander Stukowski
 //
 //  This file is part of OVITO (Open Visualization Tool).
 //
@@ -28,7 +28,7 @@
 #include <ovito/core/dataset/DataSet.h>
 #include <ovito/core/dataset/animation/AnimationSettings.h>
 #include <ovito/core/app/PluginManager.h>
-#include <ovito/gui/desktop/dialogs/AdjustCameraDialog.h>
+#include <ovito/gui/desktop/dialogs/AdjustViewDialog.h>
 #include <ovito/gui/desktop/mainwin/MainWindow.h>
 #include "ViewportMenu.h"
 
@@ -186,8 +186,8 @@ void ViewportMenu::onViewType(QAction* action)
 ******************************************************************************/
 void ViewportMenu::onAdjustView()
 {
-	AdjustCameraDialog dialog(_viewport, _vpWindow->window());
-	dialog.exec();
+	AdjustViewDialog* dialog = new AdjustViewDialog(_viewport, _vpWindow->window());
+	dialog->show();
 }
 
 /******************************************************************************

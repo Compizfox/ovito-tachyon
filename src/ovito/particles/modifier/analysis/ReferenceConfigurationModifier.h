@@ -37,7 +37,7 @@ namespace Ovito { namespace Particles {
 class OVITO_PARTICLES_EXPORT ReferenceConfigurationModifier : public AsynchronousModifier
 {
 	/// Give this modifier class its own metaclass.
-	class ReferenceConfigurationModifierClass : public ModifierClass
+	class OVITO_PARTICLES_EXPORT ReferenceConfigurationModifierClass : public ModifierClass
 	{
 	public:
 

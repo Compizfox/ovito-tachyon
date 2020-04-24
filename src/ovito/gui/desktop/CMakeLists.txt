@@ -42,7 +42,7 @@ OVITO_STANDARD_PLUGIN(Gui
 		mainwin/data_inspector/DataInspectorPanel.cpp
 		mainwin/data_inspector/DataInspectionApplet.cpp
 		mainwin/data_inspector/GlobalAttributesInspectionApplet.cpp
-		dialogs/AdjustCameraDialog.cpp
+		dialogs/AdjustViewDialog.cpp
 		dialogs/AnimationKeyEditorDialog.cpp
 		dialogs/AnimationSettingsDialog.cpp
 		dialogs/ApplicationSettingsDialog.cpp

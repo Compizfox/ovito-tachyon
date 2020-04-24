@@ -60,7 +60,7 @@ public:
 
 	/// A specialized QTableView widget, which allows copying the selected contents of the
 	/// table to the clipboard.
-	class TableView : public QTableView
+	class OVITO_GUI_EXPORT TableView : public QTableView
 	{
 	public:
 

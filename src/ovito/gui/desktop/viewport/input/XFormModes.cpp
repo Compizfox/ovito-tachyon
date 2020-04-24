@@ -430,7 +430,6 @@ void RotateMode::onCoordinateValueEntered(int component, FloatType value)
 		Controller* ctrl = _selectedNode.target()->transformationController();
 		if(ctrl) {
 			TimeInterval iv;
-			Vector3 translation;
 			DataSet* dataset = _selectedNode.target()->dataset();
 			MainWindow* mainWindow = static_cast<MainWindow*>(inputManager()->mainWindow());
 			CoordinateDisplayWidget* coordDisplay = mainWindow->coordinateDisplay();

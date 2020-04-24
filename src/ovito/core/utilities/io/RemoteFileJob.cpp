@@ -25,11 +25,15 @@
 #include <ovito/core/utilities/concurrent/TaskWatcher.h>
 #include <ovito/core/utilities/io/FileManager.h>
 #include <ovito/core/app/Application.h>
-#include <ovito/core/utilities/io/ssh/SshConnection.h>
-#include <ovito/core/utilities/io/ssh/ScpChannel.h>
-#include <ovito/core/utilities/io/ssh/LsChannel.h>
-#include <ovito/core/utilities/io/ssh/CatChannel.h>
+#ifdef OVITO_SSH_CLIENT
+	#include <ovito/core/utilities/io/ssh/SshConnection.h>
+	#include <ovito/core/utilities/io/ssh/ScpChannel.h>
+	#include <ovito/core/utilities/io/ssh/LsChannel.h>
+	#include <ovito/core/utilities/io/ssh/CatChannel.h>
+#endif
 #include "RemoteFileJob.h"
+
+#include <QNetworkReply>
 
 namespace Ovito {
 
@@ -42,7 +46,7 @@ QQueue<RemoteFileJob*> RemoteFileJob::_queuedJobs;
 int RemoteFileJob::_numActiveJobs = 0;
 
 /// The maximum number of simultaneous jobs at a time.
-constexpr int MaximumNumberOfSimulateousJobs = 2;
+constexpr int MaximumNumberOfSimultaneousJobs = 2;
 
 /******************************************************************************
 * Constructor.
@@ -58,14 +62,14 @@ RemoteFileJob::RemoteFileJob(QUrl url, PromiseBase& promise) :
 }
 
 /******************************************************************************
-* Opens the SSH connection.
+* Opens the network connection.
 ******************************************************************************/
 void RemoteFileJob::start()
 {
 	if(!_isActive) {
 		// Keep a counter of active jobs.
 		// If there are too many jobs active simultaneously, queue them to be executed later.
-		if(_numActiveJobs >= MaximumNumberOfSimulateousJobs) {
+		if(_numActiveJobs >= MaximumNumberOfSimultaneousJobs) {
 			_queuedJobs.enqueue(this);
 			return;
 		}
@@ -93,41 +97,67 @@ void RemoteFileJob::start()
 	// Show task progress in the GUI.
 	_promise.task()->taskManager()->registerPromise(_promise);
 
-	SshConnectionParameters connectionParams;
-	connectionParams.host = _url.host();
-	connectionParams.userName = _url.userName();
-	connectionParams.password = _url.password();
-	connectionParams.port = _url.port(0);
+#ifdef OVITO_SSH_CLIENT
+	if(_url.scheme() == QStringLiteral("sftp")) {
+		// Handle sftp URLs.
 
-	_promise.setProgressText(tr("Connecting to remote host %1").arg(connectionParams.host));
+		SshConnectionParameters connectionParams;
+		connectionParams.host = _url.host();
+		connectionParams.userName = _url.userName();
+		connectionParams.password = _url.password();
+		connectionParams.port = _url.port(0);
+		_promise.setProgressText(tr("Connecting to remote host %1").arg(connectionParams.host));
 
-	// Open connection
-	_connection = Application::instance()->fileManager()->acquireSshConnection(connectionParams);
-	OVITO_CHECK_POINTER(_connection);
+		// Open connection
+		_connection = Application::instance()->fileManager()->acquireSshConnection(connectionParams);
+		OVITO_CHECK_POINTER(_connection);
 
-	// Listen for signals of the connection.
-	connect(_connection, &SshConnection::error, this, &RemoteFileJob::connectionError);
-	connect(_connection, &SshConnection::canceled, this, &RemoteFileJob::connectionCanceled);
-	connect(_connection, &SshConnection::allAuthsFailed, this, &RemoteFileJob::authenticationFailed);
-	if(_connection->isConnected()) {
-		QTimer::singleShot(0, this, &RemoteFileJob::connectionEstablished);
-		return;
+		// Listen for signals of the connection.
+		connect(_connection, &SshConnection::error, this, &RemoteFileJob::connectionError);
+		connect(_connection, &SshConnection::canceled, this, &RemoteFileJob::connectionCanceled);
+		connect(_connection, &SshConnection::allAuthsFailed, this, &RemoteFileJob::authenticationFailed);
+		if(_connection->isConnected()) {
+			QTimer::singleShot(0, this, &RemoteFileJob::connectionEstablished);
+			return;
+		}
+		connect(_connection, &SshConnection::connected, this, &RemoteFileJob::connectionEstablished);
+
+		// Start to connect.
+		_connection->connectToHost();
 	}
-	connect(_connection, &SshConnection::connected, this, &RemoteFileJob::connectionEstablished);
+	else {
+#endif
+		// Handle http(s) URLs.
 
-	// Start to connect.
-	_connection->connectToHost();
+		_promise.setProgressText(tr("Downloading file %1 from %2").arg(_url.fileName()).arg(_url.host()));
+		QNetworkAccessManager* networkAccessManager = Application::instance()->networkAccessManager();
+		_networkReply = networkAccessManager->get(QNetworkRequest(_url));
+
+		connect(_networkReply, &QNetworkReply::downloadProgress, this, &RemoteFileJob::networkReplyDownloadProgress);
+		connect(_networkReply, &QNetworkReply::finished, this, &RemoteFileJob::networkReplyFinished);
+
+#ifdef OVITO_SSH_CLIENT
+	}
+#endif
 }
 
 /******************************************************************************
-* Closes the SSH connection.
+* Closes the network connection.
 ******************************************************************************/
 void RemoteFileJob::shutdown(bool success)
 {
+#ifdef OVITO_SSH_CLIENT
 	if(_connection) {
 		disconnect(_connection, nullptr, this, nullptr);
 		Application::instance()->fileManager()->releaseSshConnection(_connection);
 		_connection = nullptr;
+	}
+#endif
+	if(_networkReply) {
+		disconnect(_networkReply, nullptr, this, nullptr);
+		_networkReply->abort();
+		_networkReply->deleteLater();
+		_networkReply = nullptr;
 	}
 
 	_promise.setFinished();
@@ -142,7 +172,7 @@ void RemoteFileJob::shutdown(bool success)
 	deleteLater();
 
 	// If there jobs waiting in the queue, execute next job.
-	if(!_queuedJobs.isEmpty() && _numActiveJobs < MaximumNumberOfSimulateousJobs) {
+	if(!_queuedJobs.isEmpty() && _numActiveJobs < MaximumNumberOfSimultaneousJobs) {
 		RemoteFileJob* waitingJob = _queuedJobs.dequeue();
 		if(!waitingJob->_promise.isCanceled()) {
 			waitingJob->start();
@@ -155,6 +185,7 @@ void RemoteFileJob::shutdown(bool success)
 	}
 }
 
+#ifdef OVITO_SSH_CLIENT
 /******************************************************************************
 * Handles SSH connection errors.
 ******************************************************************************/
@@ -177,17 +208,37 @@ void RemoteFileJob::authenticationFailed()
 
 	shutdown(false);
 }
+#endif
 
 /******************************************************************************
-* Handles SSH connection cancelation by user.
+* Handles cancelation by the user.
 ******************************************************************************/
 void RemoteFileJob::connectionCanceled()
 {
-	// If user has canceled the SSH connection, cancel the file retrieval operation as well.
+	// If user has canceled the connection, cancel the file retrieval operation as well.
 	_promise.cancel();
 	shutdown(false);
 }
 
+/******************************************************************************
+* Handles QNetworkReply finished signals.
+******************************************************************************/
+void RemoteFileJob::networkReplyFinished()
+{
+	if(_networkReply->error() == QNetworkReply::NoError) {
+
+		shutdown(true);
+	}
+	else {
+		_promise.setException(std::make_exception_ptr(
+			Exception(tr("Cannot access URL\n\n%1\n\n%2").arg(_url.toString(QUrl::RemovePassword | QUrl::PreferLocalFile | QUrl::PrettyDecoded)).
+				arg(_networkReply->errorString()))));
+
+		shutdown(false);
+	}
+}
+
+#ifdef OVITO_SSH_CLIENT
 /******************************************************************************
 * Handles closed SSH channel.
 ******************************************************************************/
@@ -235,12 +286,14 @@ void DownloadRemoteFileJob::channelError()
 
 	shutdown(false);
 }
+#endif
 
 /******************************************************************************
-* Closes the SSH connection.
+* Closes the network connection.
 ******************************************************************************/
 void DownloadRemoteFileJob::shutdown(bool success)
 {
+#ifdef OVITO_SSH_CLIENT
 	// Close file channel.
 	if(_scpChannel) {
 		disconnect(_scpChannel, nullptr, this, nullptr);
@@ -248,17 +301,27 @@ void DownloadRemoteFileJob::shutdown(bool success)
 		_scpChannel->deleteLater();
 		_scpChannel = nullptr;
 	}
+#endif
+
+	// Write all received data to the local file.
+	if(success)
+		storeReceivedData();
 
 	// Close local file and clean up.
 	if(_localFile) {
+		// Make sure the received data was successfully written to the temporary file.
 		if(_fileMapping) {
-			// Make sure the received data was successfully written to the temporary file.
-			if(!_localFile->unmap(_fileMapping) || !_localFile->flush() || _localFile->error() != QFileDevice::NoError) {
+			if(!_localFile->unmap(_fileMapping)) {
 				_promise.setException(std::make_exception_ptr(Exception(
 					tr("Failed to write to local file %1: %2").arg(_localFile->fileName()).arg(_localFile->errorString()))));
 				success = false;
 			}
 			_fileMapping = nullptr;
+		}
+		if(!_localFile->flush() || _localFile->error() != QFileDevice::NoError) {
+			_promise.setException(std::make_exception_ptr(Exception(
+				tr("Failed to write to local file %1: %2").arg(_localFile->fileName()).arg(_localFile->errorString()))));
+			success = false;
 		}
 		_localFile->close();
 	}
@@ -267,13 +330,14 @@ void DownloadRemoteFileJob::shutdown(bool success)
 	else
 		_localFile.reset();
 
-	// Close SSH connection.
+	// Close network connection.
 	RemoteFileJob::shutdown(success);
 
 	// Hand downloaded file over to FileManager cache.
 	Application::instance()->fileManager()->fileFetched(url(), _localFile.take());
 }
 
+#ifdef OVITO_SSH_CLIENT
 /******************************************************************************
 * Is called when the remote host starts sending the file.
 ******************************************************************************/
@@ -329,7 +393,54 @@ void DownloadRemoteFileJob::receivedData(qint64 totalReceivedBytes)
 	}
 	_promise.setProgressValue(totalReceivedBytes);
 }
+#endif
 
+/******************************************************************************
+* Handles QNetworkReply progress signals.
+******************************************************************************/
+void DownloadRemoteFileJob::networkReplyDownloadProgress(qint64 bytesReceived, qint64 bytesTotal)
+{
+	if(_promise.isCanceled()) {
+		shutdown(false);
+		return;
+	}
+	if(bytesTotal > 0) {
+		_promise.setProgressMaximum(bytesTotal);
+		_promise.setProgressValue(bytesReceived);
+	}
+	storeReceivedData();
+}
+
+/******************************************************************************
+* Writes the data received from the server so far to the local file. 
+******************************************************************************/
+void DownloadRemoteFileJob::storeReceivedData()
+{
+	if(!_networkReply)
+		return;
+
+	try {
+		// Create the destination file and open it for writing.
+		if(!_localFile) {
+			_localFile.reset(new QTemporaryFile());
+			if(!_localFile->open())
+				throw Exception(tr("Failed to create temporary file: %1").arg(_localFile->errorString()));
+		}
+
+		// Read data from the network stream.
+		QByteArray buffer = _networkReply->read(_networkReply->bytesAvailable());
+
+		// Write data into local file.
+		if(_localFile->write(buffer) == -1)
+			throw Exception(tr("Failed to write downloaded data to temporary file: %1").arg(_localFile->errorString()));
+	}
+    catch(Exception&) {
+		_promise.captureException();
+		shutdown(false);
+	}
+}
+
+#ifdef OVITO_SSH_CLIENT
 /******************************************************************************
 * Is called when the SSH connection has been established.
 ******************************************************************************/
@@ -390,22 +501,26 @@ void ListRemoteDirectoryJob::receivedDirectoryComplete(const QStringList& listin
 	_promise.setResults(listing);
     shutdown(true);
 }
+#endif
 
 /******************************************************************************
 * Closes the SSH connection.
 ******************************************************************************/
 void ListRemoteDirectoryJob::shutdown(bool success)
 {
+#ifdef OVITO_SSH_CLIENT
 	if(_lsChannel) {
 		disconnect(_lsChannel, nullptr, this, nullptr);
 		_lsChannel->closeChannel();
 		_lsChannel->deleteLater();
 		_lsChannel = nullptr;
 	}
+#endif
 
 	RemoteFileJob::shutdown(success);
 }
 
+#ifdef OVITO_SSH_CLIENT
 /******************************************************************************
 * Handles closed SSH channel.
 ******************************************************************************/
@@ -419,5 +534,6 @@ void ListRemoteDirectoryJob::channelClosed()
 
 	shutdown(false);
 }
+#endif
 
 }	// End of namespace

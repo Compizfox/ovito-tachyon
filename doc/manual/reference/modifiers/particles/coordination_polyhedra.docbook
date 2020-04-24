@@ -22,7 +22,7 @@
     the particles first for which you would like to generate coordination polyhedra, e.g. using the <link linkend="particles.modifiers.select_particle_type">Select type</link> modifier.
   </para>
   <para>
-    The modifier takes into account the bonds from the selected particles to their neighbor to build the polyhedra.
+    The modifier takes into account the <link linkend="scene_objects.bonds">bonds</link> from the selected particles to their neighbor to build the polyhedra.
     Thus, it may be necessary to create these bonds first using the <link linkend="particles.modifiers.create_bonds">Create bonds</link> modifier
     before applying the <emphasis>Coordination polyhedra</emphasis> modifier.
   </para>

@@ -65,7 +65,7 @@ public:
 	void reloadFrame(bool refetchFiles, int frameIndex = -1);
 
 	/// \brief Scans the external file source and updates the internal frame list.
-	SharedFuture<QVector<FileSourceImporter::Frame>> updateListOfFrames();
+	SharedFuture<QVector<FileSourceImporter::Frame>> updateListOfFrames(bool refetchCurrentFile = false);
 
 	/// \brief Returns the source frame that is currently used as a sub-object data collection.
 	int dataCollectionFrame() const { return _dataCollectionFrame; }

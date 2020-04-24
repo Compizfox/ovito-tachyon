@@ -159,13 +159,19 @@ bool StandardSceneRenderer::renderFrame(FrameBuffer* frameBuffer, StereoRenderin
 ******************************************************************************/
 void StandardSceneRenderer::endRender()
 {
+	// Make our GL context current, because OpenGLSceneRenderer::endRender() needs an active context.
+	if(_offscreenContext && _offscreenSurface)
+		_offscreenContext->makeCurrent(_offscreenSurface.data());
+
+	OpenGLSceneRenderer::endRender();
+
+	// Release OpenGL resources.
 	QOpenGLFramebufferObject::bindDefault();
 	QOpenGLContext* ctxt = QOpenGLContext::currentContext();
 	if(ctxt) ctxt->doneCurrent();
 	_framebufferObject.reset();
 	_offscreenContext.reset();
 	_offscreenSurface.reset();
-	OpenGLSceneRenderer::endRender();
 }
 
 }	// End of namespace

@@ -230,13 +230,18 @@ public:
 	void requestReload(bool refetchFiles = false, int frame = -1);
 
 	/// \brief Sends a request to the FileSource owning this importer to refresh the animation frame sequence.
-	void requestFramesUpdate();
+	void requestFramesUpdate(bool refetchCurrentFile = false);
 
 	/// Creates an asynchronous loader object that loads the data for the given frame from the external file.
 	virtual FrameLoaderPtr createFrameLoader(const Frame& frame, const FileHandle& file) = 0;
 
 	/// Creates an asynchronous frame discovery object that scans a file for contained animation frames.
 	virtual FrameFinderPtr createFrameFinder(const FileHandle& file) { return {}; }
+
+Q_SIGNALS:
+
+	/// This signal is emitted by the importer when the value of its isMultiTimestepFile property field changes.
+	void isMultiTimestepFileChanged();
 
 protected:
 

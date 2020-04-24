@@ -116,7 +116,12 @@ void PluginManager::loadAllPlugins()
 			throw Exception(tr("Failed to scan the plugin directory. Path %1 does not exist.").arg(pluginDir.path()));
 
 		// List all plugin files.
-		pluginDir.setNameFilters(QStringList() << "*.so" << "*.dll");
+#ifndef Q_OS_WIN
+		pluginDir.setNameFilters(QStringList() << "*.so");
+#else
+		pluginDir.setNameFilters(QStringList() << "*.ovito.dll");
+#endif
+
 		pluginDir.setFilter(QDir::Files);
 		for(const QString& file : pluginDir.entryList()) {
 			QString filePath = pluginDir.absoluteFilePath(file);

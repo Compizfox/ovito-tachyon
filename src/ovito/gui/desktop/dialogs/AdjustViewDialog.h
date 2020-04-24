@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Copyright 2013 Alexander Stukowski
+//  Copyright 2020 Alexander Stukowski
 //
 //  This file is part of OVITO (Open Visualization Tool).
 //
@@ -25,21 +25,21 @@
 
 #include <ovito/gui/desktop/GUI.h>
 #include <ovito/core/viewport/Viewport.h>
+#include <ovito/core/oo/RefTargetListener.h>
 
 namespace Ovito {
 
 /**
- * This dialog box lets the user adjust the camera settings of the
- * current viewport.
+ * This dialog box lets the user adjust the camera settings of the current viewport.
  */
-class AdjustCameraDialog : public QDialog
+class AdjustViewDialog : public QDockWidget
 {
 	Q_OBJECT
 
 public:
 
 	/// Constructor.
-	AdjustCameraDialog(Viewport* viewport, QWidget* parentWindow = nullptr);
+	AdjustViewDialog(Viewport* viewport, QWidget* parentWindow);
 
 private Q_SLOTS:
 
@@ -54,6 +54,8 @@ private Q_SLOTS:
 
 private:
 
+	bool _isUpdatingGUI = false;
+
 	QRadioButton* _camPerspective;
 	QRadioButton* _camParallel;
 
@@ -65,15 +67,17 @@ private:
 	SpinnerWidget* _camDirYSpinner;
 	SpinnerWidget* _camDirZSpinner;
 
+	SpinnerWidget* _upDirXSpinner;
+	SpinnerWidget* _upDirYSpinner;
+	SpinnerWidget* _upDirZSpinner;
+
 	SpinnerWidget* _camFOVAngleSpinner;
 	SpinnerWidget* _camFOVSpinner;
 
-	Viewport* _viewport;
+	RefTargetListener<Viewport> _viewportListener;
 	Viewport::ViewType _oldViewType;
 	AffineTransformation _oldCameraTM;
 	FloatType _oldFOV;
 };
 
 }	// End of namespace
-
-

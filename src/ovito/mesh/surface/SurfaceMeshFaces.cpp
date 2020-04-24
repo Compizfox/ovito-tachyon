@@ -81,7 +81,7 @@ PropertyPtr SurfaceMeshFaces::OOMetaClass::createStandardStorage(size_t faceCoun
 				if(regionColorProperty && faceRegionProperty && faceRegionProperty.size() == faceCount) {
 					// Inherit face colors from regions.
 					boost::transform(faceRegionProperty, PropertyAccess<Color>(property).begin(), 
-						[&](int region) { return (region >= 0 && region) < regionColorProperty.size() ? regionColorProperty[region] : Color(1,1,1); });
+						[&](int region) { return (region >= 0 && region < regionColorProperty.size()) ? regionColorProperty[region] : Color(1,1,1); });
 					initializeMemory = false;
 				}
 				else if(SurfaceMeshVis* vis = surfaceMesh->visElement<SurfaceMeshVis>()) {

@@ -40,6 +40,9 @@ void ActionManager::on_RenderActiveViewport_triggered()
 		// This will process any pending user inputs in QLineEdit fields that haven't been processed yet.
 		mainWindow()->setFocus();
 
+		// Stop animation playback.
+		_dataset->animationSettings()->stopAnimationPlayback();
+
 		// Get the current render settings.
 		RenderSettings* settings = _dataset->renderSettings();
 
@@ -59,6 +62,10 @@ void ActionManager::on_RenderActiveViewport_triggered()
 
 		// Show progress dialog.
 		ProgressDialog progressDialog(frameBufferWindow, _dataset->taskManager(), tr("Rendering"));
+
+		// Display modal progress dialog immediately (not after a time delay) to prevent the user from 
+		// pressing the render button a second time.
+		progressDialog.show();
 
 		// Call high-level rendering function, which will take care of the rest.
 		_dataset->renderScene(settings, viewport, frameBuffer.get(), progressDialog.createOperation());

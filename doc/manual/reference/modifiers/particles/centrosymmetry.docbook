@@ -15,56 +15,96 @@
        <imagedata fileref="images/modifiers/centrosymmetry_panel.png" format="PNG" scale="50" />
     </imageobject></mediaobject></screenshot></informalfigure>
 
-    This modifier calculates the <emphasis>centrosymmetry parameter</emphasis> (CSP) for particles [<link
-    xlink:href="http://link.aps.org/doi/10.1103/PhysRevB.58.11085">Kelchner, Plimpton, Hamilton, Phys. Rev. B, 58, 11085 (1998)</link>].
+    This modifier calculates the <emphasis>centrosymmetry parameter</emphasis> (CSP) [<link
+    xlink:href="http://link.aps.org/doi/10.1103/PhysRevB.58.11085">Kelchner, Plimpton, Hamilton, Phys. Rev. B, 58, 11085 (1998)</link>] for each particle.
     In solid-state systems the centrosymmetry parameter is a useful measure of the local
     lattice disorder around an atom and can be used to characterize whether the atom is
-    part of a perfect lattice, a local defect (e.g. a dislocation or stacking fault), or at a surface.
+    part of a perfect lattice, a local defect (e.g. a dislocation or stacking fault), or located at a surface.
   </para>
 
   <simplesect>
     <title>Definition</title>
     <para>
       The CSP value <inlineequation><mathphrase>p<subscript>CSP</subscript></mathphrase></inlineequation> of an
-      atom having <inlineequation><mathphrase>N</mathphrase></inlineequation> nearest neighbors (<inlineequation><mathphrase>N = 12</mathphrase></inlineequation> for fcc, <inlineequation><mathphrase>N = 8</mathphrase></inlineequation> for bcc)
+      atom having <inlineequation><mathphrase>N</mathphrase></inlineequation> nearest neighbors (<inlineequation><mathphrase>N = 12</mathphrase></inlineequation> for face-centered cubic, <inlineequation><mathphrase>N = 8</mathphrase></inlineequation> for body-centered cubic lattices)
       is given by
       <screenshot><mediaobject><imageobject>
         <imagedata fileref="images/modifiers/centrosymmetry_formula.png" format="PNG" scale="40" />
       </imageobject></mediaobject></screenshot>
       where <inlineequation><mathphrase>r<subscript>i</subscript></mathphrase></inlineequation> and
       <inlineequation><mathphrase>r<subscript>i+N/2</subscript></mathphrase></inlineequation> are vectors pointing from the central atom to a pair of
-      opposite neighbors. OVITO uses the same <link xlink:href="http://lammps.sandia.gov/doc/compute_centro_atom.html">algorithm as LAMMPS</link>
-      to calculate the centrosymmetry parameter.
+      opposite neighbors.
       For lattice sites in an ideal centrosymmetric crystal, the contributions of all neighbor pairs in this formula will cancel, and
-      hence the resulting CSP value will be zero. Atomic sites within a defective crystal region, in contrast, typically have a disturbed, non-centrosymmetric
-      neighborhood. In this case the CSP becomes positive. Using an appropriate threshold, to tolerate small perturbations due to thermal displacements and elastic strains,
-      the CSP can be used as an order parameter to extract crystal defect atoms.
+      the resulting CSP value will hence be zero. Atomic sites within a defective crystal region, in contrast, typically have a disturbed, non-centrosymmetric
+      neighborhood. In this case the CSP becomes positive. Using an appropriate threshold, to allow for small perturbations due to thermal displacements and elastic strains,
+      the CSP can be used as an order parameter to filter out atoms that are part of crystal defects.
+    </para>
+
+    <para>
+      The calculated atomic CSP values are stored in the <literal>Centrosymmetry</literal> output particle property by the modifier.
+      A histogram of the CSP values of the entire particle system is displayed in the modifier panel.
     </para>
   </simplesect>
 
   <simplesect>
-    <title>Usage</title>
+    <title>Number of neighbors</title>
     <para>
-      One input parameter of the modifier is the number of neighbors that should be taken into account when computing the centrosymmetry value for an atom.
-      This parameter value should match the ideal number of nearest neighbors in the crystal lattice at hand (12 in fcc crystals; 8 in bcc).
+      This parameter specifies the number of nearest neighbors that should be taken into account when computing the centrosymmetry value for an atom.
+      This parameter value should match the ideal number of nearest neighbors in the crystal lattice at hand (12 in fcc crystals; 8 in bcc). More generally, it must be a positive, even integer.
     </para>
+  </simplesect>
 
+  <simplesect>
+    <title>CSP algorithm</title>
+
+      <para>
+      The modifier supports two modes of operation:
+      <variablelist>
+
+      <varlistentry><term>Conventional CSP</term>
+      <listitem>
+      <para>
+      This mode implements the same <link xlink:href="http://lammps.sandia.gov/doc/compute_centro_atom.html">algorithm as LAMMPS</link> to calculate the centrosymmetry parameter.
+      Weights are calculated between all <emphasis>N (N - 1) / 2</emphasis> pairs of neighbor atoms, and the CSP is calculated as the summation of the <emphasis>N / 2</emphasis> smallest weights.
+      </para>
+      </listitem>
+      </varlistentry>
+
+      <varlistentry><term>Minimum-weight matching CSP</term>
+      <listitem>
+      <para>
+      The conventional CSP algorithm performs well on highly centrosymmetric structures. In acentrosymmetric structures, however, it often assigns similar CSP values to very different structures, which results
+      from the "greedy" selection of neighbor pair weights. The <emphasis>Minimum-weight matching CSP</emphasis>
+      [<link xlink:href="https://arxiv.org/abs/2003.08879">Larsen</link>]
+      ensures that neighbor relationships are reciprocal, which results in a better separation of CSP values
+      between e.g. HCP atoms and surface defect atoms.
+      </para>
+
+      <para>
+      This algorithm has a significantly higher computational requirements.
+      </para>
+      </listitem>
+      </varlistentry>
+
+      </variablelist>
+      </para>
+  </simplesect>
+
+  <simplesect>
+    <title>Notes</title>
     <para>
       Note that the modifier needs to see the complete set of particles to perform the computation. It should therefore be placed at the
       beginning of the data pipeline, preceding any modifiers that delete particles.
     </para>
 
     <para>
-      The calculated CSP values are stored in the <literal>Centrosymmetry</literal> output particle property by the modifier.
-      Subsequently, you can use the
-      <link linkend="particles.modifiers.color_coding">Color Coding</link> modifier to color atoms based on their CSP value
-      or use the <link linkend="particles.modifiers.expression_select">Expression Selection</link> modifier to select atoms
+      You can use the
+      <link linkend="particles.modifiers.color_coding">Color coding</link> modifier to color atoms based on their CSP value
+      or use the <link linkend="particles.modifiers.expression_select">Expression selection</link> modifier to select atoms
       having a CSP value below some threshold.
-      These undisturbed atoms can then be hidden to reveal crystal defect atoms by using the <link linkend="particles.modifiers.delete_selected_particles">Delete Selected</link>
-      modifier. Furthermore, the <link linkend="particles.modifiers.histogram">Histogram</link> modifier may be used to study the distribution
-      of CSP values in a system.
+      These undisturbed atoms can then be hidden to reveal crystal defect atoms by using the <link linkend="particles.modifiers.delete_selected_particles">Delete selected</link>
+      modifier.
     </para>
-
   </simplesect>
 
   <simplesect>

@@ -60,7 +60,7 @@ public Q_SLOTS:
 	/// This copies the current image to the clipboard.
 	void copyImageToClipboard();
 
-	/// Removes unnecessary pixels at the outer edges of the rendered image.
+	/// Removes unnecessary pixels along the outer edges of the rendered image.
 	void autoCrop();
 
 private:

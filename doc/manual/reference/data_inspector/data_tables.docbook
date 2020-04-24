@@ -18,9 +18,21 @@
       </imageobject></mediaobject>
     </informalfigure>
 
-    This tab of the <link linkend="data_inspector">data inspector panel</link> lists all
-    data tables and data plots computed by the current pipeline. A <link linkend="scene_objects.data_table">data table</link> is a collection of data columns 
-    that can be plotted as a graph, histogram or scatter plot.
+    This tab of the <link linkend="data_inspector">data inspector panel</link> shows the data tables and plots computed by the current pipeline. 
+    A <link linkend="scene_objects.data_table">data table</link> is a collection of one or more data columns, which can be plotted as a graph, histogram or 
+    scatter plot.
+  </para>
+  
+  <para>
+    The current data pipeline may output several data tables, and the list box on the left
+    lets you switch between them. The selected table is plotted in the central area of the 
+    tab. The tool buttons on the right let you switch between the graphical plotting mode and
+    a tabular view of the underlying numerical table data. 
+  </para>
+
+  <para>
+    The save button lets you export the plot to a PDF or PNG graphics file, or the tabular values to a text file, 
+    depending on the currently selected view.
   </para>
 
 </section>
