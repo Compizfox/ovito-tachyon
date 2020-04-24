@@ -292,6 +292,9 @@ private:
 	/// Performs the PTM algorithm. Determines the local structure type and the local lattice orientation.
 	bool identifyAtomicStructures();
 
+	/// Rotates HCP atoms to an equivalent FCC orientation.
+    bool rotateHCPAtoms();
+
 	/// Calculates the disorientation angle for each graph edge (i.e. bond).
 	bool computeDisorientationAngles();
 

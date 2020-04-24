@@ -78,6 +78,7 @@ void GrainSegmentationEngine1::perform()
 {
 	// First phase of grain segmentation algorithm:
 	if(!identifyAtomicStructures()) return;
+	if(!rotateHCPAtoms()) return;
 	if(!computeDisorientationAngles()) return;
 	if(!determineMergeSequence()) return;
 
@@ -246,6 +247,114 @@ bool GrainSegmentationEngine1::identifyAtomicStructures()
 	return !isCanceled();
 }
 
+namespace {
+
+    double disorientation_fcc_hcp(double* qfcc, double* qhcp)
+    {
+		double map_hcp_to_fcc[2][4] = {{0.11591690,  0.3647052, 0.27984814,  0.88047624},
+                                       {0.45576804, -0.5406251, 0.70455634, -0.06000300}};
+
+        double min_disorientation = INFINITY;
+		for (int i=0;i<2;i++) {
+			double rotated[4];
+			ptm::quat_rot(qhcp, map_hcp_to_fcc[i], rotated);
+			double disorientation = ptm::quat_disorientation_cubic(qfcc, rotated);
+			min_disorientation = std::min(min_disorientation, disorientation);
+		}
+
+        return min_disorientation;
+    }
+}
+
+/******************************************************************************
+* Rotates HCP atoms to an equivalent FCC orientation.
+******************************************************************************/
+bool GrainSegmentationEngine1::rotateHCPAtoms()
+{
+    // Only rotate HCP atoms if stacking fault handling is enabled
+    if (_stackingFaultHandling != GrainSegmentationModifier::Handle)
+        return true;
+
+	setProgressText(GrainSegmentationModifier::tr("Grain segmentation - rotating HCP atoms"));
+
+	ConstPropertyAccess<int> structuresArray(structureTypes());
+	ConstPropertyAccess<Quaternion> orientationsArray(orientations());
+
+	std::vector<NeighborBond> links;
+    for (NeighborBond& bond : _neighborBonds) {
+        int a = bond.a;
+        int b = bond.b;
+        if (structuresArray[b] < structuresArray[a]) {
+	        std::swap(a, b);
+        }
+
+        if (structuresArray[a] == PTMAlgorithm::FCC && structuresArray[b] == PTMAlgorithm::HCP) {
+	        const Quaternion& qa = orientationsArray[a];
+	        const Quaternion& qb = orientationsArray[b];
+	        double orientA[4] = { qa.w(), qa.x(), qa.y(), qa.z() };
+	        double orientB[4] = { qb.w(), qb.x(), qb.y(), qb.z() };
+            FloatType disorientation = (FloatType)disorientation_fcc_hcp(orientA, orientB);
+            if (bond.disorientation < _misorientationThreshold) {
+                links.push_back(bond);
+            }
+        }
+    }
+
+	// Sort graph edges by disorientation.
+	boost::sort(links, [](const NeighborBond& a, const NeighborBond& b) {
+		return a.disorientation < b.disorientation;
+	});
+
+#if 0
+	size_t oldOrphanCount = orphanAtoms.size();
+	for(;;) {
+		std::vector<size_t> newlyAssignedClusters(orphanAtoms.size(), 0);
+		for(size_t i = 0; i < orphanAtoms.size(); i++) {
+			if(isCanceled()) return false;
+
+			size_t index = orphanAtoms[i];
+
+			// Get the range of bonds adjacent to the current atom.
+			auto bondsRange = boost::range::equal_range(noncrystallineBonds, ParticleIndexPair{{(qlonglong)index,0}},
+				[](const ParticleIndexPair& a, const ParticleIndexPair& b) { return a[0] < b[0]; });
+
+			// Find the closest cluster atom in the neighborhood (using PTM ordering).
+			for(const ParticleIndexPair& bond : boost::make_iterator_range(bondsRange.first, bondsRange.second)) {
+				OVITO_ASSERT(bond[0] == index);
+
+				auto neighborIndex = bond[1];
+				if(neighborIndex == std::numeric_limits<size_t>::max()) break;
+				auto grain = atomClustersArray[neighborIndex];
+				if(grain != 0) {
+					newlyAssignedClusters[i] = grain;
+					break;
+				}
+			}
+		}
+
+		// Assign atoms to closest cluster and compress orphan list.
+		size_t newOrphanCount = 0;
+		for(size_t i = 0; i < orphanAtoms.size(); i++) {
+			atomClustersArray[orphanAtoms[i]] = newlyAssignedClusters[i];
+			if(newlyAssignedClusters[i] == 0) {
+				orphanAtoms[newOrphanCount++] = orphanAtoms[i];
+			}
+			else {
+				grainSizeArray[newlyAssignedClusters[i] - 1]++;
+				if(!incrementProgressValue()) return false;
+			}
+		}
+
+		orphanAtoms.resize(newOrphanCount);
+		if(newOrphanCount == oldOrphanCount)
+			break;
+		oldOrphanCount = newOrphanCount;
+	}
+#endif
+
+	return !isCanceled();
+}
+
 /******************************************************************************
 * Calculates the disorientation angle for each graph edge (i.e. bond).
 ******************************************************************************/
@@ -297,7 +406,7 @@ bool GrainSegmentationEngine1::computeDisorientationAngles()
 	if(isCanceled()) return false;
 
 	// Sort graph edges by disorientation.
-	boost::sort(_neighborBonds, [](NeighborBond& a, NeighborBond& b) {
+	boost::sort(_neighborBonds, [](const NeighborBond& a, const NeighborBond& b) {
 		return a.disorientation < b.disorientation;
 	});
 
