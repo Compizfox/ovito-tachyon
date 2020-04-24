@@ -329,6 +329,8 @@ private:
         return (a == PTMAlgorithm::FCC && b == PTMAlgorithm::HCP) || (a == PTMAlgorithm::HCP && b == PTMAlgorithm::FCC);
     }
 
+    bool interface_FCC_HCP(NeighborBond& bond, FloatType& disorientation, Quaternion& output, size_t& index);
+
     // Converts a disorientation to an edge weight for Node Pair Sampling algorithm
     static FloatType calculateGraphWeight(FloatType disorientation) {
         // This is fairly arbitrary but it works well.
