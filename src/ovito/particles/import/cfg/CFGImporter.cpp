@@ -311,35 +311,35 @@ void CFGImporter::generateAutomaticColumnMapping(InputColumnMapping& columnMappi
 	for(int j = 0; j < columnNames.size(); j++, i++) {
 		columnMapping[i].columnName = columnNames[j];
 		QString name = columnNames[j].toLower();
-		if(name == "vx" || name == "velocities") columnMapping[i].mapStandardColumn(ParticlesObject::VelocityProperty, 0);
-		else if(name == "vy") columnMapping[i].mapStandardColumn(ParticlesObject::VelocityProperty, 1);
-		else if(name == "vz") columnMapping[i].mapStandardColumn(ParticlesObject::VelocityProperty, 2);
-		else if(name == "v") columnMapping[i].mapStandardColumn(ParticlesObject::VelocityMagnitudeProperty);
-		else if(name == "id") columnMapping[i].mapStandardColumn(ParticlesObject::IdentifierProperty);
-		else if(name == "radius") columnMapping[i].mapStandardColumn(ParticlesObject::RadiusProperty);
-		else if(name == "q") columnMapping[i].mapStandardColumn(ParticlesObject::ChargeProperty);
-		else if(name == "ix") columnMapping[i].mapStandardColumn(ParticlesObject::PeriodicImageProperty, 0);
-		else if(name == "iy") columnMapping[i].mapStandardColumn(ParticlesObject::PeriodicImageProperty, 1);
-		else if(name == "iz") columnMapping[i].mapStandardColumn(ParticlesObject::PeriodicImageProperty, 2);
-		else if(name == "fx") columnMapping[i].mapStandardColumn(ParticlesObject::ForceProperty, 0);
-		else if(name == "fy") columnMapping[i].mapStandardColumn(ParticlesObject::ForceProperty, 1);
-		else if(name == "fz") columnMapping[i].mapStandardColumn(ParticlesObject::ForceProperty, 2);
-		else if(name == "mux") columnMapping[i].mapStandardColumn(ParticlesObject::DipoleOrientationProperty, 0);
-		else if(name == "muy") columnMapping[i].mapStandardColumn(ParticlesObject::DipoleOrientationProperty, 1);
-		else if(name == "muz") columnMapping[i].mapStandardColumn(ParticlesObject::DipoleOrientationProperty, 2);
-		else if(name == "mu") columnMapping[i].mapStandardColumn(ParticlesObject::DipoleMagnitudeProperty);
-		else if(name == "omegax") columnMapping[i].mapStandardColumn(ParticlesObject::AngularVelocityProperty, 0);
-		else if(name == "omegay") columnMapping[i].mapStandardColumn(ParticlesObject::AngularVelocityProperty, 1);
-		else if(name == "omegaz") columnMapping[i].mapStandardColumn(ParticlesObject::AngularVelocityProperty, 2);
-		else if(name == "angmomx") columnMapping[i].mapStandardColumn(ParticlesObject::AngularMomentumProperty, 0);
-		else if(name == "angmomy") columnMapping[i].mapStandardColumn(ParticlesObject::AngularMomentumProperty, 1);
-		else if(name == "angmomz") columnMapping[i].mapStandardColumn(ParticlesObject::AngularMomentumProperty, 2);
-		else if(name == "tqx") columnMapping[i].mapStandardColumn(ParticlesObject::TorqueProperty, 0);
-		else if(name == "tqy") columnMapping[i].mapStandardColumn(ParticlesObject::TorqueProperty, 1);
-		else if(name == "tqz") columnMapping[i].mapStandardColumn(ParticlesObject::TorqueProperty, 2);
-		else if(name == "spin") columnMapping[i].mapStandardColumn(ParticlesObject::SpinProperty);
+		if(name == "vx" || name == "velocities") columnMapping.mapStandardColumn(i, ParticlesObject::VelocityProperty, 0);
+		else if(name == "vy") columnMapping.mapStandardColumn(i, ParticlesObject::VelocityProperty, 1);
+		else if(name == "vz") columnMapping.mapStandardColumn(i, ParticlesObject::VelocityProperty, 2);
+		else if(name == "v") columnMapping.mapStandardColumn(i, ParticlesObject::VelocityMagnitudeProperty);
+		else if(name == "id") columnMapping.mapStandardColumn(i, ParticlesObject::IdentifierProperty);
+		else if(name == "radius") columnMapping.mapStandardColumn(i, ParticlesObject::RadiusProperty);
+		else if(name == "q") columnMapping.mapStandardColumn(i, ParticlesObject::ChargeProperty);
+		else if(name == "ix") columnMapping.mapStandardColumn(i, ParticlesObject::PeriodicImageProperty, 0);
+		else if(name == "iy") columnMapping.mapStandardColumn(i, ParticlesObject::PeriodicImageProperty, 1);
+		else if(name == "iz") columnMapping.mapStandardColumn(i, ParticlesObject::PeriodicImageProperty, 2);
+		else if(name == "fx") columnMapping.mapStandardColumn(i, ParticlesObject::ForceProperty, 0);
+		else if(name == "fy") columnMapping.mapStandardColumn(i, ParticlesObject::ForceProperty, 1);
+		else if(name == "fz") columnMapping.mapStandardColumn(i, ParticlesObject::ForceProperty, 2);
+		else if(name == "mux") columnMapping.mapStandardColumn(i, ParticlesObject::DipoleOrientationProperty, 0);
+		else if(name == "muy") columnMapping.mapStandardColumn(i, ParticlesObject::DipoleOrientationProperty, 1);
+		else if(name == "muz") columnMapping.mapStandardColumn(i, ParticlesObject::DipoleOrientationProperty, 2);
+		else if(name == "mu") columnMapping.mapStandardColumn(i, ParticlesObject::DipoleMagnitudeProperty);
+		else if(name == "omegax") columnMapping.mapStandardColumn(i, ParticlesObject::AngularVelocityProperty, 0);
+		else if(name == "omegay") columnMapping.mapStandardColumn(i, ParticlesObject::AngularVelocityProperty, 1);
+		else if(name == "omegaz") columnMapping.mapStandardColumn(i, ParticlesObject::AngularVelocityProperty, 2);
+		else if(name == "angmomx") columnMapping.mapStandardColumn(i, ParticlesObject::AngularMomentumProperty, 0);
+		else if(name == "angmomy") columnMapping.mapStandardColumn(i, ParticlesObject::AngularMomentumProperty, 1);
+		else if(name == "angmomz") columnMapping.mapStandardColumn(i, ParticlesObject::AngularMomentumProperty, 2);
+		else if(name == "tqx") columnMapping.mapStandardColumn(i, ParticlesObject::TorqueProperty, 0);
+		else if(name == "tqy") columnMapping.mapStandardColumn(i, ParticlesObject::TorqueProperty, 1);
+		else if(name == "tqz") columnMapping.mapStandardColumn(i, ParticlesObject::TorqueProperty, 2);
+		else if(name == "spin") columnMapping.mapStandardColumn(i, ParticlesObject::SpinProperty);
 		else {
-			columnMapping[i].mapCustomColumn(columnNames[j], PropertyStorage::Float);
+			columnMapping.mapCustomColumn(i, columnNames[j], PropertyStorage::Float);
 		}
 	}
 }

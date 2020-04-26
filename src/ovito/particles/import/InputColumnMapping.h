@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Copyright 2019 Alexander Stukowski
+//  Copyright 2020 Alexander Stukowski
 //
 //  This file is part of OVITO (Open Visualization Tool).
 //
@@ -143,6 +143,40 @@ public:
 		return std::any_of(begin(), end(), [](const InputColumnInfo& column) {
 			return column.columnName.isEmpty() == false;
 		});
+	}
+
+	/// \brief Maps a file column to a standard particle property unless there is already another column mapped to the same property.
+	/// \param column The file column index.
+	/// \param type Specifies the standard property.
+	/// \param vectorComponent The component in the per-particle vector.
+	bool mapStandardColumn(int column, ParticlesObject::Type type, int vectorComponent = 0) {
+		OVITO_ASSERT(column >= 0 && column < this->size());
+		OVITO_ASSERT(type != ParticlesObject::UserProperty);
+		// Check if there is another file column already mapped to the destination property.
+		for(const InputColumnInfo& columnInfo : *this) {
+			if(columnInfo.property.type() == type && columnInfo.property.vectorComponent() == vectorComponent)
+				return false;
+		}
+		// If not, record the mapping.
+		(*this)[column].mapStandardColumn(type, vectorComponent);
+		return true;
+	}
+
+	/// \brief Maps this column to a custom particle property unless there is already another column mapped to the same property.
+	/// \param column The file column index.
+	/// \param propertyName The name of target particle property.
+	/// \param dataType The data type of the property to create.
+	/// \param vectorComponent The component of the per-particle vector.
+	bool mapCustomColumn(int column, const QString& propertyName, int dataType, int vectorComponent = 0) {
+		OVITO_ASSERT(column >= 0 && column < this->size());
+		// Check if there is another file column already mapped to the destination property.
+		for(const InputColumnInfo& columnInfo : *this) {
+			if(columnInfo.property.type() == ParticlesObject::UserProperty && columnInfo.property.name() == propertyName && columnInfo.property.vectorComponent() == vectorComponent)
+				return false;
+		}
+		// If not, record the mapping.
+		(*this)[column].mapCustomColumn(propertyName, dataType, vectorComponent);
+		return true;
 	}
 
 private:
