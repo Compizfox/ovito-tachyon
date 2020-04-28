@@ -17,9 +17,9 @@
   <para>
     You are going to need at least the following prerequisites:
     <itemizedlist>
-      <listitem>Microsoft Visual Studio 2017 (64-bit command line tools for C++ development)</listitem>
+      <listitem>Microsoft Visual Studio 2017 or newer (64-bit command line tools for C++ development)</listitem>
       <listitem>Qt 5.12.x (install the "msvc2017 64-bit" component)</listitem>
-      <listitem>CMake (v3.1 or newer)</listitem>
+      <listitem>CMake (v3.2 or newer)</listitem>
       <listitem>git</listitem>
       <listitem><link xlink:href="http://www.zlib.net/">Zlib</link> (v1.2.11)</listitem>
       <listitem><link xlink:href="https://www.boost.org">Boost</link> (header-only component)</listitem>

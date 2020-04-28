@@ -18,9 +18,6 @@
    	<listitem><link linkend="development.build_linux">Building OVITO on Linux</link></listitem>
    	<listitem><link linkend="development.build_windows">Building OVITO on Windows</link></listitem>
    	<listitem><link linkend="development.build_macosx">Building OVITO on macOS</link></listitem>
-   	<!--
-   	<listitem><link xlink:href="http://ovito.org/apidoc/">OVITO C++ API documentation</link></listitem>
-   	 -->
    </itemizedlist>
    </para>
 
@@ -34,7 +31,7 @@
 		<row><entry>C++ compiler</entry><entry>required</entry>
 		<entry>Compiler must support C++14 language standard (e.g. GNU g++ 4.8 or newer)</entry></row>
 		<row><entry><link xlink:href="http://cmake.org/">CMake</link></entry><entry>required</entry>
-		<entry>The build system used by OVITO (CMake 3.1 or newer required)</entry></row>
+		<entry>The build system used by OVITO (CMake 3.2 or newer required)</entry></row>
 		<row><entry><link xlink:href="http://git-scm.com/">Git</link></entry><entry>required</entry>
 		<entry>The distributed version control system needed to retrieve the source code</entry></row>
 		<row><entry><link xlink:href="http://xmlsoft.org/XSLT/xsltproc2.html">xsltproc</link></entry><entry>optional</entry>
