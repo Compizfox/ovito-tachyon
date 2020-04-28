@@ -26,7 +26,6 @@
 #include <ovito/gui/desktop/GUI.h>
 #include <ovito/gui/desktop/mainwin/MainWindow.h>
 #include <ovito/core/oo/RefTargetListener.h>
-#include <ovito/core/utilities/DeferredMethodInvocation.h>
 #include "DataInspectionApplet.h"
 
 namespace Ovito {
@@ -95,6 +94,9 @@ protected:
 
 	void resizeEvent(QResizeEvent* event) override;
 
+	/// Handles timer events for this object.
+	virtual void timerEvent(QTimerEvent* event) override;
+
 private:
 
 	/// Updates the list of visible tabs.
@@ -126,8 +128,8 @@ private:
 	/// Listenes to messages from the currently selected object node.
 	RefTargetListener<PipelineSceneNode> _selectedNodeListener;
 
-	/// For deferred invocation of the plot repaint function.
-	DeferredMethodInvocation<DataInspectorPanel, &DataInspectorPanel::updateInspector> _updateInvocation;
+	/// This timer is used to play the activity animation with some delay.
+	QBasicTimer _activityDelayTimer;
 
 	/// Animation shown in the title bar to indicate process.
 	QMovie _waitingForSceneAnim;

@@ -80,7 +80,7 @@ public:
 
 		/// Compares two data records.
 		bool operator!=(const Frame& other) const {
-			return (sourceFile != other.sourceFile) ||
+			return (const_cast<QUrl&>(sourceFile).data_ptr() != const_cast<QUrl&>(other.sourceFile).data_ptr() && sourceFile != other.sourceFile) ||
 					(byteOffset != other.byteOffset) ||
 					(lineNumber != other.lineNumber) ||
 					(lastModificationTime != other.lastModificationTime) ||

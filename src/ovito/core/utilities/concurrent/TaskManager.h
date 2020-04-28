@@ -74,6 +74,15 @@ public:
 		return task->future();
 	}
 
+	/// \brief Executes an task in the current thread.
+	template<class TaskType>
+	auto runTaskSync(const std::shared_ptr<TaskType>& task) {
+		OVITO_ASSERT(task);
+		registerTask(task);
+		task->run();
+		return task->future();
+	}
+
     /// \brief Registers a future with the TaskManager, which will subsequently track the progress of the associated operation.
     /// \param future The Future whose shared state should be registered.
     /// \note This function is thread-safe.

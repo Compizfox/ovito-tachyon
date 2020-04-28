@@ -213,6 +213,16 @@ void FileSource::setListOfFrames(QVector<FileSourceImporter::Frame> frames)
 		}
 	}
 
+	// Count the number of source files the trajectory frames are coming from.
+	_numberOfFiles = 0;
+	const QUrl* previousUrl = nullptr;
+	for(const FileSourceImporter::Frame& frame : this->frames()) {
+		if(!previousUrl || (const_cast<QUrl&>(frame.sourceFile).data_ptr() != const_cast<QUrl*>(previousUrl)->data_ptr() && frame.sourceFile != *previousUrl)) {
+			_numberOfFiles++;
+			previousUrl = &frame.sourceFile;
+		}
+	}
+
 	// Replace our internal list of frames.
 	_frames = std::move(frames);
 	// Reset cached frame label list. It will be rebuilt upon request by the method animationFrameLabels().
@@ -240,7 +250,7 @@ void FileSource::setListOfFrames(QVector<FileSourceImporter::Frame> frames)
 	}
 
 	// Notify UI that the list of source frames has changed.
-	notifyDependents(ReferenceEvent::ObjectStatusChanged);
+	Q_EMIT framesListChanged();
 }
 
 /******************************************************************************
@@ -460,7 +470,7 @@ Future<PipelineFlowState> FileSource::requestFrameInternal(int frame)
 					return future;
 				});
 
-			// Change status during long-running load operations.
+			// Change activity status during long-running load operations.
 			registerActiveFuture(loadFrameFuture);
 
 			return loadFrameFuture;
@@ -539,8 +549,8 @@ SharedFuture<PipelineFlowState> FileSource::evaluate(const PipelineEvaluationReq
 	return future.then(executor(), [this, time = request.time()](const PipelineFlowState& state) {
 		if(time == dataset()->animationSettings()->time() && state.data() != dataCollection()) {
 			pipelineCache().invalidateSynchronousState();
-			setDataCollection(state.data());
 			setDataCollectionFrame(animationTimeToSourceFrame(time));
+			setDataCollection(state.data());
 			setStatus(state.status());
 			notifyDependents(ReferenceEvent::PreliminaryStateAvailable);
 		}
@@ -578,10 +588,10 @@ QString FileSource::objectTitle() const
 	QString filename;
 	int frameIndex = dataCollectionFrame();
 	if(frameIndex >= 0 && frameIndex < frames().size()) {
-		filename = QFileInfo(frames()[frameIndex].sourceFile.path()).fileName();
+		filename = frames()[frameIndex].sourceFile.fileName();
 	}
 	else if(!sourceUrls().empty()) {
-		filename = QFileInfo(sourceUrls().front().path()).fileName();
+		filename = sourceUrls().front().fileName();
 	}
 	if(importer())
 		return QString("%2 [%1]").arg(importer()->objectTitle()).arg(filename);

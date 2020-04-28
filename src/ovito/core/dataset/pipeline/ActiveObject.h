@@ -60,7 +60,7 @@ public:
 	}
 
 	/// \brief Returns true if at least one computation task associated with this object is currently active. 
-	bool isObjectActive() const { return _numberOfActiveTasks > 0; }
+	bool isObjectActive() const { return _isInActivateState; }
 
 protected:
 
@@ -87,6 +87,9 @@ protected:
 		registerActiveTask(promise.task());
 	}
 
+	/// Handles timer events for this object.
+	virtual void timerEvent(QTimerEvent* event) override;
+
 private:
 
 	/// Controls whether the object is currently enabled.
@@ -100,6 +103,15 @@ private:
 
 	/// Indicates how many running tasks are currently associated with this object.
 	int _numberOfActiveTasks = 0;
+
+	/// Flag indicating wheter this object is currently displayed as active in the GUI.
+	bool _isInActivateState = false;
+
+	/// Timer used to implement delayed UI updates of the activity state.
+	QBasicTimer _activityTimer;
+
+	/// Timer used to implement delayed UI updates whenever object status changes.
+	QBasicTimer _statusTimer;
 };
 
 }	// End of namespace
