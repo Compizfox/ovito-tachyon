@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Copyright 2016 Alexander Stukowski
+//  Copyright 2020 Alexander Stukowski
 //
 //  This file is part of OVITO (Open Visualization Tool).
 //
@@ -50,7 +50,7 @@ void PropertyObjectEditor::createUI(const RolloutInsertionParameters& rolloutPar
 		using RefTargetListParameterUI::RefTargetListParameterUI;
 	protected:
 		virtual QVariant getItemData(RefTarget* target, const QModelIndex& index, int role) override {
-			if(role == Qt::DecorationRole && target != NULL) {
+			if(role == Qt::DecorationRole && target != nullptr) {
 				return (QColor)static_object_cast<ElementType>(target)->color();
 			}
 			else return RefTargetListParameterUI::getItemData(target, index, role);

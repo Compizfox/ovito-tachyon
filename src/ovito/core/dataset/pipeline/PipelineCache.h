@@ -122,6 +122,9 @@ private:
 	/// Enables the precomputation of the pipeline output for all animation frames.
 	bool _precomputeAllFrames = false;
 
+	/// Indicates that all frames of the trahectory have been precomputed.
+	bool _allFramesPrecomputed = false;
+
 	/// The asynchronous task that precomputes the pipeline output for all animation frames.
 	Promise<> _precomputeFramesOperation;
 

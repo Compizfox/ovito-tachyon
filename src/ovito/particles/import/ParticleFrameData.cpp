@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Copyright 2019 Alexander Stukowski
+//  Copyright 2020 Alexander Stukowski
 //
 //  This file is part of OVITO (Open Visualization Tool).
 //
@@ -123,15 +123,16 @@ void ParticleFrameData::generateBondPeriodicImageProperty()
 * This function is called by the system from the main thread after the
 * asynchronous loading task has finished.
 ******************************************************************************/
-OORef<DataCollection> ParticleFrameData::handOver(const DataCollection* existing, bool isNewFile, FileSource* fileSource)
+OORef<DataCollection> ParticleFrameData::handOver(const DataCollection* existing, bool isNewFile, CloneHelper& cloneHelper, FileSource* fileSource)
 {
+	// Start with a fresh data collection that will be populated.
 	OORef<DataCollection> output = new DataCollection(fileSource->dataset());
 
-	// Hand over simulation cell.
-	SimulationCellObject* cell = const_cast<SimulationCellObject*>(existing ? existing->getObject<SimulationCellObject>() : nullptr);
-	if(!cell) {
+	// Create the simulation cell.
+	const SimulationCellObject* existingCell = existing ? existing->getObject<SimulationCellObject>() : nullptr;
+	if(!existingCell) {
 		// Create a new SimulationCellObject.
-		cell = output->createObject<SimulationCellObject>(fileSource, simulationCell());
+		SimulationCellObject* cell = output->createObject<SimulationCellObject>(fileSource, simulationCell());
 
 		// Initialize the simulation cell and its vis element with default values.
 		if(Application::instance()->executionContext() == Application::ExecutionContext::Interactive)
@@ -152,8 +153,9 @@ OORef<DataCollection> ParticleFrameData::handOver(const DataCollection* existing
 		// Adopt pbc flags from input file only if it is a new file.
 		// This gives the user the option to change the pbc flags without them
 		// being overwritten when a new frame from a simulation sequence is loaded.
-		cell->setData(simulationCell(), isNewFile);
+		SimulationCellObject* cell = cloneHelper.cloneObject(existingCell, false); 
 		output->addObject(cell);
+		cell->setData(simulationCell(), isNewFile);
 	}
 
 	if(!_particleProperties.empty()) {
@@ -204,13 +206,14 @@ OORef<DataCollection> ParticleFrameData::handOver(const DataCollection* existing
 		// Transfer particle properties.
 		for(auto& property : _particleProperties) {
 
-			// Look for existing property object.
-			OORef<PropertyObject> propertyObj;
-			if(existingParticles) {
-				propertyObj = (property->type() != 0) ? existingParticles->getProperty(property->type()) : existingParticles->getProperty(property->name());
-			}
+			// Look up existing property object.
+			const PropertyObject* existingPropertyObj = existingParticles ? 
+				((property->type() != 0) ? existingParticles->getProperty(property->type()) : existingParticles->getProperty(property->name())) 
+				: nullptr;
 
-			if(propertyObj) {
+			OORef<PropertyObject> propertyObj;
+			if(existingPropertyObj) {
+				propertyObj = cloneHelper.cloneObject(existingPropertyObj, false);
 				propertyObj->setStorage(std::move(property));
 				particles->addProperty(propertyObj);
 			}
@@ -247,13 +250,15 @@ OORef<DataCollection> ParticleFrameData::handOver(const DataCollection* existing
 			// Transfer bonds.
 			for(auto& property : _bondProperties) {
 
-				// Look for existing property object.
-				OORef<PropertyObject> propertyObj;
-				if(existingBonds) {
-					propertyObj = (property->type() != 0) ? existingBonds->getProperty(property->type()) : existingBonds->getProperty(property->name());
-				}
+				// Look up existing property object.
+				const PropertyObject* existingPropertyObj = existingBonds ? 
+					((property->type() != 0) ? existingBonds->getProperty(property->type()) : existingBonds->getProperty(property->name())) 
+					: nullptr;
 
-				if(propertyObj) {
+				// Create bond property.
+				OORef<PropertyObject> propertyObj;
+				if(existingPropertyObj) {
+					propertyObj = cloneHelper.cloneObject(existingPropertyObj, false);
 					propertyObj->setStorage(std::move(property));
 					bonds->addProperty(propertyObj);
 				}
@@ -291,7 +296,7 @@ OORef<DataCollection> ParticleFrameData::handOver(const DataCollection* existing
 		// Create the new VoxelGrid object.
 		VoxelGrid* voxelGrid = output->createObject<VoxelGrid>(voxelGridId().isEmpty() ? QStringLiteral("imported") : voxelGridId(), fileSource, voxelGridTitle());
 		voxelGrid->setShape(voxelGridShape());
-		voxelGrid->setDomain(cell);
+		voxelGrid->setDomain(output->getObject<SimulationCellObject>());
 
 		// Create a visualization element for the voxel grid.
 		if(!existingVoxelGrid) {
@@ -312,13 +317,15 @@ OORef<DataCollection> ParticleFrameData::handOver(const DataCollection* existing
 
 		for(auto& property : voxelProperties()) {
 
-			// Look for existing field quantity object.
-			OORef<PropertyObject> propertyObj;
-			if(existingVoxelGrid) {
-				propertyObj = (property->type() != 0) ? existingVoxelGrid->getProperty(property->type()) : existingVoxelGrid->getProperty(property->name());
-			}
+			// Look up existing property object.
+			const PropertyObject* existingPropertyObj = existingVoxelGrid ? 
+				((property->type() != 0) ? existingVoxelGrid->getProperty(property->type()) : existingVoxelGrid->getProperty(property->name())) 
+				: nullptr;
 
+			// Create field property.
+			OORef<PropertyObject> propertyObj;
 			if(propertyObj) {
+				propertyObj = cloneHelper.cloneObject(existingPropertyObj, false);
 				propertyObj->setStorage(std::move(property));
 				voxelGrid->addProperty(propertyObj);
 			}
@@ -354,22 +361,24 @@ void ParticleFrameData::insertTypes(PropertyObject* typeProperty, TypeList* type
 	std::vector<std::pair<int,int>> typeRemapping;
 
 	if(typeList) {
+		// Add the new element types one by one to the property object.
 		for(auto& item : typeList->types()) {
-			OORef<ElementType> ptype;
+			// Look up existing element type.
+			OORef<ElementType> elementType;
 			if(item.name.isEmpty()) {
-				ptype = typeProperty->elementType(item.id);
+				elementType = typeProperty->elementType(item.id);
 			}
 			else {
-				ptype = typeProperty->elementType(item.name);
-				if(ptype) {
-					if(item.id != ptype->numericId()) {
-						typeRemapping.push_back({item.id, ptype->numericId()});
+				elementType = typeProperty->elementType(item.name);
+				if(elementType) {
+					if(item.id != elementType->numericId()) {
+						typeRemapping.push_back({item.id, elementType->numericId()});
 					}
 				}
 				else {
-					ptype = typeProperty->elementType(item.id);
-					if(ptype && ptype->name() != item.name) {
-						ptype = nullptr;
+					elementType = typeProperty->elementType(item.id);
+					if(elementType && elementType->name() != item.name) {
+						elementType = nullptr;
 						if(!isNewFile) {
 							int mappedId = typeProperty->generateUniqueElementTypeId(item.id + typeList->types().size());
 							typeRemapping.push_back({item.id, mappedId});
@@ -378,58 +387,75 @@ void ParticleFrameData::insertTypes(PropertyObject* typeProperty, TypeList* type
 					}
 				}
 			}
-			if(!ptype) {
+			// Create element type if it doesn't exist yet.
+			if(!elementType) {
 				if(!isBondProperty) {
-					ptype = static_object_cast<ElementType>(typeList->elementClass().createInstance(typeProperty->dataset()));
+					elementType = static_object_cast<ElementType>(typeList->elementClass().createInstance(typeProperty->dataset()));
 					if(Application::instance()->executionContext() == Application::ExecutionContext::Interactive)
-						ptype->loadUserDefaults();
-					ptype->setNumericId(item.id);
-					ptype->setName(item.name);
-					if(item.radius == 0 && ParticleType::OOClass().isMember(ptype)) {
-						static_object_cast<ParticleType>(ptype)->setRadius(ParticleType::getDefaultParticleRadius((ParticlesObject::Type)typeProperty->type(), ptype->nameOrNumericId(), ptype->numericId()));
+						elementType->loadUserDefaults();
+					elementType->setNumericId(item.id);
+					elementType->setName(item.name);
+					if(item.radius == 0 && ParticleType::OOClass().isMember(elementType)) {
+						static_object_cast<ParticleType>(elementType)->setRadius(ParticleType::getDefaultParticleRadius((ParticlesObject::Type)typeProperty->type(), elementType->nameOrNumericId(), elementType->numericId()));
 					}
 				}
 				else {
 					OVITO_ASSERT(typeList->elementClass().isDerivedFrom(BondType::OOClass()));
-					ptype = new BondType(typeProperty->dataset());
+					elementType = new BondType(typeProperty->dataset());
 					if(Application::instance()->executionContext() == Application::ExecutionContext::Interactive)
-						ptype->loadUserDefaults();
-					ptype->setNumericId(item.id);
-					ptype->setName(item.name);
+						elementType->loadUserDefaults();
+					elementType->setNumericId(item.id);
+					elementType->setName(item.name);
 					if(item.radius == 0)
-						static_object_cast<BondType>(ptype)->setRadius(BondType::getDefaultBondRadius((BondsObject::Type)typeProperty->type(), ptype->nameOrNumericId(), ptype->numericId()));
+						static_object_cast<BondType>(elementType)->setRadius(BondType::getDefaultBondRadius((BondsObject::Type)typeProperty->type(), elementType->nameOrNumericId(), elementType->numericId()));
 				}
 
 				if(item.color != Color(0,0,0))
-					ptype->setColor(item.color);
+					elementType->setColor(item.color);
 				else if(!isBondProperty) {
-					if(ParticleType::OOClass().isMember(ptype))
-						ptype->setColor(ParticleType::getDefaultParticleColor((ParticlesObject::Type)typeProperty->type(), ptype->nameOrNumericId(), ptype->numericId()));
+					if(ParticleType::OOClass().isMember(elementType))
+						elementType->setColor(ParticleType::getDefaultParticleColor((ParticlesObject::Type)typeProperty->type(), elementType->nameOrNumericId(), elementType->numericId()));
 					else
-						ptype->setColor(ElementType::getDefaultColor(PropertyStorage::GenericTypeProperty, ptype->nameOrNumericId(), ptype->numericId()));
+						elementType->setColor(ElementType::getDefaultColor(PropertyStorage::GenericTypeProperty, elementType->nameOrNumericId(), elementType->numericId()));
 				}
 				else {
-					ptype->setColor(BondType::getDefaultBondColor((BondsObject::Type)typeProperty->type(), ptype->nameOrNumericId(), ptype->numericId()));
+					elementType->setColor(BondType::getDefaultBondColor((BondsObject::Type)typeProperty->type(), elementType->nameOrNumericId(), elementType->numericId()));
 				}
 
-				typeProperty->addElementType(ptype);
+				typeProperty->addElementType(elementType);
 			}
-			activeTypes.insert(ptype);
+			else {
+				if(item.color != Color(0,0,0) && item.color != elementType->color()) {
+					elementType = typeProperty->makeMutable<ElementType>(elementType);
+					elementType->setColor(item.color);
+				}
 
-			if(item.color != Color(0,0,0))
-				ptype->setColor(item.color);
-
-			if(item.radius != 0) {
-				if(ParticleType* particleType = dynamic_object_cast<ParticleType>(ptype))
-					particleType->setRadius(item.radius);
-				else if(BondType* bondType = dynamic_object_cast<BondType>(ptype))
-					bondType->setRadius(item.radius);
+				if(item.radius != 0) {
+					if(ParticleType* particleType = dynamic_object_cast<ParticleType>(elementType)) {
+						if(item.radius != particleType->radius()) {
+							particleType = typeProperty->makeMutable(particleType);
+							particleType->setRadius(item.radius);
+						}
+					}
+					else if(BondType* bondType = dynamic_object_cast<BondType>(elementType)) {
+						if(item.radius != bondType->radius()) {
+							bondType = typeProperty->makeMutable(bondType);
+							bondType->setRadius(item.radius);
+						}
+					}
+				}
 			}
+			activeTypes.insert(elementType);
+
 			if(item.mass != 0) {
-				if(ParticleType* particleType = dynamic_object_cast<ParticleType>(ptype))
-					particleType->setMass(item.mass);
+				if(ParticleType* particleType = dynamic_object_cast<ParticleType>(elementType)) {
+					if(item.mass != particleType->mass()) {
+						particleType = typeProperty->makeMutable(particleType);
+						particleType->setMass(item.mass);
+					}
+				}
 			}
-			if(ParticleType* particleType = dynamic_object_cast<ParticleType>(ptype)) {
+			if(ParticleType* particleType = dynamic_object_cast<ParticleType>(elementType)) {
 				if(item.shapeMesh) {
 					TriMeshObject* shapeObject = particleType->shapeMesh();
 					if(!shapeObject) {

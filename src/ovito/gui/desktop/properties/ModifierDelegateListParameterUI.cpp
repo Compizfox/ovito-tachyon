@@ -100,7 +100,7 @@ Qt::ItemFlags ModifierDelegateListParameterUI::getItemFlags(RefTarget* target, c
 bool ModifierDelegateListParameterUI::referenceEvent(RefTarget* source, const ReferenceEvent& event)
 {
 	if(event.type() == ReferenceEvent::ModifierInputChanged) {
-		updateColumns(0, 0);
+//		updateColumns(0, 0);
 	}
 	return RefTargetListParameterUI::referenceEvent(source, event);
 }

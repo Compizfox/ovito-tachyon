@@ -541,14 +541,18 @@ void DislocImporter::FrameLoader::connectSlipFaces(MicrostructureData& microstru
 * This function is called by the system from the main thread after the
 * asynchronous loading operation has finished.
 ******************************************************************************/
-OORef<DataCollection> DislocImporter::DislocFrameData::handOver(const DataCollection* existing, bool isNewFile, FileSource* fileSource)
+OORef<DataCollection> DislocImporter::DislocFrameData::handOver(const DataCollection* existing, bool isNewFile, CloneHelper& cloneHelper, FileSource* fileSource)
 {
 	// Insert simulation cell.
-	OORef<DataCollection> output = ParticleFrameData::handOver(existing, isNewFile, fileSource);
+	OORef<DataCollection> output = ParticleFrameData::handOver(existing, isNewFile, cloneHelper, fileSource);
 
 	// Insert microstructure.
-	Microstructure* microstructureObj = const_cast<Microstructure*>(existing ? existing->getObject<Microstructure>() : nullptr);
-	if(!microstructureObj) {
+	OORef<Microstructure> microstructureObj;
+	if(const Microstructure* existingMicrostructure = existing ? existing->getObject<Microstructure>() : nullptr) {
+		microstructureObj = cloneHelper.cloneObject(existingMicrostructure, false);
+		output->addObject(microstructureObj);
+	}
+	else {
 		microstructureObj = output->createObject<Microstructure>(fileSource);
 
 		// Create a visual element for the dislocation lines.
@@ -562,9 +566,6 @@ OORef<DataCollection> DislocImporter::DislocFrameData::handOver(const DataCollec
 		if(Application::instance()->executionContext() == Application::ExecutionContext::Interactive)
 			slipSurfaceVis->loadUserDefaults();
 		microstructureObj->addVisElement(slipSurfaceVis);
-	}
-	else {
-		output->addObject(microstructureObj);
 	}
 	microstructureObj->setDomain(output->getObject<SimulationCellObject>());
 	microstructure().transferTo(microstructureObj);

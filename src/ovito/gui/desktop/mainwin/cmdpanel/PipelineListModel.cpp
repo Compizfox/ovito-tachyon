@@ -49,7 +49,7 @@ PipelineListModel::PipelineListModel(DataSetContainer& datasetContainer, QObject
 	_statusPendingIcon.setCacheMode(QMovie::CacheAll);
 	connect(&_statusPendingIcon, &QMovie::frameChanged, this, &PipelineListModel::iconAnimationFrameChanged);
 	_selectionModel = new QItemSelectionModel(this);
-	connect(_selectionModel, &QItemSelectionModel::selectionChanged, this, &PipelineListModel::selectedItemChanged);
+	connect(_selectionModel, &QItemSelectionModel::selectionChanged, this, &PipelineListModel::selectedItemChanged, Qt::QueuedConnection);
 	connect(&_selectedNode, &RefTargetListener<PipelineSceneNode>::notificationEvent, this, &PipelineListModel::onNodeEvent);
 	if(_sectionHeaderFont.pixelSize() < 0)
 		_sectionHeaderFont.setPointSize(_sectionHeaderFont.pointSize() * 4 / 5);
@@ -132,7 +132,7 @@ void PipelineListModel::refreshList()
 
 		// Create list items for visualization elements.
 		for(DataVis* vis : selectedNode()->visElements())
-			newItems.push_back(new PipelineListItem(vis, PipelineListItem::Object));
+			newItems.push_back(new PipelineListItem(vis, PipelineListItem::VisualElement));
 		if(!newItems.empty())
 			newItems.insert(newItems.begin(), new PipelineListItem(nullptr, PipelineListItem::VisualElementsHeader));
 
@@ -150,7 +150,7 @@ void PipelineListModel::refreshList()
 				if(pipelineObject->isPipelineBranch(true))
 					newItems.push_back(new PipelineListItem(nullptr, PipelineListItem::PipelineBranch));
 
-				PipelineListItem* item = new PipelineListItem(modApp, PipelineListItem::Object);
+				PipelineListItem* item = new PipelineListItem(modApp, PipelineListItem::Modifier);
 				newItems.push_back(item);
 
 				pipelineObject = modApp->input();
@@ -163,7 +163,7 @@ void PipelineListModel::refreshList()
 				newItems.push_back(new PipelineListItem(nullptr, PipelineListItem::DataSourceHeader));
 
 				// Create a list item for the data source.
-				PipelineListItem* item = new PipelineListItem(pipelineObject, PipelineListItem::Object);
+				PipelineListItem* item = new PipelineListItem(pipelineObject, PipelineListItem::DataSource);
 				newItems.push_back(item);
 				if(defaultObjectToSelect == nullptr)
 					defaultObjectToSelect = pipelineObject;
@@ -222,7 +222,7 @@ void PipelineListModel::refreshList()
 void PipelineListModel::createListItemsForSubobjects(const DataObject* dataObj, std::vector<OORef<PipelineListItem>>& items, PipelineListItem* parentItem)
 {
 	if(dataObj->showInPipelineEditor())
-		items.push_back(parentItem = new PipelineListItem(const_cast<DataObject*>(dataObj), PipelineListItem::SubObject, parentItem));
+		items.push_back(parentItem = new PipelineListItem(const_cast<DataObject*>(dataObj), PipelineListItem::DataObject, parentItem));
 
 	// Recursively visit the sub-objects of the object.
 	dataObj->visitSubObjects([&](const DataObject* subObject) {
@@ -350,7 +350,7 @@ QVariant PipelineListModel::data(const QModelIndex& index, int role) const
 			const_cast<QMovie&>(_statusPendingIcon).start();
 			return QVariant::fromValue(_statusPendingIcon.currentPixmap());
 		}
-		else if(item->object()) {
+		else if(item->isObjectItem()) {
 			switch(item->status().type()) {
 			case PipelineStatus::Warning: return QVariant::fromValue(_statusWarningIcon);
 			case PipelineStatus::Error: return QVariant::fromValue(_statusErrorIcon);
@@ -368,12 +368,12 @@ QVariant PipelineListModel::data(const QModelIndex& index, int role) const
 			return (modApp->modifier() && modApp->modifier()->isEnabled()) ? Qt::Checked : Qt::Unchecked;
 	}
 	else if(role == Qt::TextAlignmentRole) {
-		if(item->object() == nullptr) {
+		if(!item->isObjectItem()) {
 			return Qt::AlignCenter;
 		}
 	}
 	else if(role == Qt::BackgroundRole) {
-		if(item->object() == nullptr) {
+		if(!item->isObjectItem()) {
 			if(item->itemType() != PipelineListItem::PipelineBranch)
 				return _sectionHeaderBackgroundBrush;
 			else
@@ -381,12 +381,12 @@ QVariant PipelineListModel::data(const QModelIndex& index, int role) const
 		}
 	}
 	else if(role == Qt::ForegroundRole) {
-		if(item->object() == nullptr) {
+		if(!item->isObjectItem()) {
 			return _sectionHeaderForegroundBrush;
 		}
 	}
 	else if(role == Qt::FontRole) {
-		if(item->object() == nullptr)
+		if(!item->isObjectItem())
 			return _sectionHeaderFont;
 		else if(isSharedObject(item->object()))
 			return _sharedObjectFont;
@@ -443,21 +443,15 @@ bool PipelineListModel::setData(const QModelIndex& index, const QVariant& value,
 Qt::ItemFlags PipelineListModel::flags(const QModelIndex& index) const
 {
 	if(index.row() >= 0 && index.row() < _items.size()) {
-		PipelineListItem* item = this->item(index.row());
-		if(item->object() == nullptr) {
-			return Qt::NoItemFlags;
-		}
-		else {
-			if(dynamic_object_cast<DataVis>(item->object())) {
+		switch(this->item(index.row())->itemType()) {
+			case PipelineListItem::VisualElement:
+			case PipelineListItem::Modifier:
 				return QAbstractListModel::flags(index) | Qt::ItemIsUserCheckable | Qt::ItemIsEditable;
-			}
-			else if(dynamic_object_cast<ModifierApplication>(item->object())) {
-#if 0
-				return QAbstractListModel::flags(index) | Qt::ItemIsUserCheckable | Qt::ItemIsDragEnabled | Qt::ItemIsDropEnabled;
-#else
-				return QAbstractListModel::flags(index) | Qt::ItemIsUserCheckable | Qt::ItemIsEditable;
-#endif
-			}
+			case PipelineListItem::DataSource:
+			case PipelineListItem::DataObject:
+				return QAbstractListModel::flags(index);
+			default:
+				return Qt::NoItemFlags;
 		}
 	}
 	return QAbstractListModel::flags(index);

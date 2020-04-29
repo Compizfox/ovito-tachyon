@@ -42,15 +42,14 @@ public:
 	PipelineFlowState() = default;
 
 	/// \brief Constructor that initializes the state with the data from a DataCollection.
-	/// \param dataCollection The data which is used to fill the state. A copy of the data is made if necessary.
+	/// \param dataCollection The data which is used to fill the state. A shallow copy of the DataCollection object is automatically made if necessary.
 	/// \param status A status object describing the outcome of the pipeline evaluation.
 	/// \param validityInterval The time interval during which the state is valid.
 	PipelineFlowState(const DataCollection* dataCollection, const PipelineStatus& status, const TimeInterval& validityInterval = TimeInterval::infinite()) :
 		_data(dataCollection), _status(status), _stateValidity(validityInterval)
 	{
-		// By default, make sure the payload data is exclusively owned by this pipeline state.
-		if(data())
-			mutableData()->makeAllMutableRecursive();
+		// Ensure that the DataCollection object is not referenced by more than one PipelineFlowState.
+		mutableData();
 	}
 
 	/// \brief Discards all contents of this state object and resets it to an empty state.

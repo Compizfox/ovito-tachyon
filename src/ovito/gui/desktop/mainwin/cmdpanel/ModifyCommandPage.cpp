@@ -135,9 +135,13 @@ ModifyCommandPage::ModifyCommandPage(MainWindow* mainWindow, QWidget* parent) : 
 	_pipelineWidget->setEditTriggers(QAbstractItemView::SelectedClicked);
 	_pipelineWidget->setModel(_pipelineListModel);
 	_pipelineWidget->setSelectionModel(_pipelineListModel->selectionModel());
-	connect(_pipelineListModel, &PipelineListModel::selectedItemChanged, this, &ModifyCommandPage::onSelectedItemChanged);
-	connect(_pipelineWidget, &PipelineListView::doubleClicked, this, &ModifyCommandPage::onModifierStackDoubleClicked);
 	subLayout->addWidget(_pipelineWidget);
+
+	// Listen to selection changes in the pipeline editor list widget.
+	connect(_pipelineListModel, &PipelineListModel::selectedItemChanged, this, &ModifyCommandPage::onSelectedItemChanged);
+
+	// Double-click on a modifier or visual element toggles the enabled state of the element.
+	connect(_pipelineWidget, &PipelineListView::doubleClicked, this, &ModifyCommandPage::onModifierStackDoubleClicked);
 
 	QToolBar* editToolbar = new QToolBar(this);
 	editToolbar->setOrientation(Qt::Vertical);

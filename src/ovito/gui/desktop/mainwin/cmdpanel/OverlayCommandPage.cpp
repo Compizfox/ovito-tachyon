@@ -83,7 +83,7 @@ OverlayCommandPage::OverlayCommandPage(MainWindow* mainWindow, QWidget* parent) 
 	_overlayListWidget->setModel(_overlayListModel);
 	_overlayListWidget->setSelectionModel(_overlayListModel->selectionModel());
 	subLayout->addWidget(_overlayListWidget);
-	connect(_overlayListModel, &OverlayListModel::selectedItemChanged, this, &OverlayCommandPage::onItemSelectionChanged);
+	connect(_overlayListModel, &OverlayListModel::selectedItemChanged, this, &OverlayCommandPage::onItemSelectionChanged, Qt::QueuedConnection);
 	connect(_overlayListWidget, &OverlayListWidget::doubleClicked, this, &OverlayCommandPage::onLayerDoubleClicked);
 
 	QToolBar* editToolbar = new QToolBar(this);
