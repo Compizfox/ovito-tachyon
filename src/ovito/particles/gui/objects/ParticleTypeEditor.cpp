@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Copyright 2017 Alexander Stukowski
+//  Copyright 2020 Alexander Stukowski
 //
 //  This file is part of OVITO (Open Visualization Tool).
 //
@@ -59,21 +59,26 @@ void ParticleTypeEditor::createUI(const RolloutInsertionParameters& rolloutParam
 	gridLayout->setColumnStretch(1, 1);
 	layout1->addWidget(nameBox);
 
-	// Name.
-	StringParameterUI* namePUI = new StringParameterUI(this, PROPERTY_FIELD(ParticleType::name));
-	gridLayout->addWidget(new QLabel(tr("Name:")), 0, 0);
-	gridLayout->addWidget(namePUI->textBox(), 0, 1);
-
 	// Numeric ID.
-	gridLayout->addWidget(new QLabel(tr("Numeric ID:")), 1, 0);
+	gridLayout->addWidget(new QLabel(tr("Numeric ID:")), 0, 0);
 	QLabel* numericIdLabel = new QLabel();
-	gridLayout->addWidget(numericIdLabel, 1, 1);
+	gridLayout->addWidget(numericIdLabel, 0, 1);
 	connect(this, &PropertiesEditor::contentsReplaced, [numericIdLabel](RefTarget* newEditObject) {
 		if(ElementType* ptype = static_object_cast<ElementType>(newEditObject))
 			numericIdLabel->setText(QString::number(ptype->numericId()));
 		else
 			numericIdLabel->setText({});
 	});
+
+	// Type name.
+	StringParameterUI* namePUI = new StringParameterUI(this, PROPERTY_FIELD(ParticleType::name));
+	gridLayout->addWidget(new QLabel(tr("Name:")), 1, 0);
+	gridLayout->addWidget(namePUI->textBox(), 1, 1);
+
+	// Mass parameter.
+	FloatParameterUI* massPUI = new FloatParameterUI(this, PROPERTY_FIELD(ParticleType::mass));
+	gridLayout->addWidget(massPUI->label(), 2, 0);
+	gridLayout->addLayout(massPUI->createFieldLayout(), 2, 1);
 
 	QGroupBox* appearanceBox = new QGroupBox(tr("Appearance"), rollout);
 	gridLayout = new QGridLayout(appearanceBox);
@@ -91,11 +96,31 @@ void ParticleTypeEditor::createUI(const RolloutInsertionParameters& rolloutParam
 	gridLayout->addWidget(radiusPUI->label(), 1, 0);
 	gridLayout->addLayout(radiusPUI->createFieldLayout(), 1, 1);
 
+	// Button layout.
+	QHBoxLayout* hboxlayout = new QHBoxLayout();
+	hboxlayout->setContentsMargins(0,0,0,0);
+	gridLayout->addLayout(hboxlayout, 2, 0, 1, 2);
+
+	// "Load defaults" button
+	QPushButton* loadDefaultBtn = new QPushButton(tr("Load defaults"));
+	loadDefaultBtn->setToolTip(tr("Load color/radius from database of predefined particle types."));
+	loadDefaultBtn->setEnabled(false);
+	hboxlayout->addWidget(loadDefaultBtn, 1);
+	connect(loadDefaultBtn, &QPushButton::clicked, this, [this]() {
+		ParticleType* ptype = static_object_cast<ParticleType>(editObject());
+		if(!ptype) return;
+
+		ptype->setColor(ParticleType::getDefaultParticleColor(ParticlesObject::TypeProperty, ptype->nameOrNumericId(), ptype->numericId()));
+		ptype->setRadius(ParticleType::getDefaultParticleRadius(ParticlesObject::TypeProperty, ptype->nameOrNumericId(), ptype->numericId()));
+
+		mainWindow()->statusBar()->showMessage(tr("Loaded default color and radius values for particle type '%1'.").arg(ptype->nameOrNumericId()), 4000);
+	});
+
 	// "Save as defaults" button
 	QPushButton* setAsDefaultBtn = new QPushButton(tr("Save as defaults"));
 	setAsDefaultBtn->setToolTip(tr("Save current color/radius as default values for this particle type."));
 	setAsDefaultBtn->setEnabled(false);
-	gridLayout->addWidget(setAsDefaultBtn, 2, 0, 1, 2, Qt::AlignRight);
+	hboxlayout->addWidget(setAsDefaultBtn, 1);
 	connect(setAsDefaultBtn, &QPushButton::clicked, this, [this]() {
 		ParticleType* ptype = static_object_cast<ParticleType>(editObject());
 		if(!ptype) return;
@@ -105,7 +130,8 @@ void ParticleTypeEditor::createUI(const RolloutInsertionParameters& rolloutParam
 
 		mainWindow()->statusBar()->showMessage(tr("Stored current color and radius as defaults for particle type '%1'.").arg(ptype->nameOrNumericId()), 4000);
 	});
-	connect(this, &PropertiesEditor::contentsReplaced, [setAsDefaultBtn,namePUI](RefTarget* newEditObject) {
+	connect(this, &PropertiesEditor::contentsReplaced, [loadDefaultBtn,setAsDefaultBtn,namePUI](RefTarget* newEditObject) {
+		loadDefaultBtn->setEnabled(newEditObject != nullptr);
 		setAsDefaultBtn->setEnabled(newEditObject != nullptr);
 
 		// Update the placeholder text of the name input field to reflect the numeric ID of the current particle type.
@@ -131,7 +157,7 @@ void ParticleTypeEditor::createUI(const RolloutInsertionParameters& rolloutParam
 	loadShapeBtn->setEnabled(false);
 	gridLayout->addWidget(loadShapeBtn, 1, 0);
 	QPushButton* resetShapeBtn = new QPushButton(tr("Remove"));
-	resetShapeBtn->setToolTip(tr("Reset the particle shape back to the built-in one."));
+	resetShapeBtn->setToolTip(tr("Remove the user-defined particle shape."));
 	resetShapeBtn->setEnabled(false);
 	gridLayout->addWidget(resetShapeBtn, 1, 1);
 	BooleanParameterUI* highlightEdgesUI = new BooleanParameterUI(this, PROPERTY_FIELD(ParticleType::highlightShapeEdges));
@@ -149,7 +175,7 @@ void ParticleTypeEditor::createUI(const RolloutInsertionParameters& rolloutParam
 			if(ptype->shapeMesh() && ptype->shapeMesh()->mesh())
 				userShapeLabel->setText(tr("Assigned mesh: %1 faces/%2 vertices").arg(ptype->shapeMesh()->mesh()->faceCount()).arg(ptype->shapeMesh()->mesh()->vertexCount()));
 			else
-				userShapeLabel->setText(tr("No user-defined shape assigned"));
+				userShapeLabel->setText(tr("No user-defined shape set"));
 			highlightEdgesUI->setEnabled(ptype->shapeMesh() != nullptr);
 			shapeBackfaceCullingUI->setEnabled(ptype->shapeMesh() != nullptr);
 			shapeUseMeshColorUI->setEnabled(ptype->shapeMesh() != nullptr);
