@@ -68,7 +68,7 @@ TextLabelOverlay::TextLabelOverlay(DataSet* dataset) : ViewportOverlay(dataset),
 		_outlineColor(1,1,1),
 		_outlineEnabled(false)
 {
-	// Automatically connect to the selected object node.
+	// Automatically connect to the currently selected pipeline.
 	setSourceNode(dynamic_object_cast<PipelineSceneNode>(dataset->selection()->firstNode()));
 }
 
