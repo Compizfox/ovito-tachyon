@@ -61,6 +61,9 @@ OVITO_STANDARD_PLUGIN(ParticlesGui
 		util/ParticleInspectionApplet.cpp
 		util/BondInspectionApplet.cpp
 		util/BondPickingHelper.cpp
+		util/AngleInspectionApplet.cpp
+		util/DihedralInspectionApplet.cpp
+		util/ImproperInspectionApplet.cpp
 		import/InputColumnMappingDialog.cpp
 		import/lammps/LAMMPSTextDumpImporterEditor.cpp
 		import/lammps/LAMMPSBinaryDumpImporterEditor.cpp

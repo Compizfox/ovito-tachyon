@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Copyright 2018 Alexander Stukowski
+//  Copyright 2020 Alexander Stukowski
 //
 //  This file is part of OVITO (Open Visualization Tool).
 //
@@ -57,11 +57,6 @@ public:
 	virtual bool selectDataObject(PipelineObject* dataSource, const QString& objectIdentifierHint, const QVariant& modeHint) override;
 
 protected:
-
-	/// Creates the evaluator object for filter expressions.
-	virtual std::unique_ptr<PropertyExpressionEvaluator> createExpressionEvaluator() override {
-		return std::make_unique<PropertyExpressionEvaluator>();
-	}
 
 	/// Is called when the user selects a different property container object in the list.
 	virtual void currentContainerChanged() override;

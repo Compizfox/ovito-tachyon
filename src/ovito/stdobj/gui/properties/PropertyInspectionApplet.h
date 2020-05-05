@@ -87,13 +87,17 @@ protected:
 	void createBaseWidgets();
 
 	/// Creates the evaluator object for filter expressions.
-	virtual std::unique_ptr<PropertyExpressionEvaluator> createExpressionEvaluator() = 0;
+	virtual std::unique_ptr<PropertyExpressionEvaluator> createExpressionEvaluator() {
+		return std::make_unique<PropertyExpressionEvaluator>();
+	}
 
 	/// Determines the text shown in cells of the vertical header column.
 	virtual QVariant headerColumnText(int section) { return section; }
 
 	/// Determines whether the given property represents a color.
-	virtual bool isColorProperty(PropertyObject* property) const { return false; }
+	virtual bool isColorProperty(PropertyObject* property) const {
+		return property->type() == PropertyStorage::GenericColorProperty;
+	}
 
 	/// Updates the list of container objects displayed in the inspector.
 	void updateContainerList();

@@ -71,7 +71,7 @@ void ParticleFrameData::TypeList::sortTypesByName(PropertyAccess<int>& typePrope
 		_types[index].id = index + 1;
 	}
 
-	// Remap particle/bond type IDs.
+	// Remap type IDs.
 	if(typeProperty) {
 		for(int& t : typeProperty) {
 			OVITO_ASSERT(t >= 1 && t < mapping.size());
@@ -230,11 +230,11 @@ OORef<DataCollection> ParticleFrameData::handOver(const DataCollection* existing
 			insertTypes(propertyObj, (typeList != _typeLists.end()) ? typeList->second.get() : nullptr, isNewFile, false);
 		}
 
-		// Hand over the bonds.
+		// Hand over bonds.
 		if(!_bondProperties.empty()) {
 
-			OORef<BondsObject> existingBonds = existingParticles ? existingParticles->bonds() : nullptr;
-			BondsObject* bonds = new BondsObject(fileSource->dataset());
+			const BondsObject* existingBonds = existingParticles ? existingParticles->bonds() : nullptr;
+			OORef<BondsObject> bonds = new BondsObject(fileSource->dataset());
 			particles->setBonds(bonds);
 			bonds->setDataSource(fileSource);
 			if(!existingBonds) {
@@ -247,7 +247,7 @@ OORef<DataCollection> ParticleFrameData::handOver(const DataCollection* existing
 				bonds->setVisElements(existingBonds->visElements());
 			}
 
-			// Transfer bonds.
+			// Transfer bond properties.
 			for(auto& property : _bondProperties) {
 
 				// Look up existing property object.
@@ -255,7 +255,7 @@ OORef<DataCollection> ParticleFrameData::handOver(const DataCollection* existing
 					((property->type() != 0) ? existingBonds->getProperty(property->type()) : existingBonds->getProperty(property->name())) 
 					: nullptr;
 
-				// Create bond property.
+				// Create property.
 				OORef<PropertyObject> propertyObj;
 				if(existingPropertyObj) {
 					propertyObj = cloneHelper.cloneObject(existingPropertyObj, false);
@@ -271,9 +271,108 @@ OORef<DataCollection> ParticleFrameData::handOver(const DataCollection* existing
 						propertyObj->setVisElement(bonds->visElement<BondsVis>());
 				}
 
-				// Transfer bond types.
+				// Transfer types list.
 				auto typeList = _typeLists.find(propertyObj->storage().get());
 				insertTypes(propertyObj, (typeList != _typeLists.end()) ? typeList->second.get() : nullptr, isNewFile, true);
+			}
+		}
+
+		// Hand over list of angles.
+		if(!_angleProperties.empty()) {
+
+			const AnglesObject* existingAngles = existingParticles ? existingParticles->angles() : nullptr;
+			OORef<AnglesObject> angles = new AnglesObject(fileSource->dataset());
+			particles->setAngles(angles);
+			angles->setDataSource(fileSource);
+
+			// Transfer angle properties.
+			for(auto& property : _angleProperties) {
+
+				// Look up existing property object.
+				const PropertyObject* existingPropertyObj = existingAngles ? 
+					((property->type() != 0) ? existingAngles->getProperty(property->type()) : existingAngles->getProperty(property->name())) 
+					: nullptr;
+
+				// Create property.
+				OORef<PropertyObject> propertyObj;
+				if(existingPropertyObj) {
+					propertyObj = cloneHelper.cloneObject(existingPropertyObj, false);
+					propertyObj->setStorage(std::move(property));
+					angles->addProperty(propertyObj);
+				}
+				else {
+					propertyObj = angles->createProperty(std::move(property));
+				}
+
+				// Transfer types list.
+				auto typeList = _typeLists.find(propertyObj->storage().get());
+				insertTypes(propertyObj, (typeList != _typeLists.end()) ? typeList->second.get() : nullptr, isNewFile, false);
+			}
+		}
+
+		// Hand over list of dihedrals.
+		if(!_dihedralProperties.empty()) {
+
+			const DihedralsObject* existingDihedrals = existingParticles ? existingParticles->dihedrals() : nullptr;
+			OORef<DihedralsObject> dihedrals = new DihedralsObject(fileSource->dataset());
+			particles->setDihedrals(dihedrals);
+			dihedrals->setDataSource(fileSource);
+
+			// Transfer dihedral properties.
+			for(auto& property : _dihedralProperties) {
+
+				// Look up existing property object.
+				const PropertyObject* existingPropertyObj = existingDihedrals ? 
+					((property->type() != 0) ? existingDihedrals->getProperty(property->type()) : existingDihedrals->getProperty(property->name())) 
+					: nullptr;
+
+				// Create property.
+				OORef<PropertyObject> propertyObj;
+				if(existingPropertyObj) {
+					propertyObj = cloneHelper.cloneObject(existingPropertyObj, false);
+					propertyObj->setStorage(std::move(property));
+					dihedrals->addProperty(propertyObj);
+				}
+				else {
+					propertyObj = dihedrals->createProperty(std::move(property));
+				}
+
+				// Transfer types list.
+				auto typeList = _typeLists.find(propertyObj->storage().get());
+				insertTypes(propertyObj, (typeList != _typeLists.end()) ? typeList->second.get() : nullptr, isNewFile, false);
+			}
+		}
+
+		// Hand over list of impropers.
+		if(!_improperProperties.empty()) {
+
+			const ImpropersObject* existingImpropers = existingParticles ? existingParticles->impropers() : nullptr;
+			OORef<ImpropersObject> impropers = new ImpropersObject(fileSource->dataset());
+			particles->setImpropers(impropers);
+			impropers->setDataSource(fileSource);
+
+			// Transfer improper properties.
+			for(auto& property : _improperProperties) {
+
+				// Look up existing property object.
+				const PropertyObject* existingPropertyObj = existingImpropers ? 
+					((property->type() != 0) ? existingImpropers->getProperty(property->type()) : existingImpropers->getProperty(property->name())) 
+					: nullptr;
+
+				// Create property.
+				OORef<PropertyObject> propertyObj;
+				if(existingPropertyObj) {
+					propertyObj = cloneHelper.cloneObject(existingPropertyObj, false);
+					propertyObj->setStorage(std::move(property));
+					impropers->addProperty(propertyObj);
+				}
+				else {
+					propertyObj = impropers->createProperty(std::move(property));
+				}
+
+				// Transfer types list.
+				auto typeList = _typeLists.find(propertyObj->storage().get());
+				insertTypes(propertyObj, (typeList != _typeLists.end()) ? typeList->second.get() : nullptr, isNewFile, false);
 			}
 		}
 
@@ -515,7 +614,7 @@ void ParticleFrameData::sortParticlesById()
 	}
 	if(isAlreadySorted) return;
 
-	// Reorder all values in the particle property arrays.
+	// Re-order all values in the particle property arrays.
 	for(const PropertyPtr& prop : particleProperties()) {
 		PropertyStorage copy(*prop);
 		prop->mappedCopyFrom(copy, invertedPermutation);
@@ -524,10 +623,40 @@ void ParticleFrameData::sortParticlesById()
 	// Update bond topology data to match new particle ordering.
 	if(PropertyAccess<ParticleIndexPair> bondTopology = findStandardBondProperty(BondsObject::TopologyProperty)) {
 		for(ParticleIndexPair& bond : bondTopology) {
-			if(bond[0] >= 0 && (size_t)bond[0] < invertedPermutation.size())
-				bond[0] = invertedPermutation[bond[0]];
-			if(bond[1] >= 0 && (size_t)bond[1] < invertedPermutation.size())
-				bond[1] = invertedPermutation[bond[1]];
+			for(qlonglong& idx : bond) {
+				if(idx >= 0 && idx < invertedPermutation.size())
+					idx = invertedPermutation[idx];
+			}
+		}
+	}
+
+	// Update angle topology data to match new particle ordering.
+	if(PropertyAccess<ParticleIndexTriplet> angleTopology = findStandardAngleProperty(AnglesObject::TopologyProperty)) {
+		for(ParticleIndexTriplet& angle : angleTopology) {
+			for(qlonglong& idx : angle) {
+				if(idx >= 0 && idx < invertedPermutation.size())
+					idx = invertedPermutation[idx];
+			}
+		}
+	}
+
+	// Update dihedral topology data to match new particle ordering.
+	if(PropertyAccess<ParticleIndexQuadruplet> dihedralTopology = findStandardDihedralProperty(DihedralsObject::TopologyProperty)) {
+		for(ParticleIndexQuadruplet& dihedral : dihedralTopology) {
+			for(qlonglong& idx : dihedral) {
+				if(idx >= 0 && idx < invertedPermutation.size())
+					idx = invertedPermutation[idx];
+			}
+		}
+	}
+
+	// Update improper topology data to match new particle ordering.
+	if(PropertyAccess<ParticleIndexQuadruplet> improperTopology = findStandardImproperProperty(ImpropersObject::TopologyProperty)) {
+		for(ParticleIndexQuadruplet& improper : improperTopology) {
+			for(qlonglong& idx : improper) {
+				if(idx >= 0 && idx < invertedPermutation.size())
+					idx = invertedPermutation[idx];
+			}
 		}
 	}
 }

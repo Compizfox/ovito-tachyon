@@ -38,7 +38,13 @@ namespace Ovito { namespace Particles {
 
 IMPLEMENT_OVITO_CLASS(ParticlesObject);
 DEFINE_REFERENCE_FIELD(ParticlesObject, bonds);
+DEFINE_REFERENCE_FIELD(ParticlesObject, angles);
+DEFINE_REFERENCE_FIELD(ParticlesObject, dihedrals);
+DEFINE_REFERENCE_FIELD(ParticlesObject, impropers);
 SET_PROPERTY_FIELD_LABEL(ParticlesObject, bonds, "Bonds");
+SET_PROPERTY_FIELD_LABEL(ParticlesObject, angles, "Angles");
+SET_PROPERTY_FIELD_LABEL(ParticlesObject, dihedrals, "Dihedrals");
+SET_PROPERTY_FIELD_LABEL(ParticlesObject, impropers, "Impropers");
 
 /******************************************************************************
 * Constructor.
@@ -61,6 +67,39 @@ BondsObject* ParticlesObject::makeBondsMutable()
 {
     OVITO_ASSERT(bonds());
     return makeMutable(bonds());
+}
+
+/******************************************************************************
+* Duplicates the AnglesObject if it is shared with other particle objects.
+* After this method returns, the AnglesObject is exclusively owned by the
+* container and can be safely modified without unwanted side effects.
+******************************************************************************/
+AnglesObject* ParticlesObject::makeAnglesMutable()
+{
+    OVITO_ASSERT(angles());
+    return makeMutable(angles());
+}
+
+/******************************************************************************
+* Duplicates the DihedralsObject if it is shared with other particle objects.
+* After this method returns, the DihedralsObject is exclusively owned by the
+* container and can be safely modified without unwanted side effects.
+******************************************************************************/
+DihedralsObject* ParticlesObject::makeDihedralsMutable()
+{
+    OVITO_ASSERT(dihedrals());
+    return makeMutable(dihedrals());
+}
+
+/******************************************************************************
+* Duplicates the ImpropersObject if it is shared with other particle objects.
+* After this method returns, the ImpropersObject is exclusively owned by the
+* container and can be safely modified without unwanted side effects.
+******************************************************************************/
+ImpropersObject* ParticlesObject::makeImpropersMutable()
+{
+    OVITO_ASSERT(impropers());
+    return makeMutable(impropers());
 }
 
 /******************************************************************************
@@ -105,7 +144,6 @@ size_t ParticlesObject::deleteElements(const boost::dynamic_bitset<>& mask)
         // Make sure we can safely modify the bonds object.
         BondsObject* mutableBonds = makeBondsMutable();
 
-        size_t newBondCount = 0;
         size_t oldBondCount = mutableBonds->elementCount();
         boost::dynamic_bitset<> deletedBondsMask(oldBondCount);
 
@@ -145,6 +183,151 @@ size_t ParticlesObject::deleteElements(const boost::dynamic_bitset<>& mask)
             mutableBonds->deleteElements(deletedBondsMask);
         }
     }
+
+	// Delete dangling angles, i.e. those that are incident on deleted particles.
+    if(angles()) {
+        // Make sure we can safely modify the angles object.
+        AnglesObject* mutableAngles = makeAnglesMutable();
+
+        size_t oldAngleCount = mutableAngles->elementCount();
+        boost::dynamic_bitset<> deletedAnglesMask(oldAngleCount);
+
+        // Build map from old particle indices to new indices.
+        std::vector<size_t> indexMap(oldParticleCount);
+        auto index = indexMap.begin();
+        size_t count = 0;
+        for(size_t i = 0; i < oldParticleCount; i++)
+            *index++ = mask.test(i) ? std::numeric_limits<size_t>::max() : count++;
+
+        // Remap particle indices of angles and remove dangling angles.
+        if(const PropertyObject* topologyProperty = mutableAngles->getTopology()) {
+            PropertyAccess<ParticleIndexTriplet> mutableTopology = mutableAngles->makeMutable(topologyProperty);
+			for(size_t angleIndex = 0; angleIndex < oldAngleCount; angleIndex++) {
+                size_t index1 = mutableTopology[angleIndex][0];
+                size_t index2 = mutableTopology[angleIndex][1];
+                size_t index3 = mutableTopology[angleIndex][2];
+
+                // Remove invalid angles, i.e. whose particle indices are out of bounds.
+                if(index1 >= oldParticleCount || index2 >= oldParticleCount || index3 >= oldParticleCount) {
+                    deletedAnglesMask.set(angleIndex);
+                    continue;
+                }
+
+                // Remove dangling angles whose particles have gone.
+                if(mask.test(index1) || mask.test(index2) || mask.test(index3)) {
+                    deletedAnglesMask.set(angleIndex);
+                    continue;
+                }
+
+                // Keep angle and remap particle indices.
+                mutableTopology[angleIndex][0] = indexMap[index1];
+                mutableTopology[angleIndex][1] = indexMap[index2];
+                mutableTopology[angleIndex][2] = indexMap[index3];
+            }
+			mutableTopology.reset();
+
+            // Delete the marked angles.
+            mutableAngles->deleteElements(deletedAnglesMask);
+        }
+    }
+
+	// Delete dangling dihedrals, i.e. those that are incident on deleted particles.
+    if(dihedrals()) {
+        // Make sure we can safely modify the dihedrals object.
+        DihedralsObject* mutableDihedrals = makeDihedralsMutable();
+
+        size_t oldDihedralCount = mutableDihedrals->elementCount();
+        boost::dynamic_bitset<> deletedDihedralsMask(oldDihedralCount);
+
+        // Build map from old particle indices to new indices.
+        std::vector<size_t> indexMap(oldParticleCount);
+        auto index = indexMap.begin();
+        size_t count = 0;
+        for(size_t i = 0; i < oldParticleCount; i++)
+            *index++ = mask.test(i) ? std::numeric_limits<size_t>::max() : count++;
+
+        // Remap particle indices of angles and remove dangling dihedrals.
+        if(const PropertyObject* topologyProperty = mutableDihedrals->getTopology()) {
+            PropertyAccess<ParticleIndexQuadruplet> mutableTopology = mutableDihedrals->makeMutable(topologyProperty);
+			for(size_t dihedralIndex = 0; dihedralIndex < oldDihedralCount; dihedralIndex++) {
+                size_t index1 = mutableTopology[dihedralIndex][0];
+                size_t index2 = mutableTopology[dihedralIndex][1];
+                size_t index3 = mutableTopology[dihedralIndex][2];
+                size_t index4 = mutableTopology[dihedralIndex][3];
+
+                // Remove invalid dihedrals, i.e. whose particle indices are out of bounds.
+                if(index1 >= oldParticleCount || index2 >= oldParticleCount || index3 >= oldParticleCount || index4 >= oldParticleCount) {
+                    deletedDihedralsMask.set(dihedralIndex);
+                    continue;
+                }
+
+                // Remove dangling dihedrals whose particles have gone.
+                if(mask.test(index1) || mask.test(index2) || mask.test(index3) || mask.test(index4)) {
+                    deletedDihedralsMask.set(dihedralIndex);
+                    continue;
+                }
+
+                // Keep dihedral and remap particle indices.
+                mutableTopology[dihedralIndex][0] = indexMap[index1];
+                mutableTopology[dihedralIndex][1] = indexMap[index2];
+                mutableTopology[dihedralIndex][2] = indexMap[index3];
+                mutableTopology[dihedralIndex][3] = indexMap[index4];
+            }
+			mutableTopology.reset();
+
+            // Delete the marked dihedrals.
+            mutableDihedrals->deleteElements(deletedDihedralsMask);
+        }
+    }
+
+	// Delete dangling impropers, i.e. those that are incident on deleted particles.
+    if(impropers()) {
+        // Make sure we can safely modify the impropers object.
+        ImpropersObject* mutableImpropers = makeImpropersMutable();
+
+        size_t oldImproperCount = mutableImpropers->elementCount();
+        boost::dynamic_bitset<> deletedImpropersMask(oldImproperCount);
+
+        // Build map from old particle indices to new indices.
+        std::vector<size_t> indexMap(oldParticleCount);
+        auto index = indexMap.begin();
+        size_t count = 0;
+        for(size_t i = 0; i < oldParticleCount; i++)
+            *index++ = mask.test(i) ? std::numeric_limits<size_t>::max() : count++;
+
+        // Remap particle indices of angles and remove dangling impropers.
+        if(const PropertyObject* topologyProperty = mutableImpropers->getTopology()) {
+            PropertyAccess<ParticleIndexQuadruplet> mutableTopology = mutableImpropers->makeMutable(topologyProperty);
+			for(size_t improperIndex = 0; improperIndex < oldImproperCount; improperIndex++) {
+                size_t index1 = mutableTopology[improperIndex][0];
+                size_t index2 = mutableTopology[improperIndex][1];
+                size_t index3 = mutableTopology[improperIndex][2];
+                size_t index4 = mutableTopology[improperIndex][3];
+
+                // Remove invalid impropers, i.e. whose particle indices are out of bounds.
+                if(index1 >= oldParticleCount || index2 >= oldParticleCount || index3 >= oldParticleCount || index4 >= oldParticleCount) {
+                    deletedImpropersMask.set(improperIndex);
+                    continue;
+                }
+
+                // Remove dangling impropers whose particles have gone.
+                if(mask.test(index1) || mask.test(index2) || mask.test(index3) || mask.test(index4)) {
+                    deletedImpropersMask.set(improperIndex);
+                    continue;
+                }
+
+                // Keep improper and remap particle indices.
+                mutableTopology[improperIndex][0] = indexMap[index1];
+                mutableTopology[improperIndex][1] = indexMap[index2];
+                mutableTopology[improperIndex][2] = indexMap[index3];
+                mutableTopology[improperIndex][3] = indexMap[index4];
+            }
+			mutableTopology.reset();
+
+            // Delete the marked impropers.
+            mutableImpropers->deleteElements(deletedImpropersMask);
+        }
+    }	
 
 	return deleteCount;
 }

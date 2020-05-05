@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Copyright 2018 Alexander Stukowski
+//  Copyright 2020 Alexander Stukowski
 //
 //  This file is part of OVITO (Open Visualization Tool).
 //
@@ -29,11 +29,11 @@
 namespace Ovito { namespace Particles {
 
 /**
- * \brief Stores trajectory lines of a particles dataset.
+ * \brief This data object stores a list of molecular angles, i.e. triplets of particles.
  */
-class OVITO_PARTICLES_EXPORT TrajectoryObject : public PropertyContainer
+class OVITO_PARTICLES_EXPORT AnglesObject : public PropertyContainer
 {
-	/// Define a new property metaclass for this property container type.
+	/// Define a new property metaclass for the property container.
 	class OVITO_PARTICLES_EXPORT OOMetaClass : public PropertyContainerClass
 	{
 	public:
@@ -41,8 +41,11 @@ class OVITO_PARTICLES_EXPORT TrajectoryObject : public PropertyContainer
 		/// Inherit constructor from base class.
 		using PropertyContainerClass::PropertyContainerClass;
 
-		/// Creates a storage object for standard properties.
+		/// \brief Create a storage object for standard properties.
 		virtual PropertyPtr createStandardStorage(size_t elementCount, int type, bool initializeMemory, const ConstDataObjectPath& containerPath = {}) const override;
+
+		/// Generates a human-readable string representation of the data object reference.
+		virtual QString formatDataObjectPath(const ConstDataObjectPath& path) const override { return this->displayName(); }
 
 	protected:
 
@@ -51,21 +54,29 @@ class OVITO_PARTICLES_EXPORT TrajectoryObject : public PropertyContainer
 	};
 
 	Q_OBJECT
-	OVITO_CLASS_META(TrajectoryObject, OOMetaClass);
-	Q_CLASSINFO("DisplayName", "Particle trajectories");
+	OVITO_CLASS_META(AnglesObject, OOMetaClass);
+	Q_CLASSINFO("DisplayName", "Angles");
 
 public:
 
-	/// \brief The list of standard properties.
+	/// \brief The list of standard angle properties.
 	enum Type {
-		PositionProperty = PropertyStorage::FirstSpecificProperty,
-		SampleTimeProperty,
-		ParticleIdentifierProperty
+		UserProperty = PropertyStorage::GenericUserProperty,
+		TypeProperty = PropertyStorage::GenericTypeProperty,
+		TopologyProperty,
 	};
 
 	/// \brief Constructor.
-	Q_INVOKABLE TrajectoryObject(DataSet* dataset);
+	Q_INVOKABLE AnglesObject(DataSet* dataset);
+
+	/// Convinience method that returns the angle topology property.
+	const PropertyObject* getTopology() const { return getProperty(TopologyProperty); }
 };
+
+/**
+ * The data type used for the 'Topology' angle property: three indices into the particles list.
+ */
+using ParticleIndexTriplet = std::array<qlonglong, 3>;
 
 }	// End of namespace
 }	// End of namespace

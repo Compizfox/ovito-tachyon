@@ -35,7 +35,7 @@ namespace Ovito { namespace Particles {
 class OVITO_PARTICLES_EXPORT BondsObject : public PropertyContainer
 {
 	/// Define a new property metaclass for bond property containers.
-	class OOMetaClass : public PropertyContainerClass
+	class OVITO_PARTICLES_EXPORT OOMetaClass : public PropertyContainerClass
 	{
 	public:
 
@@ -111,11 +111,9 @@ using ParticleIndexPair = std::array<qlonglong, 2>;
 struct Bond
 {
 	/// The index of the first particle.
-	/// Note that we are using int instead of size_t here to save some memory.
 	size_t index1;
 
 	/// The index of the second particle.
-	/// Note that we are using int instead of size_t here to save some memory.
 	size_t index2;
 
 	/// If the bond crosses a periodic boundary, this indicates the direction.

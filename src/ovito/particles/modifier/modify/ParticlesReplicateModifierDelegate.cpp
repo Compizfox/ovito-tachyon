@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Copyright 2019 Alexander Stukowski
+//  Copyright 2020 Alexander Stukowski
 //
 //  This file is part of OVITO (Open Visualization Tool).
 //
@@ -66,7 +66,8 @@ PipelineStatus ParticlesReplicateModifierDelegate::apply(Modifier* modifier, Pip
 	size_t oldParticleCount = inputParticles->elementCount();
 	size_t newParticleCount = oldParticleCount * numCopies;
 
-	const AffineTransformation& simCell = state.expectObject<SimulationCellObject>()->cellMatrix();
+	const SimulationCell cell = state.expectObject<SimulationCellObject>()->data();
+	const AffineTransformation& cellMatrix = cell.matrix();
 
 	// Ensure that the particles can be modified.
 	ParticlesObject* outputParticles = state.makeMutable(inputParticles);
@@ -85,7 +86,7 @@ PipelineStatus ParticlesReplicateModifierDelegate::apply(Modifier* modifier, Pip
 				for(int imageY = newImages.minc.y(); imageY <= newImages.maxc.y(); imageY++) {
 					for(int imageZ = newImages.minc.z(); imageZ <= newImages.maxc.z(); imageZ++) {
 						if(imageX != 0 || imageY != 0 || imageZ != 0) {
-							const Vector3 imageDelta = simCell * Vector3(imageX, imageY, imageZ);
+							const Vector3 imageDelta = cellMatrix * Vector3(imageX, imageY, imageZ);
 							for(size_t i = 0; i < oldParticleCount; i++)
 								*p++ += imageDelta;
 						}
@@ -143,10 +144,10 @@ PipelineStatus ParticlesReplicateModifierDelegate::apply(Modifier* modifier, Pip
 								OVITO_ASSERT(newImage.x() >= newImages.minc.x() && newImage.x() <= newImages.maxc.x());
 								OVITO_ASSERT(newImage.y() >= newImages.minc.y() && newImage.y() <= newImages.maxc.y());
 								OVITO_ASSERT(newImage.z() >= newImages.minc.z() && newImage.z() <= newImages.maxc.z());
-								size_t imageIndex1 =   ((image.x()-newImages.minc.x()) * nPBC[1] * nPBC[2])
+								size_t imageIndex1 =  ((image.x()-newImages.minc.x()) * nPBC[1] * nPBC[2])
 													+ ((image.y()-newImages.minc.y()) * nPBC[2])
 													+  (image.z()-newImages.minc.z());
-								size_t imageIndex2 =   ((newImage.x()-newImages.minc.x()) * nPBC[1] * nPBC[2])
+								size_t imageIndex2 =  ((newImage.x()-newImages.minc.x()) * nPBC[1] * nPBC[2])
 													+ ((newImage.y()-newImages.minc.y()) * nPBC[2])
 													+  (newImage.z()-newImages.minc.z());
 								topologyArray[destinationIndex][0] += imageIndex1 * oldParticleCount;
@@ -174,6 +175,147 @@ PipelineStatus ParticlesReplicateModifierDelegate::apply(Modifier* modifier, Pip
 										newShift[dim] *= nPBC[dim];
 								}
 								pbcImagesArray[destinationIndex] = newShift;
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+
+	// Replicate angles.
+	if(outputParticles->angles()) {
+		size_t oldAngleCount = outputParticles->angles()->elementCount();
+
+		// Replicate angle property values.
+		outputParticles->makeAnglesMutable();
+		outputParticles->angles()->makePropertiesMutable();
+		outputParticles->angles()->replicate(numCopies);
+		for(PropertyObject* property : outputParticles->angles()->properties()) {
+			size_t destinationIndex = 0;
+			Point3I image;
+
+			// Special handling for the topology property.
+			if(property->type() == AnglesObject::TopologyProperty) {
+				PropertyAccess<ParticleIndexTriplet> topologyArray(property);
+				ConstPropertyAccess<Point3> positionArray(inputParticles->expectProperty(ParticlesObject::PositionProperty));
+				for(image[0] = newImages.minc.x(); image[0] <= newImages.maxc.x(); image[0]++) {
+					for(image[1] = newImages.minc.y(); image[1] <= newImages.maxc.y(); image[1]++) {
+						for(image[2] = newImages.minc.z(); image[2] <= newImages.maxc.z(); image[2]++) {
+							for(size_t index = 0; index < oldAngleCount; index++, destinationIndex++) {
+								qlonglong referenceParticle = topologyArray[destinationIndex][1];
+								for(qlonglong& pindex : topologyArray[destinationIndex]) {
+									Point3I newImage = image;
+									if(pindex >= 0 && pindex < positionArray.size() && referenceParticle >= 0 && referenceParticle < positionArray.size()) {
+										Vector3 delta = positionArray[pindex] - positionArray[referenceParticle];
+										for(size_t dim = 0; dim < 3; dim++) {
+											if(cell.pbcFlags()[dim]) {
+												int imageDelta = (int)std::floor(cell.inverseMatrix().prodrow(delta, dim) + FloatType(0.5));
+												int i = image[dim] - newImages.minc[dim] - imageDelta;
+												newImage[dim] = SimulationCell::modulo(i, nPBC[dim]) + newImages.minc[dim];
+											}
+										}
+									}
+									int imageIndex =   ((newImage.x() - newImages.minc.x()) * nPBC[1] * nPBC[2])
+													 + ((newImage.y() - newImages.minc.y()) * nPBC[2])
+													 +  (newImage.z() - newImages.minc.z());
+									pindex += imageIndex * oldParticleCount;
+									OVITO_ASSERT(pindex < newParticleCount);
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+
+	// Replicate dihedrals.
+	if(outputParticles->dihedrals()) {
+		size_t oldDihedralCount = outputParticles->dihedrals()->elementCount();
+
+		// Replicate dihedral property values.
+		outputParticles->makeDihedralsMutable();
+		outputParticles->dihedrals()->makePropertiesMutable();
+		outputParticles->dihedrals()->replicate(numCopies);
+		for(PropertyObject* property : outputParticles->dihedrals()->properties()) {
+			size_t destinationIndex = 0;
+			Point3I image;
+
+			// Special handling for the topology property.
+			if(property->type() == DihedralsObject::TopologyProperty) {
+				PropertyAccess<ParticleIndexQuadruplet> topologyArray(property);
+				ConstPropertyAccess<Point3> positionArray(inputParticles->expectProperty(ParticlesObject::PositionProperty));
+				for(image[0] = newImages.minc.x(); image[0] <= newImages.maxc.x(); image[0]++) {
+					for(image[1] = newImages.minc.y(); image[1] <= newImages.maxc.y(); image[1]++) {
+						for(image[2] = newImages.minc.z(); image[2] <= newImages.maxc.z(); image[2]++) {
+							for(size_t index = 0; index < oldDihedralCount; index++, destinationIndex++) {
+								qlonglong referenceParticle = topologyArray[destinationIndex][1];
+								for(qlonglong& pindex : topologyArray[destinationIndex]) {
+									Point3I newImage = image;
+									if(pindex >= 0 && pindex < positionArray.size() && referenceParticle >= 0 && referenceParticle < positionArray.size()) {
+										Vector3 delta = positionArray[pindex] - positionArray[referenceParticle];
+										for(size_t dim = 0; dim < 3; dim++) {
+											if(cell.pbcFlags()[dim]) {
+												int imageDelta = (int)std::floor(cell.inverseMatrix().prodrow(delta, dim) + FloatType(0.5));
+												int i = image[dim] - newImages.minc[dim] - imageDelta;
+												newImage[dim] = SimulationCell::modulo(i, nPBC[dim]) + newImages.minc[dim];
+											}
+										}
+									}
+									int imageIndex =   ((newImage.x() - newImages.minc.x()) * nPBC[1] * nPBC[2])
+													 + ((newImage.y() - newImages.minc.y()) * nPBC[2])
+													 +  (newImage.z() - newImages.minc.z());
+									pindex += imageIndex * oldParticleCount;
+									OVITO_ASSERT(pindex < newParticleCount);
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+
+	// Replicate impropers.
+	if(outputParticles->impropers()) {
+		size_t oldImproperCount = outputParticles->impropers()->elementCount();
+
+		// Replicate improper property values.
+		outputParticles->makeImpropersMutable();
+		outputParticles->impropers()->makePropertiesMutable();
+		outputParticles->impropers()->replicate(numCopies);
+		for(PropertyObject* property : outputParticles->impropers()->properties()) {
+			size_t destinationIndex = 0;
+			Point3I image;
+
+			// Special handling for the topology property.
+			if(property->type() == ImpropersObject::TopologyProperty) {
+				PropertyAccess<ParticleIndexQuadruplet> topologyArray(property);
+				ConstPropertyAccess<Point3> positionArray(inputParticles->expectProperty(ParticlesObject::PositionProperty));
+				for(image[0] = newImages.minc.x(); image[0] <= newImages.maxc.x(); image[0]++) {
+					for(image[1] = newImages.minc.y(); image[1] <= newImages.maxc.y(); image[1]++) {
+						for(image[2] = newImages.minc.z(); image[2] <= newImages.maxc.z(); image[2]++) {
+							for(size_t index = 0; index < oldImproperCount; index++, destinationIndex++) {
+								qlonglong referenceParticle = topologyArray[destinationIndex][1];
+								for(qlonglong& pindex : topologyArray[destinationIndex]) {
+									Point3I newImage = image;
+									if(pindex >= 0 && pindex < positionArray.size() && referenceParticle >= 0 && referenceParticle < positionArray.size()) {
+										Vector3 delta = positionArray[pindex] - positionArray[referenceParticle];
+										for(size_t dim = 0; dim < 3; dim++) {
+											if(cell.pbcFlags()[dim]) {
+												int imageDelta = (int)std::floor(cell.inverseMatrix().prodrow(delta, dim) + FloatType(0.5));
+												int i = image[dim] - newImages.minc[dim] - imageDelta;
+												newImage[dim] = SimulationCell::modulo(i, nPBC[dim]) + newImages.minc[dim];
+											}
+										}
+									}
+									int imageIndex =   ((newImage.x() - newImages.minc.x()) * nPBC[1] * nPBC[2])
+													 + ((newImage.y() - newImages.minc.y()) * nPBC[2])
+													 +  (newImage.z() - newImages.minc.z());
+									pindex += imageIndex * oldParticleCount;
+									OVITO_ASSERT(pindex < newParticleCount);
+								}
 							}
 						}
 					}

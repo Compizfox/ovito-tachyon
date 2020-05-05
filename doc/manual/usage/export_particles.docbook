@@ -60,7 +60,7 @@
             <row>
               <entry>LAMMPS&#xA0;data</entry>
               <entry><para>File format read by the <link xlink:href="http://lammps.sandia.gov">LAMMPS</link> molecular dynamics code.</para></entry>
-              <entry><link linkend="scene_objects.particles">particles</link>, <link linkend="scene_objects.bonds">bonds</link></entry>
+              <entry><link linkend="scene_objects.particles">particles</link>, <link linkend="scene_objects.bonds">bonds</link>, angles, dihedrals, impropers</entry>
             </row>
             <row>
               <entry>XYZ</entry>

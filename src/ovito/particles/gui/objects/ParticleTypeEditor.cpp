@@ -110,10 +110,12 @@ void ParticleTypeEditor::createUI(const RolloutInsertionParameters& rolloutParam
 		ParticleType* ptype = static_object_cast<ParticleType>(editObject());
 		if(!ptype) return;
 
-		ptype->setColor(ParticleType::getDefaultParticleColor(ParticlesObject::TypeProperty, ptype->nameOrNumericId(), ptype->numericId()));
-		ptype->setRadius(ParticleType::getDefaultParticleRadius(ParticlesObject::TypeProperty, ptype->nameOrNumericId(), ptype->numericId()));
+		undoableTransaction(tr("Load default particle settings"), [&]() {
+			ptype->setColor(ParticleType::getDefaultParticleColor(ParticlesObject::TypeProperty, ptype->nameOrNumericId(), ptype->numericId()));
+			ptype->setRadius(ParticleType::getDefaultParticleRadius(ParticlesObject::TypeProperty, ptype->nameOrNumericId(), ptype->numericId()));
 
-		mainWindow()->statusBar()->showMessage(tr("Loaded default color and radius values for particle type '%1'.").arg(ptype->nameOrNumericId()), 4000);
+			mainWindow()->statusBar()->showMessage(tr("Loaded default color and radius values for particle type '%1'.").arg(ptype->nameOrNumericId()), 4000);
+		});
 	});
 
 	// "Save as defaults" button

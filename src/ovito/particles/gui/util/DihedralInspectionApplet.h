@@ -23,44 +23,32 @@
 #pragma once
 
 
-#include <ovito/stdobj/gui/StdObjGui.h>
+#include <ovito/particles/gui/ParticlesGui.h>
+#include <ovito/particles/objects/DihedralsObject.h>
 #include <ovito/stdobj/gui/properties/PropertyInspectionApplet.h>
-#include <ovito/grid/objects/VoxelGrid.h>
 
-namespace Ovito { namespace Grid {
+namespace Ovito { namespace Particles {
+
 
 /**
- * \brief Data inspector page for voxel grid objects.
+ * \brief Data inspector page for the list of molecular dihedrals.
  */
-class VoxelGridInspectionApplet : public PropertyInspectionApplet
+class DihedralInspectionApplet : public PropertyInspectionApplet
 {
 	Q_OBJECT
-	OVITO_CLASS(VoxelGridInspectionApplet)
-	Q_CLASSINFO("DisplayName", "Voxel Grids");
+	OVITO_CLASS(DihedralInspectionApplet)
+	Q_CLASSINFO("DisplayName", "Dihedrals");
 
 public:
 
 	/// Constructor.
-	Q_INVOKABLE VoxelGridInspectionApplet() : PropertyInspectionApplet(VoxelGrid::OOClass()) {}
+	Q_INVOKABLE DihedralInspectionApplet() : PropertyInspectionApplet(DihedralsObject::OOClass()) {}
 
 	/// Returns the key value for this applet that is used for ordering the applet tabs.
-	virtual int orderingKey() const override { return 210; }
+	virtual int orderingKey() const override { return 16; }
 
 	/// Lets the applet create the UI widget that is to be placed into the data inspector panel.
 	virtual QWidget* createWidget(MainWindow* mainWindow) override;
-
-protected:
-
-	/// Determines the text shown in cells of the vertical header column.
-	virtual QVariant headerColumnText(int section) override;
-
-	/// Is called when the user selects a different property container object in the list.
-	virtual void currentContainerChanged() override;
-
-private:
-
-	MainWindow* _mainWindow;
-	QLabel* _gridInfoLabel;
 };
 
 }	// End of namespace

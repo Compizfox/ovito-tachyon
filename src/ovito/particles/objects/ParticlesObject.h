@@ -26,6 +26,9 @@
 #include <ovito/particles/Particles.h>
 #include <ovito/stdobj/properties/PropertyContainer.h>
 #include "BondsObject.h"
+#include "AnglesObject.h"
+#include "DihedralsObject.h"
+#include "ImpropersObject.h"
 
 namespace Ovito { namespace Particles {
 
@@ -35,7 +38,7 @@ namespace Ovito { namespace Particles {
 class OVITO_PARTICLES_EXPORT ParticlesObject : public PropertyContainer
 {
 	/// Define a new property metaclass for particle containers.
-	class OOMetaClass : public PropertyContainerClass
+	class OVITO_PARTICLES_EXPORT OOMetaClass : public PropertyContainerClass
 	{
 	public:
 		/// Inherit constructor from base class.
@@ -136,6 +139,21 @@ public:
 	/// can be safely modified without expected side effects.
 	BondsObject* makeBondsMutable();
 
+	/// Duplicates the AnglesObject if it is shared with other particle objects.
+	/// After this method returns, the AnglesObject is exclusively owned by the ParticlesObject and
+	/// can be safely modified without expected side effects.
+	AnglesObject* makeAnglesMutable();
+
+	/// Duplicates the DihedralsObject if it is shared with other particle objects.
+	/// After this method returns, the DihedralsObject is exclusively owned by the ParticlesObject and
+	/// can be safely modified without expected side effects.
+	DihedralsObject* makeDihedralsMutable();
+
+	/// Duplicates the ImpropersObject if it is shared with other particle objects.
+	/// After this method returns, the ImpropersObject is exclusively owned by the ParticlesObject and
+	/// can be safely modified without expected side effects.
+	ImpropersObject* makeImpropersMutable();
+
 	/// Convinience method that makes sure that there is a BondsObject.
 	const BondsObject* expectBonds() const;
 
@@ -156,8 +174,17 @@ public:
 
 private:
 
-	/// The bonds object.
+	/// The bonds list sub-object.
 	DECLARE_MODIFIABLE_REFERENCE_FIELD(BondsObject, bonds, setBonds);
+
+	/// The angles list sub-object.
+	DECLARE_MODIFIABLE_REFERENCE_FIELD(AnglesObject, angles, setAngles);
+
+	/// The dihedrals list sub-object.
+	DECLARE_MODIFIABLE_REFERENCE_FIELD(DihedralsObject, dihedrals, setDihedrals);
+
+	/// The impropers list sub-object.
+	DECLARE_MODIFIABLE_REFERENCE_FIELD(ImpropersObject, impropers, setImpropers);
 };
 
 

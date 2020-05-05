@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Copyright 2019 Alexander Stukowski
+//  Copyright 2020 Alexander Stukowski
 //
 //  This file is part of OVITO (Open Visualization Tool).
 //
@@ -135,92 +135,132 @@ PipelineStatus ParticlesCombineDatasetsModifierDelegate::apply(Modifier* modifie
 		}
 	}
 
-	// Merge bonds.
-	const BondsObject* primaryBonds = particles->bonds();
-	const BondsObject* secondaryBonds = secondaryParticles->bonds();
+	// Helper function that merges two sets of either bonds/angles/dihredrals/impropers.
+	auto mergeTopologyLists = [&](const PropertyContainer* primaryElements, const PropertyContainer* secondaryElements, int topologyPropertyId) {
 
-	// Merge bonds if present.
-	if(primaryBonds || secondaryBonds) {
-
-		// Create the primary bonds object if it doesn't exist yet.
-		if(!primaryBonds) {
-			primaryBonds = new BondsObject(dataset());
-			particles->setBonds(primaryBonds);
-			OVITO_ASSERT(secondaryBonds);
-			particles->bonds()->setVisElement(secondaryBonds->visElement());
-		}
-
-		size_t primaryBondCount = primaryBonds->elementCount();
-		size_t secondaryBondCount = secondaryBonds ? secondaryBonds->elementCount() : 0;
-		size_t totalBondCount = primaryBondCount + secondaryBondCount;
+		size_t primaryElementCount = primaryElements->elementCount();
+		size_t secondaryElementCount = secondaryElements ? secondaryElements->elementCount() : 0;
+		size_t totalElementCount = primaryElementCount + secondaryElementCount;
 
 		// Extend all property arrays of primary dataset and copy data from secondary set if it contains a matching property.
-		if(secondaryBondCount != 0) {
-			BondsObject* primaryMutableBonds = particles->makeBondsMutable();
-			primaryMutableBonds->makePropertiesMutable();
-			primaryMutableBonds->setElementCount(totalBondCount);
-			for(PropertyObject* prop : primaryMutableBonds->properties()) {
-				OVITO_ASSERT(prop->size() == totalBondCount);
+		if(secondaryElementCount != 0) {
+			PropertyContainer* primaryMutableElements = particles->makeMutable(primaryElements);
+			primaryElements = primaryMutableElements;
+			primaryMutableElements->makePropertiesMutable();
+			primaryMutableElements->setElementCount(totalElementCount);
+			for(PropertyObject* prop : primaryMutableElements->properties()) {
+				OVITO_ASSERT(prop->size() == totalElementCount);
 
 				// Find corresponding property in second dataset.
 				const PropertyObject* secondProp;
-				if(prop->type() != BondsObject::UserProperty)
-					secondProp = secondaryBonds->getProperty(prop->type());
+				if(prop->type() != PropertyStorage::GenericUserProperty)
+					secondProp = secondaryElements->getProperty(prop->type());
 				else
-					secondProp = secondaryBonds->getProperty(prop->name());
-				if(secondProp && secondProp->size() == secondaryBondCount && secondProp->componentCount() == prop->componentCount() && secondProp->dataType() == prop->dataType()) {
+					secondProp = secondaryElements->getProperty(prop->name());
+				if(secondProp && secondProp->size() == secondaryElementCount && secondProp->componentCount() == prop->componentCount() && secondProp->dataType() == prop->dataType()) {
 					OVITO_ASSERT(prop->stride() == secondProp->stride());
-					prop->copyRangeFrom(secondProp, 0, primaryBondCount, secondaryBondCount);
+					prop->copyRangeFrom(secondProp, 0, primaryElementCount, secondaryElementCount);
 				}
-				else if(prop->type() != BondsObject::UserProperty) {
-					ConstDataObjectPath containerPath = { secondaryParticles, secondaryBonds };
-					PropertyPtr temporaryProp = BondsObject::OOClass().createStandardStorage(secondaryBondCount, prop->type(), true, containerPath);
-					prop->modifiableStorage()->copyRangeFrom(*temporaryProp, 0, primaryBondCount, secondaryBondCount);
+				else if(prop->type() != PropertyStorage::GenericUserProperty) {
+					ConstDataObjectPath containerPath = { secondaryParticles, secondaryElements };
+					PropertyPtr temporaryProp = secondaryElements->getOOMetaClass().createStandardStorage(secondaryElementCount, prop->type(), true, containerPath);
+					prop->modifiableStorage()->copyRangeFrom(*temporaryProp, 0, primaryElementCount, secondaryElementCount);
 				}
 
-				// Combine bond type lists.
+				// Combine type lists.
 				mergeElementTypes(prop, secondProp, cloneHelper);
 			}
 		}
 
-		// Copy bond properties from second dataset which do not exist in the primary dataset yet.
-		if(secondaryBonds) {
-			BondsObject* primaryMutableBonds = particles->makeBondsMutable();
-			for(const PropertyObject* prop : secondaryBonds->properties()) {
-				if(prop->size() != secondaryBondCount) continue;
+		// Copy properties from second dataset which do not exist in the primary dataset yet.
+		if(secondaryElements) {
+			PropertyContainer* primaryMutableElements = particles->makeMutable(primaryElements);
+			for(const PropertyObject* prop : secondaryElements->properties()) {
+				if(prop->size() != secondaryElementCount) continue;
 
 				// Check if the property already exists in the output.
-				if(prop->type() != BondsObject::UserProperty) {
-					if(primaryMutableBonds->getProperty(prop->type()))
+				if(prop->type() != PropertyStorage::GenericUserProperty) {
+					if(primaryMutableElements->getProperty(prop->type()))
 						continue;
 				}
 				else {
-					if(primaryMutableBonds->getProperty(prop->name()))
+					if(primaryMutableElements->getProperty(prop->name()))
 						continue;
 				}
 
 				// Put the property into the output.
 				OORef<PropertyObject> clonedProperty = cloneHelper.cloneObject(prop, false);
-				clonedProperty->resize(totalBondCount, true);
-				primaryMutableBonds->addProperty(clonedProperty);
+				clonedProperty->resize(totalElementCount, true);
+				primaryMutableElements->addProperty(clonedProperty);
 
 				// Shift values of second dataset and reset values of first dataset to zero:
-				if(primaryBondCount != 0) {
-					std::memmove(clonedProperty->modifiableStorage()->buffer() + primaryBondCount * clonedProperty->stride(), clonedProperty->storage()->cbuffer(), clonedProperty->stride() * secondaryBondCount);
-					std::memset(clonedProperty->modifiableStorage()->buffer(), 0, clonedProperty->stride() * primaryBondCount);
+				if(primaryElementCount != 0) {
+					std::memmove(clonedProperty->modifiableStorage()->buffer() + primaryElementCount * clonedProperty->stride(), clonedProperty->storage()->cbuffer(), clonedProperty->stride() * secondaryElementCount);
+					std::memset(clonedProperty->modifiableStorage()->buffer(), 0, clonedProperty->stride() * primaryElementCount);
 				}
 			}
 
-			// Shift particle indices stored in the topology array of the second bonds object.
-			const PropertyObject* topologyProperty = primaryMutableBonds->getProperty(BondsObject::TopologyProperty);
+			// Shift particle indices stored in the topology array of the second container.
+			const PropertyObject* topologyProperty = primaryMutableElements->getProperty(topologyPropertyId);
 			if(topologyProperty && primaryParticleCount != 0) {
-				PropertyAccess<ParticleIndexPair> mutableTopologyProperty = primaryMutableBonds->makeMutable(topologyProperty);
-				for(auto bond = mutableTopologyProperty.begin() + primaryBondCount; bond != mutableTopologyProperty.end(); ++bond) {
-					(*bond)[0] += primaryParticleCount;
-					(*bond)[1] += primaryParticleCount;
+				PropertyAccess<qlonglong, true> mutableTopologyProperty = primaryMutableElements->makeMutable(topologyProperty);
+				for(auto idx = mutableTopologyProperty.begin() + (primaryElementCount * mutableTopologyProperty.componentCount()); idx != mutableTopologyProperty.end(); ++idx) {
+					*idx += primaryParticleCount;
 				}
 			}
 		}
+	};
+
+	// Merge bonds.
+	const BondsObject* primaryBonds = particles->bonds();
+	const BondsObject* secondaryBonds = secondaryParticles->bonds();
+	if(primaryBonds || secondaryBonds) {
+		// Create the primary bonds object if it doesn't exist yet.
+		if(!primaryBonds) {
+			primaryBonds = new BondsObject(dataset());
+			particles->setBonds(primaryBonds);
+			particles->bonds()->setVisElements(secondaryBonds->visElements());
+		}
+		mergeTopologyLists(primaryBonds, secondaryBonds, BondsObject::TopologyProperty);
+	}
+
+	// Merge angles.
+	const AnglesObject* primaryAngles = particles->angles();
+	const AnglesObject* secondaryAngles = secondaryParticles->angles();
+	if(primaryAngles || secondaryAngles) {
+		// Create the primary angles object if it doesn't exist yet.
+		if(!primaryAngles) {
+			primaryAngles = new AnglesObject(dataset());
+			particles->setAngles(primaryAngles);
+			particles->angles()->setVisElements(secondaryAngles->visElements());
+		}
+		mergeTopologyLists(primaryAngles, secondaryAngles, AnglesObject::TopologyProperty);
+	}
+
+	// Merge dihedrals.
+	const DihedralsObject* primaryDihedrals = particles->dihedrals();
+	const DihedralsObject* secondaryDihedrals = secondaryParticles->dihedrals();
+	if(primaryDihedrals || secondaryDihedrals) {
+		// Create the primary dihedrals object if it doesn't exist yet.
+		if(!primaryDihedrals) {
+			primaryDihedrals = new DihedralsObject(dataset());
+			particles->setDihedrals(primaryDihedrals);
+			particles->dihedrals()->setVisElements(secondaryDihedrals->visElements());
+		}
+		mergeTopologyLists(primaryDihedrals, secondaryDihedrals, DihedralsObject::TopologyProperty);
+	}
+
+	// Merge impropers.
+	const ImpropersObject* primaryImpropers = particles->impropers();
+	const ImpropersObject* secondaryImpropers = secondaryParticles->impropers();
+	if(primaryImpropers || secondaryImpropers) {
+		// Create the primary impropers object if it doesn't exist yet.
+		if(!primaryImpropers) {
+			primaryImpropers = new ImpropersObject(dataset());
+			particles->setImpropers(primaryImpropers);
+			particles->impropers()->setVisElements(secondaryImpropers->visElements());
+		}
+		mergeTopologyLists(primaryImpropers, secondaryImpropers, ImpropersObject::TopologyProperty);
 	}
 
 	int secondaryFrame = secondaryState.data() ? secondaryState.data()->sourceFrame() : 1;
