@@ -167,7 +167,7 @@ bool XYZImporter::mapVariableToProperty(InputColumnMapping& columnMapping, int c
 	if(column <= columnMapping.size()) columnMapping.resize(column+1);
 	columnMapping[column].columnName = name;
 	QString loweredName = name.toLower();
-	if(loweredName == "type" || loweredName == "element" || loweredName == "atom_types" ||loweredName == "species")
+	if(loweredName == "type" || loweredName == "element" || loweredName == "atom_types" || loweredName == "species")
 		columnMapping.mapStandardColumn(column, ParticlesObject::TypeProperty);
 	else if(loweredName == "pos") columnMapping.mapStandardColumn(column, ParticlesObject::PositionProperty, vec);
 	else if(loweredName == "selection") columnMapping.mapStandardColumn(column, ParticlesObject::SelectionProperty, vec);

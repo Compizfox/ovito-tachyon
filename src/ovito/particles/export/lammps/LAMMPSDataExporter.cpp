@@ -33,7 +33,9 @@ namespace Ovito { namespace Particles {
 
 IMPLEMENT_OVITO_CLASS(LAMMPSDataExporter);
 DEFINE_PROPERTY_FIELD(LAMMPSDataExporter, atomStyle);
+DEFINE_PROPERTY_FIELD(LAMMPSDataExporter, omitMassesSection);
 SET_PROPERTY_FIELD_LABEL(LAMMPSDataExporter, atomStyle, "Atom style");
+SET_PROPERTY_FIELD_LABEL(LAMMPSDataExporter, omitMassesSection, "Omit 'Masses' section");
 
 /******************************************************************************
 * Writes the particles of one animation frame to the current output file.
@@ -189,7 +191,7 @@ bool LAMMPSDataExporter::exportData(const PipelineFlowState& state, int frameNum
 	textStream() << "\n";
 
 	// Write "Masses" section.
-	if(particleTypeProperty && particleTypeProperty->elementTypes().size() > 0 && atomStyle() != LAMMPSDataImporter::AtomStyle_Sphere) {
+	if(!omitMassesSection() && particleTypeProperty && particleTypeProperty->elementTypes().size() > 0 && atomStyle() != LAMMPSDataImporter::AtomStyle_Sphere) {
 		// Write the "Masses" section only if there is at least one atom type with a non-zero mass.
 		bool hasNonzeroMass = boost::algorithm::any_of(particleTypeProperty->elementTypes(), [](const ElementType* type) {
 			if(const ParticleType* ptype = dynamic_object_cast<ParticleType>(type))

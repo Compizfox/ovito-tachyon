@@ -25,6 +25,7 @@
 #include <ovito/particles/import/lammps/LAMMPSDataImporter.h>
 #include <ovito/gui/desktop/properties/VariantComboBoxParameterUI.h>
 #include <ovito/gui/desktop/properties/IntegerParameterUI.h>
+#include <ovito/gui/desktop/properties/BooleanParameterUI.h>
 #include "LAMMPSDataExporterEditor.h"
 
 namespace Ovito { namespace Particles {
@@ -63,6 +64,9 @@ void LAMMPSDataExporterEditor::createUI(const RolloutInsertionParameters& rollou
 	IntegerParameterUI* precisionUI = new IntegerParameterUI(this, PROPERTY_FIELD(FileExporter::floatOutputPrecision));
 	layout->addWidget(precisionUI->label(), 0, 3);
 	layout->addLayout(precisionUI->createFieldLayout(), 0, 4);
+
+	BooleanParameterUI* omitMassesSectionUI = new BooleanParameterUI(this, PROPERTY_FIELD(LAMMPSDataExporter::omitMassesSection));
+	layout->addWidget(omitMassesSectionUI->checkBox(), 1, 0, 1, 4);
 }
 
 }	// End of namespace
