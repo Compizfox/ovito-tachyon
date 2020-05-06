@@ -224,6 +224,20 @@ FileSourceImporter::FrameDataPtr POSCARImporter::FrameLoader::loadFile()
 	if(totalAtomCount <= 0)
 		throw Exception(tr("Invalid atom counts in line %1 of VASP file: %2").arg(stream.lineNumber()).arg(stream.lineString()));
 
+	if(atomTypeNames.empty() && atomCounts.size() >= 1) {
+		// The file might be in VASP 4.x format, which is the format written by ASE's write_vasp() function.
+		// Files of this format contain the chemical element names in the comment line (very first line of the file).
+		QRegularExpression ws_re(QStringLiteral("\\s+"));
+		QStringList tokens = trimmedComment.split(ws_re, QString::SkipEmptyParts);
+		// Number of tokens must match the number of atom types.
+		if(tokens.size() == atomCounts.size()) {
+			// Each token should be a one- or two-letter chemical symbol.
+			if(std::all_of(tokens.cbegin(), tokens.cend(), [](const QString& s) { return s.size() <= 2 && s.at(0).isLetter(); })) {
+				atomTypeNames = std::move(tokens);
+			}
+		}
+	}
+
 	if(frame().byteOffset != 0 && singleHeaderFile)
 		stream.seek(frame().byteOffset, frame().lineNumber);
 
