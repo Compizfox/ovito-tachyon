@@ -595,11 +595,19 @@ void ModifyCommandPage::createAboutPanel()
 		operatingSystemString = QStringLiteral("other");
 #endif
 
+		QString programEdition;
+#if defined(OVITO_BUILD_BASIC)
+		programEdition = QStringLiteral("basic/");
+#elif defined(OVITO_BUILD_PRO)
+		programEdition = QStringLiteral("pro/");
+#endif
+
 		// Fetch newest web page from web server.
-		QString urlString = QString("http://www.ovito.org/appnews/v%1.%2.%3/?ovito=%4&OS=%5%6")
+		QString urlString = QString("https://www.ovito.org/appnews/v%1.%2.%3/%4?ovito=%5&OS=%6%7")
 				.arg(Application::applicationVersionMajor())
 				.arg(Application::applicationVersionMinor())
 				.arg(Application::applicationVersionRevision())
+				.arg(programEdition)
 				.arg(QString(id.toHex()))
 				.arg(operatingSystemString)
 				.arg(QT_POINTER_SIZE*8);
