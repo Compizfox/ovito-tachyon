@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Copyright 2019 Alexander Stukowski
+//  Copyright 2020 Alexander Stukowski
 //
 //  This file is part of OVITO (Open Visualization Tool).
 //
@@ -33,15 +33,6 @@ namespace Ovito { namespace StdObj {
 IMPLEMENT_OVITO_CLASS(PropertyInspectionApplet);
 
 /******************************************************************************
-* Determines whether the given pipeline dataset contains data that can be
-* displayed by this applet.
-******************************************************************************/
-bool PropertyInspectionApplet::appliesTo(const DataCollection& data)
-{
-	return data.containsObjectRecursive(_containerClass);
-}
-
-/******************************************************************************
 * Lets the applet create the UI widgets that are to be placed into the data
 * inspector panel.
 ******************************************************************************/
@@ -64,94 +55,27 @@ void PropertyInspectionApplet::createBaseWidgets()
 	_tableView->setModel(_filterModel);
 	_cleanupHandler.add(_tableView);
 
-	_containerSelectionWidget = new QListWidget();
-	_cleanupHandler.add(_containerSelectionWidget);
-	connect(_containerSelectionWidget, &QListWidget::currentRowChanged, this, &PropertyInspectionApplet::currentContainerChanged);
+	connect(this, &DataInspectionApplet::currentObjectChanged, this, &PropertyInspectionApplet::onCurrentContainerChanged);
 }
 
 /******************************************************************************
 * Updates the contents displayed in the inspector.
 ******************************************************************************/
-void PropertyInspectionApplet::updateDisplay(const PipelineFlowState& state, PipelineSceneNode* sceneNode)
+void PropertyInspectionApplet::updateDisplay(const PipelineFlowState& state, PipelineSceneNode* pipeline)
 {
 	// Clear filter expression when a different scene node has been selected.
-	if(sceneNode != currentSceneNode()) {
+	if(pipeline != currentPipeline()) {
 		_resetFilterAction->trigger();
 	}
 
-	_sceneNode = sceneNode;
-	_pipelineState = state;
-	updateContainerList();
-}
-
-/******************************************************************************
-* Updates the list of container objects displayed in the inspector.
-******************************************************************************/
-void PropertyInspectionApplet::updateContainerList()
-{
-	// Build list of all property container objects in the current data collection.
-	std::vector<ConstDataObjectPath> objectPaths;
-	if(currentState())
-		objectPaths = currentState().getObjectsRecursive(_containerClass);
-
-	containerSelectionWidget()->setUpdatesEnabled(false);
-	disconnect(containerSelectionWidget(), &QListWidget::currentRowChanged, this, &PropertyInspectionApplet::currentContainerChanged);
-
-	// Update displayed list of container objects.
-	// Overwrite existing list items, add new items when needed.
-	int numItems = 0;
-	for(const ConstDataObjectPath& path : objectPaths) {
-		const DataObject* container = path.back();
-		QListWidgetItem* item;
-		QString itemTitle = container->objectTitle();
-		if(container->dataSource())
-			itemTitle += QStringLiteral(" [%1]").arg(container->dataSource()->objectTitle());
-		if(containerSelectionWidget()->count() <= numItems) {
-			item = new QListWidgetItem(itemTitle, containerSelectionWidget());
-		}
-		else {
-			item = containerSelectionWidget()->item(numItems);
-			item->setText(itemTitle);
-		}
-		item->setToolTip(tr("Python identifier: \"%1\"").arg(container->identifier()));
-		item->setData(Qt::UserRole, QVariant::fromValue(path));
-
-		// Select again the previously selected container.
-		if(path.toString() == _selectedDataObjectPath)
-			containerSelectionWidget()->setCurrentItem(item);
-
-		numItems++;
-	}
-	// Remove excess items from list.
-	while(containerSelectionWidget()->count() > numItems)
-		delete containerSelectionWidget()->takeItem(containerSelectionWidget()->count() - 1);
-
-	if(!containerSelectionWidget()->currentItem() && containerSelectionWidget()->count() != 0)
-		containerSelectionWidget()->setCurrentRow(0);
-
-	// Reactivate updates.
-	connect(containerSelectionWidget(), &QListWidget::currentRowChanged, this, &PropertyInspectionApplet::currentContainerChanged);
-	containerSelectionWidget()->setUpdatesEnabled(true);
-
-	// Update the currently selected property list.
-	currentContainerChanged();
+	DataInspectionApplet::updateDisplay(state, pipeline);
 }
 
 /******************************************************************************
 * Is called when the user selects a different container object from the list.
 ******************************************************************************/
-void PropertyInspectionApplet::currentContainerChanged()
+void PropertyInspectionApplet::onCurrentContainerChanged()
 {
-	QListWidgetItem* item = containerSelectionWidget()->currentItem();
-	if(item) {
-		const ConstDataObjectPath& objectPath = item->data(Qt::UserRole).value<ConstDataObjectPath>();
-		_selectedContainerObject = static_object_cast<PropertyContainer>(objectPath.empty() ? nullptr : objectPath.back());
-		_selectedDataObjectPath = objectPath.toString();
-	}
-	else {
-		_selectedContainerObject = nullptr;
-		_selectedDataObjectPath.clear();
-	}
 	_tableModel->setContents(selectedContainerObject());
 	_filterModel->setContentsBegin();
 	_filterModel->setContentsEnd();
@@ -176,18 +100,9 @@ void PropertyInspectionApplet::currentContainerChanged()
 bool PropertyInspectionApplet::selectDataObject(PipelineObject* dataSource, const QString& objectIdentifierHint, const QVariant& modeHint)
 {
 	// Check the property container list in case the requested data object is a PropertyContainer.
-	for(int i = 0; i < containerSelectionWidget()->count(); i++) {
-		QListWidgetItem* item = containerSelectionWidget()->item(i);
-		const ConstDataObjectPath& objectPath = item->data(Qt::UserRole).value<ConstDataObjectPath>();
-		if(!objectPath.empty()) {
-			if(objectPath.back()->dataSource() == dataSource) {
-				if(objectIdentifierHint.isEmpty() || objectPath.back()->identifier().startsWith(objectIdentifierHint)) {
-					containerSelectionWidget()->setCurrentRow(i);
-					return true;
-				}
-			}
-		}
-	}
+	if(DataInspectionApplet::selectDataObject(dataSource, objectIdentifierHint, modeHint))
+		return true;
+
 	// Check the property columns in case the requested data object is a property object.
 	const auto& properties = _tableModel->properties();
 	auto iter = boost::find_if(properties, [&](const PropertyObject* property) {

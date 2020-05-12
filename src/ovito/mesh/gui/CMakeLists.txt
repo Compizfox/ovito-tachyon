@@ -25,6 +25,7 @@ OVITO_STANDARD_PLUGIN(MeshGui
 	SOURCES
 		tri/TriMeshVisEditor.cpp
 		surface/SurfaceMeshVisEditor.cpp
-	PLUGIN_DEPENDENCIES Mesh
+		surface/SurfaceMeshInspectionApplet.cpp
+	PLUGIN_DEPENDENCIES Mesh StdObjGui
 	GUI_PLUGIN
 )

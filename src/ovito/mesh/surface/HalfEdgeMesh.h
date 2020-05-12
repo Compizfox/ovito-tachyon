@@ -274,7 +274,7 @@ public:
 
     /// Links two opposite faces together.
     void linkOppositeFaces(face_index face1, face_index face2) {
-        OVITO_ASSERT(!hasOppositeFace(face1) && !hasOppositeFace(face2));
+        OVITO_ASSERT((!hasOppositeFace(face1) && !hasOppositeFace(face2)) || (oppositeFace(face1) == face2 && oppositeFace(face2) == face1));
         OVITO_ASSERT(findEdge(face2, vertex2(firstFaceEdge(face1)), vertex1(firstFaceEdge(face1))) != InvalidIndex);
         OVITO_ASSERT(findEdge(face1, vertex2(firstFaceEdge(face2)), vertex1(firstFaceEdge(face2))) != InvalidIndex);
         _oppositeFaces[face1] = face2;

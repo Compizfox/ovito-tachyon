@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Copyright 2019 Alexander Stukowski
+//  Copyright 2020 Alexander Stukowski
 //
 //  This file is part of OVITO (Open Visualization Tool).
 //
@@ -149,10 +149,11 @@ private:
 	public:
 
 		/// Constructor.
-		AlphaShapeEngine(ConstPropertyPtr positions, ConstPropertyPtr selection, const SimulationCell& simCell, FloatType probeSphereRadius, int smoothingLevel, bool selectSurfaceParticles, std::vector<ConstPropertyPtr> particleProperties) :
+		AlphaShapeEngine(ConstPropertyPtr positions, ConstPropertyPtr selection, const SimulationCell& simCell, FloatType probeSphereRadius, int smoothingLevel, bool selectSurfaceParticles, bool identifyRegions, std::vector<ConstPropertyPtr> particleProperties) :
 			ConstructSurfaceEngineBase(std::move(positions), std::move(selection), simCell, std::move(particleProperties)),
 			_probeSphereRadius(probeSphereRadius),
 			_smoothingLevel(smoothingLevel),
+			_identifyRegions(identifyRegions),
 			_totalVolume(std::abs(simCell.matrix().determinant())),
 			_surfaceParticleSelection(selectSurfaceParticles ? ParticlesObject::OOClass().createStandardStorage(this->positions()->size(), ParticlesObject::SelectionProperty, true) : nullptr) {}
 
@@ -184,6 +185,9 @@ private:
 
 		/// The number of iterations of the smoothing algorithm to apply to the surface mesh.
 		const int _smoothingLevel;
+
+		/// Controls the identification of disconnected spatial regions (filled and empty).
+		const bool _identifyRegions;
 
 		/// The computed solid volume.
 		double _solidVolume = 0;
@@ -230,26 +234,29 @@ private:
 		std::vector<FloatType> _particleRadii;
 	};
 
-	/// Controls the radius of the probe sphere.
-	DECLARE_MODIFIABLE_PROPERTY_FIELD_FLAGS(FloatType, probeSphereRadius, setProbeSphereRadius, PROPERTY_FIELD_MEMORIZE);
-
-	/// Controls the amount of smoothing.
-	DECLARE_MODIFIABLE_PROPERTY_FIELD_FLAGS(int, smoothingLevel, setSmoothingLevel, PROPERTY_FIELD_MEMORIZE);
-
-	/// Controls whether only selected particles should be taken into account.
-	DECLARE_MODIFIABLE_PROPERTY_FIELD(bool, onlySelectedParticles, setOnlySelectedParticles);
-
-	/// Controls whether the modifier should select surface particles.
-	DECLARE_MODIFIABLE_PROPERTY_FIELD(bool, selectSurfaceParticles, setSelectSurfaceParticles);
-
-	/// Controls whether property values should be copied over from the input particles to the generated surface vertices.
-	DECLARE_MODIFIABLE_PROPERTY_FIELD(bool, transferParticleProperties, setTransferParticleProperties);
-
 	/// The vis element for rendering the surface.
 	DECLARE_MODIFIABLE_REFERENCE_FIELD_FLAGS(SurfaceMeshVis, surfaceMeshVis, setSurfaceMeshVis, PROPERTY_FIELD_DONT_PROPAGATE_MESSAGES | PROPERTY_FIELD_MEMORIZE | PROPERTY_FIELD_OPEN_SUBEDITOR);
 
 	/// Surface construction method to use.
 	DECLARE_MODIFIABLE_PROPERTY_FIELD_FLAGS(SurfaceMethod, method, setMethod, PROPERTY_FIELD_MEMORIZE);
+
+	/// Controls the radius of the probe sphere (alpha-shape method).
+	DECLARE_MODIFIABLE_PROPERTY_FIELD_FLAGS(FloatType, probeSphereRadius, setProbeSphereRadius, PROPERTY_FIELD_MEMORIZE);
+
+	/// Controls the amount of smoothing (alpha-shape method).
+	DECLARE_MODIFIABLE_PROPERTY_FIELD_FLAGS(int, smoothingLevel, setSmoothingLevel, PROPERTY_FIELD_MEMORIZE);
+
+	/// Controls whether only selected particles should be taken into account.
+	DECLARE_MODIFIABLE_PROPERTY_FIELD(bool, onlySelectedParticles, setOnlySelectedParticles);
+
+	/// Controls whether the modifier should select surface particles (alpha-shape method).
+	DECLARE_MODIFIABLE_PROPERTY_FIELD(bool, selectSurfaceParticles, setSelectSurfaceParticles);
+
+	/// Controls whether the algorithm should identify disconnected spatial regions (alpha-shape method).
+	DECLARE_MODIFIABLE_PROPERTY_FIELD(bool, identifyRegions, setIdentifyRegions);
+
+	/// Controls whether property values should be copied over from the input particles to the generated surface vertices (alpha-shape method / density field method).
+	DECLARE_MODIFIABLE_PROPERTY_FIELD(bool, transferParticleProperties, setTransferParticleProperties);
 
 	/// Controls the number of grid cells in each spatial direction (density field method).
 	DECLARE_MODIFIABLE_PROPERTY_FIELD_FLAGS(int, gridResolution, setGridResolution, PROPERTY_FIELD_MEMORIZE);
@@ -257,12 +264,9 @@ private:
 	/// The scaling factor applied to atomic radii (density field method).
 	DECLARE_MODIFIABLE_PROPERTY_FIELD_FLAGS(FloatType, radiusFactor, setRadiusFactor, PROPERTY_FIELD_MEMORIZE);
 
-	/// The threshold value for constructing the isosurface of the density field.
+	/// The threshold value for constructing the isosurface of the density field (density field method).
 	DECLARE_MODIFIABLE_PROPERTY_FIELD_FLAGS(FloatType, isoValue, setIsoValue, PROPERTY_FIELD_MEMORIZE);
 };
 
 }	// End of namespace
 }	// End of namespace
-
-Q_DECLARE_METATYPE(Ovito::Particles::ConstructSurfaceModifier::SurfaceMethod);
-Q_DECLARE_TYPEINFO(Ovito::Particles::ConstructSurfaceModifier::SurfaceMethod, Q_PRIMITIVE_TYPE);

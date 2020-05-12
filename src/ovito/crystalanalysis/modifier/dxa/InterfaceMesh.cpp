@@ -115,7 +115,7 @@ bool InterfaceMesh::createMesh(FloatType maximumNeighborDistance, ConstPropertyA
 	createRegion();
 	OVITO_ASSERT(regionCount() == 1);
 
-	ManifoldConstructionHelper<> manifoldConstructor(tessellation(), *this, alpha, *structureAnalysis().positions());
+	ManifoldConstructionHelper<false, false> manifoldConstructor(tessellation(), *this, alpha, *structureAnalysis().positions());
 	if(!manifoldConstructor.construct(tetrahedronRegion, promise, prepareMeshFace))
 		return false;
 

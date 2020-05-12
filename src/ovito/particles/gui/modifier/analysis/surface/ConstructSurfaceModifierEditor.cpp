@@ -76,6 +76,11 @@ void ConstructSurfaceModifierEditor::createUI(const RolloutInsertionParameters& 
 	sublayout->addWidget(selectSurfaceParticlesUI->checkBox(), 3, 1, 1, 2);
 	connect(alphaShapeMethodBtn, &QRadioButton::toggled, selectSurfaceParticlesUI, &BooleanParameterUI::setEnabled);
 
+	BooleanParameterUI* identifyRegionsUI = new BooleanParameterUI(this, PROPERTY_FIELD(ConstructSurfaceModifier::identifyRegions));
+	identifyRegionsUI->setEnabled(false);
+	sublayout->addWidget(identifyRegionsUI->checkBox(), 4, 1, 1, 2);
+	connect(alphaShapeMethodBtn, &QRadioButton::toggled, identifyRegionsUI, &BooleanParameterUI::setEnabled);
+
 	QRadioButton* gaussianDensityBtn = methodUI->addRadioButton(ConstructSurfaceModifier::GaussianDensity, tr("Gaussian density method (experimental):"));
 	sublayout->setRowMinimumHeight(5, 10);
 	sublayout->addWidget(gaussianDensityBtn, 6, 0, 1, 3);

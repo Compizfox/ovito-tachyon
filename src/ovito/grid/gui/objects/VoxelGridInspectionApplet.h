@@ -54,8 +54,10 @@ protected:
 	/// Determines the text shown in cells of the vertical header column.
 	virtual QVariant headerColumnText(int section) override;
 
+private Q_SLOTS:
+
 	/// Is called when the user selects a different property container object in the list.
-	virtual void currentContainerChanged() override;
+	void onCurrentContainerChanged(const DataObject* dataObject);
 
 private:
 

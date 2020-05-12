@@ -204,7 +204,7 @@ bool ElasticMapping::assignIdealVectorsToEdges(int crystalPathSteps, Task& promi
 bool ElasticMapping::isElasticMappingCompatible(DelaunayTessellation::CellHandle cell) const
 {
 	// Must be a valid tessellation cell to determine the mapping.
-	if(!tessellation().isValidCell(cell))
+	if(!tessellation().isFiniteCell(cell))
 		return false;
 
 	// Retrieve the cluster vectors assigned to the six edges of the tetrahedron.

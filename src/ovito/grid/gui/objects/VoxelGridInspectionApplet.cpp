@@ -38,7 +38,7 @@ QWidget* VoxelGridInspectionApplet::createWidget(MainWindow* mainWindow)
 	_mainWindow = mainWindow;
 
 	QSplitter* splitter = new QSplitter();
-	splitter->addWidget(containerSelectionWidget());
+	splitter->addWidget(objectSelectionWidget());
 
 	QWidget* rightContainer = new QWidget();
 	splitter->addWidget(rightContainer);
@@ -57,18 +57,18 @@ QWidget* VoxelGridInspectionApplet::createWidget(MainWindow* mainWindow)
 	rightLayout->addWidget(tableView(), 1);
 	rightLayout->addWidget(_gridInfoLabel);
 
+	connect(this, &DataInspectionApplet::currentObjectChanged, this, &VoxelGridInspectionApplet::onCurrentContainerChanged);
+
 	return splitter;
 }
 
 /******************************************************************************
 * Is called when the user selects a different container object from the list.
 ******************************************************************************/
-void VoxelGridInspectionApplet::currentContainerChanged()
+void VoxelGridInspectionApplet::onCurrentContainerChanged(const DataObject* dataObject)
 {
-	PropertyInspectionApplet::currentContainerChanged();
-
 	// Update the displayed information.
-	if(const VoxelGrid* grid = static_object_cast<VoxelGrid>(selectedContainerObject())) {
+	if(const VoxelGrid* grid = static_object_cast<VoxelGrid>(dataObject)) {
 		QString text = tr("<p><b>Grid cells:</b> ");
 		if(grid->domain()->is2D() && grid->shape()[2] <= 1)
 			text += tr("%1 x %2</p>").arg(grid->shape()[0]).arg(grid->shape()[1]);

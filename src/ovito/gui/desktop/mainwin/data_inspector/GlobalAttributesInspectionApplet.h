@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Copyright 2018 Alexander Stukowski
+//  Copyright 2020 Alexander Stukowski
 //
 //  This file is part of OVITO (Open Visualization Tool).
 //
@@ -41,7 +41,7 @@ class GlobalAttributesInspectionApplet : public DataInspectionApplet
 public:
 
 	/// Constructor.
-	Q_INVOKABLE GlobalAttributesInspectionApplet() {}
+	Q_INVOKABLE GlobalAttributesInspectionApplet() : DataInspectionApplet(AttributeDataObject::OOClass()) {}
 
 	/// Returns the key value for this applet that is used for ordering the applet tabs.
 	virtual int orderingKey() const override { return 100; }
@@ -53,7 +53,7 @@ public:
 	virtual QWidget* createWidget(MainWindow* mainWindow) override;
 
 	/// Updates the contents displayed in the inspector.
-	virtual void updateDisplay(const PipelineFlowState& state, PipelineSceneNode* sceneNode) override;
+	virtual void updateDisplay(const PipelineFlowState& state, PipelineSceneNode* pipeline) override;
 
 	/// Selects a specific data object in this applet.
 	virtual bool selectDataObject(PipelineObject* dataSource, const QString& objectIdentifierHint, const QVariant& modeHint) override;
@@ -142,9 +142,6 @@ private:
 
 	/// The parent window.
 	MainWindow* _mainWindow;
-
-	/// The currently selected scene node.
-	QPointer<PipelineSceneNode> _sceneNode;
 };
 
 }	// End of namespace

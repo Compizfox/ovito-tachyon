@@ -194,7 +194,7 @@ JOM: Vol. 66, Issue 3 (2014), 399-407</link></literallayout>
         </listitem>
       </varlistentry>
       <varlistentry>
-        <term>Select particles on the surface</term>
+        <term>Select particles at the surface</term>
         <listitem>
           <para>This option lets the modifier select those particles that were used to construct the surface mesh.
           Thus, this option provides a way to identify the surface atoms of an atomistic structure.</para>

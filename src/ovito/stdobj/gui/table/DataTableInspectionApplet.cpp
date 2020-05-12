@@ -43,7 +43,7 @@ QWidget* DataTableInspectionApplet::createWidget(MainWindow* mainWindow)
 	_mainWindow = mainWindow;
 
 	QSplitter* splitter = new QSplitter();
-	splitter->addWidget(containerSelectionWidget());
+	splitter->addWidget(objectSelectionWidget());
 
 	QWidget* rightContainer = new QWidget();
 	splitter->addWidget(rightContainer);
@@ -91,18 +91,18 @@ QWidget* DataTableInspectionApplet::createWidget(MainWindow* mainWindow)
 	_stackedWidget->addWidget(_plotWidget);
 	_stackedWidget->addWidget(tableView());
 
+	connect(this, &DataInspectionApplet::currentObjectChanged, this, &DataTableInspectionApplet::onCurrentContainerChanged);
+
 	return splitter;
 }
 
 /******************************************************************************
 * Is called when the user selects a different container object from the list.
 ******************************************************************************/
-void DataTableInspectionApplet::currentContainerChanged()
+void DataTableInspectionApplet::onCurrentContainerChanged(const DataObject* dataObject)
 {
-	PropertyInspectionApplet::currentContainerChanged();
-
 	// Update the displayed plot.
-	plotWidget()->setTable(static_object_cast<DataTable>(selectedContainerObject()));
+	plotWidget()->setTable(static_object_cast<DataTable>(dataObject));
 
 	// Update actions.
 	_exportTableToFileAction->setEnabled(plotWidget()->table() != nullptr);
@@ -182,7 +182,7 @@ void DataTableInspectionApplet::exportDataToFile()
 		exporter->setOutputFilename(exportFile);
 
 		// Set scene node to be exported.
-		exporter->setNodeToExport(currentSceneNode());
+		exporter->setNodeToExport(currentPipeline());
 
 		// Set data table to be exported.
 		exporter->setDataObjectToExport(DataObjectReference(&DataTable::OOClass(), table->identifier(), table->title()));

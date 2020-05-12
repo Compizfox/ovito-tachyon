@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Copyright 2016 Alexander Stukowski
+//  Copyright 2020 Alexander Stukowski
 //
 //  This file is part of OVITO (Open Visualization Tool).
 //
@@ -38,7 +38,7 @@ namespace Ovito { namespace Delaunay {
 /******************************************************************************
 * Generates the tessellation.
 ******************************************************************************/
-bool DelaunayTessellation::generateTessellation(const SimulationCell& simCell, const Point3* positions, size_t numPoints, FloatType ghostLayerSize, const int* selectedPoints, Task& promise)
+bool DelaunayTessellation::generateTessellation(const SimulationCell& simCell, const Point3* positions, size_t numPoints, FloatType ghostLayerSize, bool coverDomainWithFiniteTets, const int* selectedPoints, Task& promise)
 {
 	promise.setProgressMaximum(0);
 
@@ -46,7 +46,9 @@ bool DelaunayTessellation::generateTessellation(const SimulationCell& simCell, c
 	GEO::initialize();
 	GEO::set_assert_mode(GEO::ASSERT_ABORT);
 
-	const double epsilon = 2e-5;
+	// Make the magnitude of the randomly perturbed particle positions dependent on the size of the system.
+	const double lengthScale = (simCell.matrix().column(0) + simCell.matrix().column(1) + simCell.matrix().column(2)).length();
+	const double epsilon = 1e-10 * lengthScale;
 
 	// Set up random number generator to generate random perturbations.
 #if 0
@@ -76,7 +78,7 @@ bool DelaunayTessellation::generateTessellation(const SimulationCell& simCell, c
 			continue;
 
 		// Add a small random perturbation to the particle positions to make the Delaunay triangulation more robust
-		// against singular input data, e.g. particles forming an ideal crystal lattice.
+		// against singular input data, e.g. all particles positioned on ideal crystal lattice sites.
 		Point3 wp = simCell.wrapPoint(*positions);
 #if 1
 		_pointData.push_back((double)wp.x() + displacement(rng));
@@ -149,6 +151,19 @@ bool DelaunayTessellation::generateTessellation(const SimulationCell& simCell, c
 		}
 	}
 
+	// In order to cover the simulation box completely with finite tetrahedra, add 8 extra input points to the Delaunay tessellation,
+	// far away from the simulation cell and real particles. These 8 points form a convex hull, whose interior will get completely tessellated.
+	if(coverDomainWithFiniteTets) {
+		Box3 bb = Box3(Point3(0), Point3(1)).transformed(simCell.matrix()).padBox(2 * ghostLayerSize);
+		for(size_t i = 0; i < 8; i++) {
+			Point3 corner = bb[i];
+			_pointData.push_back(corner.x());
+			_pointData.push_back(corner.y());
+			_pointData.push_back(corner.z());
+			_particleIndices.push_back(std::numeric_limits<size_t>::max());
+		}
+	}
+
 	// Create the internal Delaunay generator object.
 	_dt = GEO::Delaunay::create(3, "BDEL");
 	_dt->set_keeps_infinite(true);
@@ -189,7 +204,7 @@ bool DelaunayTessellation::generateTessellation(const SimulationCell& simCell, c
 ******************************************************************************/
 bool DelaunayTessellation::classifyGhostCell(CellHandle cell) const
 {
-	if(!isValidCell(cell))
+	if(!isFiniteCell(cell))
 		return true;
 
 	// Find head vertex with the lowest index.

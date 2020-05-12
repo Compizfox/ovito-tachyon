@@ -388,6 +388,20 @@ public:
         _regionCount = newRegionCount;
     }
 
+    /// Returns the volume of the i-th region.
+    FloatType regionVolume(region_index region) const {
+        OVITO_ASSERT(_regionVolumes != nullptr);
+        OVITO_ASSERT(region >= 0 && region < regionCount());
+        return _regionVolumes[region];
+    }
+
+    /// Sets the stored volume of the i-th region.
+    void setRegionVolume(region_index region, FloatType vol) {
+        OVITO_ASSERT(_regionVolumes != nullptr);
+        OVITO_ASSERT(region >= 0 && region < regionCount());
+        _regionVolumes[region] = vol;
+    }
+
     /// Links two opposite half-edges together.
     void linkOppositeEdges(edge_index edge1, edge_index edge2) {
         OVITO_ASSERT(isTopologyMutable());
