@@ -355,6 +355,7 @@ void MainWindow::createMainToolbar()
 {
 	_mainToolbar = addToolBar(tr("Main Toolbar"));
 	_mainToolbar->setObjectName("MainToolbar");
+	_mainToolbar->setMovable(false);
 
 	_mainToolbar->addAction(actionManager()->getAction(ACTION_FILE_IMPORT));
 	_mainToolbar->addAction(actionManager()->getAction(ACTION_FILE_REMOTE_IMPORT));

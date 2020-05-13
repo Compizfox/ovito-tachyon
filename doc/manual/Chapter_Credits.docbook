@@ -257,7 +257,7 @@
       </blockquote>
     </para>
     <para>
-      If you have any questions or comments, please get in touch with us. You can also find more in-depth information 
+      If you have any questions or comments, please get in touch with us. You can also find more information 
       about <emphasis>OVITO Pro</emphasis> and a list of frequently asked questions on our website 
       <link xlink:href="https://www.ovito.org/about/ovito-pro/">www.ovito.org</link>.
     </para> 
@@ -354,7 +354,7 @@
         In order to install OVITO Pro on another machine, for instance after a hardware replacement, employee turnover or reinstallation 
         of the operating system, you should first deactivate an existing OVITO Pro installation that is no longer needed.
         This is done online by visiting the URL 
-        <link xlink:href="https://www.ovito.org/account/myinstallations/">https://www.ovito.org/account/myinstallations/</link>.
+        <link xlink:href="https://www.ovito.org/account/myinstallations/">www.ovito.org/account/myinstallations/</link>.
         After logging in with your OVITO account, the page lists all active OVITO Pro installations currently linked to your 
         account. Click on <emphasis>Deactivate installation</emphasis> to remove an installation from our records, 
         which will also disable the software on your machine. 
