@@ -35,6 +35,8 @@
 #include <ovito/core/utilities/concurrent/ParallelFor.h>
 #include "ConstructSurfaceModifier.h"
 
+#include <boost/range/numeric.hpp>
+
 namespace Ovito { namespace Particles {
 
 using namespace Ovito::Delaunay;
@@ -551,6 +553,10 @@ void ConstructSurfaceModifier::AlphaShapeEngine::emitResults(TimePoint time, Mod
 			.arg(totalVolume() > 0 ? (surfaceArea() / totalVolume()) : 0);
 	if(_identifyRegions) {
 		statusString += tr("\nFound %1 volumetric region(s)").arg(mesh().regionCount());
+
+		PropertyPtr volProperty = mesh().regionProperty(SurfaceMeshRegions::VolumeProperty);
+		qDebug() << "Summed region volume: " << boost::accumulate(ConstPropertyAccess<FloatType>(volProperty), 0.0);
+		qDebug() << "Cell volume:          " << totalVolume();
 	}
 
 	state.setStatus(PipelineStatus(PipelineStatus::Success, std::move(statusString)));

@@ -778,30 +778,116 @@ private:
 		// inside the simulation cell domain.
 		bool isCompletelyInsideBox = true;
 		Point3 vertexPositions[4];
+		Point3 reducedVertexPositions[4];
 		for(int v = 0; v < 4; v++) {
-			const Point3& vpos = _tessellation.vertexPosition(_tessellation.cellVertex(cell, v));
-			Point3 rp = _tessellation.simCell().absoluteToReduced(vpos);
+			const Point3& vpos = vertexPositions[v] = _tessellation.vertexPosition(_tessellation.cellVertex(cell, v));
+			const Point3& rp = reducedVertexPositions[v] = _tessellation.simCell().absoluteToReduced(vpos);
 			if(rp.x() < -FLOATTYPE_EPSILON || rp.x() > 1.0 + FLOATTYPE_EPSILON 
 					|| rp.y() < -FLOATTYPE_EPSILON || rp.y() > 1.0 + FLOATTYPE_EPSILON
 					|| rp.z() < -FLOATTYPE_EPSILON || rp.z() > 1.0 + FLOATTYPE_EPSILON) {
 				isCompletelyInsideBox = false;
 			}
+		}
 
-			vertexPositions[v] = vpos;
+		// Compute volume of the full tetrahedron if it is completely inside the simulation box.
+		if(isCompletelyInsideBox) {
+			Vector3 ad = vertexPositions[1] - vertexPositions[0];
+			Vector3 bd = vertexPositions[2] - vertexPositions[0];
+			Vector3 cd = vertexPositions[3] - vertexPositions[0];
+			return std::abs(ad.dot(cd.cross(bd))) / FloatType(6);
 		}
-		if(!isCompletelyInsideBox)
+
+		// Determine whether the tetrahedron is completely outside or inside of the simulation box or if
+		// there is some partial overlap.
+		bool isCompletelyInsideTetrahedron = true;
+		bool isCompletelyOutsideTetrahedron = false;
+		for(int f = 0; f < 4; f++) {
+			const Point3& p0 = reducedVertexPositions[DelaunayTessellation::cellFacetVertexIndex(f, 0)];
+			const Point3& p1 = reducedVertexPositions[DelaunayTessellation::cellFacetVertexIndex(f, 1)];
+			const Point3& p2 = reducedVertexPositions[DelaunayTessellation::cellFacetVertexIndex(f, 2)];
+			const Plane3 plane(p0, p1, p2);
+
+			bool allCornersOnPositiveSide = true;
+			if(plane.pointDistance(Point3(0,0,0)) >= 0) isCompletelyInsideTetrahedron = false; else allCornersOnPositiveSide = false;
+			if(plane.pointDistance(Point3(1,0,0)) >= 0) isCompletelyInsideTetrahedron = false; else allCornersOnPositiveSide = false;
+			if(plane.pointDistance(Point3(0,1,0)) >= 0) isCompletelyInsideTetrahedron = false; else allCornersOnPositiveSide = false;
+			if(plane.pointDistance(Point3(1,1,0)) >= 0) isCompletelyInsideTetrahedron = false; else allCornersOnPositiveSide = false;
+			if(plane.pointDistance(Point3(0,0,1)) >= 0) isCompletelyInsideTetrahedron = false; else allCornersOnPositiveSide = false;
+			if(plane.pointDistance(Point3(1,0,1)) >= 0) isCompletelyInsideTetrahedron = false; else allCornersOnPositiveSide = false;
+			if(plane.pointDistance(Point3(0,1,1)) >= 0) isCompletelyInsideTetrahedron = false; else allCornersOnPositiveSide = false;
+			if(plane.pointDistance(Point3(1,1,1)) >= 0) isCompletelyInsideTetrahedron = false; else allCornersOnPositiveSide = false;
+			if(allCornersOnPositiveSide) {
+				isCompletelyOutsideTetrahedron = true;
+				break;
+			}
+		}
+		if(isCompletelyOutsideTetrahedron) {
+			// There is no overlap, because all 8 corners of the simulation box are on the positive side
+			// of one of the faces of the tetrahedron.
 			return 0;
-		
-		// Compute volume of full tetrahedron.
-		Vector3 ad = vertexPositions[1] - vertexPositions[0];
-		Vector3 bd = vertexPositions[2] - vertexPositions[0];
-		Vector3 cd = vertexPositions[3] - vertexPositions[0];
-		qDebug() << "ad:" << ad << "bd:" << bd << "cd:" << cd << "vol=" << (std::abs(ad.dot(cd.cross(bd))) / FloatType(6));
-		for(int v = 0; v < 4; v++) {
-			const Point3& vpos = _tessellation.vertexPosition(_tessellation.cellVertex(cell, v));
-			qDebug() << "v:" << v << "pos=" << vpos << "ghost:" << _tessellation.isGhostVertex(_tessellation.cellVertex(cell, v));
 		}
-		return std::abs(ad.dot(cd.cross(bd))) / FloatType(6);
+		if(isCompletelyInsideTetrahedron) {
+			// The simulation box is completely inside the tetrahedron.
+			return _tessellation.simCell().volume3D();
+		}
+
+		// There is a partial overlap. We need to compute the intersection of the two shapes to determine the overlap volume.
+
+		// We start with six line segments along the six edges of the tetrahedron.
+		// The six line segments will be clipped at the boundaries of the simulation box.
+		Point3 lineSegments[6][2];
+		static const int edgeVertices[6][2] = {{0,1},{0,2},{0,3},{1,2},{1,3},{2,3}};
+		int numSegments = 0;
+		for(int e = 0; e < 6; e++) {
+			Point3 p1 = reducedVertexPositions[edgeVertices[e][0]];
+			Point3 p2 = reducedVertexPositions[edgeVertices[e][1]];
+
+			// Clip the segment at the boundaries of the simulation box.
+			bool isDegenerate = false;
+			for(int dim = 0; dim < 3; dim++) {
+				// Clip at lower box boundary.
+				if(p1[dim] < 0 && p2[dim] < 0) {
+					isDegenerate = true;
+					break;
+				}
+				else if(p1[dim] < 0 && p2[dim] > 0) {
+					Vector3 delta = p2 - p1;
+					p1 -= delta * (p1[dim] / delta[dim]);
+				}
+				else if(p1[dim] > 0 && p2[dim] < 0) {
+					Vector3 delta = p1 - p2;
+					p2 -= delta * (p2[dim] / delta[dim]);
+				}
+
+				// Clip at upper box boundary.
+				if(p1[dim] > 1.0 && p2[dim] > 1.0) {
+					isDegenerate = true;
+					break;
+				}
+				else if(p1[dim] > 1.0 && p2[dim] < 1.0) {
+					Vector3 delta = p2 - p1;
+					p1 += delta * ((p1[dim] - 1.0) / delta[dim]);
+				}
+				else if(p1[dim] < 1.0 && p2[dim] > 1.0) {
+					Vector3 delta = p1 - p2;
+					p2 += delta * ((p2[dim] - 1.0) / delta[dim]);
+				}
+			}
+
+			// Add the line segment to the list of output segments if it wasn't clipped away entirely.
+			if(!isDegenerate) {
+				lineSegments[numSegments][0] = p1;
+				lineSegments[numSegments][1] = p2;
+				numSegments++;
+			}
+		}
+		if(numSegments < 2)
+			return 0;	// Overlap is degenerate.
+
+		// Construct convex hull of remaining line segments.
+		
+
+		return 0;
 	}
 
 private:
