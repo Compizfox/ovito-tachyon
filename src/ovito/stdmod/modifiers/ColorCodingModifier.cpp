@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Copyright 2017 Alexander Stukowski
+//  Copyright 2020 Alexander Stukowski
 //
 //  This file is part of OVITO (Open Visualization Tool).
 //
@@ -164,15 +164,22 @@ void ColorCodingModifier::referenceReplaced(const PropertyFieldDescriptor& field
 ******************************************************************************/
 bool ColorCodingModifier::determinePropertyValueRange(const PipelineFlowState& state, FloatType& min, FloatType& max)
 {
-	if(!delegate() || !state)
+	if(!delegate())
 		return false;
-	const PropertyContainer* container = state.getLeafObject(delegate()->inputContainerRef());
-	if(!container)
+
+	// Look up the selected property container. 
+	ConstDataObjectPath objectPath = state.getObject(delegate()->inputContainerRef());
+	if(objectPath.empty())
 		return false;
+	const PropertyContainer* container = static_object_cast<PropertyContainer>(objectPath.back());
+
+	// Look up the selected property.
 	const PropertyObject* propertyObj = sourceProperty().findInContainer(container);
 	if(!propertyObj)
 		return false;
 	const PropertyStorage* property = propertyObj->storage().get();
+
+	// Verify input property.
 	if(sourceProperty().vectorComponent() >= (int)property->componentCount())
 		return false;
 	if(property->size() == 0)
