@@ -88,7 +88,7 @@ bool ModifierApplication::referenceEvent(RefTarget* source, const ReferenceEvent
 			// Ignore modifier's status if it is currently disabled.
 			setStatus(PipelineStatus(PipelineStatus::Success, tr("Modifier is currently disabled.")));
 			// Also clear pipeline cache in order to reduce memory footprint when modifier is disabled.
-			pipelineCache().invalidate();
+			pipelineCache().invalidate(TimeInterval::empty(), true);
 		}
 		// Propagate enabled/disabled notification events from the modifier.
 		return true;
@@ -209,11 +209,23 @@ Future<std::vector<PipelineFlowState>> ModifierApplication::evaluateInputMultipl
 }
 
 /******************************************************************************
+* Returns the results of an immediate and preliminary evaluation of the data pipeline.
+******************************************************************************/
+PipelineFlowState ModifierApplication::evaluateSynchronous(TimePoint time)
+{
+	// If modifier is disabled, bypass cache and forward results of upstream pipeline.
+	if(input() && (!modifier() || modifier()->isEnabled() == false))
+		return input()->evaluateSynchronous(time);
+
+	return CachingPipelineObject::evaluateSynchronous(time);
+}
+
+/******************************************************************************
 * Asks the object for the result of the data pipeline.
 ******************************************************************************/
 SharedFuture<PipelineFlowState> ModifierApplication::evaluate(const PipelineEvaluationRequest& request)
 {
-	// If modifier is disabled, pass through results to downstream pipeline.
+	// If modifier is disabled, bypass cache and forward results of upstream pipeline.
 	if(input() && (!modifier() || modifier()->isEnabled() == false))
 		return input()->evaluate(request);
 	
@@ -313,7 +325,6 @@ PipelineFlowState ModifierApplication::evaluateInternalSynchronous(TimePoint tim
 {
 	PipelineFlowState state;
 	
-	// If not, ask the modifier to perform a preliminary evaluation.
 	if(input()) {
 		UndoSuspender noUndo(this);
 		// First get the preliminary results from the upstream pipeline.
