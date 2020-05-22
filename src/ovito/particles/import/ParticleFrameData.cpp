@@ -103,7 +103,7 @@ void ParticleFrameData::generateBondPeriodicImageProperty()
 	OVITO_ASSERT(!findStandardBondProperty(BondsObject::PeriodicImageProperty));
 	PropertyAccess<Vector3I> bondPeriodicImageProperty = addBondProperty(BondsObject::OOClass().createStandardStorage(bondTopologyProperty.size(), BondsObject::PeriodicImageProperty, true));
 
-	if(!simulationCell().pbcFlags()[0] && !simulationCell().pbcFlags()[1] && !simulationCell().pbcFlags()[2])
+	if(!simulationCell().hasPbc())
 		return;
 
 	for(size_t bondIndex = 0; bondIndex < bondTopologyProperty.size(); bondIndex++) {
@@ -112,7 +112,7 @@ void ParticleFrameData::generateBondPeriodicImageProperty()
 		OVITO_ASSERT(index1 < posProperty.size() && index2 < posProperty.size());
 		Vector3 delta = simulationCell().absoluteToReduced(posProperty[index2] - posProperty[index1]);
 		for(size_t dim = 0; dim < 3; dim++) {
-			if(simulationCell().pbcFlags()[dim])
+			if(simulationCell().hasPbc(dim))
 				bondPeriodicImageProperty[bondIndex][dim] = -(int)std::floor(delta[dim] + FloatType(0.5));
 		}
 	}

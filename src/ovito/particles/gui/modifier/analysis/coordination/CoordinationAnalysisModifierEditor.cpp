@@ -25,6 +25,7 @@
 #include <ovito/gui/desktop/properties/IntegerParameterUI.h>
 #include <ovito/gui/desktop/properties/FloatParameterUI.h>
 #include <ovito/gui/desktop/properties/BooleanParameterUI.h>
+#include <ovito/gui/desktop/properties/OpenDataInspectorButton.h>
 #include <ovito/gui/desktop/mainwin/MainWindow.h>
 #include "CoordinationAnalysisModifierEditor.h"
 
@@ -73,12 +74,8 @@ void CoordinationAnalysisModifierEditor::createUI(const RolloutInsertionParamete
 	layout->addWidget(new QLabel(tr("Radial distribution function:")));
 	layout->addWidget(_rdfPlot);
 
-	QPushButton* btn = new QPushButton(tr("Show in data inspector"));
-	connect(btn, &QPushButton::clicked, this, [this]() {
-		if(modifierApplication())
-			mainWindow()->openDataInspector(modifierApplication());
-	});
-	layout->addWidget(btn);
+	OpenDataInspectorButton* openDataInspectorBtn = new OpenDataInspectorButton(this, tr("Show in data inspector"));
+	layout->addWidget(openDataInspectorBtn);
 
 	// Status label.
 	layout->addSpacing(6);

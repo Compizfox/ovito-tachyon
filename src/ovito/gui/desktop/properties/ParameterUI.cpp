@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Copyright 2013 Alexander Stukowski
+//  Copyright 2020 Alexander Stukowski
 //
 //  This file is part of OVITO (Open Visualization Tool).
 //
@@ -39,7 +39,7 @@ DEFINE_REFERENCE_FIELD(PropertyParameterUI, parameterObject);
 ///////////////////////////////////// ParameterUI /////////////////////////////////////////
 
 /******************************************************************************
-* The constructor.
+* Constructor.
 ******************************************************************************/
 ParameterUI::ParameterUI(QObject* parent) : RefMaker(nullptr), _enabled(true)
 {
@@ -171,6 +171,5 @@ void PropertyParameterUI::openAnimationKeyEditor()
 	AnimationKeyEditorDialog dlg(ctrl, propertyField(), editor()->container(), editor()->mainWindow());
 	dlg.exec();
 }
-
 
 }	// End of namespace

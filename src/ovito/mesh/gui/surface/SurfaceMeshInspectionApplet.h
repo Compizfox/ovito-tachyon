@@ -123,6 +123,9 @@ public:
 	/// Lets the applet create the UI widget that is to be placed into the data inspector panel.
 	virtual QWidget* createWidget(MainWindow* mainWindow) override;
 
+	/// Selects a specific data object in this applet.
+	virtual bool selectDataObject(PipelineObject* dataSource, const QString& objectIdentifierHint, const QVariant& modeHint) override;
+
 private Q_SLOTS:
 
 	/// Is called when the user selects a different data object from the list.

@@ -251,7 +251,7 @@ private:
 	GEO::Delaunay_var _dt;
 
 	/// Stores the coordinates of the input points.
-	std::vector<double> _pointData;
+	std::vector<Point_3<double>> _pointData;
 
 	/// Stores per-cell auxiliary data.
 	std::vector<CellInfo> _cellInfo;

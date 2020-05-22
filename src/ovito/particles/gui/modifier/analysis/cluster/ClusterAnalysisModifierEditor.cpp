@@ -25,6 +25,7 @@
 #include <ovito/gui/desktop/properties/BooleanParameterUI.h>
 #include <ovito/gui/desktop/properties/FloatParameterUI.h>
 #include <ovito/gui/desktop/properties/IntegerRadioButtonParameterUI.h>
+#include <ovito/gui/desktop/properties/OpenDataInspectorButton.h>
 #include <ovito/gui/desktop/mainwin/MainWindow.h>
 #include "ClusterAnalysisModifierEditor.h"
 
@@ -93,12 +94,8 @@ void ClusterAnalysisModifierEditor::createUI(const RolloutInsertionParameters& r
 	layout->addSpacing(6);
 	layout->addWidget(statusLabel());
 
-	QPushButton* btn = new QPushButton(tr("Show list of clusters"));
-	connect(btn, &QPushButton::clicked, this, [this]() {
-		if(modifierApplication())
-			mainWindow()->openDataInspector(modifierApplication(), {}, 1); // Note: Mode hint "1" is used to switch to the data table view.
-	});
-	layout->addWidget(btn);
+	OpenDataInspectorButton* openDataInspectorBtn = new OpenDataInspectorButton(this, tr("Show list of clusters"), {}, 1); // Note: Mode hint "1" is used to switch to the data table view.
+	layout->addWidget(openDataInspectorBtn);
 }
 
 }	// End of namespace

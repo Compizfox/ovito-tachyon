@@ -209,7 +209,7 @@ PipelineStatus ParticlesReplicateModifierDelegate::apply(Modifier* modifier, Pip
 									if(pindex >= 0 && pindex < positionArray.size() && referenceParticle >= 0 && referenceParticle < positionArray.size()) {
 										Vector3 delta = positionArray[pindex] - positionArray[referenceParticle];
 										for(size_t dim = 0; dim < 3; dim++) {
-											if(cell.pbcFlags()[dim]) {
+											if(cell.hasPbc(dim)) {
 												int imageDelta = (int)std::floor(cell.inverseMatrix().prodrow(delta, dim) + FloatType(0.5));
 												int i = image[dim] - newImages.minc[dim] - imageDelta;
 												newImage[dim] = SimulationCell::modulo(i, nPBC[dim]) + newImages.minc[dim];
@@ -256,7 +256,7 @@ PipelineStatus ParticlesReplicateModifierDelegate::apply(Modifier* modifier, Pip
 									if(pindex >= 0 && pindex < positionArray.size() && referenceParticle >= 0 && referenceParticle < positionArray.size()) {
 										Vector3 delta = positionArray[pindex] - positionArray[referenceParticle];
 										for(size_t dim = 0; dim < 3; dim++) {
-											if(cell.pbcFlags()[dim]) {
+											if(cell.hasPbc(dim)) {
 												int imageDelta = (int)std::floor(cell.inverseMatrix().prodrow(delta, dim) + FloatType(0.5));
 												int i = image[dim] - newImages.minc[dim] - imageDelta;
 												newImage[dim] = SimulationCell::modulo(i, nPBC[dim]) + newImages.minc[dim];
@@ -303,7 +303,7 @@ PipelineStatus ParticlesReplicateModifierDelegate::apply(Modifier* modifier, Pip
 									if(pindex >= 0 && pindex < positionArray.size() && referenceParticle >= 0 && referenceParticle < positionArray.size()) {
 										Vector3 delta = positionArray[pindex] - positionArray[referenceParticle];
 										for(size_t dim = 0; dim < 3; dim++) {
-											if(cell.pbcFlags()[dim]) {
+											if(cell.hasPbc(dim)) {
 												int imageDelta = (int)std::floor(cell.inverseMatrix().prodrow(delta, dim) + FloatType(0.5));
 												int i = image[dim] - newImages.minc[dim] - imageDelta;
 												newImage[dim] = SimulationCell::modulo(i, nPBC[dim]) + newImages.minc[dim];

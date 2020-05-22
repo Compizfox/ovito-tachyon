@@ -24,30 +24,35 @@
 
 
 #include <ovito/gui/desktop/GUI.h>
-#include <ovito/gui/desktop/properties/PropertiesEditor.h>
 
-namespace Ovito { namespace Mesh {
+namespace Ovito {
 
-/**
- * \brief A properties editor for the SurfaceMeshVis class.
- */
-class SurfaceMeshVisEditor : public PropertiesEditor
+/******************************************************************************
+* A push button that allows the user to open a modifier's output in the data 
+* inspector panel.
+******************************************************************************/
+class OVITO_GUI_EXPORT OpenDataInspectorButton : public QPushButton
 {
 	Q_OBJECT
-	OVITO_CLASS(SurfaceMeshVisEditor)
 
 public:
 
 	/// Constructor.
-	Q_INVOKABLE SurfaceMeshVisEditor() {}
+	OpenDataInspectorButton(ModifierPropertiesEditor* editor, const QString& buttonTitle, const QString& objectNameHint = {}, const QVariant& modeHint = {});
 
-protected:
+	/// Returns the properties editor hosting this button.
+	ModifierPropertiesEditor* editor() const { return _editor; }
 
-	/// Creates the user interface controls for the editor.
-	virtual void createUI(const RolloutInsertionParameters& rolloutParams) override;
+private:
+
+	/// The properties editor hosting this button.
+	ModifierPropertiesEditor* _editor;
+
+	/// Data object name hint to be passed to the data inspector when the button is clicked.
+	QString _objectNameHint;
+	
+	/// Mode hint to be passed to the data inspector when the button is clicked.
+	QVariant _modeHint;
 };
 
 }	// End of namespace
-}	// End of namespace
-
-

@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Copyright 2016 Alexander Stukowski
+//  Copyright 2020 Alexander Stukowski
 //
 //  This file is part of OVITO (Open Visualization Tool).
 //
@@ -64,8 +64,11 @@ void SurfaceMeshVisEditor::createUI(const RolloutInsertionParameters& rolloutPar
 	BooleanParameterUI* smoothShadingUI = new BooleanParameterUI(this, PROPERTY_FIELD(SurfaceMeshVis::smoothShading));
 	sublayout->addWidget(smoothShadingUI->checkBox(), 2, 0, 1, 2);
 
+	BooleanParameterUI* reverseOrientationUI = new BooleanParameterUI(this, PROPERTY_FIELD(SurfaceMeshVis::reverseOrientation));
+	sublayout->addWidget(reverseOrientationUI->checkBox(), 3, 0, 1, 2);
+
 	BooleanParameterUI* highlightEdgesUI = new BooleanParameterUI(this, PROPERTY_FIELD(SurfaceMeshVis::highlightEdges));
-	sublayout->addWidget(highlightEdgesUI->checkBox(), 3, 0, 1, 2);
+	sublayout->addWidget(highlightEdgesUI->checkBox(), 4, 0, 1, 2);
 
 	BooleanGroupBoxParameterUI* capGroupUI = new BooleanGroupBoxParameterUI(this, PROPERTY_FIELD(SurfaceMeshVis::showCap));
 	capGroupUI->groupBox()->setTitle(tr("Cap polygons"));
@@ -82,9 +85,6 @@ void SurfaceMeshVisEditor::createUI(const RolloutInsertionParameters& rolloutPar
 	FloatParameterUI* capTransparencyUI = new FloatParameterUI(this, PROPERTY_FIELD(SurfaceMeshVis::capTransparencyController));
 	sublayout->addWidget(new QLabel(tr("Transparency:")), 1, 0);
 	sublayout->addLayout(capTransparencyUI->createFieldLayout(), 1, 1);
-
-	BooleanParameterUI* reverseOrientationUI = new BooleanParameterUI(this, PROPERTY_FIELD(SurfaceMeshVis::reverseOrientation));
-	sublayout->addWidget(reverseOrientationUI->checkBox(), 2, 0, 1, 2);
 }
 
 }	// End of namespace

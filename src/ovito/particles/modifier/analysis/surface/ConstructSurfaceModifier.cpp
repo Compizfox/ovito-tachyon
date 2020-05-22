@@ -58,7 +58,7 @@ SET_PROPERTY_FIELD_LABEL(ConstructSurfaceModifier, probeSphereRadius, "Probe sph
 SET_PROPERTY_FIELD_LABEL(ConstructSurfaceModifier, onlySelectedParticles, "Use only selected input particles");
 SET_PROPERTY_FIELD_LABEL(ConstructSurfaceModifier, selectSurfaceParticles, "Select particles at the surface");
 SET_PROPERTY_FIELD_LABEL(ConstructSurfaceModifier, transferParticleProperties, "Transfer particle properties to surface");
-SET_PROPERTY_FIELD_LABEL(ConstructSurfaceModifier, identifyRegions, "Identify volumetric regions");
+SET_PROPERTY_FIELD_LABEL(ConstructSurfaceModifier, identifyRegions, "Identify volumetric regions (filled/void)");
 SET_PROPERTY_FIELD_LABEL(ConstructSurfaceModifier, method, "Construction method");
 SET_PROPERTY_FIELD_LABEL(ConstructSurfaceModifier, gridResolution, "Resolution");
 SET_PROPERTY_FIELD_LABEL(ConstructSurfaceModifier, radiusFactor, "Radius scaling");
@@ -166,28 +166,16 @@ void ConstructSurfaceModifier::AlphaShapeEngine::perform()
 
 	// Check if combination of radius parameter and simulation cell size is valid.
 	for(size_t dim = 0; dim < 3; dim++) {
-		if(mesh().cell().pbcFlags()[dim]) {
+		if(mesh().cell().hasPbc(dim)) {
 			int stencilCount = (int)ceil(ghostLayerSize / mesh().cell().matrix().column(dim).dot(mesh().cell().cellNormalVector(dim)));
 			if(stencilCount > 1)
 				throw Exception(tr("Cannot generate Delaunay tessellation. Simulation cell is too small, or radius parameter is too large."));
 		}
 	}
 
-	// If there are too few particles, don't build Delaunay tessellation.
-	// It is going to be invalid anyway.
-	size_t numInputParticles = positions()->size();
-	if(selection()) {
-		numInputParticles = positions()->size() - boost::count(ConstPropertyAccess<int>(selection()), 0);
-	}
-	if(numInputParticles <= 3) {
-		// Release data that is no longer needed.
-		releaseWorkingData();
-		return;
-	}
-
 	// Algorithm is divided into several sub-steps.
 	// Assign weights to sub-steps according to estimated runtime.
-	beginProgressSubStepsWithWeights({ 10, 30, 2, 2, 4 });
+	beginProgressSubStepsWithWeights({ 10, 30, 2, 2, 2 });
 
 	// Generate Delaunay tessellation.
 	DelaunayTessellation tessellation;
@@ -206,22 +194,14 @@ void ConstructSurfaceModifier::AlphaShapeEngine::perform()
 	nextProgressSubStep();
 
 	// Determines the region a solid Delaunay cell belongs to.
-	// We use this callback function to compute the total volume of the solid region.
-	auto tetrahedronRegion = [this, &tessellation](DelaunayTessellation::CellHandle cell) {
-		if(tessellation.isGhostCell(cell) == false) {
-			Point3 p0 = tessellation.vertexPosition(tessellation.cellVertex(cell, 0));
-			Vector3 ad = tessellation.vertexPosition(tessellation.cellVertex(cell, 1)) - p0;
-			Vector3 bd = tessellation.vertexPosition(tessellation.cellVertex(cell, 2)) - p0;
-			Vector3 cd = tessellation.vertexPosition(tessellation.cellVertex(cell, 3)) - p0;
-			addSolidVolume(std::abs(ad.dot(cd.cross(bd))) / FloatType(6));
-		}
+	auto tetrahedronRegion = [](DelaunayTessellation::CellHandle cell) {
 		return 0;
 	};
 
 	// This callback function is called for every surface facet created by the manifold construction helper.
 	PropertyAccess<int> surfaceParticleSelectionArray(surfaceParticleSelection());
 	auto prepareMeshFace = [&](HalfEdgeMesh::face_index face, const std::array<size_t,3>& vertexIndices, const std::array<DelaunayTessellation::VertexHandle,3>& vertexHandles, DelaunayTessellation::CellHandle cell) {
-		// Mark vertex atoms as belonging to the surface.
+		// Mark the face's corner particles as belonging to the surface.
 		if(surfaceParticleSelectionArray) {
 			for(size_t vi : vertexIndices) {
 				OVITO_ASSERT(vi < surfaceParticleSelectionArray.size());
@@ -248,7 +228,7 @@ void ConstructSurfaceModifier::AlphaShapeEngine::perform()
 			return;
 	}
 	else {
-		beginProgressSubStepsWithWeights({ 4, 1 });
+		beginProgressSubStepsWithWeights({ 2, 1 });
 
 		// Construct a two-sided surface mesh with mesh faces associated with spatial regions.
 		ManifoldConstructionHelper<true, true> manifoldConstructor(tessellation, mesh(), alpha, *positions());
@@ -260,6 +240,14 @@ void ConstructSurfaceModifier::AlphaShapeEngine::perform()
 		// After construct() above has identified the filled regions, now identify the empty regions.
 		if(!manifoldConstructor.formEmptyRegions(*this))
 			return;
+
+		_filledRegionCount = manifoldConstructor.filledRegionCount();
+		_emptyRegionCount = manifoldConstructor.emptyRegionCount();
+
+		// Output auxiliary per-region information.
+		PropertyAccess<int> filledProperty(mesh().createRegionProperty(SurfaceMeshRegions::IsFilledProperty, false));
+		std::fill(filledProperty.begin(), filledProperty.begin() + _filledRegionCount, 1);
+		std::fill(filledProperty.begin() + _filledRegionCount, filledProperty.end(), 0);
 
 		endProgressSubSteps();
 	}
@@ -290,27 +278,49 @@ void ConstructSurfaceModifier::AlphaShapeEngine::perform()
 	nextProgressSubStep();
 
 	// Make sure every mesh vertex is only part of one surface manifold.
-	mesh().makeManifold();
+	SurfaceMeshData::size_type duplicatedVertices = mesh().makeManifold();
 
 	nextProgressSubStep();
 	if(!mesh().smoothMesh(_smoothingLevel, *this))
 		return;
 
-	// Create the 'Surface area' region property.
-	PropertyAccess<FloatType> surfaceAreaProperty = _identifyRegions ? mesh().createRegionProperty(SurfaceMeshRegions::SurfaceAreaProperty, true) : nullptr;
-
-	// Compute surface area (total and per region) by summing up the triangle face areas.
 	nextProgressSubStep();
-	setProgressMaximum(mesh().faceCount());
-	for(HalfEdgeMesh::edge_index edge : mesh().firstFaceEdges()) {
-		if(!incrementProgressValue()) return;
-		const Vector3& e1 = mesh().edgeVector(edge);
-		const Vector3& e2 = mesh().edgeVector(mesh().nextFaceEdge(edge));
-		FloatType area = e1.cross(e2).length() / 2;
-		addSurfaceArea(area);
-		if(_identifyRegions) {
+
+	if(_identifyRegions) {
+		// Create the 'Surface area' region property.
+		PropertyAccess<FloatType> surfaceAreaProperty = mesh().createRegionProperty(SurfaceMeshRegions::SurfaceAreaProperty, true);
+
+		// Compute surface area (total and per region) by summing up the triangle face areas.
+		setProgressMaximum(mesh().faceCount());
+		for(SurfaceMeshData::edge_index edge : mesh().firstFaceEdges()) {
+			if(!incrementProgressValue()) return;
+			const Vector3& e1 = mesh().edgeVector(edge);
+			const Vector3& e2 = mesh().edgeVector(mesh().nextFaceEdge(edge));
+			FloatType faceArea = e1.cross(e2).length() / 2;
 			SurfaceMeshData::region_index region = mesh().faceRegion(mesh().adjacentFace(edge));
-			surfaceAreaProperty[region] += area;
+			surfaceAreaProperty[region] += faceArea;
+
+			// Only count surface area of outer surface, which is bordering an empty region.
+			// Don't count area of internal interfaces.
+			if(region >= _filledRegionCount)
+				addSurfaceArea(faceArea);
+		}
+
+		// Compute total volumes.
+		for(SurfaceMeshData::region_index region = 0; region < _filledRegionCount; region++)
+			_totalFilledVolume += mesh().regionVolume(region);
+		for(SurfaceMeshData::region_index region = _filledRegionCount; region < mesh().regionCount(); region++)
+			_totalEmptyVolume += mesh().regionVolume(region);
+	}
+	else {
+		// Compute total surface area by summing up the triangle face areas.
+		setProgressMaximum(mesh().faceCount());
+		for(SurfaceMeshData::edge_index edge : mesh().firstFaceEdges()) {
+			if(!incrementProgressValue()) return;
+			const Vector3& e1 = mesh().edgeVector(edge);
+			const Vector3& e2 = mesh().edgeVector(mesh().nextFaceEdge(edge));
+			FloatType faceArea = e1.cross(e2).length() / 2;
+			addSurfaceArea(faceArea);
 		}
 	}
 
@@ -352,7 +362,7 @@ void ConstructSurfaceModifier::GaussianDensityEngine::perform()
 	ConstPropertyAccess<Point3> positionsArray(positions());
 	for(size_t dim = 0; dim < 3; dim++) {
 		// Use bounding box of particles in directions that are non-periodic.
-		if(!mesh().cell().pbcFlags()[dim]) {
+		if(!mesh().cell().hasPbc(dim)) {
 			// Compute range of relative atomic coordinates in the current direction.
 			FloatType xmin =  FLOATTYPE_MAX;
 			FloatType xmax = -FLOATTYPE_MAX;
@@ -396,9 +406,9 @@ void ConstructSurfaceModifier::GaussianDensityEngine::perform()
 
 	// Set up a matrix that converts grid coordinates to spatial coordinates.
 	AffineTransformation gridToCartesian = gridBoundaries;
-	gridToCartesian.column(0) /= gridDims[0] - (mesh().cell().pbcFlags()[0]?0:1);
-	gridToCartesian.column(1) /= gridDims[1] - (mesh().cell().pbcFlags()[1]?0:1);
-	gridToCartesian.column(2) /= gridDims[2] - (mesh().cell().pbcFlags()[2]?0:1);
+	gridToCartesian.column(0) /= gridDims[0] - (mesh().cell().hasPbc(0)?0:1);
+	gridToCartesian.column(1) /= gridDims[1] - (mesh().cell().hasPbc(1)?0:1);
+	gridToCartesian.column(2) /= gridDims[2] - (mesh().cell().hasPbc(2)?0:1);
 
 	// Compute the accumulated density at each grid point.
 	parallelFor(densityData.size(), *this, [&](size_t voxelIndex) {
@@ -540,26 +550,33 @@ void ConstructSurfaceModifier::AlphaShapeEngine::emitResults(TimePoint time, Mod
 		particles->createProperty(surfaceParticleSelection());
 	}
 
-	// Output global attributes.
+	// Output total surface area.
 	state.addAttribute(QStringLiteral("ConstructSurfaceMesh.surface_area"), QVariant::fromValue(surfaceArea()), modApp);
-	state.addAttribute(QStringLiteral("ConstructSurfaceMesh.solid_volume"), QVariant::fromValue(solidVolume()), modApp);
 
-	QString statusString = tr("Surface area: %1\nSolid volume: %2\nSimulation cell volume: %3\nSolid volume fraction: %4\nSurface area per solid volume: %5\nSurface area per total volume: %6")
-			.arg(surfaceArea())
-			.arg(solidVolume())
-			.arg(totalVolume())
-			.arg(totalVolume() > 0 ? (solidVolume() / totalVolume()) : 0)
-			.arg(solidVolume() > 0 ? (surfaceArea() / solidVolume()) : 0)
-			.arg(totalVolume() > 0 ? (surfaceArea() / totalVolume()) : 0);
 	if(_identifyRegions) {
-		statusString += tr("\nFound %1 volumetric region(s)").arg(mesh().regionCount());
 
-		PropertyPtr volProperty = mesh().regionProperty(SurfaceMeshRegions::VolumeProperty);
-		qDebug() << "Summed region volume: " << boost::accumulate(ConstPropertyAccess<FloatType>(volProperty), 0.0);
-		qDebug() << "Cell volume:          " << totalVolume();
+		// Output more global attributes.
+		state.addAttribute(QStringLiteral("ConstructSurfaceMesh.specific_surface_area"), QVariant::fromValue(_totalCellVolume ? (surfaceArea() / _totalCellVolume) : 0), modApp);
+		state.addAttribute(QStringLiteral("ConstructSurfaceMesh.solid_volume"), QVariant::fromValue(_totalFilledVolume), modApp);
+		state.addAttribute(QStringLiteral("ConstructSurfaceMesh.empty_volume"), QVariant::fromValue(_totalEmptyVolume), modApp);
+		state.addAttribute(QStringLiteral("ConstructSurfaceMesh.cell_volume"), QVariant::fromValue(_totalCellVolume), modApp);
+		state.addAttribute(QStringLiteral("ConstructSurfaceMesh.filled_fraction"), QVariant::fromValue(_totalCellVolume ? (_totalFilledVolume / _totalCellVolume) : 0), modApp);
+		state.addAttribute(QStringLiteral("ConstructSurfaceMesh.empty_fraction"), QVariant::fromValue(_totalCellVolume ? (_totalEmptyVolume / _totalCellVolume) : 0), modApp);
+		state.addAttribute(QStringLiteral("ConstructSurfaceMesh.filled_region_count"), QVariant::fromValue(_filledRegionCount), modApp);
+		state.addAttribute(QStringLiteral("ConstructSurfaceMesh.empty_region_count"), QVariant::fromValue(_emptyRegionCount), modApp);
+
+		QString statusString = tr("Surface area: %1\nFilled regions/volume: %2 / %3\nEmpty regions/volume: %4 / %5")
+				.arg(surfaceArea())
+				.arg(_filledRegionCount)
+				.arg(_totalFilledVolume)
+				.arg(_emptyRegionCount)
+				.arg(_totalEmptyVolume);
+
+		state.setStatus(PipelineStatus(PipelineStatus::Success, std::move(statusString)));
 	}
-
-	state.setStatus(PipelineStatus(PipelineStatus::Success, std::move(statusString)));
+	else {
+		state.setStatus(PipelineStatus(PipelineStatus::Success, tr("Surface area: %1").arg(surfaceArea())));
+	}
 }
 
 /******************************************************************************
@@ -577,6 +594,7 @@ void ConstructSurfaceModifier::GaussianDensityEngine::emitResults(TimePoint time
 	// Set the spatial domain of the mesh.
 	meshObj->setDomain(new SimulationCellObject(meshObj->dataset(), mesh().cell()));
 
+	// Output total surface area.
 	state.addAttribute(QStringLiteral("ConstructSurfaceMesh.surface_area"), QVariant::fromValue(surfaceArea()), modApp);
 
 	state.setStatus(PipelineStatus(PipelineStatus::Success, tr("Surface area: %1").arg(surfaceArea())));

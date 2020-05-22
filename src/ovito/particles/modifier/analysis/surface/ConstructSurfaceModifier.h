@@ -101,11 +101,11 @@ private:
 		/// Returns a mutable reference to the surface mesh structure.
 		SurfaceMeshData& mesh() { return _mesh; }
 
-		/// Returns the computed surface area.
-		FloatType surfaceArea() const { return (FloatType)_surfaceArea; }
+		/// Returns the computed total surface area.
+		FloatType surfaceArea() const { return (FloatType)_totalSurfaceArea; }
 
-		/// Sums a contribution to the total surface area.
-		void addSurfaceArea(FloatType a) { _surfaceArea += a; }
+		/// Adds a summation contribution to the total surface area.
+		void addSurfaceArea(FloatType a) { _totalSurfaceArea += a; }
 
 		/// Returns the input particle positions.
 		const ConstPropertyPtr& positions() const { return _positions; }
@@ -136,8 +136,8 @@ private:
 		/// The generated surface mesh.
 		SurfaceMeshData _mesh;
 
-		/// The computed surface area.
-		double _surfaceArea = 0;
+		/// The computed total surface area.
+		double _totalSurfaceArea = 0;
 
 		/// The list of particle properties to copy over to the generated mesh.
 		std::vector<ConstPropertyPtr> _particleProperties;
@@ -154,7 +154,7 @@ private:
 			_probeSphereRadius(probeSphereRadius),
 			_smoothingLevel(smoothingLevel),
 			_identifyRegions(identifyRegions),
-			_totalVolume(std::abs(simCell.matrix().determinant())),
+			_totalCellVolume(simCell.volume3D()),
 			_surfaceParticleSelection(selectSurfaceParticles ? ParticlesObject::OOClass().createStandardStorage(this->positions()->size(), ParticlesObject::SelectionProperty, true) : nullptr) {}
 
 		/// Computes the modifier's results and stores them in this object for later retrieval.
@@ -162,15 +162,6 @@ private:
 
 		/// Injects the computed results into the data pipeline.
 		virtual void emitResults(TimePoint time, ModifierApplication* modApp, PipelineFlowState& state) override;
-
-		/// Returns the computed solid volume.
-		FloatType solidVolume() const { return (FloatType)_solidVolume; }
-
-		/// Sums a contribution to the total solid volume.
-		void addSolidVolume(FloatType v) { _solidVolume += v; }
-
-		/// Returns the computed total volume.
-		FloatType totalVolume() const { return (FloatType)_totalVolume; }
 
 		/// Returns the selection set containing the particles at the constructed surfaces.
 		const PropertyPtr& surfaceParticleSelection() const { return _surfaceParticleSelection; }
@@ -189,11 +180,20 @@ private:
 		/// Controls the identification of disconnected spatial regions (filled and empty).
 		const bool _identifyRegions;
 
-		/// The computed solid volume.
-		double _solidVolume = 0;
+		/// Number of filled regions that have been identified.
+		SurfaceMeshData::size_type _filledRegionCount = 0;
 
-		/// The computed total volume.
-		double _totalVolume = 0;
+		/// Number of empty regions that have been identified.
+		SurfaceMeshData::size_type _emptyRegionCount = 0;
+
+		/// The computed total volume of filled regions.
+		double _totalFilledVolume = 0;
+
+		/// The computed total volume of empty regions.
+		double _totalEmptyVolume = 0;
+
+		/// The total volume of the simulation cell.
+		double _totalCellVolume = 0;
 
 		/// The selection set containing the particles right on the constructed surfaces.
 		PropertyPtr _surfaceParticleSelection;

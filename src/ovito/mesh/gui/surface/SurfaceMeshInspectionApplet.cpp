@@ -53,9 +53,9 @@ QWidget* SurfaceMeshInspectionApplet::createWidget(MainWindow* mainWindow)
 	toolbar->setStyleSheet("QToolBar { padding: 0px; margin: 0px; border: 0px none black; spacing: 0px; }");
 
 	QActionGroup* subobjectActionGroup = new QActionGroup(this);
-	_switchToVerticesAction = subobjectActionGroup->addAction(QIcon(":/gui/mainwin/inspector/show_chart.svg"), tr("Vertices"));
-	_switchToFacesAction = subobjectActionGroup->addAction(QIcon(":/gui/mainwin/inspector/show_chart.svg"), tr("Faces"));
-	_switchToRegionsAction = subobjectActionGroup->addAction(QIcon(":/gui/mainwin/inspector/show_chart.svg"), tr("Regions"));
+	_switchToVerticesAction = subobjectActionGroup->addAction(QIcon(":/mesh/icons/vertices_view.svg"), tr("Vertices"));
+	_switchToFacesAction = subobjectActionGroup->addAction(QIcon(":/mesh/icons/faces_view.svg"), tr("Faces"));
+	_switchToRegionsAction = subobjectActionGroup->addAction(QIcon(":/mesh/icons/regions_view.svg"), tr("Regions"));
 	toolbar->addAction(_switchToVerticesAction);
 	toolbar->addAction(_switchToFacesAction);
 	toolbar->addAction(_switchToRegionsAction);
@@ -104,6 +104,31 @@ void SurfaceMeshInspectionApplet::onCurrentDataObjectChanged()
 	_verticesApplet->updateDisplay(currentState(), currentPipeline());
 	_facesApplet->updateDisplay(currentState(), currentPipeline());
 	_regionsApplet->updateDisplay(currentState(), currentPipeline());
+}
+
+/******************************************************************************
+* Selects a specific data object in this applet.
+******************************************************************************/
+bool SurfaceMeshInspectionApplet::selectDataObject(PipelineObject* dataSource, const QString& objectIdentifierHint, const QVariant& modeHint)
+{
+	// Let the base class switch to the right data object. 
+	bool result = DataInspectionApplet::selectDataObject(dataSource, objectIdentifierHint, modeHint);
+	
+	if(result) {
+		// The mode hint is used to switch between vertex/face/region views.
+		bool ok;
+		int mode = modeHint.toInt(&ok);
+		if(ok) {
+			if(mode == 0)
+				_switchToVerticesAction->trigger();	// Vertex list view
+			else if(mode == 1)
+				_switchToFacesAction->trigger(); 	// Face list view
+			else if(mode == 2)
+				_switchToRegionsAction->trigger();	// Region list view
+		}
+	}
+
+	return result;
 }
 
 /******************************************************************************

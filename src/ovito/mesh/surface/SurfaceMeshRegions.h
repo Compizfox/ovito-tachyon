@@ -67,6 +67,7 @@ public:
 		PhaseProperty = PropertyStorage::FirstSpecificProperty,
 		VolumeProperty,
 		SurfaceAreaProperty,
+		IsFilledProperty,
 		LatticeCorrespondenceProperty
 	};
 

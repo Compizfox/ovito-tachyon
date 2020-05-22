@@ -248,7 +248,7 @@ public:
     /// Returns the third vertex from the contour of a face.
     vertex_index thirdFaceVertex(face_index face) const { return vertex2(secondFaceEdge(face)); }
 
-    /// Returns the opposite half-edge of the given edge.
+    /// Returns the opposite half-edge of the given edge.setNextManifoldEdge
     edge_index oppositeEdge(edge_index edge) const { OVITO_ASSERT(edge >= 0 && edge < edgeCount()); return _oppositeEdges[edge]; }
 
     /// Returns whether the given half-edge has an opposite half-edge.
@@ -261,7 +261,12 @@ public:
     edge_index nextManifoldEdge(edge_index edge) const { OVITO_ASSERT(edge >= 0 && edge < edgeCount()); return _nextManifoldEdges[edge]; };
 
     /// Sets what is the next incident manifold when going around the given half-edge.
-    void setNextManifoldEdge(edge_index edge, edge_index nextEdge) { OVITO_ASSERT(edge >= 0 && edge < edgeCount()); _nextManifoldEdges[edge] = nextEdge; };
+    void setNextManifoldEdge(edge_index edge, edge_index nextManifoldEdge) { 
+        OVITO_ASSERT(edge >= 0 && edge < edgeCount()); 
+        OVITO_ASSERT(vertex1(edge) == vertex1(nextManifoldEdge));
+        OVITO_ASSERT(vertex2(edge) == vertex2(nextManifoldEdge));
+        _nextManifoldEdges[edge] = nextManifoldEdge;
+    }
 
     /// Links two opposite half-edges together.
     void linkOppositeEdges(edge_index edge1, edge_index edge2) {
@@ -331,8 +336,10 @@ public:
         edge_index e = nextManifoldEdge(edge);
         if(e == InvalidIndex) return 0;
         int count = 1;
-        for(; e != edge; e = nextManifoldEdge(e))
+        for(; e != edge; e = nextManifoldEdge(e)) {
+            OVITO_ASSERT(e != InvalidIndex);
             count++;
+        }
         return count;
     }
 

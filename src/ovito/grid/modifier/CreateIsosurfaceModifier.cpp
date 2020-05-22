@@ -167,9 +167,9 @@ void CreateIsosurfaceModifier::ComputeIsosurfaceEngine::perform()
 
 	// Transform mesh vertices from orthogonal grid space to world space.
 	const AffineTransformation tm = cell().matrix() * Matrix3(
-		FloatType(1) / (_gridShape[0] - (cell().pbcFlags()[0]?0:1)), 0, 0,
-		0, FloatType(1) / (_gridShape[1] - (cell().pbcFlags()[1]?0:1)), 0,
-		0, 0, FloatType(1) / (_gridShape[2] - (cell().pbcFlags()[2]?0:1)));
+		FloatType(1) / (_gridShape[0] - (cell().hasPbc(0)?0:1)), 0, 0,
+		0, FloatType(1) / (_gridShape[1] - (cell().hasPbc(1)?0:1)), 0,
+		0, 0, FloatType(1) / (_gridShape[2] - (cell().hasPbc(2)?0:1)));
 	_mesh.transformVertices(tm);
 
 	// Flip surface orientation if cell matrix is a mirror transformation.

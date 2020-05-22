@@ -409,7 +409,7 @@ void VoroTopModifier::VoroTopAnalysisEngine::perform()
 
         if(_radii.empty()) {
             voro::container voroContainer(ax, bx, ay, by, az, bz, nx, ny, nz,
-                                          cell().pbcFlags()[0], cell().pbcFlags()[1], cell().pbcFlags()[2], (int)std::ceil(voro::optimal_particles));
+                                          cell().hasPbc(0), cell().hasPbc(1), cell().hasPbc(2), (int)std::ceil(voro::optimal_particles));
 
             // Insert particles into Voro++ container.
             size_t count = 0;
@@ -445,7 +445,7 @@ void VoroTopModifier::VoroTopAnalysisEngine::perform()
         }
         else {
             voro::container_poly voroContainer(ax, bx, ay, by, az, bz, nx, ny, nz,
-                                               cell().pbcFlags()[0], cell().pbcFlags()[1], cell().pbcFlags()[2], (int)std::ceil(voro::optimal_particles));
+                                               cell().hasPbc(0), cell().hasPbc(1), cell().hasPbc(2), (int)std::ceil(voro::optimal_particles));
 
             // Insert particles into Voro++ container.
             size_t count = 0;
@@ -524,7 +524,7 @@ void VoroTopModifier::VoroTopAnalysisEngine::perform()
             // Cut Voronoi cell at simulation cell boundaries in non-periodic directions.
             bool skipParticle = false;
             for(size_t dim = 0; dim < 3; dim++) {
-                if(!cell().pbcFlags()[dim]) {
+                if(!cell().hasPbc(dim)) {
                     double r;
                     r = 2 * planeNormals[dim].dot(corner2 - positionsArray[index]);
                     if(r <= 0) skipParticle = true;

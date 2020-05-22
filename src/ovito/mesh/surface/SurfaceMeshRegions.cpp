@@ -51,6 +51,7 @@ PropertyPtr SurfaceMeshRegions::OOMetaClass::createStandardStorage(size_t region
 		OVITO_ASSERT(stride == sizeof(Color));
 		break;
 	case PhaseProperty:
+	case IsFilledProperty:
 		dataType = PropertyStorage::Int;
 		componentCount = 1;
 		stride = sizeof(int);
@@ -119,6 +120,7 @@ void SurfaceMeshRegions::OOMetaClass::initialize()
 	registerStandardProperty(PhaseProperty, tr("Phase"), PropertyStorage::Int, emptyList, tr("Phases"));
 	registerStandardProperty(VolumeProperty, tr("Volume"), PropertyStorage::Float, emptyList);
 	registerStandardProperty(SurfaceAreaProperty, tr("Surface Area"), PropertyStorage::Float, emptyList);
+	registerStandardProperty(IsFilledProperty, tr("Filled"), PropertyStorage::Int, emptyList);
 	registerStandardProperty(LatticeCorrespondenceProperty, tr("Lattice Correspondence"), PropertyStorage::Float, tensorList);
 }
 

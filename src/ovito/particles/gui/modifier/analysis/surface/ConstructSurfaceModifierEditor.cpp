@@ -27,6 +27,7 @@
 #include <ovito/gui/desktop/properties/FloatParameterUI.h>
 #include <ovito/gui/desktop/properties/BooleanParameterUI.h>
 #include <ovito/gui/desktop/properties/SubObjectParameterUI.h>
+#include <ovito/gui/desktop/properties/OpenDataInspectorButton.h>
 #include "ConstructSurfaceModifierEditor.h"
 
 namespace Ovito { namespace Particles {
@@ -81,6 +82,13 @@ void ConstructSurfaceModifierEditor::createUI(const RolloutInsertionParameters& 
 	sublayout->addWidget(identifyRegionsUI->checkBox(), 4, 1, 1, 2);
 	connect(alphaShapeMethodBtn, &QRadioButton::toggled, identifyRegionsUI, &BooleanParameterUI::setEnabled);
 
+	OpenDataInspectorButton* showRegionsListBtn = new OpenDataInspectorButton(this, tr("List of identified regions"), QStringLiteral("surface"), 2); // Note: Mode hint "2" is used to switch to the surface mesh regions view.
+	sublayout->addWidget(showRegionsListBtn, 5, 1, 1, 2);
+	connect(this, &PropertiesEditor::contentsChanged, this, [this,showRegionsListBtn]() {
+		ConstructSurfaceModifier* modifier = static_object_cast<ConstructSurfaceModifier>(editObject());
+		showRegionsListBtn->setEnabled(modifier && modifier->method() == ConstructSurfaceModifier::AlphaShape && modifier->identifyRegions());
+	});
+
 	QRadioButton* gaussianDensityBtn = methodUI->addRadioButton(ConstructSurfaceModifier::GaussianDensity, tr("Gaussian density method (experimental):"));
 	sublayout->setRowMinimumHeight(5, 10);
 	sublayout->addWidget(gaussianDensityBtn, 6, 0, 1, 3);
@@ -119,7 +127,7 @@ void ConstructSurfaceModifierEditor::createUI(const RolloutInsertionParameters& 
 
 	// Status label.
 	layout->addWidget(statusLabel());
-	statusLabel()->setMinimumHeight(100);
+	statusLabel()->setMinimumHeight(56);
 
 	// Open a sub-editor for the surface mesh vis element.
 	new SubObjectParameterUI(this, PROPERTY_FIELD(ConstructSurfaceModifier::surfaceMeshVis), rolloutParams.after(rollout));

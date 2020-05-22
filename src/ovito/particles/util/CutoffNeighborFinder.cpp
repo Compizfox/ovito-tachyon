@@ -43,7 +43,7 @@ bool CutoffNeighborFinder::prepare(FloatType cutoffRadius, ConstPropertyAccess<P
 
 	// Automatically disable PBCs in Z direction for 2D systems.
 	if(simCell.is2D()) {
-		simCell.setPbcFlags(simCell.pbcFlags()[0], simCell.pbcFlags()[1], false);
+		simCell.setPbcFlags(simCell.hasPbc(0), simCell.hasPbc(1), false);
 		AffineTransformation matrix = simCell.matrix();
 		matrix.column(2) = Vector3(0, 0, 0.01f);
 		simCell.setMatrix(matrix);
@@ -127,9 +127,9 @@ bool CutoffNeighborFinder::prepare(FloatType cutoffRadius, ConstPropertyAccess<P
 		size_t oldCount = stencil.size();
 		if(oldCount > 100*100)
 			throw Exception("Neighbor cutoff radius is too large compared to the simulation cell size.");
-		int stencilRadiusX = simCell.pbcFlags()[0] ? stencilRadius : std::min(stencilRadius, binDim[0] - 1);
-		int stencilRadiusY = simCell.pbcFlags()[1] ? stencilRadius : std::min(stencilRadius, binDim[1] - 1);
-		int stencilRadiusZ = simCell.pbcFlags()[2] ? stencilRadius : std::min(stencilRadius, binDim[2] - 1);
+		int stencilRadiusX = simCell.hasPbc(0) ? stencilRadius : std::min(stencilRadius, binDim[0] - 1);
+		int stencilRadiusY = simCell.hasPbc(1) ? stencilRadius : std::min(stencilRadius, binDim[1] - 1);
+		int stencilRadiusZ = simCell.hasPbc(2) ? stencilRadius : std::min(stencilRadius, binDim[2] - 1);
 		for(int ix = -stencilRadiusX; ix <= stencilRadiusX; ix++) {
 			for(int iy = -stencilRadiusY; iy <= stencilRadiusY; iy++) {
 				for(int iz = -stencilRadiusZ; iz <= stencilRadiusZ; iz++) {
@@ -181,7 +181,7 @@ bool CutoffNeighborFinder::prepare(FloatType cutoffRadius, ConstPropertyAccess<P
 		Point3I binLocation;
 		for(size_t k = 0; k < 3; k++) {
 			binLocation[k] = (int)floor(rp[k]);
-			if(simCell.pbcFlags()[k]) {
+			if(simCell.hasPbc(k)) {
 				if(binLocation[k] < 0 || binLocation[k] >= binDim[k]) {
 					int shift;
 					if(binLocation[k] < 0)
@@ -279,7 +279,7 @@ void CutoffNeighborFinder::Query::next()
 			bool skipBin = false;
 			for(size_t k = 0; k < 3; k++) {
 				_currentBin[k] = _centerBin[k] + (*_stencilIter)[k];
-				if(!_builder.simCell.pbcFlags()[k]) {
+				if(!_builder.simCell.hasPbc(k)) {
 					if(_currentBin[k] < 0 || _currentBin[k] >= _builder.binDim[k]) {
 						skipBin = true;
 						break;

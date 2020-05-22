@@ -126,6 +126,20 @@ void DataObject::loadFromStream(ObjectLoadStream& stream)
 }
 
 /******************************************************************************
+* Creates a copy of this object.
+******************************************************************************/
+OORef<RefTarget> DataObject::clone(bool deepCopy, CloneHelper& cloneHelper) const
+{
+	// Let the base class create an instance of this class.
+	OORef<RefTarget> clone = RefTarget::clone(deepCopy, cloneHelper);
+
+	// Copy data source reference.
+	static_object_cast<DataObject>(clone)->_dataSource = this->_dataSource;
+
+	return clone;
+}
+
+/******************************************************************************
 * Returns the pipeline object that created this data object (may be NULL).
 ******************************************************************************/
 PipelineObject* DataObject::dataSource() const

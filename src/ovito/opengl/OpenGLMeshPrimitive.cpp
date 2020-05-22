@@ -43,7 +43,7 @@ OpenGLMeshPrimitive::OpenGLMeshPrimitive(OpenGLSceneRenderer* renderer) :
 /******************************************************************************
 * Sets the mesh to be stored in this buffer object.
 ******************************************************************************/
-void OpenGLMeshPrimitive::setMesh(const TriMesh& mesh, const ColorA& meshColor, bool emphasizeEdges)
+void OpenGLMeshPrimitive::setMesh(const TriMesh& mesh, const ColorA& meshColor, bool emphasizeEdges, DepthSortingMode depthSortingMode)
 {
 	OVITO_ASSERT(QOpenGLContextGroup::currentContextGroup() == _contextGroup);
 
@@ -189,20 +189,20 @@ void OpenGLMeshPrimitive::setMesh(const TriMesh& mesh, const ColorA& meshColor, 
 	_vertexBuffer.unmap();
 
 	// Save a list of coordinates which will be used to sort faces back-to-front.
-	if(_alpha != 1) {
-		_triangleCoordinates.resize(mesh.faceCount());
-		auto tc = _triangleCoordinates.begin();
+	if(_alpha != 1 && depthSortingMode != MeshPrimitive::ConvexShapeMode) {
+		_triangleDepthSortData.resize(mesh.faceCount());
+		auto tc = _triangleDepthSortData.begin();
 		for(auto face = mesh.faces().constBegin(); face != mesh.faces().constEnd(); ++face, ++tc) {
 			// Compute centroid of triangle.
 			const auto& v1 = mesh.vertex(face->vertex(0));
 			const auto& v2 = mesh.vertex(face->vertex(1));
 			const auto& v3 = mesh.vertex(face->vertex(2));
-			tc->x() = (v1.x() + v2.x() + v3.x()) / FloatType(3);
-			tc->y() = (v1.y() + v2.y() + v3.y()) / FloatType(3);
-			tc->z() = (v1.z() + v2.z() + v3.z()) / FloatType(3);
+			tc->x() = (float)(v1.x() + v2.x() + v3.x()) / 3.0f;
+			tc->y() = (float)(v1.y() + v2.y() + v3.y()) / 3.0f;
+			tc->z() = (float)(v1.z() + v2.z() + v3.z()) / 3.0f;
 		}
 	}
-	else _triangleCoordinates.clear();
+	else _triangleDepthSortData.clear();
 
 	// Create buffer for rendering polygon edges.
 	if(emphasizeEdges) {
@@ -403,32 +403,56 @@ void OpenGLMeshPrimitive::render(SceneRenderer* renderer)
 			}
 		}
 
-		if(!renderer->isPicking() && _alpha != 1.0 && !_triangleCoordinates.empty()) {
-			OVITO_ASSERT(_triangleCoordinates.size() == faceCount());
-			OVITO_ASSERT(_vertexBuffer.verticesPerElement() == 3);
-			// Render faces in back-to-front order to avoid artifacts at overlapping translucent faces.
-			std::vector<GLuint> indices(faceCount());
-			std::iota(indices.begin(), indices.end(), 0);
-			// First compute distance of each face from the camera along viewing direction (=camera z-axis).
-			std::vector<FloatType> distances(faceCount());
-			Vector3 direction = mv_matrix.inverse().column(2);
-			std::transform(_triangleCoordinates.begin(), _triangleCoordinates.end(), distances.begin(), [direction](const Point3& p) {
-				return direction.dot(p - Point3::Origin());
-			});
-			// Now sort face indices with respect to distance (back-to-front order).
-			std::sort(indices.begin(), indices.end(), [&distances](GLuint a, GLuint b) {
-				return distances[a] < distances[b];
-			});
-			// Create OpenGL index buffer which can be used with glDrawElements.
-			OpenGLBuffer<GLuint> primitiveIndices(QOpenGLBuffer::IndexBuffer);
-			primitiveIndices.create(QOpenGLBuffer::StaticDraw, 3 * faceCount());
-			GLuint* p = primitiveIndices.map();
-			for(size_t i = 0; i < indices.size(); i++, p += 3)
-				std::iota(p, p + 3, indices[i]*3);
-			primitiveIndices.unmap();
-			primitiveIndices.oglBuffer().bind();
-			OVITO_CHECK_OPENGL(vpRenderer, vpRenderer->glDrawElements(GL_TRIANGLES, _vertexBuffer.elementCount() * _vertexBuffer.verticesPerElement(), GL_UNSIGNED_INT, nullptr));
-			primitiveIndices.oglBuffer().release();
+		if(!renderer->isPicking() && _alpha != 1.0) {
+			if(!_triangleDepthSortData.empty()) {
+				OVITO_ASSERT(_triangleDepthSortData.size() == faceCount());
+				OVITO_ASSERT(_vertexBuffer.verticesPerElement() == 3);
+				
+				// Render faces in back-to-front order to avoid artifacts at overlapping translucent faces.
+				std::vector<GLuint> indices(faceCount());
+				std::iota(indices.begin(), indices.end(), 0);
+
+				// First compute distance of each face from the camera along viewing direction (=camera z-axis).
+				std::vector<float> distances(faceCount());
+				Vector_3<float> direction = (Vector_3<float>)mv_matrix.inverse().column(2);
+				std::transform(_triangleDepthSortData.begin(), _triangleDepthSortData.end(), distances.begin(), [direction](const Vector_3<float>& v) {
+					return direction.dot(v);
+				});
+				
+				// Now sort face indices with respect to distance (back-to-front order).
+				std::sort(indices.begin(), indices.end(), [&](GLuint a, GLuint b) {
+					return distances[a] < distances[b];
+				});
+				
+				// Create OpenGL index buffer which can be used with glDrawElements.
+				OpenGLBuffer<GLuint> primitiveIndices(QOpenGLBuffer::IndexBuffer);
+				primitiveIndices.create(QOpenGLBuffer::StaticDraw, 3 * faceCount());
+				GLuint* p = primitiveIndices.map();
+				for(size_t i = 0; i < indices.size(); i++, p += 3)
+					std::iota(p, p + 3, indices[i]*3);
+				primitiveIndices.unmap();
+				
+				// Render triangles in depth-sorted order.
+				primitiveIndices.oglBuffer().bind();
+				OVITO_CHECK_OPENGL(vpRenderer, vpRenderer->glDrawElements(GL_TRIANGLES, _vertexBuffer.elementCount() * _vertexBuffer.verticesPerElement(), GL_UNSIGNED_INT, nullptr));
+				primitiveIndices.oglBuffer().release();
+			}
+			else {
+				// Assuming that the input mesh is convex, render semi-transparent triangles in two passes: 
+				// First, render triangles facing away from the viewer, then render triangles facing toward the viewer.
+				// Each time we pass the entire triangle list to OpenGL and use OpenGL's backface/frontfrace culling
+				// option to render the right subset of triangles.
+				OVITO_REPORT_OPENGL_ERRORS(vpRenderer);
+				OVITO_CHECK_OPENGL(vpRenderer, vpRenderer->glEnable(GL_CULL_FACE));
+				if(!cullFaces()) {
+					// First pass is only needed if backface culling is not active.
+					OVITO_CHECK_OPENGL(vpRenderer, vpRenderer->glCullFace(GL_FRONT));
+					OVITO_CHECK_OPENGL(vpRenderer, vpRenderer->glDrawArrays(GL_TRIANGLES, 0, _vertexBuffer.elementCount() * _vertexBuffer.verticesPerElement()));
+				}
+				OVITO_CHECK_OPENGL(vpRenderer, vpRenderer->glCullFace(GL_BACK));
+				OVITO_CHECK_OPENGL(vpRenderer, vpRenderer->glDrawArrays(GL_TRIANGLES, 0, _vertexBuffer.elementCount() * _vertexBuffer.verticesPerElement()));
+				OVITO_CHECK_OPENGL(vpRenderer, vpRenderer->glDisable(GL_CULL_FACE));
+			}
 		}
 		else {
 			// Render faces in arbitrary order.

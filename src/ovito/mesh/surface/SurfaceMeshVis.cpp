@@ -52,7 +52,7 @@ SET_PROPERTY_FIELD_LABEL(SurfaceMeshVis, showCap, "Show cap polygons");
 SET_PROPERTY_FIELD_LABEL(SurfaceMeshVis, smoothShading, "Smooth shading");
 SET_PROPERTY_FIELD_LABEL(SurfaceMeshVis, surfaceTransparencyController, "Surface transparency");
 SET_PROPERTY_FIELD_LABEL(SurfaceMeshVis, capTransparencyController, "Cap transparency");
-SET_PROPERTY_FIELD_LABEL(SurfaceMeshVis, reverseOrientation, "Inside out");
+SET_PROPERTY_FIELD_LABEL(SurfaceMeshVis, reverseOrientation, "Flip surface orientation");
 SET_PROPERTY_FIELD_LABEL(SurfaceMeshVis, highlightEdges, "Highlight edges");
 SET_PROPERTY_FIELD_UNITS_AND_RANGE(SurfaceMeshVis, surfaceTransparencyController, PercentParameterUnit, 0, 1);
 SET_PROPERTY_FIELD_UNITS_AND_RANGE(SurfaceMeshVis, capTransparencyController, PercentParameterUnit, 0, 1);
@@ -202,7 +202,7 @@ void SurfaceMeshVis::render(TimePoint time, const std::vector<const DataObject*>
 	if(!visCache.capPrimitive || !visCache.capPrimitive->isValid(renderer)) {
 		if(showCap()) {
 			visCache.capPrimitive = renderer->createMeshPrimitive();
-			visCache.capPrimitive->setMesh(renderableMesh->capPolygonsMesh(), color_cap);
+			visCache.capPrimitive->setMesh(renderableMesh->capPolygonsMesh(), color_cap, false, MeshPrimitive::ConvexShapeMode);
 		}
 	}
 
@@ -385,9 +385,9 @@ void SurfaceMeshVis::PrepareSurfaceEngine::perform()
 	nextProgressSubStep();
 
 	determineFaceColors();
+	if(isCanceled()) return;
 
 	if(_generateCapPolygons) {
-		if(isCanceled()) return;
 		nextProgressSubStep();
 		buildCapTriangleMesh();
 	}
@@ -525,7 +525,7 @@ bool SurfaceMeshVis::PrepareSurfaceEngine::buildSurfaceTriangleMesh()
 
 	// Wrap mesh at periodic boundaries.
 	for(size_t dim = 0; dim < 3; dim++) {
-		if(cell().pbcFlags()[dim] == false) continue;
+		if(cell().hasPbc(dim) == false) continue;
 
 		if(isCanceled())
 			return false;
@@ -649,8 +649,8 @@ bool SurfaceMeshVis::PrepareSurfaceEngine::splitFace(int faceIndex, int oldVerte
 			Vector3 delta = _surfaceMesh.vertex(vi2) - _surfaceMesh.vertex(vi1);
 			delta[dim] -= FloatType(1);
 			for(size_t d = dim + 1; d < 3; d++) {
-				if(cell().pbcFlags()[d])
-					delta[d] -= floor(delta[d] + FloatType(0.5));
+				if(cell().hasPbc(d))
+					delta[d] -= std::floor(delta[d] + FloatType(0.5));
 			}
 			FloatType t;
 			if(delta[dim] != 0)
@@ -730,7 +730,9 @@ bool SurfaceMeshVis::PrepareSurfaceEngine::splitFace(int faceIndex, int oldVerte
 ******************************************************************************/
 void SurfaceMeshVis::PrepareSurfaceEngine::buildCapTriangleMesh()
 {
-	bool isCompletelySolid = _inputMesh.spaceFillingRegion() != 0;
+	// Access the 'Filled' property of volumetric regions if it is defined for the input surface mesh.
+    PropertyAccess<int> isFilledProperty(_inputMesh.regionProperty(SurfaceMeshRegions::IsFilledProperty));
+	bool hasRegions = isFilledProperty && _inputMesh.hasFaceRegions();
 	bool flipCapNormal = (cell().matrix().determinant() < 0);
 
 	// Convert vertex positions to reduced coordinates.
@@ -747,7 +749,7 @@ void SurfaceMeshVis::PrepareSurfaceEngine::buildCapTriangleMesh()
 
 	// Create caps for each periodic boundary.
 	for(size_t dim = 0; dim < 3; dim++) {
-		if(cell().pbcFlags()[dim] == false) continue;
+		if(cell().hasPbc(dim) == false) continue;
 
 		if(isCanceled())
 			return;
@@ -758,7 +760,6 @@ void SurfaceMeshVis::PrepareSurfaceEngine::buildCapTriangleMesh()
 			OVITO_ASSERT(std::isfinite(c));
 			if(FloatType s = std::floor(c))
 				c -= s;
-			OVITO_ASSERT(std::isfinite(c));
 		}
 
 		// Used to keep track of already visited faces during the current pass.
@@ -775,6 +776,17 @@ void SurfaceMeshVis::PrepareSurfaceEngine::buildCapTriangleMesh()
 			if(isCanceled()) return;
 			visitedFaces[face] = true;
 
+			// Determine whether the mesh face is bordering a filled or an empty region.
+			if(hasRegions) {
+				SurfaceMeshData::region_index region = _inputMesh.faceRegion(face);
+				if(region >= 0 && region < isFilledProperty.size()) {
+					if((bool)isFilledProperty[region] == _reverseOrientation) {
+						// Skip faces that are adjacent to an empty volumetric region.
+						continue;
+					}
+				}
+			}
+
 			HalfEdgeMesh::edge_index startEdge = _inputMesh.firstFaceEdge(face);
 			HalfEdgeMesh::edge_index edge = startEdge;
 			do {
@@ -784,7 +796,7 @@ void SurfaceMeshVis::PrepareSurfaceEngine::buildCapTriangleMesh()
 					std::vector<Point2> contour = traceContour(edge, reducedPos, visitedFaces, dim);
 					if(contour.empty())
 						throw Exception(tr("Surface mesh is not a proper manifold."));
-					clipContour(contour, std::array<bool,2>{{ cell().pbcFlags()[(dim+1)%3], cell().pbcFlags()[(dim+2)%3] }}, openContours, closedContours);
+					clipContour(contour, std::array<bool,2>{{ cell().hasPbc((dim+1)%3), cell().hasPbc((dim+2)%3) }}, openContours, closedContours);
 					break;
 				}
 				edge = _inputMesh.nextFaceEdge(edge);
@@ -792,7 +804,8 @@ void SurfaceMeshVis::PrepareSurfaceEngine::buildCapTriangleMesh()
 			while(edge != startEdge);
 		}
 
-		if(_reverseOrientation) {
+		// Invert surface orientation if requested. (Not needed if regions are defined. Then we can just swap roles of filled and empty regions).
+		if(!hasRegions && _reverseOrientation) {
 			for(auto& contour : openContours)
 				std::reverse(std::begin(contour), std::end(contour));
 		}
@@ -849,8 +862,8 @@ void SurfaceMeshVis::PrepareSurfaceEngine::buildCapTriangleMesh()
 						}
 						int exitCorner = (int)std::floor(t_exit);
 						int entryCorner = (int)std::floor(t_entry);
-						OVITO_ASSERT(exitCorner >= 0 && exitCorner < 4);
-						OVITO_ASSERT(entryCorner >= 0 && entryCorner < 4);
+						if(exitCorner < 0 || exitCorner >= 4) break;
+						if(entryCorner < 0 || entryCorner >= 4) break;
 						if(exitCorner != entryCorner || t_exit < t_entry) {
 							for(int corner = exitCorner;;) {
 								switch(corner) {
@@ -872,11 +885,26 @@ void SurfaceMeshVis::PrepareSurfaceEngine::buildCapTriangleMesh()
 		else {
 			if(isBoxCornerInside3DRegion == -1) {
 				if(closedContours.empty()) {
-					boost::optional<SurfaceMeshData::region_index> location = _inputMesh.locatePoint(Point3::Origin() + cell().matrix().translation(), 0, _faceSubset);
-					isBoxCornerInside3DRegion = (location && *location != HalfEdgeMesh::InvalidIndex);
+					if(boost::optional<SurfaceMeshData::region_index> region = _inputMesh.locatePoint(Point3::Origin() + cell().matrix().translation(), 0, _faceSubset)) {
+						if(hasRegions) {
+							if(*region >= 0 && *region < isFilledProperty.size()) {
+								isBoxCornerInside3DRegion = (bool)isFilledProperty[*region];
+							}
+							else
+								isBoxCornerInside3DRegion = false;
+						}
+						else {
+							isBoxCornerInside3DRegion = *region != HalfEdgeMesh::InvalidIndex;
+						}
+					}
+					else {
+						isBoxCornerInside3DRegion = false;
+					}
 				}
 				else {
 					isBoxCornerInside3DRegion = isCornerInside2DRegion(closedContours);
+					if(hasRegions && _reverseOrientation)
+						isBoxCornerInside3DRegion = !isBoxCornerInside3DRegion;
 				}
 				if(_reverseOrientation)
 					isBoxCornerInside3DRegion = !isBoxCornerInside3DRegion;
@@ -933,12 +961,12 @@ std::vector<Point2> SurfaceMeshVis::PrepareSurfaceEngine::traceContour(HalfEdgeM
 		OVITO_ASSERT(delta[dim] >= FloatType(0.5));
 
 		delta[dim] -= FloatType(1);
-		if(cell().pbcFlags()[dim1]) {
+		if(cell().hasPbc(dim1)) {
 			FloatType& c = delta[dim1];
 			if(FloatType s = std::floor(c + FloatType(0.5)))
 				c -= s;
 		}
-		if(cell().pbcFlags()[dim2]) {
+		if(cell().hasPbc(dim2)) {
 			FloatType& c = delta[dim2];
 			if(FloatType s = std::floor(c + FloatType(0.5)))
 				c -= s;

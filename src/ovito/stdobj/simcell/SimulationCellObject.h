@@ -52,7 +52,7 @@ public:
 	/// \brief Constructs a cell from the given cell data structure.
 	explicit SimulationCellObject(DataSet* dataset, const SimulationCell& data) : DataObject(dataset),
 			_cellMatrix(data.matrix()),
-			_pbcX(data.pbcFlags()[0]), _pbcY(data.pbcFlags()[1]), _pbcZ(data.pbcFlags()[2]), _is2D(data.is2D()) {
+			_pbcX(data.hasPbc(0)), _pbcY(data.hasPbc(1)), _pbcZ(data.hasPbc(2)), _is2D(data.is2D()) {
 		init(dataset);
 	}
 
@@ -94,9 +94,9 @@ public:
 	void setData(const SimulationCell& data, bool setBoundaryFlags = true) {
 		setCellMatrix(data.matrix());
 		if(setBoundaryFlags) {
-			setPbcX(data.pbcFlags()[0]);
-			setPbcY(data.pbcFlags()[1]);
-			setPbcZ(data.pbcFlags()[2]);
+			setPbcX(data.hasPbc(0));
+			setPbcY(data.hasPbc(1));
+			setPbcZ(data.hasPbc(2));
 			setIs2D(data.is2D());
 		}
 	}
