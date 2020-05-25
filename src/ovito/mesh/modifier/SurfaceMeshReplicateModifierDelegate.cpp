@@ -129,9 +129,9 @@ PipelineStatus SurfaceMeshReplicateModifierDelegate::apply(Modifier* modifier, P
 							HalfEdgeMesh::edge_index newEdge = mesh->firstFaceEdge(newFace);
 							do {
 								if(mesh->hasOppositeEdge(oldEdge)) {
-									HalfEdgeMesh::face_index oppositeFaceIndex = mesh->adjacentFace(mesh->oppositeEdge(oldEdge));
-									oppositeFaceIndex += imageIndexShift * oldFaceCount;
-									HalfEdgeMesh::edge_index newOppositeEdge = mesh->findEdge(oppositeFaceIndex, mesh->vertex2(newEdge), mesh->vertex1(newEdge));
+									HalfEdgeMesh::face_index adjacentFaceIndex = mesh->adjacentFace(mesh->oppositeEdge(oldEdge));
+									adjacentFaceIndex += imageIndexShift * oldFaceCount;
+									HalfEdgeMesh::edge_index newOppositeEdge = mesh->findEdge(adjacentFaceIndex, mesh->vertex2(newEdge), mesh->vertex1(newEdge));
 									OVITO_ASSERT(newOppositeEdge != HalfEdgeMesh::InvalidIndex);
 									if(!mesh->hasOppositeEdge(newEdge)) {
 										mesh->linkOppositeEdges(newEdge, newOppositeEdge);
@@ -151,6 +151,13 @@ PipelineStatus SurfaceMeshReplicateModifierDelegate::apply(Modifier* modifier, P
 								newEdge = mesh->nextFaceEdge(newEdge);
 							}
 							while(oldEdge != mesh->firstFaceEdge(oldFace));
+
+							// Link opposite faces.
+							HalfEdgeMesh::face_index oldOppositeFace = mesh->oppositeFace(oldFace);
+							if(oldOppositeFace != HalfEdgeMesh::InvalidIndex) {
+								HalfEdgeMesh::face_index newOppositeFace = oldOppositeFace + imageIndexShift * oldFaceCount;
+								mesh->linkOppositeFaces(newFace, newOppositeFace);
+							}
 						}
 					}
 				}
@@ -196,10 +203,10 @@ PipelineStatus SurfaceMeshReplicateModifierDelegate::apply(Modifier* modifier, P
 					HalfEdgeMesh::edge_index edge = mesh->firstFaceEdge(face);
 					do {
 						if(mesh->hasOppositeEdge(edge) && mesh->vertex2(mesh->oppositeEdge(edge)) != mesh->vertex1(edge)) {
-							HalfEdgeMesh::face_index oppositeFaceIndex = mesh->adjacentFace(mesh->oppositeEdge(edge)) % oldFaceCount;
+							HalfEdgeMesh::face_index adjacentFaceIndex = mesh->adjacentFace(mesh->oppositeEdge(edge)) % oldFaceCount;
 							mesh->setOppositeEdge(edge, HalfEdgeMesh::InvalidIndex);
 							for(size_t i = 0; i < numCopies; i++) {
-								HalfEdgeMesh::edge_index newOppositeEdge = mesh->findEdge(oppositeFaceIndex + i * oldFaceCount, mesh->vertex2(edge), mesh->vertex1(edge));
+								HalfEdgeMesh::edge_index newOppositeEdge = mesh->findEdge(adjacentFaceIndex + i * oldFaceCount, mesh->vertex2(edge), mesh->vertex1(edge));
 								if(newOppositeEdge != HalfEdgeMesh::InvalidIndex) {
 									mesh->setOppositeEdge(edge, newOppositeEdge);
 									break;
@@ -227,6 +234,20 @@ PipelineStatus SurfaceMeshReplicateModifierDelegate::apply(Modifier* modifier, P
 					while(edge != mesh->firstFaceEdge(face));
 				}
 			}
+
+#ifdef OVITO_DEBUG
+			// Verify that the connection between pairs of opposite faces is correct.
+			for(HalfEdgeMesh::face_index face = 0; face < newFaceCount; face++) {
+				if(!mesh->hasOppositeFace(face)) continue;
+				HalfEdgeMesh::edge_index edge = mesh->firstFaceEdge(face);
+				do {
+					OVITO_ASSERT(mesh->findEdge(mesh->oppositeFace(face), mesh->vertex2(edge), mesh->vertex1(edge)) != HalfEdgeMesh::InvalidIndex);
+					edge = mesh->nextFaceEdge(edge);
+				}
+				while(edge != mesh->firstFaceEdge(face));
+			}
+#endif
+
 
 			// Extend the periodic domain the surface is embedded in.
 			simCell.translation() += (FloatType)newImages.minc.x() * simCell.column(0);

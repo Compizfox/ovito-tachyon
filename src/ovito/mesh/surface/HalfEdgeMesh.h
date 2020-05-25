@@ -263,8 +263,8 @@ public:
     /// Sets what is the next incident manifold when going around the given half-edge.
     void setNextManifoldEdge(edge_index edge, edge_index nextManifoldEdge) { 
         OVITO_ASSERT(edge >= 0 && edge < edgeCount()); 
-        OVITO_ASSERT(vertex1(edge) == vertex1(nextManifoldEdge));
-        OVITO_ASSERT(vertex2(edge) == vertex2(nextManifoldEdge));
+        OVITO_ASSERT(nextManifoldEdge == InvalidIndex || vertex1(edge) == vertex1(nextManifoldEdge));
+        OVITO_ASSERT(nextManifoldEdge == InvalidIndex || vertex2(edge) == vertex2(nextManifoldEdge));
         _nextManifoldEdges[edge] = nextManifoldEdge;
     }
 

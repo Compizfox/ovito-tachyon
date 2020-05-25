@@ -30,10 +30,6 @@
 #include <ovito/core/utilities/concurrent/Task.h>
 #include <ovito/delaunay/DelaunayTessellation.h>
 
-#if 0
-#include <boost/functional/hash.hpp>
-#endif
-
 namespace Ovito { namespace Delaunay {
 
 using namespace Ovito::Mesh;
@@ -42,7 +38,6 @@ using namespace Ovito::Mesh;
  * Constructs a SurfaceMesh structure from a DelaunayTessellation representing the separating surface manifold
  * between different spatial regions of the tessellation.
  */
-template<bool CreateTwoSidedMesh, bool CreateRegions>
 class ManifoldConstructionHelper
 {
 public:
@@ -63,8 +58,8 @@ public:
 public:
 
 	/// Constructor.
-	ManifoldConstructionHelper(DelaunayTessellation& tessellation, SurfaceMeshData& outputMesh, FloatType alpha,
-			const PropertyStorage& positions) : _tessellation(tessellation), _mesh(outputMesh), _alpha(alpha), _positions(positions) {}
+	ManifoldConstructionHelper(DelaunayTessellation& tessellation, SurfaceMeshData& outputMesh, FloatType alpha, bool createRegions,
+			const PropertyStorage& positions) : _tessellation(tessellation), _mesh(outputMesh), _alpha(alpha), _createRegions(createRegions), _positions(positions) {}
 
 	/// Returns the number of filled regions that have been identified.
 	SurfaceMeshData::size_type filledRegionCount() const { return _filledRegionCount; }
@@ -78,7 +73,7 @@ public:
 			PrepareMeshFaceFunc&& prepareMeshFaceFunc = PrepareMeshFaceFunc(), PrepareMeshVertexFunc&& prepareMeshVertexFunc = PrepareMeshVertexFunc())
 	{
 		// Algorithm is divided into several sub-steps.
-		if(CreateRegions)
+		if(_createRegions)
 			task.beginProgressSubStepsWithWeights({1,8,2,1});
 		else
 			task.beginProgressSubStepsWithWeights({1,1,2});
@@ -89,8 +84,8 @@ public:
 
 		task.nextProgressSubStep();
 
-		// Aggregate connected tetrahedra into regions.
-		if(CreateRegions) {
+		// Group connected tetrahedra into volumetric regions.
+		if(_createRegions) {
 
 			// Create the "Region" face property in the output mesh.
 			_mesh.createFaceProperty(SurfaceMeshFaces::RegionProperty);
@@ -111,8 +106,8 @@ public:
 			return false;
 
 #ifdef OVITO_DEBUG
-		// Verify that generated manifold connectivity is correct.
-		if(CreateTwoSidedMesh) {
+		// Verify that generated manifold connectivity is correct when a two-sided mesh was created.
+		if(_createRegions) {
 			for(SurfaceMeshData::edge_index edge = 0; edge < _mesh.edgeCount(); edge++) {
 				// Each edge must be part of at least two opposite manifolds.
 				OVITO_ASSERT(_mesh.countManifolds(edge) >= 2);
@@ -129,7 +124,6 @@ public:
 
 	/// Finds disconnected exterior regions and computes their volumes.
 	bool formEmptyRegions(Task& task) {
-		OVITO_ASSERT(CreateTwoSidedMesh && CreateRegions);
 		task.beginProgressSubStepsWithWeights({1,1});
 
 		// Count number of identified regions.
@@ -409,15 +403,20 @@ private:
 			if(!task.setProgressValueIntermittent(progressCounter++))
 				return false;
 
-			// Alpha-shape criterion: This determines whether the Delaunay tetrahedron is part of the filled region.
+			// Alpha-shape criterion: This determines whether the Delaunay tetrahedron is part of a filled region.
 			bool isFilledTetrehedron = _tessellation.isFiniteCell(cell) && _tessellation.alphaTest(cell, _alpha);
 
 			SurfaceMeshData::region_index region = HalfEdgeMesh::InvalidIndex;
 			if(isFilledTetrehedron) {
 				region = determineCellRegion(cell);
 				OVITO_ASSERT(region >= 0 || region == HalfEdgeMesh::InvalidIndex);
-				OVITO_ASSERT(!CreateRegions || (region == 0 || region == HalfEdgeMesh::InvalidIndex));
-				OVITO_ASSERT(CreateRegions || region < _mesh.regionCount());
+				if(_createRegions) {
+					OVITO_ASSERT(_mesh.regionCount() != 0 || (region == 0 || region == HalfEdgeMesh::InvalidIndex));
+					OVITO_ASSERT(_mesh.regionCount() == 0 || region < _mesh.regionCount());
+				}
+				else {
+					OVITO_ASSERT(region < _mesh.regionCount() || region == HalfEdgeMesh::InvalidIndex);
+				}
 			}
 			_tessellation.setUserField(cell, region);
 
@@ -464,91 +463,114 @@ private:
 		if(!createCellMap(task))
 			return false;
 
-		// Make sure no regions have been defined so far.
-		OVITO_ASSERT(_mesh.regionCount() == 0);
-
-		// Create the output property arrays for the identified regions.
+		// Create the 'Volume' property for the identified regions.
  		_mesh.createRegionProperty(SurfaceMeshRegions::VolumeProperty, true);
 
-		std::deque<size_t> toProcess;
-
-		// Loop over all cells to cluster them.
 		task.nextProgressSubStep();
 		task.setProgressMaximum(_tessellation.numberOfTetrahedra());
-		for(DelaunayTessellation::CellIterator cellIter = _tessellation.begin_cells(); cellIter != _tessellation.end_cells() && !task.isCanceled(); ++cellIter) {
-			DelaunayTessellation::CellHandle cell = *cellIter;
 
-			// Skip empty cells and cells that have already been assigned to a region.
-			if(_tessellation.getUserField(cell) != 0)
-				continue;
+		// Identify connected tetrahedra to create regions if no regions were previously defined.
+		if(_mesh.regionCount() == 0) {
 
-			// Skip ghost cells.
-			if(_tessellation.isGhostCell(cell))
-				continue;
+			// Loop over all Delaunay cells to cluster them into connected components.
+			// All filled cells have initially a user field value of 0.
+			std::deque<size_t> toProcess;
+			for(DelaunayTessellation::CellIterator cellIter = _tessellation.begin_cells(); cellIter != _tessellation.end_cells() && !task.isCanceled(); ++cellIter) {
+				DelaunayTessellation::CellHandle cell = *cellIter;
 
-			// Start a new region.
-			int currentRegionId = _mesh.regionCount() + 1;
-			OVITO_ASSERT(currentRegionId >= 1);
-			_tessellation.setUserField(cell, currentRegionId);
-			// Compute total region volume as we go while visiting all tetrahedra.
-			double regionVolume = 0;
+				// Skip empty cells and cells that have already been assigned to a region.
+				if(_tessellation.getUserField(cell) != 0)
+					continue;
 
-			// Now recursively iterate over all neighbors of the seed cell and add them to the current region.
-			toProcess.push_back(cell);
-			do {
-				DelaunayTessellation::CellHandle currentCell = toProcess.front();
-				toProcess.pop_front();
-				if(!task.incrementProgressValue())
-					return false;
+				// Skip ghost cells.
+				if(_tessellation.isGhostCell(cell))
+					continue;
 
-				// Add the volume of the current cell to the total region volume.
-				regionVolume += cellVolume(currentCell);
+				// Start a new region.
+				int currentRegionId = _mesh.regionCount() + 1;
+				OVITO_ASSERT(currentRegionId >= 1);
+				_tessellation.setUserField(cell, currentRegionId);
+				// Compute total region volume as we go while visiting all tetrahedra.
+				double regionVolume = 0;
 
-				// Loop over the 4 facets of the cell
-				for(int f = 0; f < 4; f++) {
+				// Now recursively iterate over all neighbors of the seed cell and add them to the current region.
+				toProcess.push_back(cell);
+				do {
+					DelaunayTessellation::CellHandle currentCell = toProcess.front();
+					toProcess.pop_front();
+					if(!task.incrementProgressValue())
+						return false;
 
-					// Get the 3 vertices of the facet.
-					// Note that we reverse their order to find the opposite face.
-					std::array<size_t, 3> vertices;
-					for(int v = 0; v < 3; v++)
-						vertices[v] = _tessellation.vertexIndex(_tessellation.cellVertex(currentCell, DelaunayTessellation::cellFacetVertexIndex(f, 2-v)));
+					// Add the volume of the current cell to the total region volume.
+					regionVolume += cellVolume(currentCell);
 
-					// Bring vertices into a well-defined order, which can be used as lookup key to find the adjacent tetrahedron.
-					reorderFaceVertices(vertices);
+					// Loop over the 4 facets of the cell
+					for(int f = 0; f < 4; f++) {
 
-					// Look up the adjacent Delaunay cell.
-					auto neighborCell = _cellLookupMap.find(vertices);
-					if(neighborCell != _cellLookupMap.end()) {
-						// Add adjacent cell to the deque if it has not been visited yet.
-						if(_tessellation.getUserField(neighborCell->second) == 0) {
-							toProcess.push_back(neighborCell->second);
-							_tessellation.setUserField(neighborCell->second, currentRegionId);
+						// Get the 3 vertices of the facet.
+						// Note that we reverse their order to find the opposite face.
+						std::array<size_t, 3> vertices;
+						for(int v = 0; v < 3; v++)
+							vertices[v] = _tessellation.vertexIndex(_tessellation.cellVertex(currentCell, DelaunayTessellation::cellFacetVertexIndex(f, 2-v)));
+
+						// Bring vertices into a well-defined order, which can be used as lookup key to find the adjacent tetrahedron.
+						reorderFaceVertices(vertices);
+
+						// Look up the adjacent Delaunay cell.
+						auto neighborCell = _cellLookupMap.find(vertices);
+						if(neighborCell != _cellLookupMap.end()) {
+							// Add adjacent cell to the deque if it has not been visited yet.
+							if(_tessellation.getUserField(neighborCell->second) == 0) {
+								toProcess.push_back(neighborCell->second);
+								_tessellation.setUserField(neighborCell->second, currentRegionId);
+							}
 						}
 					}
 				}
-			}
-			while(!toProcess.empty());
+				while(!toProcess.empty());
 
-			// Create a spatial region in the output mesh.
-			SurfaceMeshData::region_index regionId = _mesh.createRegion(0, regionVolume);
-			OVITO_ASSERT(regionId + 1 == currentRegionId);
+				// Create a spatial region in the output mesh.
+				SurfaceMeshData::region_index regionId = _mesh.createRegion(0, regionVolume);
+				OVITO_ASSERT(regionId + 1 == currentRegionId);
+			}
+
+			if(_mesh.regionCount() > 0) {
+				// Shift filled region IDs to start at index 0.
+				for(DelaunayTessellation::CellIterator cellIter = _tessellation.begin_cells(); cellIter != _tessellation.end_cells(); ++cellIter) {
+					int region = _tessellation.getUserField(*cellIter);
+					if(region > 0)
+						_tessellation.setUserField(*cellIter, region - 1);
+				}
+			}
 		}
+		else {
+			// Filled mesh regions have already been predefined by the caller.
+			// We just need to compute the volume of each spatial region.
+			for(DelaunayTessellation::CellIterator cellIter = _tessellation.begin_cells(); cellIter != _tessellation.end_cells() && !task.isCanceled(); ++cellIter) {
+				DelaunayTessellation::CellHandle cell = *cellIter;
+
+				// Skip empty cells.
+				SurfaceMeshData::region_index region = _tessellation.getUserField(cell);
+				if(region == HalfEdgeMesh::InvalidIndex)
+					continue;
+
+				// Skip ghost cells.
+				if(_tessellation.isGhostCell(cell))
+					continue;
+
+				_mesh.setRegionVolume(region, _mesh.regionVolume(region) + cellVolume(cell));
+			}
+		}
+
 		task.nextProgressSubStep();
 
 		_filledRegionCount = _mesh.regionCount();
-		if(_mesh.regionCount() > 0) {
-			// Shift filled region IDs to start at index 0.
-			for(DelaunayTessellation::CellIterator cellIter = _tessellation.begin_cells(); cellIter != _tessellation.end_cells(); ++cellIter) {
-				int region = _tessellation.getUserField(*cellIter);
-				if(region > 0)
-					_tessellation.setUserField(*cellIter, region - 1);
-			}
-
+		if(_filledRegionCount != 0) {
 			// Copy assigned region IDs from primary tetrahedra to ghost tetrahedra.
 			task.setProgressMaximum(_tessellation.numberOfTetrahedra());
 			for(DelaunayTessellation::CellIterator cellIter = _tessellation.begin_cells(); cellIter != _tessellation.end_cells(); ++cellIter) {
 				DelaunayTessellation::CellHandle cell = *cellIter;
-				if(_tessellation.isGhostCell(cell) && _tessellation.getUserField(cell) == 0) {
+				if(_tessellation.isGhostCell(cell) && _tessellation.getUserField(cell) != HalfEdgeMesh::InvalidIndex) {
 					if(!task.setProgressValueIntermittent(cell))
 						return false;
 
@@ -681,7 +703,7 @@ private:
 				prepareMeshFaceFunc(face, vertexIndices, vertexHandles, cell);
 
 				// Create additional face for exterior region if requested.
-				if(CreateTwoSidedMesh && _tessellation.getUserField(adjacentCell) == HalfEdgeMesh::InvalidIndex) {
+				if(_createRegions && _tessellation.getUserField(adjacentCell) == HalfEdgeMesh::InvalidIndex) {
 
 					// Build face vertex list.
 					std::reverse(std::begin(vertexHandles), std::end(vertexHandles));
@@ -791,7 +813,7 @@ private:
 					_mesh.linkOppositeEdges(edge, oppositeEdge);
 				}
 
-				if(CreateTwoSidedMesh) {
+				if(_createRegions) {
 					std::pair<DelaunayTessellation::CellHandle,int> oppositeFacet = _tessellation.mirrorFacet(cell, f);
 					OVITO_ASSERT(_tessellation.getUserField(oppositeFacet.first) != _tessellation.getUserField(cell));
 					SurfaceMeshData::face_index outerFacet = findCellFace(oppositeFacet);
@@ -820,7 +842,7 @@ private:
 		OVITO_ASSERT(_mesh.topology()->isClosed());
 
 		// Set up manifold pointers at edges of the mesh.
-		if(CreateTwoSidedMesh) {
+		if(_createRegions) {
 			for(SurfaceMeshData::edge_index edge1 = 0; edge1 < _mesh.edgeCount() && !task.isCanceled(); edge1++) {
 				// Link surface manifolds.
 				SurfaceMeshData::edge_index oppositeEdge = _mesh.oppositeEdge(edge1);
@@ -1044,6 +1066,10 @@ private:
 	/// The squared probe sphere radius used to classify tetrahedra as open or solid.
 	FloatType _alpha;
 
+	/// Controls the grouping of Delaunay cells into volumetric regions and the generation
+	/// of a two-sided surface mesh.
+	bool _createRegions;
+
 	/// Counts the number of tetrehedral cells that belong to the filled regions.
 	size_t _numFilledCells = 0;
 
@@ -1066,18 +1092,10 @@ private:
 	std::vector<std::array<SurfaceMeshData::face_index, 4>> _tetrahedraFaceList;
 
 	/// This map allows looking up surface mesh faces based on their three vertices.
-#if 0
-	std::unordered_map<std::array<size_t,3>, SurfaceMeshData::face_index, boost::hash<std::array<size_t,3>>> _faceLookupMap;
-#else
 	std::map<std::array<size_t,3>, SurfaceMeshData::face_index> _faceLookupMap;
-#endif
 
 	/// This map allows looking up the tetrahedron that is adjacent to a given triangular face.
-#if 0
-	std::unordered_map<std::array<size_t,3>, DelaunayTessellation::CellHandle, boost::hash<std::array<size_t,3>>> _cellLookupMap;
-#else
 	std::map<std::array<size_t,3>, DelaunayTessellation::CellHandle> _cellLookupMap;
-#endif
 };
 
 }	// End of namespace

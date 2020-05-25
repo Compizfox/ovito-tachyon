@@ -40,7 +40,7 @@ QWidget* SurfaceMeshInspectionApplet::createWidget(MainWindow* mainWindow)
 	QWidget* rightContainer = new QWidget();
 	splitter->addWidget(rightContainer);
 	splitter->setStretchFactor(0, 1);
-	splitter->setStretchFactor(1, 4);
+	splitter->setStretchFactor(1, 3);
 
 	QHBoxLayout* rightLayout = new QHBoxLayout(rightContainer);
 	rightLayout->setContentsMargins(0,0,0,0);
@@ -185,7 +185,7 @@ QWidget* SurfaceMeshVertexInspectionApplet::createWidget(MainWindow* mainWindow)
 	toolbar->addAction(resetFilterAction());
 	layout->addWidget(toolbar, 0, 0);
 
-	filterExpressionEdit()->setPlaceholderText(tr("Filter vertices..."));
+	filterExpressionEdit()->setPlaceholderText(tr("Filter vertices list..."));
 	layout->addWidget(filterExpressionEdit(), 0, 1);
 	QSplitter* splitter = new QSplitter();
 	splitter->setChildrenCollapsible(false);
@@ -217,7 +217,7 @@ QWidget* SurfaceMeshFaceInspectionApplet::createWidget(MainWindow* mainWindow)
 	toolbar->addAction(resetFilterAction());
 	layout->addWidget(toolbar, 0, 0);
 
-	filterExpressionEdit()->setPlaceholderText(tr("Filter faces..."));
+	filterExpressionEdit()->setPlaceholderText(tr("Filter faces list..."));
 	layout->addWidget(filterExpressionEdit(), 0, 1);
 	QSplitter* splitter = new QSplitter();
 	splitter->setChildrenCollapsible(false);
@@ -249,7 +249,7 @@ QWidget* SurfaceMeshRegionInspectionApplet::createWidget(MainWindow* mainWindow)
 	toolbar->addAction(resetFilterAction());
 	layout->addWidget(toolbar, 0, 0);
 
-	filterExpressionEdit()->setPlaceholderText(tr("Filter regions..."));
+	filterExpressionEdit()->setPlaceholderText(tr("Filter regions list..."));
 	layout->addWidget(filterExpressionEdit(), 0, 1);
 	QSplitter* splitter = new QSplitter();
 	splitter->setChildrenCollapsible(false);

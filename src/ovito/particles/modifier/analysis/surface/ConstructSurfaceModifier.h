@@ -149,8 +149,9 @@ private:
 	public:
 
 		/// Constructor.
-		AlphaShapeEngine(ConstPropertyPtr positions, ConstPropertyPtr selection, const SimulationCell& simCell, FloatType probeSphereRadius, int smoothingLevel, bool selectSurfaceParticles, bool identifyRegions, std::vector<ConstPropertyPtr> particleProperties) :
+		AlphaShapeEngine(ConstPropertyPtr positions, ConstPropertyPtr selection, ConstPropertyPtr particleClusters, const SimulationCell& simCell, FloatType probeSphereRadius, int smoothingLevel, bool selectSurfaceParticles, bool identifyRegions, std::vector<ConstPropertyPtr> particleProperties) :
 			ConstructSurfaceEngineBase(std::move(positions), std::move(selection), simCell, std::move(particleProperties)),
+			_particleClusters(particleClusters),
 			_probeSphereRadius(probeSphereRadius),
 			_smoothingLevel(smoothingLevel),
 			_identifyRegions(identifyRegions),
@@ -162,6 +163,9 @@ private:
 
 		/// Injects the computed results into the data pipeline.
 		virtual void emitResults(TimePoint time, ModifierApplication* modApp, PipelineFlowState& state) override;
+
+		/// Returns the input particle cluster IDs.
+		const ConstPropertyPtr& particleClusters() const { return _particleClusters; }
 
 		/// Returns the selection set containing the particles at the constructed surfaces.
 		const PropertyPtr& surfaceParticleSelection() const { return _surfaceParticleSelection; }
@@ -179,6 +183,9 @@ private:
 
 		/// Controls the identification of disconnected spatial regions (filled and empty).
 		const bool _identifyRegions;
+
+		/// The input particle cluster property.
+		ConstPropertyPtr _particleClusters;
 
 		/// Number of filled regions that have been identified.
 		SurfaceMeshData::size_type _filledRegionCount = 0;
@@ -258,7 +265,7 @@ private:
 	/// Controls whether property values should be copied over from the input particles to the generated surface vertices (alpha-shape method / density field method).
 	DECLARE_MODIFIABLE_PROPERTY_FIELD(bool, transferParticleProperties, setTransferParticleProperties);
 
-	/// Controls the number of grid cells in each spatial direction (density field method).
+	/// Controls the number of grid cells along the largest cell dimension (density field method).
 	DECLARE_MODIFIABLE_PROPERTY_FIELD_FLAGS(int, gridResolution, setGridResolution, PROPERTY_FIELD_MEMORIZE);
 
 	/// The scaling factor applied to atomic radii (density field method).

@@ -48,7 +48,7 @@ QWidget* DataTableInspectionApplet::createWidget(MainWindow* mainWindow)
 	QWidget* rightContainer = new QWidget();
 	splitter->addWidget(rightContainer);
 	splitter->setStretchFactor(0, 1);
-	splitter->setStretchFactor(1, 4);
+	splitter->setStretchFactor(1, 3);
 
 	QHBoxLayout* rightLayout = new QHBoxLayout(rightContainer);
 	rightLayout->setContentsMargins(0,0,0,0);

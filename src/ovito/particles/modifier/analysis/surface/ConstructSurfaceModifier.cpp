@@ -101,13 +101,20 @@ bool ConstructSurfaceModifier::OOMetaClass::isApplicableTo(const DataCollection&
 ******************************************************************************/
 Future<AsynchronousModifier::ComputeEnginePtr> ConstructSurfaceModifier::createEngine(const PipelineEvaluationRequest& request, ModifierApplication* modApp, const PipelineFlowState& input)
 {
-	// Get modifier inputs.
+	// Get input particle positions.
 	const ParticlesObject* particles = input.expectObject<ParticlesObject>();
 	particles->verifyIntegrity();
 	const PropertyObject* posProperty = particles->expectProperty(ParticlesObject::PositionProperty);
+
+	// Get particle selection flags if requested.
 	ConstPropertyPtr selProperty;
 	if(onlySelectedParticles())
 		selProperty = particles->expectProperty(ParticlesObject::SelectionProperty)->storage();
+
+	// Get particle cluster property.
+	const PropertyObject* clusterProperty = particles->getProperty(ParticlesObject::ClusterProperty);
+
+	// Get simulation cell.
 	const SimulationCellObject* simCell = input.expectObject<SimulationCellObject>();
 	if(simCell->is2D())
 		throwException(tr("The construct surface mesh modifier does not support 2d simulation cells."));
@@ -128,6 +135,7 @@ Future<AsynchronousModifier::ComputeEnginePtr> ConstructSurfaceModifier::createE
 		// Create engine object. Pass all relevant modifier parameters to the engine as well as the input data.
 		return std::make_shared<AlphaShapeEngine>(posProperty->storage(),
 				std::move(selProperty),
+				clusterProperty ? clusterProperty->storage() : nullptr,
 				simCell->data(),
 				probeSphereRadius(),
 				smoothingLevel(),
@@ -193,8 +201,35 @@ void ConstructSurfaceModifier::AlphaShapeEngine::perform()
 
 	nextProgressSubStep();
 
-	// Determines the region a solid Delaunay cell belongs to.
-	auto tetrahedronRegion = [](DelaunayTessellation::CellHandle cell) {
+	// Predefine the filled spatial regions if there is already a particle cluster assignement. 
+	if(_identifyRegions && particleClusters()) {
+		
+		// Determine the maximum cluster ID.
+		qlonglong maxClusterId = 0;
+		if(particleClusters()->size() != 0) {
+			maxClusterId = qBound<qlonglong>(0, 
+				*boost::max_element(ConstPropertyAccess<qlonglong>(particleClusters())), 
+				std::numeric_limits<SurfaceMeshData::region_index>::max() - 1);
+		}
+
+		// Create one region in the output mesh for each particle cluster.
+		mesh().createRegions(maxClusterId + 1);
+	}
+
+	// Helper function that determines which spatial region a filled Delaunay cell belongs to.
+	auto tetrahedronRegion = [&,clusters = ConstPropertyAccess<qlonglong>(_identifyRegions ? particleClusters() : nullptr)](DelaunayTessellation::CellHandle cell) -> SurfaceMeshData::region_index {
+		if(clusters) {
+			// Decide which particle cluster the Delaunay cell belongs to.
+			// We need a tie-breaker in case the four vertex atoms belong to different clusters.
+			qlonglong result = 0;
+			for(int v = 0; v < 4; v++) {
+				size_t particleIndex = tessellation.vertexIndex(tessellation.cellVertex(cell, v));
+				qlonglong clusterId = clusters[particleIndex];
+				if(clusterId > result)
+					result = clusterId;
+			}
+			return result;
+		}
 		return 0;
 	};
 
@@ -218,20 +253,21 @@ void ConstructSurfaceModifier::AlphaShapeEngine::perform()
 	};
 
 	if(!_identifyRegions) {
-		// Define the filled spatial region.
+		// Predefine the filled spatial region. 
+		// An empty region is not defined, because we are creating only a one-sided surface mesh.
 		mesh().createRegion();
 		OVITO_ASSERT(mesh().regionCount() == 1);
 
 		// Just construct a one-sided surface mesh without caring about spatial regions.
-		ManifoldConstructionHelper<false, false> manifoldConstructor(tessellation, mesh(), alpha, *positions());
+		ManifoldConstructionHelper manifoldConstructor(tessellation, mesh(), alpha, false, *positions());
 		if(!manifoldConstructor.construct(tetrahedronRegion, *this, std::move(prepareMeshFace), std::move(prepareMeshVertex)))
 			return;
 	}
 	else {
 		beginProgressSubStepsWithWeights({ 2, 1 });
 
-		// Construct a two-sided surface mesh with mesh faces associated with spatial regions.
-		ManifoldConstructionHelper<true, true> manifoldConstructor(tessellation, mesh(), alpha, *positions());
+		// Construct a two-sided surface mesh with mesh faces associated with spatial regions (filled or solid).
+		ManifoldConstructionHelper manifoldConstructor(tessellation, mesh(), alpha, true, *positions());
 		if(!manifoldConstructor.construct(tetrahedronRegion, *this, std::move(prepareMeshFace), std::move(prepareMeshVertex)))
 			return;
 
@@ -565,7 +601,7 @@ void ConstructSurfaceModifier::AlphaShapeEngine::emitResults(TimePoint time, Mod
 		state.addAttribute(QStringLiteral("ConstructSurfaceMesh.filled_region_count"), QVariant::fromValue(_filledRegionCount), modApp);
 		state.addAttribute(QStringLiteral("ConstructSurfaceMesh.empty_region_count"), QVariant::fromValue(_emptyRegionCount), modApp);
 
-		QString statusString = tr("Surface area: %1\nFilled regions/volume: %2 / %3\nEmpty regions/volume: %4 / %5")
+		QString statusString = tr("Surface area: %1\n# filled regions (volume): %2 (%3)\n# empty regions (volume): %4 (%5)")
 				.arg(surfaceArea())
 				.arg(_filledRegionCount)
 				.arg(_totalFilledVolume)

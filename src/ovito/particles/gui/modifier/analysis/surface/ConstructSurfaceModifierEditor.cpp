@@ -80,16 +80,23 @@ void ConstructSurfaceModifierEditor::createUI(const RolloutInsertionParameters& 
 	BooleanParameterUI* identifyRegionsUI = new BooleanParameterUI(this, PROPERTY_FIELD(ConstructSurfaceModifier::identifyRegions));
 	identifyRegionsUI->setEnabled(false);
 	sublayout->addWidget(identifyRegionsUI->checkBox(), 4, 1, 1, 2);
+#ifdef OVITO_BUILD_PROFESSIONAL2
 	connect(alphaShapeMethodBtn, &QRadioButton::toggled, identifyRegionsUI, &BooleanParameterUI::setEnabled);
+#else
+	identifyRegionsUI->checkBox()->setText(identifyRegionsUI->checkBox()->text() + tr("\n(Available only in OVITO Pro)"));
+#endif
 
 	OpenDataInspectorButton* showRegionsListBtn = new OpenDataInspectorButton(this, tr("List of identified regions"), QStringLiteral("surface"), 2); // Note: Mode hint "2" is used to switch to the surface mesh regions view.
+	showRegionsListBtn->setEnabled(false);
 	sublayout->addWidget(showRegionsListBtn, 5, 1, 1, 2);
+#ifdef OVITO_BUILD_PROFESSIONAL1
 	connect(this, &PropertiesEditor::contentsChanged, this, [this,showRegionsListBtn]() {
 		ConstructSurfaceModifier* modifier = static_object_cast<ConstructSurfaceModifier>(editObject());
 		showRegionsListBtn->setEnabled(modifier && modifier->method() == ConstructSurfaceModifier::AlphaShape && modifier->identifyRegions());
 	});
+#endif
 
-	QRadioButton* gaussianDensityBtn = methodUI->addRadioButton(ConstructSurfaceModifier::GaussianDensity, tr("Gaussian density method (experimental):"));
+	QRadioButton* gaussianDensityBtn = methodUI->addRadioButton(ConstructSurfaceModifier::GaussianDensity, tr("Gaussian density method:"));
 	sublayout->setRowMinimumHeight(5, 10);
 	sublayout->addWidget(gaussianDensityBtn, 6, 0, 1, 3);
 
