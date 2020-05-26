@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Copyright 2018 Alexander Stukowski
+//  Copyright 2020 Alexander Stukowski
 //
 //  This file is part of OVITO (Open Visualization Tool).
 //
@@ -25,6 +25,8 @@
 
 #include <ovito/gui/desktop/GUI.h>
 #include <ovito/core/oo/OvitoObject.h>
+#include <ovito/core/dataset/pipeline/PipelineFlowState.h>
+#include <ovito/core/dataset/scene/PipelineSceneNode.h>
 
 namespace Ovito {
 
@@ -42,19 +44,52 @@ public:
 	virtual int orderingKey() const { return std::numeric_limits<int>::max(); }
 
 	/// Determines whether the given pipeline data contains data that can be displayed by this applet.
-	virtual bool appliesTo(const DataCollection& data) = 0;
+	virtual bool appliesTo(const DataCollection& data);
+
+	/// Determines the list of data objects that are displayed by the applet.
+	virtual std::vector<ConstDataObjectPath> getDataObjectPaths() {
+		return currentState().getObjectsRecursive(_dataObjectClass); 
+	}
 
 	/// Lets the applet create the UI widget that is to be placed into the data inspector panel.
 	virtual QWidget* createWidget(MainWindow* mainWindow) = 0;
 
+	/// Creates and returns the list widget displaying the list of data object objects.
+	QListWidget* objectSelectionWidget();
+
 	/// Lets the applet update the contents displayed in the inspector.
-	virtual void updateDisplay(const PipelineFlowState& state, PipelineSceneNode* sceneNode) = 0;
+	virtual void updateDisplay(const PipelineFlowState& state, PipelineSceneNode* pipeline);
 
 	/// This is called when the applet is no longer visible.
 	virtual void deactivate(MainWindow* mainWindow) {}
 
 	/// Selects a specific data object in this applet.
-	virtual bool selectDataObject(PipelineObject* dataSource, const QString& objectIdentifierHint, const QVariant& modeHint) { return false; }
+	virtual bool selectDataObject(PipelineObject* dataSource, const QString& objectIdentifierHint, const QVariant& modeHint);
+
+	/// Returns the currently selected data pipeline in the scene.
+	PipelineSceneNode* currentPipeline() const { return _pipelineNode.data(); }
+
+	/// Returns the current output of the data pipeline displayed in the applet.
+	const PipelineFlowState& currentState() const { return _pipelineState; }
+
+	/// Returns the data object that is currently selected.
+	const DataObject* selectedDataObject() const { return _selectedDataObject; }
+
+	/// Returns the data collection path of the currently selected data object.
+	const ConstDataObjectPath& selectedDataObjectPath() const { return _selectedDataObjectPath; }
+
+protected:
+
+	/// Constructor.
+	DataInspectionApplet(const DataObject::OOMetaClass& dataObjectClass) : _dataObjectClass(dataObjectClass) {}
+
+	/// Updates the list of data objects displayed in the inspector.
+	void updateDataObjectList();
+
+Q_SIGNALS:
+
+	/// This signal is emitted when the user selects a different data object in the list.
+	void currentObjectChanged(const DataObject* dataObject);
 
 public:
 
@@ -74,6 +109,29 @@ public:
 		/// Handles key press events for this widget.
 		virtual void keyPressEvent(QKeyEvent* event) override;
 	};
+
+private:
+
+	/// The type of data object displayed by this applet.
+	const DataObject::OOMetaClass& _dataObjectClass;
+
+	/// The widget for selecting the current data object.
+	QListWidget* _objectSelectionWidget = nullptr;
+
+	/// The path of the currently selected data object.
+	ConstDataObjectPath _selectedDataObjectPath;
+
+	/// The identifier path of the currently selected data object.
+	QString _selectedDataObjectPathString;
+
+	/// Pointer to the currently selected data object.
+	const DataObject* _selectedDataObject = nullptr;
+
+	/// The currently selected pipeline in the scene.
+	QPointer<PipelineSceneNode> _pipelineNode;
+
+	/// The pipeline output data being displayed.
+	PipelineFlowState _pipelineState;
 };
 
 }	// End of namespace

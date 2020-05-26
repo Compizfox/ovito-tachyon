@@ -250,7 +250,7 @@ ReferenceConfigurationModifier::RefConfigEngineBase::RefConfigEngineBase(
 {
 	// Automatically disable PBCs in Z direction for 2D systems.
 	if(_simCell.is2D()) {
-		_simCell.setPbcFlags(_simCell.pbcFlags()[0], _simCell.pbcFlags()[1], false);
+		_simCell.setPbcFlags(_simCell.hasPbc(0), _simCell.hasPbc(1), false);
 		// Make sure the matrix is invertible.
 		AffineTransformation m = _simCell.matrix();
 		m.column(2) = Vector3(0,0,1);

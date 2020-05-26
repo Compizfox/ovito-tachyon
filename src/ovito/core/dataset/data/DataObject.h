@@ -197,6 +197,9 @@ protected:
 	/// Loads the class' contents from the given stream.
 	virtual void loadFromStream(ObjectLoadStream& stream) override;
 
+	/// Creates a copy of this object.
+	virtual OORef<RefTarget> clone(bool deepCopy, CloneHelper& cloneHelper) const override;
+
 private:
 
 	/// The unique identifier of the data object by which it can be referred to from Python, for example.

@@ -186,7 +186,7 @@ void HalfEdgeMesh::connectOppositeHalfedges(vertex_index vert)
 }
 
 /******************************************************************************
-* Duplicates those vertices which are shared by more than one manifold.
+* Duplicates vertices which are shared by more than one manifold.
 * The method may only be called on a closed mesh.
 * Returns the number of vertices that were duplicated by the method.
 ******************************************************************************/
@@ -194,64 +194,127 @@ HalfEdgeMesh::size_type HalfEdgeMesh::makeManifold(const std::function<void(vert
 {
 	size_type numSharedVertices = 0;
 	size_type oldVertexCount = vertexCount();
-	std::vector<edge_index> visitedEdges;
+
+	// Stack of edges of the current manifold still to be visited.
+	QVarLengthArray<edge_index, 16> edgesToVisit;
+
+	// Edges that have been marked as visited.
+	boost::dynamic_bitset<> visitedEdges(edgeCount());
+
 	for(vertex_index vertex = 0; vertex < oldVertexCount; vertex++) {
-		// Count the number of half-edge connected to the current vertex.
-		size_type numEdges = vertexEdgeCount(vertex);
-		OVITO_ASSERT(numEdges >= 2);
+		// Count the number of half-edges incident on the current vertex.
+		size_type numVertexEdges = vertexEdgeCount(vertex);
+		OVITO_ASSERT(numVertexEdges >= 2);
 
-		// Go in positive direction around vertex, facet by facet.
 		edge_index firstEdge = firstVertexEdge(vertex);
-		edge_index currentEdge = firstEdge;
 		size_type numManifoldEdges = 0;
+
+		// Initialize the stack of edges to be visited.
+		visitedEdges.set(firstEdge);
+		edgesToVisit.push_back(firstEdge);
 		do {
+			// Take the next edge from the stack.
+			edge_index currentEdge = edgesToVisit.back();
+			edgesToVisit.pop_back();
+
+			// Verify integrity of mesh structure.
 			OVITO_ASSERT(currentEdge != InvalidIndex); // Mesh must be closed.
-			OVITO_ASSERT(_edgeFaces[currentEdge] != InvalidIndex); // Every edge must be connected to a face.
-			OVITO_ASSERT(prevFaceEdge(currentEdge) != InvalidIndex); // Every edge must be preceding edge along the face.
-			currentEdge = oppositeEdge(prevFaceEdge(currentEdge));
+			OVITO_ASSERT(adjacentFace(currentEdge) != InvalidIndex); // Every edge must be connected to a face.
+			OVITO_ASSERT(prevFaceEdge(currentEdge) != InvalidIndex); // Every edge must be preceded by another edge along the same face.
+			OVITO_ASSERT(vertex1(currentEdge) == vertex);	// Edge must be incident on the current vertex.
+
+			// Count the current edge.
 			numManifoldEdges++;
+
+			// Visit all manifolds that share the current edge.
+			edge_index edge = nextManifoldEdge(currentEdge);
+			while(edge != InvalidIndex) {
+				if(!visitedEdges.test(edge)) {
+					// Put the next edge onto the stack.
+					visitedEdges.set(edge);
+					edgesToVisit.push_back(edge);
+				}
+				edge = nextManifoldEdge(edge);
+				if(edge == currentEdge) break;
+			}
+
+			// Go in positive direction around the vertex, facet by facet.
+			edge_index nextManifoldEdge = oppositeEdge(prevFaceEdge(currentEdge));
+			OVITO_ASSERT(nextManifoldEdge != InvalidIndex);
+			if(!visitedEdges.test(nextManifoldEdge)) {
+				// Put the next edge in the current manifold onto the stack.
+				visitedEdges.set(nextManifoldEdge);
+				edgesToVisit.push_back(nextManifoldEdge);
+			}
 		}
-		while(currentEdge != firstEdge);
+		while(!edgesToVisit.empty());
 
-		if(numManifoldEdges == numEdges)
-			continue;		// Vertex is not part of multiple manifolds.
+		// If the number of edges in the first manifold is equal to the total number of edges
+		// incident on the vertex, then the vertex is not part of separate manifolds and we are done.
+		if(numManifoldEdges == numVertexEdges)
+			continue;
+		OVITO_ASSERT(numManifoldEdges < numVertexEdges);
 
-		visitedEdges.clear();
-		currentEdge = firstEdge;
+		// Now identify the other manifolds and create a vertex copy for each.
 		do {
-			visitedEdges.push_back(currentEdge);
-			currentEdge = oppositeEdge(prevFaceEdge(currentEdge));
-		}
-		while(currentEdge != firstEdge);
-		OVITO_ASSERT(visitedEdges.size() == numManifoldEdges);
-
-		do {
-			// Create a second vertex that takes the edges not visited yet.
+			// Create a second vertex that will receive the edges not visited yet.
 			vertex_index newVertex = createVertex();
 
+			// Iterate over the edges of the vertex until we find the next one that 
+			// hasn't been visited yet. This edge will by used to start the new manifold.
 			for(firstEdge = firstVertexEdge(vertex); firstEdge != InvalidIndex; firstEdge = nextVertexEdge(firstEdge)) {
-				if(std::find(visitedEdges.cbegin(), visitedEdges.cend(), firstEdge) == visitedEdges.end())
+				if(!visitedEdges.test(firstEdge))
 					break;
 			}
 			OVITO_ASSERT(firstEdge != InvalidIndex);
 
-			currentEdge = firstEdge;
+			// Initialize the stack of edges to be visited.
+			visitedEdges.set(firstEdge);
+			edgesToVisit.push_back(firstEdge);
 			do {
+				// Take the next edge from the stack.
+				edge_index currentEdge = edgesToVisit.back();
+				edgesToVisit.pop_back();
+
+				// Verify integrity of mesh structure.
 				OVITO_ASSERT(currentEdge != InvalidIndex); // Mesh must be closed.
-				OVITO_ASSERT(_edgeFaces[currentEdge] != InvalidIndex); // Every edge must be connected to a face.
-				OVITO_ASSERT(prevFaceEdge(currentEdge) != InvalidIndex); // Every edge must be preceding edge along the face.
-				OVITO_ASSERT(std::find(visitedEdges.cbegin(), visitedEdges.cend(), currentEdge) == visitedEdges.end());
-				visitedEdges.push_back(currentEdge);
+				OVITO_ASSERT(adjacentFace(currentEdge) != InvalidIndex); // Every edge must be connected to a face.
+				OVITO_ASSERT(prevFaceEdge(currentEdge) != InvalidIndex); // Every edge must be preceded by another edge along the same face.
+
+				// Transfer current edge to new vertex.
 				OVITO_ASSERT(firstVertexEdge(vertex) != currentEdge);
 				transferEdgeToVertex(currentEdge, vertex, newVertex);
-				currentEdge = _oppositeEdges[prevFaceEdge(currentEdge)];
+
+				// Count the current edge.
+				numManifoldEdges++;
+
+				// Visit all manifolds that share the current edge.
+				edge_index edge = nextManifoldEdge(currentEdge);
+				while(edge != InvalidIndex) {
+					if(!visitedEdges.test(edge)) {
+						// Put the next edge onto the stack.
+						visitedEdges.set(edge);
+						edgesToVisit.push_back(edge);
+					}
+					edge = nextManifoldEdge(edge);
+					if(edge == currentEdge) break;
+				}
+
+				// Go in positive direction around the vertex, facet by facet.
+				edge_index nextManifoldEdge = oppositeEdge(prevFaceEdge(currentEdge));
+				OVITO_ASSERT(nextManifoldEdge != InvalidIndex);
+				if(!visitedEdges.test(nextManifoldEdge)) {
+					// Put the next edge in the current manifold onto the stack.
+					visitedEdges.set(nextManifoldEdge);
+					edgesToVisit.push_back(nextManifoldEdge);
+				}
 			}
-			while(currentEdge != firstEdge);
+			while(!edgesToVisit.empty());
 
 			// Copy the properties of the vertex to its duplicate.
 			vertexDuplicationFunc(vertex);
 		}
-		while(visitedEdges.size() != numEdges);
+		while(numManifoldEdges != numVertexEdges);
 
 		numSharedVertices++;
 	}

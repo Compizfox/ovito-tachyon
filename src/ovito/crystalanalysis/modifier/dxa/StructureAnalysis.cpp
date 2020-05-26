@@ -731,7 +731,7 @@ void StructureAnalysis::determineLocalStructure(NearestNeighborFinder& neighList
 				const Vector3& neighborVector = neighborVectors[neighborMapping[i]];
 				// Check if neighbor vectors spans more than half of a periodic simulation cell.
 				for(size_t dim = 0; dim < 3; dim++) {
-					if(cell().pbcFlags()[dim]) {
+					if(cell().hasPbc(dim)) {
 						if(std::abs(cell().inverseMatrix().prodrow(neighborVector, dim)) >= FloatType(0.5)+FLOATTYPE_EPSILON)
 							StructureAnalysis::generateCellTooSmallError(dim);
 					}

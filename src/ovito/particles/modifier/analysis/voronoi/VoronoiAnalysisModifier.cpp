@@ -312,8 +312,8 @@ void VoronoiAnalysisModifier::VoronoiAnalysisEngine::perform()
 							Vector3 delta = positionsArray[index] - positionsArray[neighbor_id];
 							Vector3I pbcShift = Vector3I::Zero();
 							for(size_t dim = 0; dim < 3; dim++) {
-								if(_simCell.pbcFlags()[dim])
-									pbcShift[dim] = (int)floor(_simCell.inverseMatrix().prodrow(delta, dim) + FloatType(0.5));
+								if(_simCell.hasPbc(dim))
+									pbcShift[dim] = (int)std::floor(_simCell.inverseMatrix().prodrow(delta, dim) + FloatType(0.5));
 							}
 							Bond bond = { index, (size_t)neighbor_id, pbcShift };
 							if(!bond.isOdd()) {
@@ -369,7 +369,7 @@ void VoronoiAnalysisModifier::VoronoiAnalysisEngine::perform()
 		if(_radii.empty()) {
 			// All particles have a uniform size.
 			voro::container voroContainer(ax, bx, ay, by, az, bz, nx, ny, nz,
-					_simCell.pbcFlags()[0], _simCell.pbcFlags()[1], _simCell.pbcFlags()[2], (int)std::ceil(voro::optimal_particles));
+					_simCell.hasPbc(0), _simCell.hasPbc(1), _simCell.hasPbc(2), (int)std::ceil(voro::optimal_particles));
 
 			// Insert particles into Voro++ container.
 			for(size_t index = 0; index < positionsArray.size(); index++) {
@@ -404,7 +404,7 @@ void VoronoiAnalysisModifier::VoronoiAnalysisEngine::perform()
 		else {
 			// Particles have non-uniform sizes -> Compute polydisperse Voronoi tessellation.
 			voro::container_poly voroContainer(ax, bx, ay, by, az, bz, nx, ny, nz,
-					_simCell.pbcFlags()[0], _simCell.pbcFlags()[1], _simCell.pbcFlags()[2],
+					_simCell.hasPbc(0), _simCell.hasPbc(1), _simCell.hasPbc(2),
 					(int)std::ceil(voro::optimal_particles));
 
 			// Insert particles into Voro++ container.
@@ -490,7 +490,7 @@ void VoronoiAnalysisModifier::VoronoiAnalysisEngine::perform()
 				// Cut Voronoi cell at simulation cell boundaries in non-periodic directions.
 				bool skipParticle = false;
 				for(size_t dim = 0; dim < 3; dim++) {
-					if(!_simCell.pbcFlags()[dim]) {
+					if(!_simCell.hasPbc(dim)) {
 						double r;
 						r = 2 * planeNormals[dim].dot(corner2 - positionsArray[index]);
 						if(r <= 0) skipParticle = true;

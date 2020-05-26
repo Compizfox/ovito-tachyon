@@ -301,7 +301,7 @@ bool GenerateTrajectoryLinesModifier::generateTrajectories(Promise<>&& operation
 					const Point3& p1 = pos[0];
 					Point3 p2 = pos[1];
 					for(size_t dim = 0; dim < 3; dim++) {
-						if(cell1.pbcFlags()[dim]) {
+						if(cell1.hasPbc(dim)) {
 							FloatType reduced1 = cell1.inverseMatrix().prodrow(p1, dim);
 							FloatType reduced2 = cell2.inverseMatrix().prodrow(p2, dim);
 							FloatType delta = reduced2 - reduced1;

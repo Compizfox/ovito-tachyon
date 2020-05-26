@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Copyright 2013 Alexander Stukowski
+//  Copyright 2020 Alexander Stukowski
 //
 //  This file is part of OVITO (Open Visualization Tool).
 //
@@ -35,8 +35,14 @@ class OVITO_CORE_EXPORT MeshPrimitive : public PrimitiveBase
 {
 public:
 
+	enum DepthSortingMode {
+		AnyShapeMode,
+		ConvexShapeMode,
+	};
+	Q_ENUMS(DepthSortingMode);
+
 	/// Sets the mesh to be stored in this buffer object.
-	virtual void setMesh(const TriMesh& mesh, const ColorA& meshColor, bool emphasizeEdges = false) = 0;
+	virtual void setMesh(const TriMesh& mesh, const ColorA& meshColor, bool emphasizeEdges = false, DepthSortingMode depthSortingMode = AnyShapeMode) = 0;
 
 	/// \brief Returns the number of triangle faces stored in the buffer.
 	virtual int faceCount() = 0;

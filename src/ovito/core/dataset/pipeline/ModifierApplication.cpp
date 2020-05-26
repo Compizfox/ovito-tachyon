@@ -86,7 +86,7 @@ bool ModifierApplication::referenceEvent(RefTarget* source, const ReferenceEvent
 
 		if(!modifier()->isEnabled()) {
 			// Ignore modifier's status if it is currently disabled.
-			setStatus(PipelineStatus(PipelineStatus::Success, tr("Modifier is currently disabled.")));
+			setStatus(PipelineStatus(PipelineStatus::Success, tr("Modifier is currently turned off.")));
 			// Also clear pipeline cache in order to reduce memory footprint when modifier is disabled.
 			pipelineCache().invalidate(TimeInterval::empty(), true);
 		}

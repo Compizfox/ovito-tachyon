@@ -56,12 +56,10 @@ public:
 	/// Selects a specific data object in this applet.
 	virtual bool selectDataObject(PipelineObject* dataSource, const QString& objectIdentifierHint, const QVariant& modeHint) override;
 
-protected:
-
-	/// Is called when the user selects a different property container object in the list.
-	virtual void currentContainerChanged() override;
-
 private Q_SLOTS:
+
+	/// Is called when the user selects a different container object from the list.
+	void onCurrentContainerChanged(const DataObject* dataObject);
 
 	/// Action handler.
 	void exportDataToFile();

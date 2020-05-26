@@ -23,47 +23,36 @@
 #pragma once
 
 
-#include <ovito/stdobj/gui/StdObjGui.h>
-#include <ovito/stdobj/gui/properties/PropertyInspectionApplet.h>
-#include <ovito/grid/objects/VoxelGrid.h>
+#include <ovito/gui/desktop/GUI.h>
 
-namespace Ovito { namespace Grid {
+namespace Ovito {
 
-/**
- * \brief Data inspector page for voxel grid objects.
- */
-class VoxelGridInspectionApplet : public PropertyInspectionApplet
+/******************************************************************************
+* A push button that allows the user to open a modifier's output in the data 
+* inspector panel.
+******************************************************************************/
+class OVITO_GUI_EXPORT OpenDataInspectorButton : public QPushButton
 {
 	Q_OBJECT
-	OVITO_CLASS(VoxelGridInspectionApplet)
-	Q_CLASSINFO("DisplayName", "Voxel Grids");
 
 public:
 
 	/// Constructor.
-	Q_INVOKABLE VoxelGridInspectionApplet() : PropertyInspectionApplet(VoxelGrid::OOClass()) {}
+	OpenDataInspectorButton(ModifierPropertiesEditor* editor, const QString& buttonTitle, const QString& objectNameHint = {}, const QVariant& modeHint = {});
 
-	/// Returns the key value for this applet that is used for ordering the applet tabs.
-	virtual int orderingKey() const override { return 210; }
-
-	/// Lets the applet create the UI widget that is to be placed into the data inspector panel.
-	virtual QWidget* createWidget(MainWindow* mainWindow) override;
-
-protected:
-
-	/// Determines the text shown in cells of the vertical header column.
-	virtual QVariant headerColumnText(int section) override;
-
-private Q_SLOTS:
-
-	/// Is called when the user selects a different property container object in the list.
-	void onCurrentContainerChanged(const DataObject* dataObject);
+	/// Returns the properties editor hosting this button.
+	ModifierPropertiesEditor* editor() const { return _editor; }
 
 private:
 
-	MainWindow* _mainWindow;
-	QLabel* _gridInfoLabel;
+	/// The properties editor hosting this button.
+	ModifierPropertiesEditor* _editor;
+
+	/// Data object name hint to be passed to the data inspector when the button is clicked.
+	QString _objectNameHint;
+	
+	/// Mode hint to be passed to the data inspector when the button is clicked.
+	QVariant _modeHint;
 };
 
-}	// End of namespace
 }	// End of namespace

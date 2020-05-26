@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Copyright 2016 Alexander Stukowski
+//  Copyright 2020 Alexander Stukowski
 //
 //  This file is part of OVITO (Open Visualization Tool).
 //
@@ -38,7 +38,7 @@ namespace Ovito { namespace Delaunay {
 /******************************************************************************
 * Generates the tessellation.
 ******************************************************************************/
-bool DelaunayTessellation::generateTessellation(const SimulationCell& simCell, const Point3* positions, size_t numPoints, FloatType ghostLayerSize, const int* selectedPoints, Task& promise)
+bool DelaunayTessellation::generateTessellation(const SimulationCell& simCell, const Point3* positions, size_t numPoints, FloatType ghostLayerSize, bool coverDomainWithFiniteTets, const int* selectedPoints, Task& promise)
 {
 	promise.setProgressMaximum(0);
 
@@ -46,7 +46,9 @@ bool DelaunayTessellation::generateTessellation(const SimulationCell& simCell, c
 	GEO::initialize();
 	GEO::set_assert_mode(GEO::ASSERT_ABORT);
 
-	const double epsilon = 2e-5;
+	// Make the magnitude of the randomly perturbed particle positions dependent on the size of the system.
+	const double lengthScale = (simCell.matrix().column(0) + simCell.matrix().column(1) + simCell.matrix().column(2)).length();
+	const double epsilon = 1e-10 * lengthScale;
 
 	// Set up random number generator to generate random perturbations.
 #if 0
@@ -76,17 +78,13 @@ bool DelaunayTessellation::generateTessellation(const SimulationCell& simCell, c
 			continue;
 
 		// Add a small random perturbation to the particle positions to make the Delaunay triangulation more robust
-		// against singular input data, e.g. particles forming an ideal crystal lattice.
+		// against singular input data, e.g. all particles positioned on ideal crystal lattice sites.
 		Point3 wp = simCell.wrapPoint(*positions);
-#if 1
-		_pointData.push_back((double)wp.x() + displacement(rng));
-		_pointData.push_back((double)wp.y() + displacement(rng));
-		_pointData.push_back((double)wp.z() + displacement(rng));
-#else
-		_pointData.push_back((double)wp.x());
-		_pointData.push_back((double)wp.y());
-		_pointData.push_back((double)wp.z());
-#endif
+		_pointData.emplace_back(
+			(double)wp.x() + displacement(rng),
+			(double)wp.y() + displacement(rng),
+			(double)wp.z() + displacement(rng));
+
 		_particleIndices.push_back(i);
 
 		if(promise.isCanceled())
@@ -94,6 +92,8 @@ bool DelaunayTessellation::generateTessellation(const SimulationCell& simCell, c
 	}
 	_primaryVertexCount = _particleIndices.size();
 
+	// Determine how many periodic copies of the input particles are needed in each cell direction
+	// to ensure a consistent periodic topology in the border region. 
 	Vector3I stencilCount;
 	FloatType cuts[3][2];
 	Vector3 cellNormals[3];
@@ -102,7 +102,7 @@ bool DelaunayTessellation::generateTessellation(const SimulationCell& simCell, c
 		cuts[dim][0] = cellNormals[dim].dot(simCell.reducedToAbsolute(Point3(0,0,0)) - Point3::Origin());
 		cuts[dim][1] = cellNormals[dim].dot(simCell.reducedToAbsolute(Point3(1,1,1)) - Point3::Origin());
 
-		if(simCell.pbcFlags()[dim]) {
+		if(simCell.hasPbc(dim)) {
 			stencilCount[dim] = (int)ceil(ghostLayerSize / simCell.matrix().column(dim).dot(cellNormals[dim]));
 			cuts[dim][0] -= ghostLayerSize;
 			cuts[dim][1] += ghostLayerSize;
@@ -121,31 +121,44 @@ bool DelaunayTessellation::generateTessellation(const SimulationCell& simCell, c
 				if(ix == 0 && iy == 0 && iz == 0) continue;
 
 				Vector3 shift = simCell.reducedToAbsolute(Vector3(ix,iy,iz));
-				Vector_3<double> shiftd = (Vector_3<double>)shift;
 				for(size_t vertexIndex = 0; vertexIndex < _primaryVertexCount; vertexIndex++) {
 					if(promise.isCanceled())
 						return false;
 
-					double x = _pointData[vertexIndex*3+0] + shiftd.x();
-					double y = _pointData[vertexIndex*3+1] + shiftd.y();
-					double z = _pointData[vertexIndex*3+2] + shiftd.z();
-					Point3 pimage = Point3(x,y,z);
+					Point3 pimage = _pointData[vertexIndex] + shift;
 					bool isClipped = false;
 					for(size_t dim = 0; dim < 3; dim++) {
-						FloatType d = cellNormals[dim].dot(pimage - Point3::Origin());
-						if(d < cuts[dim][0] || d > cuts[dim][1]) {
-							isClipped = true;
-							break;
+						if(simCell.hasPbc(dim)) {
+							FloatType d = cellNormals[dim].dot(pimage - Point3::Origin());
+							if(d < cuts[dim][0] || d > cuts[dim][1]) {
+								isClipped = true;
+								break;
+							}
 						}
 					}
 					if(!isClipped) {
-						_pointData.push_back(x);
-						_pointData.push_back(y);
-						_pointData.push_back(z);
+						_pointData.push_back(pimage);
 						_particleIndices.push_back(_particleIndices[vertexIndex]);
 					}
 				}
 			}
+		}
+	}
+
+	// In order to cover the simulation box completely with finite tetrahedra, add 8 extra input points to the Delaunay tessellation,
+	// far away from the simulation cell and real particles. These 8 points form a convex hull, whose interior will get completely tessellated.
+	if(coverDomainWithFiniteTets) {
+
+		// Compute bounding box of input points and simulation cell.
+		Box3 bb = Box3(Point3(0), Point3(1)).transformed(simCell.matrix());
+		bb.addPoints(_pointData.data(), _pointData.size());
+		// Add extra padding.
+		bb = bb.padBox(ghostLayerSize);
+		// Create 8 helper points at the corners of the bounding box.
+		for(size_t i = 0; i < 8; i++) {
+			Point3 corner = bb[i];
+			_pointData.push_back(corner);
+			_particleIndices.push_back(std::numeric_limits<size_t>::max());
 		}
 	}
 
@@ -160,7 +173,7 @@ bool DelaunayTessellation::generateTessellation(const SimulationCell& simCell, c
 	GEO::Numeric::random_reset();
 
 	// Construct Delaunay tessellation.
-	bool result = _dt->set_vertices(_pointData.size()/3, _pointData.data(), [&promise](size_t value, size_t maxProgress) {
+	bool result = _dt->set_vertices(_pointData.size(), reinterpret_cast<const double*>(_pointData.data()), [&promise](size_t value, size_t maxProgress) {
 		if(maxProgress != promise.progressMaximum()) promise.setProgressMaximum(maxProgress);
 		return promise.setProgressValueIntermittent(value);
 	});
@@ -189,7 +202,7 @@ bool DelaunayTessellation::generateTessellation(const SimulationCell& simCell, c
 ******************************************************************************/
 bool DelaunayTessellation::classifyGhostCell(CellHandle cell) const
 {
-	if(!isValidCell(cell))
+	if(!isFiniteCell(cell))
 		return true;
 
 	// Find head vertex with the lowest index.

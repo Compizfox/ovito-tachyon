@@ -65,6 +65,7 @@ namespace Ovito {
 	class ElidedTextLabel;
 	class HtmlListWidget;
 	class PropertiesEditor;
+	class ModifierPropertiesEditor;
 	class AffineTransformationParameterUI;
 	class BooleanParameterUI;
 	class BooleanActionParameterUI;

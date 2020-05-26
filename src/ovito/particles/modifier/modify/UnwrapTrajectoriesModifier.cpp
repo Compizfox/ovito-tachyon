@@ -384,7 +384,7 @@ void UnwrapTrajectoriesModifierApplication::processNextFrame(int frame, TimePoin
 	if(!simCellObj)
 		throwException(tr("Input data contains no simulation cell information at frame %1.").arg(frame));
 	SimulationCell cell = simCellObj->data();
-	if(!cell.pbcFlags()[0] && !cell.pbcFlags()[1] && !cell.pbcFlags()[2])
+	if(!cell.hasPbc())
 		throwException(tr("No periodic boundary conditions set for the simulation cell."));
 	const ParticlesObject* particles = state.getObject<ParticlesObject>();
 	if(!particles)
@@ -399,7 +399,7 @@ void UnwrapTrajectoriesModifierApplication::processNextFrame(int frame, TimePoin
 		if(_previousCell.matrix() != AffineTransformation::Zero()) {
 			std::array<int,3> flipState = _currentFlipState;
 			// Detect discontinuities in the three tilt factors of the cell.
-			if(cell.pbcFlags()[0]) {
+			if(cell.hasPbc(0)) {
 				FloatType xy1 = _previousCell.matrix()(0,1) / _previousCell.matrix()(0,0);
 				FloatType xy2 = cell.matrix()(0,1) / cell.matrix()(0,0);
 				if(int flip_xy = (int)std::round(xy2 - xy1))
@@ -411,7 +411,7 @@ void UnwrapTrajectoriesModifierApplication::processNextFrame(int frame, TimePoin
 						flipState[1] -= flip_xz;
 				}
 			}
-			if(cell.pbcFlags()[1] && !cell.is2D()) {
+			if(cell.hasPbc(1) && !cell.is2D()) {
 				FloatType yz1 = _previousCell.matrix()(1,2) / _previousCell.matrix()(1,1);
 				FloatType yz2 = cell.matrix()(1,2) / cell.matrix()(1,1);
 				if(int flip_yz = (int)std::round(yz2 - yz1))
@@ -443,7 +443,7 @@ void UnwrapTrajectoriesModifierApplication::processNextFrame(int frame, TimePoin
 		if(!result.second) {
 			Vector3 delta = result.first->second - rp;
 			for(size_t dim = 0; dim < 3; dim++) {
-				if(cell.pbcFlags()[dim]) {
+				if(cell.hasPbc(dim)) {
 					int shift = (int)std::round(delta[dim]);
 					if(shift != 0) {
 						// Create a new record when particle has crossed a periodic cell boundary.

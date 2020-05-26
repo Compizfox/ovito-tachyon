@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Copyright 2019 Alexander Stukowski
+//  Copyright 2020 Alexander Stukowski
 //
 //  This file is part of OVITO (Open Visualization Tool).
 //
@@ -146,7 +146,7 @@ bool SurfaceMeshData::smoothMesh(int numIterations, Task& task, FloatType k_PB, 
 
         // Apply computed displacements.
         auto d = displacements.cbegin();
-        for(Point3& vertex : boost::make_iterator_range(vertexCoords(), vertexCoords() + vertexCount()))
+        for(Point3& vertex : vertexCoordsRange())
             vertex += *d++;
     };
 
@@ -177,24 +177,25 @@ boost::optional<SurfaceMeshData::region_index> SurfaceMeshData::locatePoint(cons
 	// Determine which vertex is closest to the test point.
 	FloatType closestDistanceSq = FLOATTYPE_MAX;
 	vertex_index closestVertex = HalfEdgeMesh::InvalidIndex;
-	edge_index closestVertexFirstEdge = HalfEdgeMesh::InvalidIndex;
 	Vector3 closestNormal, closestVector;
 	region_index closestRegion = spaceFillingRegion();
     size_type vcount = vertexCount();
 	for(vertex_index vindex = 0; vindex < vcount; vindex++) {
+		// Determine the first adjacent edge which has an adjacent face.
 		edge_index firstEdge = firstVertexEdge(vindex);
 		if(!faceSubset.empty()) {
 			while(firstEdge != HalfEdgeMesh::InvalidIndex && !faceSubset[adjacentFace(firstEdge)])
 				firstEdge = nextVertexEdge(firstEdge);
 		}
 		if(firstEdge == HalfEdgeMesh::InvalidIndex) continue;
+
+		// Compute distance from query point to vertex.
 		Vector3 r = cell().wrapVector(vertexPosition(vindex) - location);
 		FloatType distSq = r.squaredLength();
 		if(distSq < closestDistanceSq) {
 			closestDistanceSq = distSq;
 			closestVertex = vindex;
 			closestVector = r;
-			closestVertexFirstEdge = firstEdge;
 		}
 	}
 
@@ -219,15 +220,22 @@ boost::optional<SurfaceMeshData::region_index> SurfaceMeshData::locatePoint(cons
 		Vector3 c = r + edgeDir * d;
 		FloatType distSq = c.squaredLength();
 		if(distSq < closestDistanceSq) {
-			closestDistanceSq = distSq;
-			closestVertex = HalfEdgeMesh::InvalidIndex;
-			closestVector = c;
+
+			// Compute pseudo normal of edge by averaging the normal vectors of the two adjacent faces.
 			const Point3& p1a = vertexPosition(vertex2(nextFaceEdge(edge)));
 			const Point3& p1b = vertexPosition(vertex2(nextFaceEdge(oppositeEdge(edge))));
 			Vector3 e1 = cell().wrapVector(p1a - p1);
 			Vector3 e2 = cell().wrapVector(p1b - p1);
-			closestNormal = edgeDir.cross(e1).safelyNormalized() + e2.cross(edgeDir).safelyNormalized();
-			closestRegion = _faceRegions ? _faceRegions[adjacentFace(edge)] : 0;
+			Vector3 pseudoNormal = edgeDir.cross(e1).safelyNormalized() + e2.cross(edgeDir).safelyNormalized();
+
+			// In case the manifold is two-sided, skip edge if pseudo-normal is facing toward the the query point.
+			if(pseudoNormal.dot(c) > -epsilon || !hasOppositeFace(adjacentFace(edge))) {
+				closestDistanceSq = distSq;
+				closestVertex = HalfEdgeMesh::InvalidIndex;
+				closestVector = c;
+				closestNormal = pseudoNormal;
+				closestRegion = _faceRegions ? _faceRegions[adjacentFace(edge)] : 0;
+			}
 		}
 	}
 
@@ -246,7 +254,10 @@ boost::optional<SurfaceMeshData::region_index> SurfaceMeshData::locatePoint(cons
 		Vector3 r = cell().wrapVector(p1 - location);
 		edgeVectors[2] = -edgeVectors[1] - edgeVectors[0];
 
+		// Compute face normal.
 		Vector3 normal = edgeVectors[0].cross(edgeVectors[1]);
+
+		// Determine whether the projection of the query point is inside the face's boundaries.
 		bool isInsideTriangle = true;
 		Vector3 vertexVector = r;
 		for(size_t v = 0; v < 3; v++) {
@@ -256,42 +267,74 @@ boost::optional<SurfaceMeshData::region_index> SurfaceMeshData::locatePoint(cons
 			}
 			vertexVector += edgeVectors[v];
 		}
+
 		if(isInsideTriangle) {
 			FloatType normalLengthSq = normal.squaredLength();
 			if(std::abs(normalLengthSq) <= FLOATTYPE_EPSILON) continue;
 			normal /= sqrt(normalLengthSq);
 			FloatType planeDist = normal.dot(r);
-			if(planeDist * planeDist < closestDistanceSq) {
-				closestDistanceSq = planeDist * planeDist;
-				closestVector = normal * planeDist;
-				closestVertex = HalfEdgeMesh::InvalidIndex;
-				closestNormal = normal;
-				closestRegion = _faceRegions ? _faceRegions[face] : 0;
+			// In case the manifold is two-sided, skip face if it is facing toward the query point.
+			if(planeDist > -epsilon || !hasOppositeFace(face)) {
+				if(planeDist * planeDist < closestDistanceSq) {
+					closestDistanceSq = planeDist * planeDist;
+					closestVector = normal * planeDist;
+					closestVertex = HalfEdgeMesh::InvalidIndex;
+					closestNormal = normal;
+					closestRegion = _faceRegions ? _faceRegions[face] : 0;
+				}
 			}
 		}
 	}
 
 	// If a vertex is closest, we still have to compute the local pseudo-normal at the vertex.
 	if(closestVertex != HalfEdgeMesh::InvalidIndex) {
-		edge_index edge = closestVertexFirstEdge;
-		closestNormal.setZero();
 		const Point3& closestVertexPos = vertexPosition(closestVertex);
-		Vector3 edge1v = cell().wrapVector(vertexPosition(vertex2(edge)) - closestVertexPos);
-		edge1v.normalizeSafely();
-		do {
-			edge_index nextEdge = nextFaceEdge(oppositeEdge(edge));
-			OVITO_ASSERT(vertex1(nextEdge) == closestVertex);
-			Vector3 edge2v = cell().wrapVector(vertexPosition(vertex2(nextEdge)) - closestVertexPos);
-			edge2v.normalizeSafely();
-			FloatType angle = std::acos(edge1v.dot(edge2v));
-			Vector3 normal = edge2v.cross(edge1v);
-			if(normal != Vector3::Zero())
-				closestNormal += normal.normalized() * angle;
-			edge = nextEdge;
-			edge1v = edge2v;
+
+		// A vertex may have multiple pseudo-normals if it is part of multiple manifolds.
+		// We need to compute normal belonging to each manifold and take the one that is facing 
+		// away from the query point (if any).
+
+		edge_index firstEdge = firstVertexEdge(closestVertex);
+		QVarLengthArray<edge_index, 16> visitedEdges;
+		for(;;) {
+			// Skip edges that are no adjacent to a visible face.
+			if(!faceSubset.empty()) {
+				while(firstEdge != HalfEdgeMesh::InvalidIndex && !faceSubset[adjacentFace(firstEdge)])
+					firstEdge = nextVertexEdge(firstEdge);
+			}
+			if(firstEdge == HalfEdgeMesh::InvalidIndex) break;
+
+			if(std::find(visitedEdges.cbegin(), visitedEdges.cend(), firstEdge) == visitedEdges.cend()) {
+				// Compute vertex pseudo-normal by averaging the normal vectors of adjacent faces.
+				closestNormal.setZero();
+				edge_index edge = firstEdge;
+				Vector3 edge1v = cell().wrapVector(vertexPosition(vertex2(edge)) - closestVertexPos);
+				edge1v.normalizeSafely();
+				do {
+					visitedEdges.push_back(edge);
+					OVITO_ASSERT(hasOppositeEdge(edge)); // Make sure the mesh is closed.
+					edge_index nextEdge = nextFaceEdge(oppositeEdge(edge));
+					OVITO_ASSERT(vertex1(nextEdge) == closestVertex);
+					Vector3 edge2v = cell().wrapVector(vertexPosition(vertex2(nextEdge)) - closestVertexPos);
+					edge2v.normalizeSafely();
+					FloatType angle = std::acos(edge1v.dot(edge2v));
+					Vector3 normal = edge2v.cross(edge1v);
+					if(normal != Vector3::Zero())
+						closestNormal += normal.normalized() * angle;
+					edge = nextEdge;
+					edge1v = edge2v;
+				}
+				while(edge != firstEdge);
+				closestRegion = _faceRegions ? _faceRegions[adjacentFace(firstEdge)] : 0;
+
+				// We can stop if pseudo-normal is facing away from query point.
+				if(closestNormal.dot(closestVector) > -epsilon) 
+					break;
+			}
+
+			// Continue with next edge that is adjacent to the vertex.
+			firstEdge = nextVertexEdge(firstEdge);
 		}
-		while(edge != closestVertexFirstEdge);
-		closestRegion = _faceRegions ? _faceRegions[adjacentFace(edge)] : 0;
 	}
 
 	FloatType dot = closestNormal.dot(closestVector);
@@ -304,7 +347,7 @@ boost::optional<SurfaceMeshData::region_index> SurfaceMeshData::locatePoint(cons
 * Constructs the convex hull from a set of points and adds the resulting
 * polyhedron to the mesh.
 ******************************************************************************/
-void SurfaceMeshData::constructConvexHull(std::vector<Point3> vecs)
+void SurfaceMeshData::constructConvexHull(std::vector<Point3> vecs, FloatType epsilon)
 {
 	// Create a new spatial region for the polyhedron in the output mesh.
 	SurfaceMeshData::region_index region = createRegion();
@@ -316,41 +359,72 @@ void SurfaceMeshData::constructConvexHull(std::vector<Point3> vecs)
 	auto originalFaceCount = faceCount();
 	auto originalVertexCount = vertexCount();
 
-	// Determine which points should form the initial tetrahedron.
-	// Make sure they are not co-planar.
+	// Determine which points are used to build the initial tetrahedron.
+	// Make sure they are not co-planar and the tetrahedron is not degenerate.
 	size_t tetrahedraCorners[4];
 	tetrahedraCorners[0] = 0;
-	size_t n = 1;
 	Matrix3 m;
+
+	// Find optimal second point.
+	FloatType maxVal = epsilon;
 	for(size_t i = 1; i < vecs.size(); i++) {
-		if(n == 1) {
-			m.column(0) = vecs[i] - vecs[0];
+		m.column(0) = vecs[i] - vecs[0];
+		FloatType distSq = m.column(0).squaredLength();
+		if(distSq > maxVal) {
+			maxVal = distSq;
 			tetrahedraCorners[1] = i;
-			if(!m.column(0).isZero()) n = 2;
-		}
-		else if(n == 2) {
-			m.column(1) = vecs[i] - vecs[0];
-			tetrahedraCorners[2] = i;
-			if(!m.column(0).cross(m.column(1)).isZero()) n = 3;
-		}
-		else if(n == 3) {
-			m.column(2) = vecs[i] - vecs[0];
-			FloatType det = m.determinant();
-			if(std::abs(det) > FLOATTYPE_EPSILON) {
-				tetrahedraCorners[3] = i;
-				if(det < 0) std::swap(tetrahedraCorners[0], tetrahedraCorners[1]);
-				n = 4;
-				break;
-			}
 		}
 	}
-	if(n != 4) return;
+	// Convex hull is degenerate if all input points are identitical.
+	if(maxVal <= epsilon)
+		return;
+	m.column(0) = vecs[tetrahedraCorners[1]] - vecs[0];
+
+	// Find optimal third point.
+	maxVal = epsilon;
+	for(size_t i = 1; i < vecs.size(); i++) {
+		if(i == tetrahedraCorners[1]) continue;
+		m.column(1) = vecs[i] - vecs[0];
+		FloatType areaSq = m.column(0).cross(m.column(1)).squaredLength();
+		if(areaSq > maxVal) {
+			maxVal = areaSq;
+			tetrahedraCorners[2] = i;
+		}
+	}
+	// Convex hull is degnerate if all input points are co-linear.
+	if(maxVal <= epsilon)
+		return;
+	m.column(1) = vecs[tetrahedraCorners[2]] - vecs[0];
+
+	// Find optimal fourth point.
+	maxVal = epsilon;
+	bool flipTet;
+	for(size_t i = 1; i < vecs.size(); i++) {
+		if(i == tetrahedraCorners[1] || i == tetrahedraCorners[2]) continue;
+		m.column(2) = vecs[i] - vecs[0];
+		FloatType vol = m.determinant();
+		if(vol > maxVal) {
+			maxVal = vol;
+			flipTet = false;
+			tetrahedraCorners[3] = i;
+		}
+		else if(-vol > maxVal) {
+			maxVal = -vol;
+			flipTet = true;
+			tetrahedraCorners[3] = i;
+		}
+	}
+	// Convex hull is degnerate if all input points are co-planar.
+	if(maxVal <= epsilon)
+		return;
 
 	// Create the initial tetrahedron.
 	HalfEdgeMesh::vertex_index tetverts[4];
 	for(size_t i = 0; i < 4; i++) {
         tetverts[i] = createVertex(vecs[tetrahedraCorners[i]]);
 	}
+	if(flipTet) 
+		std::swap(tetverts[0], tetverts[1]);
 	createFace({tetverts[0], tetverts[1], tetverts[3]}, region);
 	createFace({tetverts[2], tetverts[0], tetverts[3]}, region);
 	createFace({tetverts[0], tetverts[2], tetverts[1]}, region);
@@ -359,13 +433,18 @@ void SurfaceMeshData::constructConvexHull(std::vector<Point3> vecs)
 	for(size_t i = 0; i < 4; i++)
 		topology()->connectOppositeHalfedges(tetverts[i]);
 
+	if(vecs.size() == 4)
+		return;	// If the input point set consists only of 4 points, then we are done after constructing the initial tetrahedron.
+
 	// Remove 4 points of initial tetrahedron from input list.
-	for(size_t i = 1; i <= 4; i++)
-		vecs[tetrahedraCorners[4-i]] = vecs[vecs.size()-i];
+	std::sort(std::begin(tetrahedraCorners), std::end(tetrahedraCorners), std::greater<>());
+	OVITO_ASSERT(tetrahedraCorners[0] > tetrahedraCorners[1]);
+	for(size_t i = 0; i < 4; i++)
+		vecs[tetrahedraCorners[i]] = vecs[vecs.size()-i-1];
 	vecs.erase(vecs.end() - 4, vecs.end());
 
 	// Simplified Quick-hull algorithm.
-	for(;;) {
+	while(!vecs.empty()) {
 		// Find the point on the positive side of a face and furthest away from it.
 		// Also remove points from list which are on the negative side of all faces.
 		auto furthestPoint = vecs.rend();
@@ -379,7 +458,7 @@ void SurfaceMeshData::constructConvexHull(std::vector<Point3> vecs)
 				auto v2 = thirdFaceVertex(faceIndex);
 				Plane3 plane(vertexPosition(v0), vertexPosition(v1), vertexPosition(v2), true);
 				FloatType signedDistance = plane.pointDistance(*p);
-				if(signedDistance > FLOATTYPE_EPSILON) {
+				if(signedDistance > epsilon) {
 					insideHull = false;
 					if(signedDistance > furthestPointDistance) {
 						furthestPointDistance = signedDistance;
@@ -389,6 +468,7 @@ void SurfaceMeshData::constructConvexHull(std::vector<Point3> vecs)
 			}
 			// When point is inside the hull, remove it from the input list.
 			if(insideHull) {
+				if(furthestPoint == vecs.rend() - remainingPointCount) furthestPoint = p;
 				remainingPointCount--;
 				*p = vecs[remainingPointCount];
 			}
@@ -402,7 +482,7 @@ void SurfaceMeshData::constructConvexHull(std::vector<Point3> vecs)
 			auto v1 = secondFaceVertex(face);
 			auto v2 = thirdFaceVertex(face);
 			Plane3 plane(vertexPosition(v0), vertexPosition(v1), vertexPosition(v2), true);
-			if(plane.pointDistance(*furthestPoint) > FLOATTYPE_EPSILON) {
+			if(plane.pointDistance(*furthestPoint) > epsilon) {
 				deleteFace(face);
 				face--;
 			}
@@ -478,10 +558,12 @@ void SurfaceMeshData::convertToTriMesh(TriMesh& outputMesh, bool smoothShading, 
 	OVITO_ASSERT(faceSubset.empty() || faceSubset.size() == faceCount);
 
 	// Create output vertices.
-	outputMesh.setVertexCount(topology.vertexCount());
+	auto baseVertexCount = outputMesh.vertexCount();
+	auto baseFaceCount = outputMesh.faceCount();
+	outputMesh.setVertexCount(baseVertexCount + topology.vertexCount());
 	SurfaceMeshData::vertex_index vidx = 0;
-	for(Point3& p : outputMesh.vertices())
-		p = vertexPosition(vidx++);
+	for(auto p = outputMesh.vertices().begin() + baseVertexCount; p != outputMesh.vertices().end(); ++p)
+		*p = vertexPosition(vidx++);
 
 	// Transfer faces from surface mesh to output triangle mesh.
 	for(HalfEdgeMesh::face_index face = 0; face < faceCount; face++) {
@@ -495,7 +577,7 @@ void SurfaceMeshData::convertToTriMesh(TriMesh& outputMesh, bool smoothShading, 
 		bool createOppositeFace = autoGenerateOppositeFaces && (!topology.hasOppositeFace(face) || (!faceSubset.empty() && !faceSubset[topology.oppositeFace(face)])) ;
 		while(edge2 != faceEdge) {
 			TriMeshFace& outputFace = outputMesh.addFace();
-			outputFace.setVertices(baseVertex, topology.vertex2(edge1), topology.vertex2(edge2));
+			outputFace.setVertices(baseVertex + baseVertexCount, topology.vertex2(edge1) + baseVertexCount, topology.vertex2(edge2) + baseVertexCount);
 			outputFace.setEdgeVisibility(edge1 == topology.nextFaceEdge(faceEdge), true, false);
 			if(originalFaceMap)
 				originalFaceMap->push_back(face);
@@ -574,7 +656,7 @@ void SurfaceMeshData::convertToTriMesh(TriMesh& outputMesh, bool smoothShading, 
 
 		// Compute normal at each face vertex.
 		outputMesh.setHasNormals(true);
-		auto outputNormal = outputMesh.normals().begin();
+		auto outputNormal = outputMesh.normals().begin() + (baseFaceCount * 3);
 		for(HalfEdgeMesh::face_index face = 0; face < faceCount; face++) {
 			if(!faceSubset.empty() && !faceSubset[face]) continue;
 

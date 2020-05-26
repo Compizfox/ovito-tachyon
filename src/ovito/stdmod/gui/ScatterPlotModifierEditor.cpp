@@ -27,6 +27,7 @@
 #include <ovito/gui/desktop/properties/IntegerParameterUI.h>
 #include <ovito/gui/desktop/properties/FloatParameterUI.h>
 #include <ovito/gui/desktop/properties/BooleanParameterUI.h>
+#include <ovito/gui/desktop/properties/OpenDataInspectorButton.h>
 #include <ovito/gui/desktop/mainwin/MainWindow.h>
 #include <ovito/stdmod/modifiers/ScatterPlotModifier.h>
 #include "ScatterPlotModifierEditor.h"
@@ -102,12 +103,8 @@ void ScatterPlotModifierEditor::createUI(const RolloutInsertionParameters& rollo
 	layout->addWidget(new QLabel(tr("Scatter plot:")));
 	layout->addWidget(_plotWidget);
 
-	QPushButton* btn = new QPushButton(tr("Show in data inspector"));
-	connect(btn, &QPushButton::clicked, this, [this]() {
-		if(modifierApplication())
-			mainWindow()->openDataInspector(modifierApplication());
-	});
-	layout->addWidget(btn);
+	OpenDataInspectorButton* openDataInspectorBtn = new OpenDataInspectorButton(this, tr("Show in data inspector"));
+	layout->addWidget(openDataInspectorBtn);
 
 	// Selection.
 	QGroupBox* selectionBox = new QGroupBox(tr("Selection"), rollout);

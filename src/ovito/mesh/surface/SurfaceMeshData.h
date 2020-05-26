@@ -87,6 +87,12 @@ public:
     /// Sets the cluster a dislocation/slip face is embedded in.
     void setFaceRegion(face_index face, region_index region) { OVITO_ASSERT(face >= 0 && face < faceCount()); faceRegions()[face] = region; }
 
+    /// Returns an iterator range over all per-face region IDs.
+    auto faceRegionsRange() const { return boost::iterator_range<const SurfaceMeshData::region_index*>(faceRegions(), faceRegions() + faceCount()); }
+
+    /// Returns an iterator range over all per-face region IDs.
+    auto faceRegionsRange() { return boost::iterator_range<SurfaceMeshData::region_index*>(faceRegions(), faceRegions() + faceCount()); }
+
     /// Returns the spatial region which the given mesh edge belongs to.
     region_index edgeRegion(edge_index edge) const { return faceRegion(adjacentFace(edge)); }
 
@@ -170,6 +176,12 @@ public:
         OVITO_ASSERT(vertex >= 0 && vertex < vertexCount());
         vertexCoords()[vertex] = coords;
     }
+
+    /// Returns an iterator range over all vertex coordinates.
+    auto vertexCoordsRange() const { return boost::iterator_range<const Point3*>(vertexCoords(), vertexCoords() + vertexCount()); }
+
+    /// Returns an iterator range over all vertex coordinates.
+    auto vertexCoordsRange() { return boost::iterator_range<Point3*>(vertexCoords(), vertexCoords() + vertexCount()); }
 
     /// Creates a new vertex at the given coordinates.
     vertex_index createVertex(const Point3& pos) {
@@ -388,6 +400,20 @@ public:
         _regionCount = newRegionCount;
     }
 
+    /// Returns the volume of the i-th region.
+    FloatType regionVolume(region_index region) const {
+        OVITO_ASSERT(_regionVolumes != nullptr);
+        OVITO_ASSERT(region >= 0 && region < regionCount());
+        return _regionVolumes[region];
+    }
+
+    /// Sets the stored volume of the i-th region.
+    void setRegionVolume(region_index region, FloatType vol) {
+        OVITO_ASSERT(_regionVolumes != nullptr);
+        OVITO_ASSERT(region >= 0 && region < regionCount());
+        _regionVolumes[region] = vol;
+    }
+
     /// Links two opposite half-edges together.
     void linkOppositeEdges(edge_index edge1, edge_index edge2) {
         OVITO_ASSERT(isTopologyMutable());
@@ -397,7 +423,7 @@ public:
     /// Transforms all vertices of the mesh with the given affine transformation matrix.
     void transformVertices(const AffineTransformation tm) {
         OVITO_ASSERT(isVertexPropertyMutable(SurfaceMeshVertices::PositionProperty));
-        for(Point3& p : boost::make_iterator_range(vertexCoords(), vertexCoords() + vertexCount())) {
+        for(Point3& p : vertexCoordsRange()) {
             p = tm * p;
         }
     }
@@ -427,7 +453,7 @@ public:
         return topology()->connectOppositeHalfedges();
     }
 
-    /// Duplicates those vertices which are shared by more than one manifold.
+    /// Duplicates any vertices that are shared by more than one manifold.
     /// The method may only be called on a closed mesh.
     /// Returns the number of vertices that were duplicated by the method.
     size_type makeManifold() {
@@ -572,7 +598,7 @@ public:
     }
 
     /// Constructs the convex hull from a set of points and adds the resulting polyhedron to the mesh.
-    void constructConvexHull(std::vector<Point3> vecs);
+    void constructConvexHull(std::vector<Point3> vecs, FloatType epsilon = FLOATTYPE_EPSILON);
 
     /// Joins adjacent faces that are coplanar.
     void joinCoplanarFaces(FloatType thresholdAngle = qDegreesToRadians(0.01));
