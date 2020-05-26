@@ -17,7 +17,7 @@
   </para>
   <para>
 		The appearance of a surface mesh can be controlled through the parameter panel of the <link linkend="visual_elements.surface_mesh">Surface mesh visual element</link>,
-    which is located in the top section of the <link linkend="usage.modification_pipeline.pipeline_listbox">pipeline editor</link>.
+    which is located in the topmost section of the <link linkend="usage.modification_pipeline.pipeline_listbox">pipeline editor</link>.
   </para>
   <simplesect>
     <title>Surfaces embedded in periodic domains</title>
