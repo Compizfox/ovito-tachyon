@@ -18,6 +18,11 @@
     Depending on the value of the <emphasis>Smoothing window size</emphasis> parameter, the modifier will either perform 
     a time-based averaging of the particle coordinates over several input frames or a linear interpolation between consecutive frames, see below. 
   </para>
+  <para>
+    If the particles have <link linkend="howto.aspherical_particles">orientational information</link> associated with them, then
+    the modifier will smoothen or interpolate the <literal>Orientation</literal> particle property in the same way as the
+    particle positions.
+  </para>
 
   <simplesect>
     <title>Averaging mode</title>
