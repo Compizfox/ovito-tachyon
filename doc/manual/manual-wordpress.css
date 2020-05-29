@@ -68,10 +68,20 @@ code {
     background-color: transparent;
 }
 
+.informalfigure div.caption {
+    display: flex;
+	font-size: 80%;
+	font-weight: bold;
+    word-wrap: break-word;
+}
+.informalfigure div.caption p {
+    flex-grow: 1;
+    width: 0;
+}
+
 .figure p.title, .inlinefigure p.title, .informalfigure .informaltable td, .inlinefigure .informaltable td {
 	font-size: 80%;
 	font-weight: bold;
-	width: 4cm;
 }
 
 .informalfigure .informaltable .inlinefigure td {
@@ -152,6 +162,7 @@ code {
 	white-space: nowrap;
 	font-size: 80%;
 	font-weight: bold;
+	font-style: normal;
 	vertical-align: baseline;
 	border-radius: 0.25rem;
 	padding: 2px 3px;

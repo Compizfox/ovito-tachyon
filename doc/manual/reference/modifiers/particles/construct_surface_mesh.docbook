@@ -75,21 +75,21 @@
     <title>General options</title>
     <para>
       The modifier provides the option to operate only on the subset of <emphasis>currently selected input particles</emphasis>.
-      This allows you to exclude certain parts of the system from the surface construction if needed, for example, in order to 
+      This allows you to exclude certain parts of the system from the surface construction if needed. For example, to 
       ignore water molecules surrounding the structure of interest.
     </para>
     <para>
-      The total surface area of the resulting manifold is reported by the modifier in the status area and also 
-      as a dynamicly computed <link linkend="usage.global_attributes">global attribute</link> named <literal>ConstructSurfaceMesh.surface_area</literal>.
-      Note that the area is given in squared units of length as used by the original simulation dataset.
+      The total surface area of the resulting manifold is displayed by the modifier in the status area and 
+      output as a <link linkend="usage.global_attributes">global attribute</link> named <literal>ConstructSurfaceMesh.surface_area</literal>.
+      Note that the surface area is given in squared units of length as used by the original simulation dataset.
     </para>
     <para>
-      OVITO has the capability to associate local information with the surface mesh, which is inherited from nearby particles during the construction process. 
-      If the <emphasis>Transfer particle properties to surface</emphasis> option is turned on, any attributes of the input particles located at the surface, 
-      for example their <literal>Color</literal> property, are copied over to the vertices of the constructed 
-      <link linkend="scene_objects.surface_mesh">mesh</link>. The properties of the particles will thus be also available as properties of 
-      the surface mesh, and you can subsequently use tools like the <link linkend="particles.modifiers.color_coding">
-      Color coding</link> modifier to further manipulate the surface mesh, independently from the original particles.
+      OVITO has the capability to associate local information with the surface mesh, which gets inherited from nearby particles during the construction process. 
+      If the <emphasis>Transfer particle properties to surface</emphasis> option is turned on, existing attributes of the input particles located at the surface, 
+      for example their <literal>Color</literal> property, will be copied over to the vertices of the constructed 
+      <link linkend="scene_objects.surface_mesh">surface mesh</link>. The per-particle values will be available as  
+      mesh vertex properties, and you can subsequently use tools like the <link linkend="particles.modifiers.color_coding">
+      Color coding</link> modifier to further manipulate the surface mesh, independently of the underlying particles.
     </para>
     <para>
       Note that, in case of the Gaussian density method, only continuous particle properties of data type <literal>Float</literal> will be transferred 
@@ -139,69 +139,51 @@ JOM: Vol. 66, Issue 3 (2014), 399-407</link></literallayout>
       regions of space. 
     </para>
     <para>
-       The concept of a probe sphere with a prescribed radius (alpha parameter) is employed to assign each tetrahedral Delaunay 
-       element to either the empty or the filled region. Generally, the empty region is defined
-       as the union of all locations in space that are accessible to the virtual probe sphere without touching any of the input particle centers.
-       Note that this includes any cavities inside the solid too as long as they can accommodate the virtual sphere without it overlapping
-       with any particles. The radius of the probe sphere is a length scale parameter that determines how much detail
-       and small features (e.g. pores) of the geometric shape will be captured by the method.
+      <informalfigure>
+        <screenshot><mediaobject><imageobject>
+          <imagedata fileref="images/modifiers/construct_surface_mesh_alphashape.png" format="PNG" scale="80" />
+          </imageobject></mediaobject>
+        </screenshot>
+        <caption><para>
+          (a) The Delaunay tessellation calculated from the input point set.
+          (b) The circumspheres of two exemplary tessellation elements are highlighted.
+          One element's circumsphere is larger than the probe sphere while the other one is smaller.
+          Consequently, the elements are classified as open and solid, respectively. (c) The union of all
+          solid Delaunay elements defines the geometric shape of the atomistic solid (bold line).
+        </para></caption>
+      </informalfigure>
+      The concept of a probe sphere with a prescribed radius (alpha parameter) is employed to assign each tetrahedral Delaunay 
+      element to either the empty or the filled region. Generally, the empty region is defined
+      as the union of all locations in space that are accessible to the virtual probe sphere without touching any of the input particle centers.
+      Note that this includes any cavities inside the solid too as long as they can accommodate the virtual sphere without it overlapping
+      with any particles. The radius of the probe sphere is a length scale parameter that determines how much detail
+      and small features (e.g. pores) of the geometric shape will be captured by the method.
     </para>
     <para>
-       <informalfigure>
-       <informaltable frame="none" colsep="0" rowsep="0">
-       <tgroup cols="1">
-          <tbody>
-            <row>
-              <entry><screenshot><mediaobject><imageobject>
-              <imagedata fileref="images/modifiers/construct_surface_mesh_alphashape.png" format="PNG" />
-              </imageobject></mediaobject></screenshot></entry>
-            </row>
-            <row>
-              <entry><para>
-         (a) The Delaunay tessellation calculated from the input point set.
-         (b) The circumspheres of two exemplary tessellation elements are highlighted.
-         One element's circumsphere is larger than the probe sphere while the other one is smaller.
-         Consequently, the elements are classified as open and solid, respectively. (c) The union of all
-         solid Delaunay elements defines the geometric shape of the atomistic solid (bold line).
-              </para></entry>
-            </row>
-          </tbody>
-          </tgroup>
-          </informaltable>
-         </informalfigure>
-       The alpha-shape method, originally introduced by Edelsbrunner and
-       Mücke [ACM Trans. Graph. 13:43–72, 1994], compares the circumsphere of the tetrahedral Delaunay elements (figure b) 
-       to the probe sphere to efficiently decide which regions of space can accommodate the probe sphere without any overlap 
-       and which thus become part of the empty spatial region. The remaining tetrahedra form the filled (solid)
-       region. Finally, the closed surface mesh can be constructed, which consists of all triangular faces of the three-dimensional 
-       Delaunay tessellation that separate solid from open tetrahedra (figure (c)).
+      <informalfigure>
+        <screenshot><mediaobject><imageobject>
+                <imagedata fileref="images/modifiers/construct_surface_mesh_particle.png" format="PNG" scale="80" />
+                </imageobject></mediaobject>
+        </screenshot>
+        <caption><para>
+          (a) Atomistic model of a carbon nanoparticle with an inset showing the corresponding
+          <link linkend="particles.modifiers.coordination_analysis">pair distribution
+          function</link>. The position of the first peak is used as probe sphere radius (R<subscript>&#x003B1;</subscript>=2.5 &#x212B;)
+          for the alpha-shape construction. (b) The resulting triangulated surface mesh.
+          (c) Final surface model after six iterations of the smoothing algorithm were applied.
+        </para></caption>
+      </informalfigure>
+      The alpha-shape method, originally introduced by Edelsbrunner and
+      Mücke [ACM Trans. Graph. 13:43–72, 1994], compares the circumsphere of the tetrahedral Delaunay elements (figure b) 
+      to the probe sphere to efficiently decide which regions of space can accommodate the probe sphere without any overlap 
+      and which thus become part of the empty spatial region. The remaining tetrahedra form the filled (solid)
+      region. Finally, the closed surface mesh can be constructed, which consists of all triangular faces of the three-dimensional 
+      Delaunay tessellation that separate solid from open tetrahedra (figure (c)).
     </para>
     <para>
-       <informalfigure>
-       <informaltable frame="none" colsep="0" rowsep="0">
-       <tgroup cols="1">
-          <tbody>
-            <row>
-              <entry><screenshot><mediaobject><imageobject>
-              <imagedata fileref="images/modifiers/construct_surface_mesh_particle.png" format="PNG" />
-              </imageobject></mediaobject></screenshot></entry>
-            </row>
-            <row>
-              <entry><para>
-                (a) Atomistic model of a carbon nanoparticle with an inset showing the corresponding
-                <link linkend="particles.modifiers.coordination_analysis">pair distribution
-                function</link>. The position of the first peak is used as probe sphere radius (R<subscript>&#x003B1;</subscript>=2.5 &#x212B;)
-                for the alpha-shape construction. (b) The resulting triangulated surface mesh.
-                (c) Final surface model after six iterations of the smoothing algorithm were applied.
-              </para></entry>
-            </row>
-          </tbody>
-          </tgroup>
-          </informaltable>
-         </informalfigure>
-       The resulting surface mesh still reflects the atomic steps that are typically present on the surfaces of an atomistic object.
-       The contribution of surface steps may lead to an overestimation of the macroscopic surface area. Therefore one can subsequently 
-       apply a fairing procedure [Taubin, SIGGRAPH 95 Conf. Proc., pp. 351-358, 1995] to the surface mesh to smoothen out the steps.
+      The resulting surface mesh still reflects the atomic steps that are typically present on the surfaces of an atomistic object.
+      The contribution of surface steps may lead to an overestimation of the macroscopic surface area. Therefore one can subsequently 
+      apply a fairing procedure [Taubin, SIGGRAPH 95 Conf. Proc., pp. 351-358, 1995] to the surface mesh to smoothen out the steps.
     </para>
     <para>
       It should be emphasized that the results of the described surface reconstruction method will generally depend on the selected probe
@@ -231,6 +213,7 @@ JOM: Vol. 66, Issue 3 (2014), 399-407</link></literallayout>
           </para>
         </listitem>
       </varlistentry>
+
       <varlistentry>
         <term>Smoothing level</term>
         <listitem>
@@ -239,7 +222,80 @@ JOM: Vol. 66, Issue 3 (2014), 399-407</link></literallayout>
           This parameter controls how many iterations of the smoothing algorithm are performed.</para>
         </listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term>Identify volumetric regions <ovito-pro/></term>
+        <listitem>
+          <para>This option lets the modifier identify the individual spatial regions enclosed by the surface manifold (both empty and filled
+          regions). Each region's volume and surface area are computed and output as a property list attached to the <link linkend="scene_objects.surface_mesh">surface mesh</link>.
+          See the next section for details. 
+          </para>
+        </listitem>
+      </varlistentry>
   	</variablelist>
+  </simplesect>
+
+  <simplesect>
+    <title>Identification of volumetric regions <ovito-pro/></title>
+    <para>
+      The modifier provides the option (incurring some extra computational cost) to identify the spatial regions bounded by the 
+      surface manifold and to compute the respective volume and surface area of each separate region. This includes regions densely filled with atoms or particles 
+      and empty exterior/interior regions (e.g. pores and voids). 
+    </para>
+    <para>
+      The computed data is output by the modifier as so-called <emphasis>region properties</emphasis>,
+      which is a type of data structure similar to the property system used for particles by OVITO. 
+      The region properties are attached to the <link linkend="scene_objects.surface_mesh">surface mesh</link> object output by the
+      modifier to the data pipeline, and may subsequently be accessed in the data inspector panel of OVITO. 
+      The <guibutton>List of identified regions</guibutton> button is a shortcut to the corresponding page of the <link linkend="data_inspector">data inspector</link>.
+      Furthermore, each triangular face of the surface mesh will be associated with the spatial region it is adjacent to, and you can 
+      use for instance the <link linkend="particles.modifiers.color_coding">Color coding</link> modifier to render 
+      the surface mesh parts belonging to different spatial regions with different colors.
+    </para>
+  </simplesect>
+
+  <simplesect>
+    <title>How the Gaussian density method works</title>
+
+    <para>
+      This approach generate an isosurface of a volumetric density field computed from the superposition of 3-D Gaussian functions placed 
+      at each particle site [<link xlink:href="https://dx.doi.org/10.2312/PE/EuroVisShort/EuroVisShort2012/067-071">Krone et al., 2012</link>]. 
+      The density map generation algorithm accumulates Gaussian densities on a uniformly-spaced 3-D lattice defined within a 
+      bounding box large enough to contain all particles; sufficient padding at the edges of the volume ensures that the extracted surface does not get clipped off.
+    </para>
+
+    <para>
+      The isosurface representation method provides several control parameters determining the morphology and fidelity of the surface.
+
+      <variablelist>
+        <varlistentry>
+          <term>Resolution</term>
+          <listitem>
+            <para>
+              The number of grid cells along the longest dimension of the system. This determines 
+              the grid spacing of the discretized density field.
+            </para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term>Radius scaling</term>
+          <listitem>
+            <para>The width of the Gaussian functions is controlled by the visible radius of each particle multplied by 
+            this scaling factor. It allows you to broaden the apparent size of the particles if needed. </para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term>Iso value</term>
+          <listitem>
+            <para>The threshold value for construcing the isosurface from the density field. This too has an influence
+            on how far away from the particle centers the generated surface will be. </para>
+          </listitem>
+        </varlistentry>
+      </variablelist>
+    </para>
+     
   </simplesect>
 
   <simplesect>
