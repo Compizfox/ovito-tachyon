@@ -238,6 +238,15 @@ JOM: Vol. 66, Issue 3 (2014), 399-407</link></literallayout>
   <simplesect>
     <title>Identification of volumetric regions <ovito-pro/></title>
     <para>
+      <informalfigure>
+        <screenshot><mediaobject><imageobject>
+          <imagedata fileref="images/modifiers/construct_surface_mesh_regions.svg" format="SVG" scale="65" />
+          </imageobject></mediaobject>
+        </screenshot>
+        <caption><para>
+          A periodic 2d structure consisting of two empty regions (pores) and two filled regions.
+        </para></caption>
+      </informalfigure>
       The modifier provides the option (incurring some extra computational cost) to identify the spatial regions bounded by the 
       surface manifold and to compute the respective volume and surface area of each separate region. This includes regions densely filled with atoms or particles 
       and empty exterior/interior regions (e.g. pores and voids). 
@@ -246,9 +255,9 @@ JOM: Vol. 66, Issue 3 (2014), 399-407</link></literallayout>
       The computed data is output by the modifier as so-called <emphasis>region properties</emphasis>,
       which is a type of data structure similar to the property system used for particles by OVITO. 
       The region properties are attached to the <link linkend="scene_objects.surface_mesh">surface mesh</link> object output by the
-      modifier to the data pipeline, and may subsequently be accessed in the data inspector panel of OVITO. 
+      modifier to the data pipeline, and may subsequently be accessed from the data inspector panel of OVITO. 
       The <guibutton>List of identified regions</guibutton> button is a shortcut to the corresponding page of the <link linkend="data_inspector">data inspector</link>.
-      Furthermore, each triangular face of the surface mesh will be associated with the spatial region it is adjacent to, and you can 
+      Furthermore, each triangular face of the surface mesh will be associated with the two spatial regions it is adjacent to, and you can 
       use for instance the <link linkend="particles.modifiers.color_coding">Color coding</link> modifier to render 
       the surface mesh parts belonging to different spatial regions with different colors.
     </para>
