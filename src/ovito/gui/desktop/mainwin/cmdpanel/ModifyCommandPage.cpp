@@ -135,9 +135,13 @@ ModifyCommandPage::ModifyCommandPage(MainWindow* mainWindow, QWidget* parent) : 
 	_pipelineWidget->setEditTriggers(QAbstractItemView::SelectedClicked);
 	_pipelineWidget->setModel(_pipelineListModel);
 	_pipelineWidget->setSelectionModel(_pipelineListModel->selectionModel());
-	connect(_pipelineListModel, &PipelineListModel::selectedItemChanged, this, &ModifyCommandPage::onSelectedItemChanged);
-	connect(_pipelineWidget, &PipelineListView::doubleClicked, this, &ModifyCommandPage::onModifierStackDoubleClicked);
 	subLayout->addWidget(_pipelineWidget);
+
+	// Listen to selection changes in the pipeline editor list widget.
+	connect(_pipelineListModel, &PipelineListModel::selectedItemChanged, this, &ModifyCommandPage::onSelectedItemChanged);
+
+	// Double-click on a modifier or visual element toggles the enabled state of the element.
+	connect(_pipelineWidget, &PipelineListView::doubleClicked, this, &ModifyCommandPage::onModifierStackDoubleClicked);
 
 	QToolBar* editToolbar = new QToolBar(this);
 	editToolbar->setOrientation(Qt::Vertical);
@@ -591,11 +595,19 @@ void ModifyCommandPage::createAboutPanel()
 		operatingSystemString = QStringLiteral("other");
 #endif
 
+		QString programEdition;
+#if defined(OVITO_BUILD_BASIC)
+		programEdition = QStringLiteral("basic/");
+#elif defined(OVITO_BUILD_PRO)
+		programEdition = QStringLiteral("pro/");
+#endif
+
 		// Fetch newest web page from web server.
-		QString urlString = QString("http://www.ovito.org/appnews/v%1.%2.%3/?ovito=%4&OS=%5%6")
+		QString urlString = QString("https://www.ovito.org/appnews/v%1.%2.%3/%4?ovito=%5&OS=%6%7")
 				.arg(Application::applicationVersionMajor())
 				.arg(Application::applicationVersionMinor())
 				.arg(Application::applicationVersionRevision())
+				.arg(programEdition)
 				.arg(QString(id.toHex()))
 				.arg(operatingSystemString)
 				.arg(QT_POINTER_SIZE*8);

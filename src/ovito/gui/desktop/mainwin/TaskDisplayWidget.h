@@ -58,6 +58,11 @@ private Q_SLOTS:
 	/// \brief Is called when the progress or status of a task has changed.
 	void taskProgressChanged();
 
+protected:
+
+	/// Handles timer events for this object.
+	virtual void timerEvent(QTimerEvent* event) override;
+
 private:
 
 	/// The window this display widget is associated with.
@@ -73,6 +78,9 @@ private:
 
 	/// The label that displays the current progress text.
 	QLabel* _progressTextDisplay;
+
+	/// This timer is used to show the progress bar with some delay.
+	QBasicTimer _delayTimer;
 };
 
 }	// End of namespace

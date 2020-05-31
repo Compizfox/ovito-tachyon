@@ -121,6 +121,7 @@ void DislocationAnalysisEngine::perform()
 			ConstPropertyAccess<Point3>(positions()).cbegin(),
 			_structureAnalysis->atomCount(), 
 			ghostLayerSize, 
+			false, // flag coverDomainWithFiniteTets
 			selection() ? ConstPropertyAccess<int>(selection()).cbegin() : nullptr, 
 			*this))
 		return;

@@ -71,6 +71,7 @@ bool InterfaceMesh::createMesh(FloatType maximumNeighborDistance, ConstPropertyA
 	// Determines if a tetrahedron belongs to the good or bad crystal region.
 	auto tetrahedronRegion = [this,&crystalClusters](DelaunayTessellation::CellHandle cell) {
 		if(elasticMapping().isElasticMappingCompatible(cell)) {
+#if 0
 			if(crystalClusters) {
 				std::array<int,4> clusters;
 				for(int v = 0; v < 4; v++)
@@ -78,7 +79,8 @@ bool InterfaceMesh::createMesh(FloatType maximumNeighborDistance, ConstPropertyA
 				std::sort(std::begin(clusters), std::end(clusters));
 				return *most_common(std::begin(clusters), std::end(clusters));
 			}
-			else return 0;
+#endif
+			return 0;
 		}
 		else return HalfEdgeMesh::InvalidIndex;
 	};
@@ -97,7 +99,7 @@ bool InterfaceMesh::createMesh(FloatType maximumNeighborDistance, ConstPropertyA
 
 			// Check if edge is spanning more than half of a periodic simulation cell.
 			for(size_t dim = 0; dim < 3; dim++) {
-				if(structureAnalysis().cell().pbcFlags()[dim]) {
+				if(structureAnalysis().cell().hasPbc(dim)) {
 					if(std::abs(structureAnalysis().cell().inverseMatrix().prodrow(_edges[edge].physicalVector, dim)) >= FloatType(0.5)+FLOATTYPE_EPSILON)
 						StructureAnalysis::generateCellTooSmallError(dim);
 				}
@@ -111,11 +113,12 @@ bool InterfaceMesh::createMesh(FloatType maximumNeighborDistance, ConstPropertyA
 	// Threshold for filtering out elements at the surface.
 	double alpha = 5.0 * maximumNeighborDistance;
 
-	// Create the good region.
+	// Create the 'good' region.
 	createRegion();
 	OVITO_ASSERT(regionCount() == 1);
 
-	ManifoldConstructionHelper<> manifoldConstructor(tessellation(), *this, alpha, *structureAnalysis().positions());
+	// Construct a one-sided surface mesh.
+	ManifoldConstructionHelper manifoldConstructor(tessellation(), *this, alpha, false, *structureAnalysis().positions());
 	if(!manifoldConstructor.construct(tetrahedronRegion, promise, prepareMeshFace))
 		return false;
 

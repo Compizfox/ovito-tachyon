@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Copyright 2018 Alexander Stukowski
+//  Copyright 2020 Alexander Stukowski
 //
 //  This file is part of OVITO (Open Visualization Tool).
 //
@@ -51,17 +51,18 @@ void PropertyExpressionEvaluator::initialize(const QStringList& expressions, con
 	if(simCellObj) simCell = simCellObj->data();
 
 	// Call overloaded function.
-	initialize(expressions, inputProperties, simCellObj ? &simCell : nullptr, state.buildAttributesMap(), animationFrame);
+	initialize(expressions, container->elementCount(), inputProperties, simCellObj ? &simCell : nullptr, state.buildAttributesMap(), animationFrame);
 }
 
 /******************************************************************************
 * Specifies the expressions to be evaluated for each data element and create the
 * list of input variables.
 ******************************************************************************/
-void PropertyExpressionEvaluator::initialize(const QStringList& expressions, const std::vector<ConstPropertyPtr>& inputProperties, const SimulationCell* simCell, const QVariantMap& attributes, int animationFrame)
+void PropertyExpressionEvaluator::initialize(const QStringList& expressions, size_t elementCount, const std::vector<ConstPropertyPtr>& inputProperties, const SimulationCell* simCell, const QVariantMap& attributes, int animationFrame)
 {
 	// Determine number of input elements.
-	_elementCount = inputProperties.empty() ? 0 : inputProperties.front()->size();
+	OVITO_ASSERT(inputProperties.empty() || elementCount == inputProperties.front()->size());
+	_elementCount = elementCount;
 	_referencedVariablesKnown = false;
 
 	// Create list of input variables.

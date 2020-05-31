@@ -38,6 +38,14 @@ PipelineListItem::PipelineListItem(RefTarget* object, PipelineItemType itemType,
 	_parent(parent), _itemType(itemType)
 {
 	_object.set(this, PROPERTY_FIELD(object), object);
+
+	switch(_itemType) {
+	case VisualElementsHeader: _title = tr("Visual elements"); break;
+	case ModificationsHeader: _title = tr("Modifications"); break;
+	case DataSourceHeader: _title = tr("Data source"); break;
+	case PipelineBranch: _title = tr("Pipeline branch"); break;
+	default: updateTitle(); break;
+	}
 }
 
 /******************************************************************************
@@ -53,10 +61,30 @@ bool PipelineListItem::referenceEvent(RefTarget* source, const ReferenceEvent& e
 	}
 	// Update item if it has been enabled/disabled, its status has changed, or its title has changed.
 	else if(event.type() == ReferenceEvent::TargetEnabledOrDisabled || event.type() == ReferenceEvent::ObjectStatusChanged || event.type() == ReferenceEvent::TitleChanged) {
+		updateTitle();
 		Q_EMIT itemChanged(this);
 	}
 
 	return RefMaker::referenceEvent(source, event);
+}
+
+/******************************************************************************
+* Updates the stored title string of the item.
+******************************************************************************/
+void PipelineListItem::updateTitle() 
+{
+	if(object()) {
+		if(_itemType == DataObject) {
+#ifdef Q_OS_LINUX
+			_title = QStringLiteral("  ⇾ ") + object()->objectTitle();
+#else
+			_title = QStringLiteral("    ") + object()->objectTitle();
+#endif
+		}
+		else {
+			_title = object()->objectTitle();
+		}
+	}
 }
 
 /******************************************************************************
@@ -82,27 +110,6 @@ bool PipelineListItem::isObjectActive() const
 		return activeObject->isObjectActive();
 	}
 	return false;
-}
-
-/******************************************************************************
-* Returns the text for this list item.
-******************************************************************************/
-QString PipelineListItem::title() const
-{
-	switch(_itemType) {
-	case Object: return object() ? object()->objectTitle() : QString();
-	case SubObject:
-#ifdef Q_OS_LINUX
-		return object() ? (QStringLiteral("  ⇾ ") + object()->objectTitle()) : QString();
-#else
-		return object() ? (QStringLiteral("    ") + object()->objectTitle()) : QString();
-#endif
-	case VisualElementsHeader: return tr("Visual elements");
-	case ModificationsHeader: return tr("Modifications");
-	case DataSourceHeader: return tr("Data source");
-	case PipelineBranch: return tr("Pipeline branch");
-	default: return {};
-	}
 }
 
 }	// End of namespace

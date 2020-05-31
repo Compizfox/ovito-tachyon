@@ -288,8 +288,16 @@ void AnimationTimeSlider::mouseMoveEvent(QMouseEvent* event)
 ******************************************************************************/
 int AnimationTimeSlider::thumbWidth() const
 {
+	int standardWidth = 70;
+	// Expand the thumb width for animations with a large number of frames.
+	if(_animSettings) {
+		int nframes = _animSettings->animationInterval().duration() / _animSettings->ticksPerFrame();
+		if(nframes > 1) {
+			standardWidth += 10 * (int)std::log10(nframes);
+		}
+	}
 	int clientWidth = frameRect().width() - 2*frameWidth();
-	return std::min(clientWidth / 2, 90);
+	return std::min(clientWidth / 2, standardWidth);
 }
 
 /******************************************************************************

@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Copyright 2019 Alexander Stukowski
+//  Copyright 2020 Alexander Stukowski
 //
 //  This file is part of OVITO (Open Visualization Tool).
 //
@@ -43,9 +43,6 @@ StaticSource::StaticSource(DataSet* dataset, DataCollection* data) : PipelineObj
 ******************************************************************************/
 SharedFuture<PipelineFlowState> StaticSource::evaluate(const PipelineEvaluationRequest& request)
 {
-    // Note that the PipelineFlowState constructor creates deep copy of the data collection.
-    // We always pass a copy of the data to the pipeline to avoid unexpected side effects when
-    // modifying the objects in this source's data collection.
     return Future<PipelineFlowState>::createImmediateEmplace(dataCollection(), PipelineStatus::Success);
 }
 
@@ -54,10 +51,22 @@ SharedFuture<PipelineFlowState> StaticSource::evaluate(const PipelineEvaluationR
 ******************************************************************************/
 PipelineFlowState StaticSource::evaluateSynchronous(TimePoint time)
 {
-    // Note that the PipelineFlowState constructor creates deep copy of the data collection.
-    // We always pass a copy of the data to the pipeline to avoid unexpected side effects when
-    // modifying the objects in this source's data collection.
     return PipelineFlowState(dataCollection(), PipelineStatus::Success);
+}
+
+/******************************************************************************
+* Handles reference events sent by reference targets of this object.
+******************************************************************************/
+bool StaticSource::referenceEvent(RefTarget* source, const ReferenceEvent& event)
+{
+	if(event.type() == ReferenceEvent::TargetChanged && source == dataCollection()) {
+		if(!event.sender()->isBeingLoaded()) {
+			// Inform the pipeline that we have a new preliminary input state.
+			notifyDependents(ReferenceEvent::PreliminaryStateAvailable);
+		}
+	}
+
+	return PipelineObject::referenceEvent(source, event);
 }
 
 }	// End of namespace

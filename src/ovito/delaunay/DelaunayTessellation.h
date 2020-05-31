@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Copyright 2016 Alexander Stukowski
+//  Copyright 2020 Alexander Stukowski
 //
 //  This file is part of OVITO (Open Visualization Tool).
 //
@@ -122,7 +122,7 @@ public:
 	};
 
 	/// Generates the Delaunay tessellation.
-	bool generateTessellation(const SimulationCell& simCell, const Point3* positions, size_t numPoints, FloatType ghostLayerSize, const int* selectedPoints, Task& promise);
+	bool generateTessellation(const SimulationCell& simCell, const Point3* positions, size_t numPoints, FloatType ghostLayerSize, bool coverDomainWithFiniteTets, const int* selectedPoints, Task& promise);
 
 	/// Returns the total number of tetrahedra in the tessellation.
 	size_type numberOfTetrahedra() const { return _dt->nb_cells(); }
@@ -130,13 +130,8 @@ public:
 	/// Returns the number of finite cells in the primary image of the simulation cell.
 	size_type numberOfPrimaryTetrahedra() const { return _numPrimaryTetrahedra; }
 
-#if 1
 	CellIterator begin_cells() const { return boost::make_counting_iterator<size_type>(0); }
 	CellIterator end_cells() const { return boost::make_counting_iterator<size_type>(_dt->nb_cells()); }
-#else
-	CellIterator begin_cells() const { return boost::make_permutation_iterator(boost::make_counting_iterator<size_type>(0), _stableCellOrder.cbegin()); }
-	CellIterator end_cells() const { return boost::make_permutation_iterator(boost::make_counting_iterator<size_type>(0), _stableCellOrder.cend()); }
-#endif
 
 	void setCellIndex(CellHandle cell, qint64 value) {
 		_cellInfo[cell].index = value;
@@ -156,7 +151,7 @@ public:
 
 	/// Returns whether the given tessellation cell connects four physical vertices.
 	/// Returns false if one of the four vertices is the infinite vertex.
-	bool isValidCell(CellHandle cell) const {
+	bool isFiniteCell(CellHandle cell) const {
 		return _dt->cell_is_finite(cell);
 	}
 
@@ -172,10 +167,16 @@ public:
 		return _dt->cell_vertex(cell, localIndex);
 	}
 
+#ifndef FLOATTYPE_FLOAT
+	const Point3& vertexPosition(VertexHandle vertex) const {
+		return *reinterpret_cast<const Point3*>(_dt->vertex_ptr(vertex));
+	}
+#else
 	Point3 vertexPosition(VertexHandle vertex) const {
 		const double* xyz = _dt->vertex_ptr(vertex);
 		return Point3((FloatType)xyz[0], (FloatType)xyz[1], (FloatType)xyz[2]);
 	}
+#endif
 
 	bool alphaTest(CellHandle cell, FloatType alpha) const;
 
@@ -224,10 +225,10 @@ public:
 	/// Returns the cell vertex for the given triangle vertex of the given cell facet.
 	static inline int cellFacetVertexIndex(int cellFacetIndex, int facetVertexIndex) {
 		static const int tab_vertex_triple_index[4][3] = {
-		 {1, 3, 2},
-		 {0, 2, 3},
-		 {0, 3, 1},
-		 {0, 1, 2}
+			{1, 3, 2},
+			{0, 2, 3},
+			{0, 3, 1},
+			{0, 1, 2}
 		};
 		OVITO_ASSERT(cellFacetIndex >= 0 && cellFacetIndex < 4);
 		OVITO_ASSERT(facetVertexIndex >= 0 && facetVertexIndex < 3);
@@ -250,7 +251,7 @@ private:
 	GEO::Delaunay_var _dt;
 
 	/// Stores the coordinates of the input points.
-	std::vector<double> _pointData;
+	std::vector<Point_3<double>> _pointData;
 
 	/// Stores per-cell auxiliary data.
 	std::vector<CellInfo> _cellInfo;

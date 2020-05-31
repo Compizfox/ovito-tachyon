@@ -1,0 +1,12 @@
+<!DOCTYPE RCC>
+<RCC version="1.0">
+
+<qresource prefix="/mesh">
+	
+	<file>icons/faces_view.svg</file>
+	<file>icons/regions_view.svg</file>
+	<file>icons/vertices_view.svg</file>
+	
+</qresource> 
+
+</RCC>

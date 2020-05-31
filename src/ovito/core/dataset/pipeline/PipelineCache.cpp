@@ -338,6 +338,7 @@ void PipelineCache::invalidate(TimeInterval keepInterval, bool resetSynchronousC
 
 	// Interrupt frame precomputation, which might be in progress.
 	_precomputeFramesOperation.reset();
+	_allFramesPrecomputed = false;
 
 	// Reduce the validity of ongoing evaluations.
 	for(EvaluationInProgress& evaluation : _evaluationsInProgress) {
@@ -371,6 +372,7 @@ void PipelineCache::overrideCache(DataCollection* dataCollection)
 
 	// Interrupt frame precomputation, which might be in progress.
 	_precomputeFramesOperation.reset();
+	_allFramesPrecomputed = false;
 
 	// Reduce the validity of the cached states to the current animation time. 
 	// Throw away states that became completely invalid.
@@ -440,7 +442,7 @@ void PipelineCache::setPrecomputeAllFrames(bool enable)
 void PipelineCache::startFramePrecomputation()
 {
 	// Start the animation frame precomputation process if it has been activated.
-	if(_precomputeAllFrames && !_precomputeFramesOperation.isValid()) {
+	if(_precomputeAllFrames && !_precomputeFramesOperation.isValid() && !_allFramesPrecomputed) {
 		// Create the async operation object that manages the frame precomputation.
 		_precomputeFramesOperation = Promise<>::createAsynchronousOperation(ownerObject()->dataset()->taskManager());
 		ownerObject()->dataset()->taskManager().registerPromise(_precomputeFramesOperation);
@@ -496,6 +498,7 @@ void PipelineCache::precomputeNextAnimationFrame()
 		// Precomputation of trajectory frames is complete.
 		_precomputeFramesOperation.setFinished();
 		OVITO_ASSERT(!_precomputeFrameFuture.isValid());
+		_allFramesPrecomputed = true;
 		return;
 	}
 

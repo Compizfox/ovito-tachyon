@@ -115,7 +115,7 @@ void CalculateDisplacementsModifier::DisplacementEngine::perform()
 				Vector3 delta = reduced_current_pos - reduced_reference_pos;
 				if(useMinimumImageConvention()) {
 					for(size_t k = 0; k < 3; k++) {
-						if(refCell().pbcFlags()[k])
+						if(refCell().hasPbc(k))
 							delta[k] -= std::floor(delta[k] + FloatType(0.5));
 					}
 				}
@@ -135,7 +135,7 @@ void CalculateDisplacementsModifier::DisplacementEngine::perform()
 				*u = *p - refPositionsArray[*index];
 				if(useMinimumImageConvention()) {
 					for(size_t k = 0; k < 3; k++) {
-						if(refCell().pbcFlags()[k]) {
+						if(refCell().hasPbc(k)) {
 							while((*u + refCell().matrix().column(k)).squaredLength() < u->squaredLength())
 								*u += refCell().matrix().column(k);
 

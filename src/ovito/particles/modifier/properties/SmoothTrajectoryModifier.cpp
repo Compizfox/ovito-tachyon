@@ -254,10 +254,10 @@ void SmoothTrajectoryModifier::interpolateState(PipelineFlowState& state1, const
 	ConstPropertyAccess<qlonglong> idProperty2 = particles2->getProperty(ParticlesObject::IdentifierProperty);
 	ParticlesObject* outputParticles = state1.makeMutable(particles1);
 	PropertyAccess<Point3> outputPositions = outputParticles->createProperty(ParticlesObject::PositionProperty, true);
+	std::unordered_map<qlonglong, size_t> idmap;
 	if(idProperty1 && idProperty2 && !boost::equal(idProperty1, idProperty2)) {
 
 		// Build ID-to-index map.
-		std::unordered_map<qlonglong,size_t> idmap;
 		size_t index = 0;
 		for(auto id : idProperty2) {
 			if(!idmap.insert(std::make_pair(id,index)).second)
@@ -304,6 +304,26 @@ void SmoothTrajectoryModifier::interpolateState(PipelineFlowState& state1, const
 		}
 	}
 
+	// Interpolate particle orientations.
+	if(ConstPropertyAccess<Quaternion> orientationProperty2 = particles2->getProperty(ParticlesObject::OrientationProperty)) {
+		PropertyAccess<Quaternion> outputOrientations = outputParticles->createProperty(ParticlesObject::OrientationProperty, true);
+		if(idProperty1 && idProperty2 && !boost::equal(idProperty1, idProperty2)) {
+			auto id = idProperty1.cbegin();
+			for(Quaternion& q1 : outputOrientations) {
+				auto mapEntry = idmap.find(*id);
+				OVITO_ASSERT(mapEntry != idmap.end());
+				q1 = Quaternion::interpolateSafely(q1, orientationProperty2[mapEntry->second], t);
+				++id;
+			}
+		}
+		else {
+			const Quaternion* q2 = orientationProperty2.cbegin();
+			for(Quaternion& q1 : outputOrientations) {
+				q1 = Quaternion::interpolateSafely(q1, *q2++, t);
+			}
+		}
+	}
+
 	// Interpolate simulation cell vectors.
 	if(cell1 && cell2) {
 		SimulationCellObject* outputCell = state1.expectMutableObject<SimulationCellObject>();
@@ -334,12 +354,17 @@ void SmoothTrajectoryModifier::averageState(PipelineFlowState& state1, const std
 	ParticlesObject* outputParticles = state1.makeMutable(particles1);
 	PropertyAccess<Point3> outputPositions = outputParticles->createProperty(ParticlesObject::PositionProperty, true);
 
+	// Create output orientations array if smoothing particle orientations.
+	PropertyAccess<Quaternion> outputOrientations = particles1->getProperty(ParticlesObject::OrientationProperty)
+		? outputParticles->createProperty(ParticlesObject::OrientationProperty, true)
+		: nullptr;
+
 	// For interpolating the simulation cell vectors.
 	AffineTransformation averageCellMat;
 	if(cell1)
 		averageCellMat = cell1->cellMatrix();
 
-	// Iterate over all frames in the averging window (except the central frame).
+	// Iterate over all frames within the averaging window (except the central frame).
 	FloatType weight = FloatType(1) / (1 + otherStates.size());
 	for(const PipelineFlowState& state2 : otherStates) {
 
@@ -370,6 +395,7 @@ void SmoothTrajectoryModifier::averageState(PipelineFlowState& state1, const std
 				index++;
 			}
 
+			// Average particle positions over time.
 			const Point3* p1 = posProperty1.cbegin();
 			if(useMinimumImageConvention() && cell2 != nullptr) {
 				SimulationCell cell = cell2->data();
@@ -392,8 +418,26 @@ void SmoothTrajectoryModifier::averageState(PipelineFlowState& state1, const std
 					++id;
 				}
 			}
+
+			// Average particle orientations over time.
+			if(outputOrientations) {
+				if(ConstPropertyAccess<Quaternion> orientationProperty2 = particles2->getProperty(ParticlesObject::OrientationProperty)) {
+					auto id = idProperty1.cbegin();
+					for(Quaternion& qout : outputOrientations) {
+						auto mapEntry = idmap.find(*id);
+						OVITO_ASSERT(mapEntry != idmap.end());
+						const Quaternion& q2 = orientationProperty2[mapEntry->second];
+						qout.x() += q2.x();
+						qout.y() += q2.y();
+						qout.z() += q2.z();
+						qout.w() += q2.w();
+						++id;
+					}
+				}
+			}
 		}
 		else {
+			// Average particle positions over time.
 			const Point3* p1 = posProperty1.cbegin();
 			const Point3* p2 = posProperty2.cbegin();
 			if(useMinimumImageConvention() && cell2 != nullptr) {
@@ -407,6 +451,28 @@ void SmoothTrajectoryModifier::averageState(PipelineFlowState& state1, const std
 					pout += ((*p2++) - (*p1++)) * weight;
 				}
 			}
+
+			// Average particle orientations over time.
+			if(outputOrientations) {
+				if(ConstPropertyAccess<Quaternion> orientationProperty2 = particles2->getProperty(ParticlesObject::OrientationProperty)) {
+					const Quaternion* q2 = orientationProperty2.cbegin();
+					for(Quaternion& qout : outputOrientations) {
+						qout.x() += q2->x();
+						qout.y() += q2->y();
+						qout.z() += q2->z();
+						qout.w() += q2->w();
+						++q2;
+					}
+				}
+			}
+		}
+	}
+
+	// Normalize orientation quaternions.
+	if(outputOrientations) {
+		for(Quaternion& q : outputOrientations) {
+			if(q.dot(q) >= FLOATTYPE_EPSILON*FLOATTYPE_EPSILON)
+				q.normalize();
 		}
 	}
 

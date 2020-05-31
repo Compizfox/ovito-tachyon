@@ -148,7 +148,7 @@ public:
 	/// \param t The parameter for the linear interpolation in the range [0,1].
 	/// \return A linear interpolation between \a s1 and \a s2.
     static ScalingT interpolate(const ScalingT& s1, const ScalingT& s2, T t) {
-    	return ScalingT(t * s2.S + (1 - t) * s1.S, QuaternionT<T>::interpolate(s1.Q, s2.Q, t));
+    	return ScalingT(t * s2.S + (T(1) - t) * s1.S, QuaternionT<T>::interpolateSafely(s1.Q, s2.Q, t));
     }
 
 	/// \brief Computes a quadratic interpolation between two scaling structures.

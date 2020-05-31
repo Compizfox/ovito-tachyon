@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Copyright 2018 Alexander Stukowski
+//  Copyright 2020 Alexander Stukowski
 //
 //  This file is part of OVITO (Open Visualization Tool).
 //
@@ -85,13 +85,13 @@ QWidget* BondInspectionApplet::createWidget(MainWindow* mainWindow)
 /******************************************************************************
 * Updates the contents displayed in the inspector.
 ******************************************************************************/
-void BondInspectionApplet::updateDisplay(const PipelineFlowState& state, PipelineSceneNode* sceneNode)
+void BondInspectionApplet::updateDisplay(const PipelineFlowState& state, PipelineSceneNode* pipeline)
 {
-	// Clear selection when a different scene node has been selected.
-	if(sceneNode != currentSceneNode())
+	// Clear selection when a different scene object has been selected.
+	if(pipeline != currentPipeline())
 		_pickingMode->resetSelection();
 
-	PropertyInspectionApplet::updateDisplay(state, sceneNode);
+	PropertyInspectionApplet::updateDisplay(state, pipeline);
 }
 
 /******************************************************************************
@@ -112,7 +112,7 @@ void BondInspectionApplet::PickingMode::mouseReleaseEvent(ViewportWindowInterfac
 		pickBond(vpwin, event->pos(), pickResult);
 		if(!event->modifiers().testFlag(Qt::ControlModifier))
 			_pickedElements.clear();
-		if(pickResult.sceneNode == _applet->currentSceneNode()) {
+		if(pickResult.sceneNode == _applet->currentPipeline()) {
 			// Don't select the same bond twice. Instead, toggle selection.
 			bool alreadySelected = false;
 			for(auto p = _pickedElements.begin(); p != _pickedElements.end(); ++p) {
@@ -143,7 +143,7 @@ void BondInspectionApplet::PickingMode::mouseMoveEvent(ViewportWindowInterface* 
 {
 	// Change mouse cursor while hovering over a bond.
 	PickResult pickResult;
-	if(pickBond(vpwin, event->pos(), pickResult) && pickResult.sceneNode == _applet->currentSceneNode())
+	if(pickBond(vpwin, event->pos(), pickResult) && pickResult.sceneNode == _applet->currentPipeline())
 		setCursor(SelectionMode::selectionCursor());
 	else
 		setCursor(QCursor());

@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Copyright 2018 Alexander Stukowski
+//  Copyright 2020 Alexander Stukowski
 //
 //  This file is part of OVITO (Open Visualization Tool).
 //
@@ -56,22 +56,15 @@ public:
 	/// Selects a specific data object in this applet.
 	virtual bool selectDataObject(PipelineObject* dataSource, const QString& objectIdentifierHint, const QVariant& modeHint) override;
 
-protected:
-
-	/// Creates the evaluator object for filter expressions.
-	virtual std::unique_ptr<PropertyExpressionEvaluator> createExpressionEvaluator() override {
-		return std::make_unique<PropertyExpressionEvaluator>();
-	}
-
-	/// Is called when the user selects a different property container object in the list.
-	virtual void currentContainerChanged() override;
-
 	/// Determines whether the given property represents a color.
 	virtual bool isColorProperty(PropertyObject* property) const override {
 		return property->dataType() == PropertyStorage::Float && property->componentCount() == 3 && property->name().contains(QStringLiteral("Color"));
 	}
 
 private Q_SLOTS:
+
+	/// Is called when the user selects a different container object from the list.
+	void onCurrentContainerChanged(const DataObject* dataObject);
 
 	/// Action handler.
 	void exportDataToFile();

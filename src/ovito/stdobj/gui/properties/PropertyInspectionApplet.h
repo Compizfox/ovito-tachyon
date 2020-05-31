@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Copyright 2018 Alexander Stukowski
+//  Copyright 2020 Alexander Stukowski
 //
 //  This file is part of OVITO (Open Visualization Tool).
 //
@@ -42,29 +42,17 @@ class OVITO_STDOBJGUI_EXPORT PropertyInspectionApplet : public DataInspectionApp
 
 public:
 
-	/// Determines whether the given pipeline data contains data that can be displayed by this applet.
-	virtual bool appliesTo(const DataCollection& data) override;
-
 	/// Lets the applet update the contents displayed in the inspector.
-	virtual void updateDisplay(const PipelineFlowState& state, PipelineSceneNode* sceneNode) override;
+	virtual void updateDisplay(const PipelineFlowState& state, PipelineSceneNode* pipeline) override;
 
 	/// Returns the data display widget.
 	QTableView* tableView() const { return _tableView; }
 
-	/// Returns the list widget displaying the list of constainer objects.
-	QListWidget* containerSelectionWidget() const { return _containerSelectionWidget; }
-
 	/// Returns the input widget for the filter expression.
 	AutocompleteLineEdit* filterExpressionEdit() const { return _filterExpressionEdit; }
 
-	/// Return The UI action that resets the filter expression.
+	/// Returns the UI action that resets the filter expression.
 	QAction* resetFilterAction() const { return _resetFilterAction; }
-
-	/// Returns the currently selected scene node.
-	PipelineSceneNode* currentSceneNode() const { return _sceneNode.data(); }
-
-	/// Returns the current pipeline state being displayed in the applet.
-	const PipelineFlowState& currentState() const { return _pipelineState; }
 
 	/// Returns the number of currently displayed elements.
 	int visibleElementCount() const { return _filterModel->rowCount(); }
@@ -73,7 +61,7 @@ public:
 	size_t visibleElementAt(int index) const { return _filterModel->mapToSource(_filterModel->index(index, 0)).row(); }
 
 	/// Returns the property container object that is currently selected.
-	const PropertyContainer* selectedContainerObject() const { return _selectedContainerObject; }
+	const PropertyContainer* selectedContainerObject() const { return static_object_cast<PropertyContainer>(selectedDataObject()); }
 
 	/// Selects a specific data object in this applet.
 	virtual bool selectDataObject(PipelineObject* dataSource, const QString& objectIdentifierHint, const QVariant& modeHint) override;
@@ -81,22 +69,23 @@ public:
 protected:
 
 	/// Constructor.
-	PropertyInspectionApplet(const PropertyContainerClass& containerClass) : _containerClass(containerClass) {}
+	PropertyInspectionApplet(const PropertyContainerClass& containerClass) : DataInspectionApplet(containerClass), _containerClass(containerClass) {}
 
 	/// Lets the applet create the UI widgets that are to be placed into the data inspector panel.
 	void createBaseWidgets();
 
 	/// Creates the evaluator object for filter expressions.
-	virtual std::unique_ptr<PropertyExpressionEvaluator> createExpressionEvaluator() = 0;
+	virtual std::unique_ptr<PropertyExpressionEvaluator> createExpressionEvaluator() {
+		return std::make_unique<PropertyExpressionEvaluator>();
+	}
 
 	/// Determines the text shown in cells of the vertical header column.
 	virtual QVariant headerColumnText(int section) { return section; }
 
 	/// Determines whether the given property represents a color.
-	virtual bool isColorProperty(PropertyObject* property) const { return false; }
-
-	/// Updates the list of container objects displayed in the inspector.
-	void updateContainerList();
+	virtual bool isColorProperty(PropertyObject* property) const {
+		return property->type() == PropertyStorage::GenericColorProperty;
+	}
 
 Q_SIGNALS:
 
@@ -108,12 +97,10 @@ public Q_SLOTS:
 	/// Sets the filter expression.
 	void setFilterExpression(const QString& expression);
 
-protected Q_SLOTS:
-
-	/// Is called when the user selects a different container object in the list.
-	virtual void currentContainerChanged();
-
 private Q_SLOTS:
+
+	/// Is called when the user selects a different container object from the list.
+	void onCurrentContainerChanged();
 
 	/// Is called when the uer has changed the filter expression.
 	void onFilterExpressionEntered();
@@ -229,10 +216,10 @@ private:
 	/// The type of container objects displayed by this applet.
 	const PropertyContainerClass& _containerClass;
 
-	/// The data display widget.
+	/// The property data display widget.
 	QTableView* _tableView = nullptr;
 
-	/// The table model.
+	/// The property table model.
 	PropertyTableModel* _tableModel = nullptr;
 
 	/// The filter model.
@@ -249,21 +236,6 @@ private:
 
 	/// For cleaning up widgets.
 	QObjectCleanupHandler _cleanupHandler;
-
-	/// The currently selected scene node.
-	QPointer<PipelineSceneNode> _sceneNode;
-
-	/// The widget for selecting the current property container object.
-	QListWidget* _containerSelectionWidget = nullptr;
-
-	/// The pipeline data being displayed.
-	PipelineFlowState _pipelineState;
-
-	/// The identifier path of the currently selected property container.
-	QString _selectedDataObjectPath;
-
-	/// Pointer to the currently selected property container.
-	const PropertyContainer* _selectedContainerObject = nullptr;
 };
 
 }	// End of namespace

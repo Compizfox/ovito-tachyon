@@ -41,7 +41,7 @@ public:
 	OpenGLMeshPrimitive(OpenGLSceneRenderer* renderer);
 
 	/// Sets the mesh to be stored in this buffer object.
-	virtual void setMesh(const TriMesh& mesh, const ColorA& meshColor, bool emphasizeEdges) override;
+	virtual void setMesh(const TriMesh& mesh, const ColorA& meshColor, bool emphasizeEdges, DepthSortingMode depthSortingMode) override;
 
 	/// \brief Returns the number of triangle faces stored in the buffer.
 	virtual int faceCount() override { return _vertexBuffer.elementCount(); }
@@ -82,8 +82,9 @@ private:
 	/// Are we rendering a semi-transparent mesh?
 	FloatType _alpha = 1.0;
 
-	/// This is required to render translucent triangles in the correct order from back to front.
-	std::vector<Point3> _triangleCoordinates;
+	/// Stores the center coordinates of the triangles, which are used to render semi-transparent faces in the 
+	/// correct order from back to front.
+	std::vector<Vector_3<float>> _triangleDepthSortData;
 
 	/// The internal OpenGL vertex buffer that stores the vertex data for rendering polygon edges.
 	OpenGLBuffer<Point_3<float>> _edgeLinesBuffer;

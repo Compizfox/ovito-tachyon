@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Copyright 2019 Alexander Stukowski
+//  Copyright 2020 Alexander Stukowski
 //
 //  This file is part of OVITO (Open Visualization Tool).
 //
@@ -192,7 +192,7 @@ public:
 
 	/// Inserts the loaded data into the provided pipeline state structure. This function is
 	/// called by the system from the main thread after the asynchronous loading task has finished.
-	virtual OORef<DataCollection> handOver(const DataCollection* existing, bool isNewFile, FileSource* fileSource) override;
+	virtual OORef<DataCollection> handOver(const DataCollection* existing, bool isNewFile, CloneHelper& cloneHelper, FileSource* fileSource) override;
 
 	/// Returns the current simulation cell matrix.
 	const SimulationCell& simulationCell() const { return _simulationCell; }
@@ -320,6 +320,60 @@ public:
 	/// Determines the PBC shift vectors for bonds using the minimum image convention.
 	void generateBondPeriodicImageProperty();
 
+	/// Returns the list of angle properties.
+	const std::vector<PropertyPtr>& angleProperties() const { return _angleProperties; }
+
+	/// Returns the list of dihedral properties.
+	const std::vector<PropertyPtr>& dihedralProperties() const { return _dihedralProperties; }
+
+	/// Returns the list of improper properties.
+	const std::vector<PropertyPtr>& improperProperties() const { return _improperProperties; }
+
+	/// Adds a new angle property.
+	PropertyStorage* addAngleProperty(PropertyPtr property) {
+		_angleProperties.push_back(std::move(property));
+		return _angleProperties.back().get();
+	}
+
+	/// Adds a new dihedral property.
+	PropertyStorage* addDihedralProperty(PropertyPtr property) {
+		_dihedralProperties.push_back(std::move(property));
+		return _dihedralProperties.back().get();
+	}
+
+	/// Adds a new improper property.
+	PropertyStorage* addImproperProperty(PropertyPtr property) {
+		_improperProperties.push_back(std::move(property));
+		return _improperProperties.back().get();
+	}
+
+	/// Returns a standard angle property if already defined.
+	PropertyPtr findStandardAngleProperty(AnglesObject::Type which) const {
+		OVITO_ASSERT(which != AnglesObject::UserProperty);
+		for(const auto& prop : _angleProperties)
+			if(prop->type() == which)
+				return prop;
+		return {};
+	}
+
+	/// Returns a standard dihedral property if already defined.
+	PropertyPtr findStandardDihedralProperty(DihedralsObject::Type which) const {
+		OVITO_ASSERT(which != DihedralsObject::UserProperty);
+		for(const auto& prop : _dihedralProperties)
+			if(prop->type() == which)
+				return prop;
+		return {};
+	}
+
+	/// Returns a standard improper property if already defined.
+	PropertyPtr findStandardImproperProperty(ImpropersObject::Type which) const {
+		OVITO_ASSERT(which != ImpropersObject::UserProperty);
+		for(const auto& prop : _improperProperties)
+			if(prop->type() == which)
+				return prop;
+		return {};
+	}
+
 	/// Returns the shape of the voxel grid.
 	const VoxelGrid::GridDimensions& voxelGridShape() const { return _voxelGridShape; }
 
@@ -383,6 +437,15 @@ private:
 	/// Bond properties.
 	std::vector<PropertyPtr> _bondProperties;
 
+	/// Angle properties.
+	std::vector<PropertyPtr> _angleProperties;
+
+	/// Dihedral properties.
+	std::vector<PropertyPtr> _dihedralProperties;
+
+	/// Improper properties.
+	std::vector<PropertyPtr> _improperProperties;
+
 	/// Voxel grid properties.
 	std::vector<PropertyPtr> _voxelProperties;
 
@@ -402,7 +465,7 @@ private:
 	std::unique_ptr<TypeList> _dummyWorkaroundForMVSCCompilerBug;
 #endif
 
-	/// Stores the lists of types for typed properties (both particle and bond properties).
+	/// Stores the lists of types for typed properties (particle/bond/angle/dihedral/improper properties).
 	std::map<const PropertyStorage*, std::unique_ptr<TypeList>> _typeLists;
 
 	/// The metadata read from the file header.

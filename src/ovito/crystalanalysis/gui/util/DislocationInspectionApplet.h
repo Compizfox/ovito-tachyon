@@ -45,7 +45,7 @@ class DislocationInspectionApplet : public DataInspectionApplet
 public:
 
 	/// Constructor.
-	Q_INVOKABLE DislocationInspectionApplet() {}
+	Q_INVOKABLE DislocationInspectionApplet() : DataInspectionApplet(DislocationNetworkObject::OOClass()) {}
 
 	/// Returns the key value for this applet that is used for ordering the applet tabs.
 	virtual int orderingKey() const override { return 50; }
@@ -57,7 +57,7 @@ public:
 	virtual QWidget* createWidget(MainWindow* mainWindow) override;
 
 	/// Updates the contents displayed in the inspector.
-	virtual void updateDisplay(const PipelineFlowState& state, PipelineSceneNode* sceneNode) override;
+	virtual void updateDisplay(const PipelineFlowState& state, PipelineSceneNode* pipeline) override;
 
 	/// This is called when the applet is no longer visible.
 	virtual void deactivate(MainWindow* mainWindow) override;
@@ -174,9 +174,6 @@ private:
 
 	/// The viewport input mode for picking dislocations.
 	PickingMode* _pickingMode;
-
-	/// The currently selected scene node.
-	QPointer<PipelineSceneNode> _sceneNode;
 };
 
 }	// End of namespace

@@ -297,10 +297,6 @@ ADD_SUBDIRECTORY(src)
 # Generate user documentation.
 INCLUDE(cmake/Documentation.cmake)
 
-# Export our targets so that external plugins can use them.
-#CONFIGURE_FILE(cmake/OVITOConfig.cmake "${Ovito_BINARY_DIR}/" @ONLY)
-#EXPORT(EXPORT OVITO NAMESPACE "Ovito::" FILE OVITOTargets.cmake)
-
 # This allows external CMake projects to inject their customization code into the OVITO project:
 IF(OVITO_CMAKE_FILE_INJECTION_PROJECT)
 	INCLUDE("${OVITO_CMAKE_FILE_INJECTION_PROJECT}")

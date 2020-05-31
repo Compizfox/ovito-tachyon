@@ -54,6 +54,23 @@ SET_PROPERTY_FIELD_UNITS_AND_MINIMUM(FileSource, playbackSpeedDenominator, Integ
 SET_PROPERTY_FIELD_CHANGE_EVENT(FileSource, sourceUrls, ReferenceEvent::TitleChanged);
 
 /******************************************************************************
+* Helper function that counts the number of source files the trajectory frames 
+* are loaded from.
+******************************************************************************/
+static int countNumberOfFiles(const QVector<FileSourceImporter::Frame>& frames)
+{
+	int numberOfFiles = 0;
+	const QUrl* previousUrl = nullptr;
+	for(const FileSourceImporter::Frame& frame : frames) {
+		if(!previousUrl || (const_cast<QUrl&>(frame.sourceFile).data_ptr() != const_cast<QUrl*>(previousUrl)->data_ptr() && frame.sourceFile != *previousUrl)) {
+			numberOfFiles++;
+			previousUrl = &frame.sourceFile;
+		}
+	}
+	return numberOfFiles;
+}
+
+/******************************************************************************
 * Constructs the object.
 ******************************************************************************/
 FileSource::FileSource(DataSet* dataset) : CachingPipelineObject(dataset),
@@ -213,6 +230,9 @@ void FileSource::setListOfFrames(QVector<FileSourceImporter::Frame> frames)
 		}
 	}
 
+	// Count the number of source files the trajectory frames are coming from.
+	_numberOfFiles = countNumberOfFiles(this->frames());
+
 	// Replace our internal list of frames.
 	_frames = std::move(frames);
 	// Reset cached frame label list. It will be rebuilt upon request by the method animationFrameLabels().
@@ -240,7 +260,7 @@ void FileSource::setListOfFrames(QVector<FileSourceImporter::Frame> frames)
 	}
 
 	// Notify UI that the list of source frames has changed.
-	notifyDependents(ReferenceEvent::ObjectStatusChanged);
+	Q_EMIT framesListChanged();
 }
 
 /******************************************************************************
@@ -430,20 +450,11 @@ Future<PipelineFlowState> FileSource::requestFrameInternal(int frame)
 						.then(executor(), [this, frame, frameInfo, interval](FileSourceImporter::FrameDataPtr&& frameData) {
 							OVITO_ASSERT_MSG(frameData, "FileSource::requestFrameInternal()", "File importer did not return a FrameData object.");
 
-							// Let the file importer work with the data collection of this FileSource if there is one from a previous load operation.
-							OORef<DataCollection> existingData = dataCollection();
-
-							// Make a copy of the existing data collection unless we are loading the current animation frame.
-							// That's because we want the data collection of the FileSource to always reflect the current animation time only.
-							if(!interval.contains(dataset()->animationSettings()->time())) {
-								existingData = CloneHelper().cloneObject(existingData, true);
-							}
-
-							// Let the data container insert its data into the pipeline state.
+							// Let the import class insert its data into the pipeline state.
 							_handOverInProgress = true;
 							try {
-								OORef<DataCollection> loadedData = frameData->handOver(existingData, _isNewFile, this);
-								existingData.reset();
+								CloneHelper cloneHelper;
+								OORef<DataCollection> loadedData = frameData->handOver(dataCollection(), _isNewFile, cloneHelper, this);
 								_isNewFile = false;
 								_handOverInProgress = false;
 								loadedData->addAttribute(QStringLiteral("SourceFrame"), frame, this);
@@ -460,7 +471,7 @@ Future<PipelineFlowState> FileSource::requestFrameInternal(int frame)
 					return future;
 				});
 
-			// Change status during long-running load operations.
+			// Change activity status during long-running load operations.
 			registerActiveFuture(loadFrameFuture);
 
 			return loadFrameFuture;
@@ -536,11 +547,11 @@ SharedFuture<PipelineFlowState> FileSource::evaluate(const PipelineEvaluationReq
 	// If the state for the current animation time is requested, we make it the main data collection
 	// of this FileSource. The main data collection is shown in the UI as extra subitems under the 
 	// file source in the pipeline editor.
-	return future.then(executor(), [this, time = request.time()](const PipelineFlowState& state) {
+	return future.then(executor(), [this, time = request.time()](PipelineFlowState state) {
 		if(time == dataset()->animationSettings()->time() && state.data() != dataCollection()) {
 			pipelineCache().invalidateSynchronousState();
-			setDataCollection(state.data());
 			setDataCollectionFrame(animationTimeToSourceFrame(time));
+			setDataCollection(state.data());
 			setStatus(state.status());
 			notifyDependents(ReferenceEvent::PreliminaryStateAvailable);
 		}
@@ -568,6 +579,9 @@ void FileSource::loadFromStream(ObjectLoadStream& stream)
 	stream.expectChunk(0x03);
 	stream >> _frames;
 	stream.closeChunk();
+
+	// Count the number of source files the trajectory frames are coming from.
+	_numberOfFiles = countNumberOfFiles(_frames);
 }
 
 /******************************************************************************
@@ -578,10 +592,10 @@ QString FileSource::objectTitle() const
 	QString filename;
 	int frameIndex = dataCollectionFrame();
 	if(frameIndex >= 0 && frameIndex < frames().size()) {
-		filename = QFileInfo(frames()[frameIndex].sourceFile.path()).fileName();
+		filename = frames()[frameIndex].sourceFile.fileName();
 	}
 	else if(!sourceUrls().empty()) {
-		filename = QFileInfo(sourceUrls().front().path()).fileName();
+		filename = sourceUrls().front().fileName();
 	}
 	if(importer())
 		return QString("%2 [%1]").arg(importer()->objectTitle()).arg(filename);
@@ -621,8 +635,8 @@ bool FileSource::referenceEvent(RefTarget* source, const ReferenceEvent& event)
 {
 	if(event.type() == ReferenceEvent::TargetChanged && source == dataCollection()) {
 		if(_handOverInProgress) {
-			// Suppress any TargetChanged messages from the data collection while a data hand-over is in progress.
-			return false;
+			// The hand-over should not generate any change messages.
+			OVITO_ASSERT(false);
 		}
 		else if(!event.sender()->isBeingLoaded()) {
 			// Whenever the user actively edits the data collection of this FileSource,

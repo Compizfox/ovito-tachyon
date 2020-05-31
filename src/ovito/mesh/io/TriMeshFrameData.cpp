@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Copyright 2017 Alexander Stukowski
+//  Copyright 2020 Alexander Stukowski
 //
 //  This file is part of OVITO (Open Visualization Tool).
 //
@@ -35,13 +35,14 @@ namespace Ovito { namespace Mesh {
 * This function is called by the system from the main thread after the
 * asynchronous loading task has finished.
 ******************************************************************************/
-OORef<DataCollection> TriMeshFrameData::handOver(const DataCollection* existing, bool isNewFile, FileSource* fileSource)
+OORef<DataCollection> TriMeshFrameData::handOver(const DataCollection* existing, bool isNewFile, CloneHelper& cloneHelper, FileSource* fileSource)
 {
 	OORef<DataCollection> output = new DataCollection(fileSource->dataset());
 
-	// Create a TriMeshObject or reuse existing.
-	TriMeshObject* triMeshObj = const_cast<TriMeshObject*>(existing ? existing->getObject<TriMeshObject>() : nullptr);
-	if(triMeshObj) {
+	// Create a TriMeshObject or clone the existing one.
+	OORef<TriMeshObject> triMeshObj;
+	if(const TriMeshObject* existingMeshObj = existing ? existing->getObject<TriMeshObject>() : nullptr) {
+		triMeshObj = cloneHelper.cloneObject(existingMeshObj, false);
 		output->addObject(triMeshObj);
 	}
 	else {

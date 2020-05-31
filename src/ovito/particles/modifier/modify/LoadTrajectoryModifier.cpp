@@ -192,13 +192,16 @@ void LoadTrajectoryModifier::applyTrajectoryState(PipelineFlowState& state, cons
 
 		// Get or create the output particle property.
 		PropertyObject* outputProperty;
+		bool replacingProperty;
 		if(property->type() != ParticlesObject::UserProperty) {
+			replacingProperty = (particles->getProperty(property->type()) != nullptr);
 			outputProperty = particles->createProperty(property->type(), true);
 			if(outputProperty->dataType() != property->dataType()
 				|| outputProperty->componentCount() != property->componentCount())
 				continue; // Types of source property and output property are not compatible.
 		}
 		else {
+			replacingProperty = (particles->getProperty(property->name()) != nullptr);
 			outputProperty = particles->createProperty(property->name(),
 				property->dataType(), property->componentCount(),
 				0, true);
@@ -207,6 +210,11 @@ void LoadTrajectoryModifier::applyTrajectoryState(PipelineFlowState& state, cons
 
 		// Copy and reorder property data.
 		property->mappedCopyTo(outputProperty, indexToIndexMap);
+
+		// Transfer the visual element(s) unless the property already existed in the topology dataset.
+		if(!replacingProperty) {
+			outputProperty->setVisElements(property->visElements());
+		}
 	}
 
 	// Transfer box geometry.

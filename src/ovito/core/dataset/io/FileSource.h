@@ -73,6 +73,9 @@ public:
 	/// \brief Returns the list of animation frames in the input file(s).
 	const QVector<FileSourceImporter::Frame>& frames() const { return _frames; }
 
+	/// Returns the number of different source files in which the trajectory frames are stored. 
+	int numberOfFiles() const { return _numberOfFiles; }
+
 	/// \brief Returns the number of animation frames this pipeline object can provide.
 	virtual int numberOfSourceFrames() const override { return _frames.size(); }
 
@@ -95,6 +98,11 @@ public:
 	/// \brief Scans the external data file(s) to find all contained frames.
 	/// This method is an implementation detail. Please use the high-level method updateListOfFrames() instead.
 	SharedFuture<QVector<FileSourceImporter::Frame>> requestFrameList(bool forceRescan);
+
+Q_SIGNALS:
+
+	/// This signal is emitted by the FileSource whenever its list of trajectory frames changes.
+	void framesListChanged();
 
 protected:
 
@@ -153,6 +161,9 @@ private:
 
 	/// The human-readable labels associated with animation frames (e.g. the simulation timestep numbers).
 	mutable QMap<int, QString> _frameLabels;
+
+	/// The number of different source files from which the trajectory frames get loaded. 
+	int _numberOfFiles = 0;
 
 	/// The active future if loading the list of frames is in progress.
 	SharedFuture<QVector<FileSourceImporter::Frame>> _framesListFuture;

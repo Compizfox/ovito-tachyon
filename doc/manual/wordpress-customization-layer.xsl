@@ -174,7 +174,7 @@
 
                 <td>
                   <!-- Version -->
-                  <xsl:text>Release </xsl:text>
+                  <xsl:text>OVITO </xsl:text>
                   <xsl:value-of select="$ovito.version"/>
                 </td>
 

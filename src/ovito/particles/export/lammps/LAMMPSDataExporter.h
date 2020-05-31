@@ -54,7 +54,7 @@ class OVITO_PARTICLES_EXPORT LAMMPSDataExporter : public ParticleExporter
 public:
 
 	/// \brief Constructs a new instance of this class.
-	Q_INVOKABLE LAMMPSDataExporter(DataSet* dataset) : ParticleExporter(dataset), _atomStyle(LAMMPSDataImporter::AtomStyle_Atomic) {}
+	Q_INVOKABLE LAMMPSDataExporter(DataSet* dataset) : ParticleExporter(dataset), _atomStyle(LAMMPSDataImporter::AtomStyle_Atomic), _omitMassesSection(false) {}
 
 protected:
 
@@ -65,6 +65,9 @@ private:
 
 	/// Selects the kind of data file to write.
 	DECLARE_MODIFIABLE_PROPERTY_FIELD_FLAGS(LAMMPSDataImporter::LAMMPSAtomStyle, atomStyle, setAtomStyle, PROPERTY_FIELD_MEMORIZE);
+
+	/// Flag that allows the user to suppress the "Masses" file section.
+	DECLARE_MODIFIABLE_PROPERTY_FIELD(bool, omitMassesSection, setOmitMassesSection);
 };
 
 }	// End of namespace

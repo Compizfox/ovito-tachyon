@@ -100,8 +100,14 @@ Future<AsynchronousModifier::EnginePtr> GrainSegmentationModifier::createEngine(
 	const ParticlesObject* particles = input.expectObject<ParticlesObject>();
 	particles->verifyIntegrity();
 	const PropertyObject* posProperty = particles->expectProperty(ParticlesObject::PositionProperty);
-	const PropertyObject* structureProperty = particles->expectProperty(ParticlesObject::StructureTypeProperty);
-	const PropertyObject* orientationProperty = particles->expectProperty(ParticlesObject::OrientationProperty);
+
+	// Make sure the PTM modifier has been executed first and its output is available.
+	const PropertyObject* structureProperty = particles->getProperty(ParticlesObject::StructureTypeProperty);
+	if(!structureProperty)
+		throwException(tr("Grain segmentation requires Polyhedral Template Matching (PTM) output. Please insert the PTM modifier into the pipeline first."));
+	const PropertyObject* orientationProperty = particles->getProperty(ParticlesObject::OrientationProperty);
+	if(!orientationProperty)
+		throwException(tr("Grain segmentation requires lattice orientation information. Please activate the 'Lattice orientations' option of the PTM modifier."));
 	const PropertyObject* correspondenceProperty = particles->expectProperty("Correspondences", PropertyStorage::Int64);
 
 	const SimulationCellObject* simCell = input.expectObject<SimulationCellObject>();

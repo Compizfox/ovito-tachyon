@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Copyright 2013 Alexander Stukowski
+//  Copyright 2020 Alexander Stukowski
 //
 //  This file is part of OVITO (Open Visualization Tool).
 //
@@ -119,6 +119,10 @@ void RefTargetListParameterUI::resetUI()
 	if(_viewWidget) {
 		_viewWidget->setEnabled(editObject() != nullptr);
 
+		// Get the currently selected index.
+		QModelIndexList selection = _viewWidget->selectionModel()->selectedRows();
+		int selectionIndex = !selection.empty() ? selection.front().row() : 0;
+
 		_targets.clear(this, PROPERTY_FIELD(targets));
 		_targetToRow.clear();
 		_rowToTarget.clear();
@@ -136,8 +140,11 @@ void RefTargetListParameterUI::resetUI()
 
 		_model->resetList();
 
-		if(editObject() && _targets.size() > 0)
-			setSelectedObject(_targets.targets().front());
+		selectionIndex = std::min(selectionIndex, _model->rowCount() - 1);
+		if(selectionIndex >= 0)
+			_viewWidget->selectionModel()->select(_model->index(selectionIndex, 0), QItemSelectionModel::ClearAndSelect | QItemSelectionModel::Rows);
+		else
+			_viewWidget->selectionModel()->clear();
 	}
 	openSubEditor();
 }

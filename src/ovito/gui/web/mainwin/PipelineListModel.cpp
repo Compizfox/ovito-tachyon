@@ -153,7 +153,7 @@ void PipelineListModel::refreshList()
 				newItems.push_back(new PipelineListItem(nullptr, PipelineListItem::DataSourceHeader));
 
 				// Create a list item for the data source.
-				PipelineListItem* item = new PipelineListItem(pipelineObject, PipelineListItem::DataObject);
+				PipelineListItem* item = new PipelineListItem(pipelineObject, PipelineListItem::DataSource);
 				newItems.push_back(item);
 				if(defaultObjectToSelect == nullptr)
 					defaultObjectToSelect = pipelineObject;
@@ -212,7 +212,7 @@ void PipelineListModel::refreshList()
 void PipelineListModel::createListItemsForSubobjects(const DataObject* dataObj, std::vector<OORef<PipelineListItem>>& items, PipelineListItem* parentItem)
 {
 	if(dataObj->showInPipelineEditor())
-		items.push_back(parentItem = new PipelineListItem(const_cast<DataObject*>(dataObj), PipelineListItem::DataSubObject, parentItem));
+		items.push_back(parentItem = new PipelineListItem(const_cast<DataObject*>(dataObj), PipelineListItem::DataObject, parentItem));
 
 	// Recursively visit the sub-objects of the object.
 	dataObj->visitSubObjects([&](const DataObject* subObject) {

@@ -7,174 +7,200 @@
          xmlns:xlink="http://www.w3.org/1999/xlink"
          xmlns:xi="http://www.w3.org/2001/XInclude"
          xmlns:ns="http://docbook.org/ns/docbook">
-  <title>Credits and licensing information</title>
+  <title>Licensing information</title>
 
   <para>
-    The development versions of <emphasis>OVITO Pro</emphasis> and <emphasis>OVITO Basic</emphasis> ("3.0.0-dev") are licensed under <link linkend="appendix.license.ovito_pro">the terms found here</link>.
-    See <link linkend="credits.ovito_pro">this page</link> for more information on the differences between the <emphasis>Pro</emphasis> and <emphasis>Basic</emphasis> editions of OVITO.
+    <emphasis>OVITO Basic</emphasis> in binary form is published by <link xlink:href="https://www.ovito.org">OVITO GmbH, Germany</link> under the terms of the <link xlink:href="https://gitlab.com/stuko/ovito/-/blob/master/LICENSE.MIT.txt">MIT License</link>. 
+    Program packages are built from source code available under the terms of the <link linkend="appendix.GPL">GNU General Public License (v3)</link> and the 
+    <link xlink:href="https://gitlab.com/stuko/ovito/-/blob/master/LICENSE.MIT.txt">MIT License</link>. 
+    The source code is hosted in a public <link xlink:href="https://gitlab.com/stuko/ovito/">GitLab repository</link>.
   </para>
 
   <para>
-    The source code for building program binaries equivalent to <emphasis>OVITO Basic</emphasis> is made available under the terms of the 
-    <link linkend="appendix.GPL">GNU General Public License (v3)</link> and can be found in our <link xlink:href="https://gitlab.com/stuko/ovito/">GitLab repository</link>.
-    OVITO has been developed by Alexander Stukowski and other contributors.
+    <emphasis>OVITO Pro</emphasis> is proprietary software of OVITO GmbH and licensed under the terms of the <emphasis>OVITO Pro End-User Licence Agreement</emphasis>.
+    See <link linkend="credits.ovito_pro">this page</link> for more information on the differences between the two versions of OVITO.
   </para>
 
-  <para>This user manual has been written by Alexander Stukowski and is licensed under the terms of the <link linkend="appendix.GFDL">GNU Free Documentation License</link>.</para>
-
-  <para>The following third-party libraries are used within OVITO:
-    <informaltable>
-      <tgroup cols="3">
-        <colspec colname='name'/>
-        <colspec colname='lic'/>
-        <colspec colname='lgpl_info'/>
-        <thead>
-          <row>
-            <entry>Library</entry>
-            <entry>License</entry>
-            <entry>Instructions</entry>
-          </row>
-        </thead>
-        <tbody>
-          <row>
-            <entry><link xlink:href="https://www.qt.io/developers/">Qt</link></entry>
-            <entry>LGPL v3</entry>
-            <entry><link linkend="appendix.license.qt.instructions">Info</link></entry>
-          </row>
-          <row>
-            <entry><link xlink:href="https://sourceforge.net/projects/qwt/">Qwt</link></entry>
-            <entry><link linkend="appendix.license.qwt">license</link></entry>
-            <entry></entry>
-          </row>
-          <row>
-            <entry><link xlink:href="https://www.boost.org">Boost</link></entry>
-            <entry><link linkend="appendix.license.boost">license</link></entry>
-            <entry></entry>
-          </row>
-          <row>
-            <entry><link xlink:href="https://www.python.org">Python</link></entry>
-            <entry>PSF license</entry>
-            <entry></entry>
-          </row>
-          <row>
-            <entry><link xlink:href="http://alice.loria.fr/index.php/software/4-library/75-geogram.html">Geogram library</link> by Bruno Levy, INRIA - ALICE</entry>
-            <entry><link linkend="appendix.license.geogram">license</link></entry>
-            <entry></entry>
-          </row>
-          <row>
-            <entry><link xlink:href="https://en.wikipedia.org/wiki/Tachyon_(software)">Tachyon Parallel / Multiprocessor Ray Tracing System</link> by John E. Stone</entry>
-            <entry><link linkend="appendix.license.tachyon">license</link></entry>
-            <entry></entry>
-          </row>
-          <row>
-            <entry><link xlink:href="http://beltoforion.de/article.php?a=muparser">muParser</link> by Ingo Berg</entry>
-            <entry><link linkend="appendix.license.muparser">license</link></entry>
-            <entry></entry>
-          </row>
-          <row>
-            <entry><link xlink:href="https://libssh.org">Libssh</link></entry>
-            <entry>LGPL v2.1</entry>
-            <entry><link linkend="appendix.license.libssh.instructions">Info</link></entry>
-          </row>
-          <row>
-            <entry><link xlink:href="https://openssl.org">OpenSSL</link></entry>
-            <entry><link linkend="appendix.license.openssl">license</link></entry>
-            <entry></entry>
-          </row>
-          <row>
-            <entry><link xlink:href="https://ffmpeg.org">ffmpeg</link></entry>
-            <entry>LGPL v2.1</entry>
-            <entry><link linkend="appendix.license.ffmpeg.instructions">Info</link></entry>
-          </row>
-          <row>
-            <entry><link xlink:href="https://www.unidata.ucar.edu/software/netcdf/">netCDF</link></entry>
-            <entry><link linkend="appendix.license.netcdf">license</link></entry>
-            <entry></entry>
-          </row>
-          <row>
-            <entry><link xlink:href="https://support.hdfgroup.org/HDF5/">HDF5</link></entry>
-            <entry><link linkend="appendix.license.hdf5">license</link></entry>
-            <entry></entry>
-          </row>
-          <row>
-            <entry><link xlink:href="https://doi.org/10.1063/1.3215722">Voro++</link> by Chris Rycroft</entry>
-            <entry><link linkend="appendix.license.voroplusplus">license</link></entry>
-            <entry></entry>
-          </row>
-          <row>
-            <entry><link xlink:href="https://www.zlib.net">zlib</link></entry>
-            <entry><link xlink:href="https://www.zlib.net/zlib_license.html">license</link></entry>
-            <entry></entry>
-          </row>
-          <row>
-            <entry><link xlink:href="https://github.com/pmla/polyhedral-template-matching">Polyhedral Template Matching library</link> by Peter Mahler Larsen</entry>
-            <entry><link linkend="appendix.license.ptm">license</link></entry>
-            <entry></entry>
-          </row>
-          <row>
-            <entry><link xlink:href="https://dx.doi.org/10.1002%2Fjcc.21439">QCP rotation calculation method</link> by Pu Liu and Douglas L. Theobald</entry>
-            <entry><link linkend="appendix.license.qcprot">license</link></entry>
-            <entry></entry>
-          </row>
-          <row>
-            <entry><link xlink:href="https://gsd.readthedocs.io/">GSD (General Simulation Data)</link> I/O routines</entry>
-            <entry><link linkend="appendix.license.gsd">license</link></entry>
-            <entry></entry>
-          </row>
-          <row>
-            <entry><link xlink:href="https://pybind11.readthedocs.io/">pybind11</link></entry>
-            <entry><link linkend="appendix.license.pybind11">license</link></entry>
-            <entry></entry>
-          </row>
-          <row>
-            <entry><link xlink:href="https://pypi.org/project/PySide2/">PySide2</link></entry>
-            <entry>LGPL v3</entry>
-            <entry><link linkend="appendix.license.pyside2.instructions">Info</link></entry>
-          </row>
-          <row>
-            <entry><link xlink:href="https://www.numpy.org/">Numpy</link></entry>
-            <entry><link linkend="appendix.license.numpy">license</link></entry>
-            <entry></entry>
-          </row>
-          <row>
-            <entry><link xlink:href="https://matplotlib.org">Matplotlib</link></entry>
-            <entry><link xlink:href="https://matplotlib.org/users/license.html">license</link></entry>
-            <entry></entry>
-          </row>
-          <row>
-            <entry><link xlink:href="https://github.com/mborgerding/kissfft">KISS FFT</link></entry>
-            <entry><link linkend="appendix.license.kissfft">license</link></entry>
-            <entry></entry>
-          </row>
-          <row>
-            <entry><link xlink:href="https://www.ospray.org">OSPRay</link></entry>
-            <entry>Apache 2.0</entry>
-            <entry></entry>
-          </row>
-          <row>
-            <entry><link xlink:href="https://embree.github.io">Embree</link></entry>
-            <entry>Apache 2.0</entry>
-            <entry></entry>
-          </row>
-          <row>
-            <entry><link xlink:href="https://www.threadingbuildingblocks.org/">Threading Building Blocks</link></entry>
-            <entry>Apache 2.0</entry>
-            <entry></entry>
-          </row>
-          <row>
-            <entry><link xlink:href="https://github.com/project-gemmi/gemmi">GEMMI (GEneral MacroMolecular I/O)</link></entry>
-            <entry>MPL v2</entry>
-            <entry></entry>
-          </row>
-          <row>
-            <entry><link xlink:href="https://github.com/taocpp/PEGTL/">Parsing Expression Grammar Template Library (PEGTL)</link></entry>
-            <entry><link linkend="appendix.license.pegtl">license</link></entry>
-            <entry></entry>
-          </row>
-        </tbody>
-      </tgroup>
-    </informaltable>
+  <para>
+    The <code>ovito</code> Python module, distributed as PyPI and Anaconda packages, is made available by OVITO GmbH under the <link xlink:href="https://gitlab.com/stuko/ovito/-/blob/master/LICENSE.MIT.txt">MIT License</link>.
   </para>
+
+  <para>
+    Any preview development builds of <emphasis>OVITO Pro</emphasis> and <emphasis>OVITO Basic</emphasis> ("3.0.0-dev") are licensed on an as-is basis under the terms of the <link linkend="appendix.license.ovito_pro">MIT license</link>.
+  </para>
+
+  <simplesect>
+    <title>Third-party software</title>
+    <para><emphasis>OVITO Pro</emphasis> and <emphasis>OVITO Basic</emphasis> are based on the following third-party software 
+        components. Click the links to see the corresponding copyright notices and/or build instructions.
+      <informaltable>
+        <tgroup cols="3">
+          <colspec colname='name'/>
+          <colspec colname='lic'/>
+          <colspec colname='lgpl_info'/>
+          <thead>
+            <row>
+              <entry>Library</entry>
+              <entry>License</entry>
+              <entry>Instructions</entry>
+            </row>
+          </thead>
+          <tbody>
+            <row>
+              <entry><link xlink:href="https://www.qt.io/developers/">Qt</link></entry>
+              <entry>LGPL v3</entry>
+              <entry><link linkend="appendix.license.qt.instructions">Info</link></entry>
+            </row>
+            <row>
+              <entry><link xlink:href="https://sourceforge.net/projects/qwt/">Qwt</link></entry>
+              <entry><link linkend="appendix.license.qwt">license</link></entry>
+              <entry></entry>
+            </row>
+            <row>
+              <entry><link xlink:href="https://www.boost.org">Boost</link></entry>
+              <entry><link linkend="appendix.license.boost">license</link></entry>
+              <entry></entry>
+            </row>
+            <row>
+              <entry><link xlink:href="https://www.python.org">Python</link></entry>
+              <entry>PSF license</entry>
+              <entry></entry>
+            </row>
+            <row>
+              <entry><link xlink:href="http://alice.loria.fr/index.php/software/4-library/75-geogram.html">Geogram library</link> by Bruno Levy, INRIA - ALICE</entry>
+              <entry><link linkend="appendix.license.geogram">license</link></entry>
+              <entry></entry>
+            </row>
+            <row>
+              <entry><link xlink:href="https://en.wikipedia.org/wiki/Tachyon_(software)">Tachyon Parallel / Multiprocessor Ray Tracing System</link> by John E. Stone</entry>
+              <entry><link linkend="appendix.license.tachyon">license</link></entry>
+              <entry></entry>
+            </row>
+            <row>
+              <entry><link xlink:href="http://beltoforion.de/article.php?a=muparser">muParser</link> by Ingo Berg</entry>
+              <entry><link linkend="appendix.license.muparser">license</link></entry>
+              <entry></entry>
+            </row>
+            <row>
+              <entry><link xlink:href="https://libssh.org">Libssh</link></entry>
+              <entry>LGPL v2.1</entry>
+              <entry><link linkend="appendix.license.libssh.instructions">Info</link></entry>
+            </row>
+            <row>
+              <entry><link xlink:href="https://openssl.org">OpenSSL</link></entry>
+              <entry><link linkend="appendix.license.openssl">license</link></entry>
+              <entry></entry>
+            </row>
+            <row>
+              <entry><link xlink:href="https://ffmpeg.org">ffmpeg</link></entry>
+              <entry>LGPL v2.1</entry>
+              <entry><link linkend="appendix.license.ffmpeg.instructions">Info</link></entry>
+            </row>
+            <row>
+              <entry><link xlink:href="https://www.unidata.ucar.edu/software/netcdf/">netCDF</link></entry>
+              <entry><link linkend="appendix.license.netcdf">license</link></entry>
+              <entry></entry>
+            </row>
+            <row>
+              <entry><link xlink:href="https://support.hdfgroup.org/HDF5/">HDF5</link></entry>
+              <entry><link linkend="appendix.license.hdf5">license</link></entry>
+              <entry></entry>
+            </row>
+            <row>
+              <entry><link xlink:href="https://doi.org/10.1063/1.3215722">Voro++</link> by Chris Rycroft</entry>
+              <entry><link linkend="appendix.license.voroplusplus">license</link></entry>
+              <entry></entry>
+            </row>
+            <row>
+              <entry><link xlink:href="https://www.zlib.net">zlib</link></entry>
+              <entry><link xlink:href="https://www.zlib.net/zlib_license.html">license</link></entry>
+              <entry></entry>
+            </row>
+            <row>
+              <entry><link xlink:href="https://github.com/pmla/polyhedral-template-matching">Polyhedral Template Matching library</link> by Peter Mahler Larsen</entry>
+              <entry><link linkend="appendix.license.ptm">license</link></entry>
+              <entry></entry>
+            </row>
+            <row>
+              <entry><link xlink:href="https://dx.doi.org/10.1002%2Fjcc.21439">QCP rotation calculation method</link> by Pu Liu and Douglas L. Theobald</entry>
+              <entry><link linkend="appendix.license.qcprot">license</link></entry>
+              <entry></entry>
+            </row>
+            <row>
+              <entry><link xlink:href="https://gsd.readthedocs.io/">GSD (General Simulation Data)</link> I/O routines</entry>
+              <entry><link linkend="appendix.license.gsd">license</link></entry>
+              <entry></entry>
+            </row>
+            <row>
+              <entry><link xlink:href="https://pybind11.readthedocs.io/">pybind11</link></entry>
+              <entry><link linkend="appendix.license.pybind11">license</link></entry>
+              <entry></entry>
+            </row>
+            <row>
+              <entry><link xlink:href="https://pypi.org/project/PySide2/">PySide2</link></entry>
+              <entry>LGPL v3</entry>
+              <entry><link linkend="appendix.license.pyside2.instructions">Info</link></entry>
+            </row>
+            <row>
+              <entry><link xlink:href="https://www.numpy.org/">Numpy</link></entry>
+              <entry><link linkend="appendix.license.numpy">license</link></entry>
+              <entry></entry>
+            </row>
+            <row>
+              <entry><link xlink:href="https://matplotlib.org">Matplotlib</link></entry>
+              <entry><link xlink:href="https://matplotlib.org/users/license.html">license</link></entry>
+              <entry></entry>
+            </row>
+            <row>
+              <entry><link xlink:href="https://github.com/mborgerding/kissfft">KISS FFT</link></entry>
+              <entry><link linkend="appendix.license.kissfft">license</link></entry>
+              <entry></entry>
+            </row>
+            <row>
+              <entry><link xlink:href="https://www.ospray.org">OSPRay</link></entry>
+              <entry>Apache 2.0</entry>
+              <entry></entry>
+            </row>
+            <row>
+              <entry><link xlink:href="https://embree.github.io">Embree</link></entry>
+              <entry>Apache 2.0</entry>
+              <entry></entry>
+            </row>
+            <row>
+              <entry><link xlink:href="https://openimagedenoise.github.io/">Intel Open Image Denoise</link></entry>
+              <entry>Apache 2.0</entry>
+              <entry></entry>
+            </row>
+            <row>
+              <entry><link xlink:href="https://www.openvkl.org">Intel Open Volume Kernel Library</link></entry>
+              <entry>Apache 2.0</entry>
+              <entry></entry>
+            </row>
+            <row>
+              <entry><link xlink:href="https://github.com/ospray/ospcommon">OSPRay common support library</link></entry>
+              <entry>Apache 2.0</entry>
+              <entry></entry>
+            </row>
+            <row>
+              <entry><link xlink:href="https://www.threadingbuildingblocks.org/">Threading Building Blocks</link></entry>
+              <entry>Apache 2.0</entry>
+              <entry></entry>
+            </row>
+            <row>
+              <entry><link xlink:href="https://github.com/project-gemmi/gemmi">GEMMI (GEneral MacroMolecular I/O)</link></entry>
+              <entry>MPL v2</entry>
+              <entry></entry>
+            </row>
+            <row>
+              <entry><link xlink:href="https://github.com/taocpp/PEGTL/">Parsing Expression Grammar Template Library (PEGTL)</link></entry>
+              <entry><link linkend="appendix.license.pegtl">license</link></entry>
+              <entry></entry>
+            </row>
+          </tbody>
+        </tgroup>
+      </informaltable>
+    </para>
+  </simplesect>
 
   <section xml:id="credits.ovito_pro">
     <title>OVITO Pro and OVITO Basic</title>
@@ -207,55 +233,49 @@
         </informaltable>
       </informalfigure>
 
-      We (the OVITO team) provide two variants of the software: <emphasis>OVITO Basic</emphasis> and <emphasis>OVITO Pro</emphasis>. 
-      The two differ in terms of the program features and <link linkend="credits">licensing conditions</link>. 
+      We, the OVITO team, provide two variants of the software: <emphasis>OVITO Basic</emphasis> and <emphasis>OVITO Pro</emphasis>. 
+      The two differ in terms of available program features and <link linkend="credits">licensing conditions</link>. 
     </para>
     <para> 
-      <emphasis>OVITO Basic</emphasis> is made available to the research community free of charge and provides the 
-      basic functionality typically needed by occasional users, who want an easy way to visualize particle-based simulations. 
-      This edition of OVITO is also meant for students and teachers, who use the software in a classroom setting. 
-      The source code of <emphasis>OVITO Basic</emphasis> is freely available, giving you open access to the algorithms
-      that operate under the hood. We also invite you to contribute new code to this version of OVITO under the MIT and GNU GPL open source licenses
-      and share your developments with the research community.
+      <emphasis>OVITO Basic</emphasis> is available free of charge and serves occasional users, who need an easy way to visualize 
+      particle-based simulations. Students and teachers can use the software in the classroom. <emphasis>OVITO Basic</emphasis> is <link xlink:href="https://gitlab.com/stuko/ovito">open source</link> and thus 
+      provides access to the advanced data algorithms that form the basis of the software. Furthermore, we invite you to contribute 
+      new code under the MIT and GPL Open Source licenses. Share your algorithm with the research community and make it readily 
+      available to a broad audience as part of <emphasis>OVITO Basic</emphasis>.
     </para>
     <para> 
-      <emphasis>OVITO Pro</emphasis> is made available for a fee (coming in Q2/2020) and addresses the needs of professional researchers, 
-      who require features such as scripting capabilities, advanced data analysis tools and high-quality image rendering functions.
-      The proceeds from the sales of <emphasis>OVITO Pro</emphasis> enable us to further extend the
-      code and continue making well-maintained program packages available to the community on a long-term basis. Furthermore, buyers of a <emphasis>OVITO Pro</emphasis> license
-      receive priority support directly from us, the OVITO team. Note that the development of OVITO is no longer funded by any
-      public institution, and we now work on a freelance basis out of Germany. 
-      The upside is we can now invest much more time into making OVITO better than ever before.
+      <emphasis>OVITO Pro</emphasis>, available for a licensing fee, is aimed at professional researchers, 
+      who require features such as integrated Python scripting, advanced data analysis tools and high-quality image rendering. 
+      Proceeds from OVITO Pro enable us to further expand the code and provide the community with well-maintained program 
+      packages on a long-term basis. Furthermore, licensees of <emphasis>OVITO Pro</emphasis> receive priority support directly from the OVITO team.
     </para>
     <para>
       Note that this user manual covers both editions of OVITO. Program features exclusively available in the <emphasis>Pro</emphasis>
-      edition are marked with the following tag throughout this manual: 
+      edition are marked with the following threadingbuildingblocks: 
       <blockquote>
         <ovito-pro/>
       </blockquote>
     </para>
     <para>
-      If you have any questions or comments, please get in touch with us. You can find our email contacts and up to date information 
-      on OVITO Pro on our website <link xlink:href="https://www.ovito.org/about/ovito-pro/">www.ovito.org</link>.
+      If you have any questions or comments, please get in touch with us. You can also find more information 
+      about <emphasis>OVITO Pro</emphasis> and a list of frequently asked questions on our website 
+      <link xlink:href="https://www.ovito.org/about/ovito-pro/">www.ovito.org</link>.
     </para> 
   </section>
 
   <section xml:id="credits.ovito_pro_activation">
     <title>License management</title>
-    <note>
-      <emphasis>This page contains preliminary information regarding a future version of the software. Please ignore it for the time being.</emphasis>
-    </note>
     <para>
       OVITO Pro must be activated after installation in order to use it on a new computer. During this one-time activation step
-      the validity of your license key and the entitlement to use the software will be checked by our cloud-based licensing server.
+      the validity of the license key and your entitlement to use the software will be verified by our cloud-based licensing server.
     </para>
     <simplesect>
-      <title>Activating OVITO Pro</title>
+      <title>Activate OVITO Pro</title>
       <para>
         <informalfigure><screenshot><mediaobject><imageobject>
           <imagedata fileref="images/licensing/license_activation_dialog_1.png" format="PNG" scale="90" />
         </imageobject></mediaobject></screenshot></informalfigure>
-        The first time you start OVITO Pro after a fresh installation, or whenever a previous activation became invalid,
+        The first time you start up OVITO Pro after a fresh installation, or whenever a previous activation became invalid,
         you will be presented with the <emphasis>License Activation Dialog</emphasis> shown on the right.
       </para>
       <para>
@@ -263,29 +283,31 @@
         <itemizedlist>
           <listitem>
             You must successfully complete the following activation procedure in order to unlock and use the software. 
-            If you cancel the activation process, OVITO Pro will quit and the license activation dialog will reappear again next time 
+            If you cancel the activation process before completion, OVITO Pro will quit and the license activation dialog will reappear again next time 
             you start the software.
           </listitem>
           <listitem>
-            The following steps require an active internet connection as OVITO Pro will send a web request to our cloud service 
-            in order to validate your license information and mark your installation of the software as active in our records.
+            The following steps require an active internet connection as OVITO Pro will send a request to our cloud service 
+            in order to validate your license status and mark your installation of the software as active in our records.
           </listitem>
         </itemizedlist>
       </para>
       <para>
-        You need to enter the OVITO Pro <emphasis>license key</emphasis> that you received from us (in case you made the purchase yourself) or
+        You need to enter the OVITO Pro <emphasis>license key</emphasis> that you received from us or
         that was handed to you by the person who bought the license (in case you are a member of a team owning a group license). 
-        If you don't remember your license key, in the former case, log in at <link xlink:href="https://www.ovito.org/account/purchases/">www.ovito.org/account/purchases/</link>,
-        and look up the license key in the history of purchases associated with your personal account. 
+        Visit <link xlink:href="https://www.ovito.org/account/purchases/">www.ovito.org/account/purchases/</link>
+        and log in to your OVITO account to retrieve the license key associated with your past purchases. 
       </para>
       <para>
-        In the second input field, enter the login name of your user account, which you have previously created on our website <link xlink:href="https://www.ovito.org">www.ovito.org</link>.
-        Typically, this is the email address you specified during the registration process on our website.
-        This information is needed to mark your ovito.org account as an active user of the license,
-        giving you access to any online support services we provide to paying customers only.  
-        Note that the account you specify here does not have to be the one that 
-        was used to purchase the license, for example if you are a team member using a group license bought by  
-        somebody else. Multiple ovito.org accounts can be associated with the same group license.
+        In the second input field, enter the name of your personal OVITO account, which you previously created on our website <link xlink:href="https://www.ovito.org">www.ovito.org</link>.
+        Typically, your account name is identical with the email address you have specified during the registration process.
+        The OVITO account you enter will be registered as an active user of the license key,
+        giving you access to any online support services we provide on our website to paying customers only.  
+      </para>
+      <para>
+        Note that is possible to associate several OVITO accounts with the same group license key. 
+        For example, each member of a team can install and activate their own copy of OVITO Pro using their personal OVITO online account.
+        All registered members will be then have access to online customer services.
       </para>
       <para>
         Click <guibutton>Continue</guibutton> to perform the activation. OVITO Pro will now contact our licensing server to 
@@ -308,13 +330,13 @@
     <simplesect>
       <title>Online license validation</title>
       <para>
-        From time to time OVITO Pro has to check your entitlement to use the software by validating it against our own records. 
-        The license validation happens sporadically (typically once a week) on program startup and requires an active internet connection.
+        From time to time OVITO Pro needs to check your entitlement to use the software by validating it against our own records. 
+        The license validation happens sporadically (typically once a week) on program startup and requires a working internet connection.
       </para>
       <para>
-        If no internet connection is currently available, you can continue using OVITO Pro offline &#x2013; but only for a limited period of time.
+        Without internet connectivity, you can continue using OVITO Pro offline &#x2013; but only for a limited period of time.
         After a grace period of 14 days without successful validation attempts, OVITO Pro will block the further use of the software 
-        until the next time the license can be successfully validated through a connection to our licensing server.
+        until the next time the license can be successfully validated by connecting to our server.
       </para>
     </simplesect>
 
@@ -324,16 +346,16 @@
         <informalfigure><screenshot><mediaobject><imageobject>
           <imagedata fileref="images/licensing/deactivate_installation_screenshot.png" format="PNG" scale="104" />
         </imageobject></mediaobject></screenshot></informalfigure>
-        Your OVITO Pro license permits you to use the software only on a limited number of computers at a time, as specified 
-        in the license agreement. This limit is enforced by the licensing server.
+        Your OVITO Pro license allows you to use the software only on a limited number of computers simultaneously. 
+        This limit is enforced by the licensing server.
         Once the maximum allowed number of installations has been exhausted, attempts to activate OVITO Pro on additional computers will be rejected by the licensing server. 
       </para>
       <para>
-        In order to be able to install OVITO on another machine again, for instance after a hardware replacement, employee turnover or reinstallation 
+        In order to install OVITO Pro on another machine, for instance after a hardware replacement, employee turnover or reinstallation 
         of the operating system, you should first deactivate an existing OVITO Pro installation that is no longer needed.
         This is done online by visiting the URL 
-        <link xlink:href="https://www.ovito.org/account/myinstallations/">https://www.ovito.org/account/myinstallations/</link>.
-        After logging in with your ovito.org account, the page lists all active OVITO Pro installations currently linked to your 
+        <link xlink:href="https://www.ovito.org/account/myinstallations/">www.ovito.org/account/myinstallations/</link>.
+        After logging in with your OVITO account, the page lists all active OVITO Pro installations currently linked to your 
         account. Click on <emphasis>Deactivate installation</emphasis> to remove an installation from our records, 
         which will also disable the software on your machine. 
       </para>

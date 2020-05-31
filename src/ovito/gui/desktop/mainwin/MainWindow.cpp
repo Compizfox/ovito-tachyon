@@ -24,7 +24,6 @@
 #include <ovito/gui/desktop/app/GuiApplicationService.h>
 #include <ovito/gui/desktop/actions/ActionManager.h>
 #include <ovito/gui/desktop/widgets/animation/AnimationTimeSpinner.h>
-#include <ovito/gui/desktop/widgets/animation/AnimationFramesToolButton.h>
 #include <ovito/gui/desktop/widgets/animation/AnimationTimeSlider.h>
 #include <ovito/gui/desktop/widgets/animation/AnimationTrackBar.h>
 #include <ovito/gui/desktop/widgets/rendering/FrameBufferWindow.h>
@@ -356,6 +355,7 @@ void MainWindow::createMainToolbar()
 {
 	_mainToolbar = addToolBar(tr("Main Toolbar"));
 	_mainToolbar->setObjectName("MainToolbar");
+	_mainToolbar->setMovable(false);
 
 	_mainToolbar->addAction(actionManager()->getAction(ACTION_FILE_IMPORT));
 	_mainToolbar->addAction(actionManager()->getAction(ACTION_FILE_REMOTE_IMPORT));

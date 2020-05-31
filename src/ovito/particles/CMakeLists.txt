@@ -28,6 +28,9 @@ SET(SourceFiles
 	objects/ParticleBondMap.cpp
 	objects/BondsObject.cpp
 	objects/BondsVis.cpp
+	objects/AnglesObject.cpp
+	objects/DihedralsObject.cpp
+	objects/ImpropersObject.cpp
 	objects/TrajectoryObject.cpp
 	objects/TrajectoryVis.cpp
 	objects/VectorVis.cpp

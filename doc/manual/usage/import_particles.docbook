@@ -119,7 +119,7 @@
             <row>
               <entry>LAMMPS&#xA0;data</entry>
               <entry><para>File format used by the <link xlink:href="http://lammps.sandia.gov/doc/read_data.html">LAMMPS</link> molecular dynamics code.</para></entry>
-              <entry><link linkend="scene_objects.particles">particles</link>, <link linkend="scene_objects.bonds">bonds</link></entry>
+              <entry><link linkend="scene_objects.particles">particles</link>, <link linkend="scene_objects.bonds">bonds</link>, angles, dihedrals, impropers</entry>
             </row>
             <row>
               <entry>XYZ</entry>
@@ -253,7 +253,7 @@
        <command>hostname</command> with the host name of the remote machine,
        and <command>/path/filename</command> with the full path to the simulation file that should be loaded.
        Similarly, you can let OVITO retrieve a data file from a webserver by specifying an URL of the form
-       <screen><command>    https://www.ovito.org/path/filename</command></screen>
+       <screen><command>    https://www.website.org/path/filename</command></screen>
     </para>
     <para>
        When connecting to the remote machine, OVITO will ask for the login password or the passphrase for the private key to be used for authentication.

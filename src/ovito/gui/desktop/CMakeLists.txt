@@ -112,6 +112,7 @@ OVITO_STANDARD_PLUGIN(Gui
 		properties/SubObjectParameterUI.cpp
 		properties/VariantComboBoxParameterUI.cpp
 		properties/Vector3ParameterUI.cpp
+		properties/OpenDataInspectorButton.cpp
 		rendering/RenderSettingsEditor.cpp
 		viewport/ViewportWindow.cpp
 		viewport/ViewportMenu.cpp

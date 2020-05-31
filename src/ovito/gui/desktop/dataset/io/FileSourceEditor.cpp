@@ -114,7 +114,12 @@ void FileSourceEditor::createUI(const RolloutInsertionParameters& rolloutParams)
 		gridlayout->addWidget(new QLabel(tr("Current frame:")), 2, 0);
 		_framesListBox = new QComboBox();
 		_framesListBox->setEditable(false);
+		// To improve performance of drop-down list display:
 		_framesListBox->setSizeAdjustPolicy(QComboBox::AdjustToMinimumContentsLengthWithIcon);
+		static_cast<QListView*>(_framesListBox->view())->setUniformItemSizes(true);
+		static_cast<QListView*>(_framesListBox->view())->setLayoutMode(QListView::Batched);
+		_framesListModel = new QStringListModel(this);
+		_framesListBox->setModel(_framesListModel);
 		connect(_framesListBox, (void (QComboBox::*)(int))&QComboBox::activated, this, &FileSourceEditor::onFrameSelected);
 		gridlayout->addWidget(_framesListBox, 2, 1);
 		_timeSeriesLabel = new QLabel();
@@ -157,14 +162,18 @@ void FileSourceEditor::createUI(const RolloutInsertionParameters& rolloutParams)
 
 	// Show settings editor of importer class.
 	new SubObjectParameterUI(this, PROPERTY_FIELD(FileSource::importer), rolloutParams.after(rollout));
-}
 
-/******************************************************************************
-* Is called when a new object has been loaded into the editor.
-******************************************************************************/
-void FileSourceEditor::onEditorContentsReplaced(RefTarget* newObject)
-{
-	updateInformationLabel();
+	// Whenever a new FileSource gets loaded into the editor:
+	connect(this, &PropertiesEditor::contentsReplaced, this, [this, con = QMetaObject::Connection()](RefTarget* editObject) mutable {
+		disconnect(con);
+
+		// Update displayed information.
+		updateFramesList();
+		updateInformationLabel();
+
+		// Update the frames list displayed in the UI whenever it changes.
+		con = editObject ? connect(static_object_cast<FileSource>(editObject), &FileSource::framesListChanged, this, &FileSourceEditor::updateFramesList) : QMetaObject::Connection();
+	});
 }
 
 /******************************************************************************
@@ -364,6 +373,7 @@ void FileSourceEditor::updateInformationLabel()
 {
 	FileSource* fileSource = static_object_cast<FileSource>(editObject());
 	if(!fileSource) {
+		// Disable all UI controls if no file source exists.
 		_wildcardPatternTextbox->clear();
 		_wildcardPatternTextbox->setEnabled(false);
 		_sourcePathLabel->setText(QString());
@@ -373,8 +383,6 @@ void FileSourceEditor::updateInformationLabel()
 			_framesListBox->clear();
 			_framesListBox->setEnabled(false);
 		}
-		if(_fileSeriesLabel)
-			_fileSeriesLabel->setText(QString());
 		return;
 	}
 
@@ -411,22 +419,6 @@ void FileSourceEditor::updateInformationLabel()
 		_filenameLabel->setText(QString());
 	}
 
-	// Count the number of files matching the wildcard pattern.
-	int fileSeriesCount = 0;
-	QUrl lastUrl;
-	for(const FileSourceImporter::Frame& frame : fileSource->frames()) {
-		if(frame.sourceFile != lastUrl) {
-			fileSeriesCount++;
-			lastUrl = frame.sourceFile;
-		}
-	}
-	if(fileSeriesCount == 0)
-		_fileSeriesLabel->setText(tr("Found no matching file"));
-	else if(fileSeriesCount == 1)
-		_fileSeriesLabel->setText(tr("Found %1 matching file").arg(fileSeriesCount));
-	else
-		_fileSeriesLabel->setText(tr("Found %1 matching files").arg(fileSeriesCount));
-
 	if(_timeSeriesLabel) {
 		if(!fileSource->frames().empty())
 			_timeSeriesLabel->setText(tr("Showing frame %1 of %2").arg(fileSource->dataCollectionFrame()+1).arg(fileSource->frames().count()));
@@ -435,23 +427,43 @@ void FileSourceEditor::updateInformationLabel()
 	}
 
 	if(_framesListBox) {
-		for(int index = 0; index < fileSource->frames().size(); index++) {
-			if(_framesListBox->count() <= index) {
-				_framesListBox->addItem(fileSource->frames()[index].label);
-			}
-			else {
-				if(_framesListBox->itemText(index) != fileSource->frames()[index].label)
-					_framesListBox->setItemText(index, fileSource->frames()[index].label);
-			}
-		}
-		for(int index = _framesListBox->count() - 1; index >= fileSource->frames().size(); index--) {
-			_framesListBox->removeItem(index);
-		}
 		_framesListBox->setCurrentIndex(frameIndex);
-		_framesListBox->setEnabled(_framesListBox->count() > 1);
 	}
 
 	_statusLabel->setStatus(fileSource->status());
+}
+
+/******************************************************************************
+* Updates the list of trajectory frames displayed in the UI.
+******************************************************************************/
+void FileSourceEditor::updateFramesList()
+{
+	FileSource* fileSource = static_object_cast<FileSource>(editObject());
+
+	if(!fileSource) {
+		// Disable all UI controls if no file source exists.
+		if(_fileSeriesLabel)
+			_fileSeriesLabel->setText(QString());
+		return;
+	}
+
+	// Gets the number of files matching the wildcard pattern.
+	if(fileSource->numberOfFiles() == 0)
+		_fileSeriesLabel->setText(tr("Found no matching file"));
+	else if(fileSource->numberOfFiles() == 1)
+		_fileSeriesLabel->setText(tr("Found 1 matching file"));
+	else
+		_fileSeriesLabel->setText(tr("Found %1 matching files").arg(fileSource->numberOfFiles()));
+
+	if(_framesListBox) {
+		QStringList stringList;
+		stringList.reserve(fileSource->frames().size());
+		for(const FileSourceImporter::Frame& frame : fileSource->frames())
+			stringList.push_back(frame.label);
+		_framesListModel->setStringList(std::move(stringList));
+		_framesListBox->setCurrentIndex(fileSource->dataCollectionFrame());
+		_framesListBox->setEnabled(_framesListBox->count() > 1);
+	}
 }
 
 /******************************************************************************
@@ -471,7 +483,7 @@ void FileSourceEditor::onFrameSelected(int index)
 bool FileSourceEditor::referenceEvent(RefTarget* source, const ReferenceEvent& event)
 {
 	if(source == editObject()) {
-		if(event.type() == ReferenceEvent::ObjectStatusChanged || event.type() == ReferenceEvent::TitleChanged) {
+		if(event.type() == ReferenceEvent::ObjectStatusChanged || event.type() == ReferenceEvent::TitleChanged || event.type() == ReferenceEvent::ReferenceChanged) {
 			updateInformationLabel();
 		}
 	}

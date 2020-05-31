@@ -108,11 +108,11 @@ FileSourceImporter::FrameDataPtr LAMMPSDataImporter::FrameLoader::loadFile()
 	stream.readLine();
 
 	qlonglong natoms = 0;
-	int natomtypes = 0;
 	qlonglong nbonds = 0;
-	int nangles = 0;
-	int ndihedrals = 0;
-	int nimpropers = 0;
+	qlonglong nangles = 0;
+	qlonglong ndihedrals = 0;
+	qlonglong nimpropers = 0;
+	int natomtypes = 0;
 	int nbondtypes = 0;
 	int nangletypes = 0;
 	int ndihedraltypes = 0;
@@ -134,17 +134,7 @@ FileSourceImporter::FrameDataPtr LAMMPSDataImporter::FrameLoader::loadFile()
     	// If line is blank, continue.
 		if(line.find_first_not_of(" \t\n\r") == string::npos) continue;
 
-    	if(line.find("atoms") != string::npos) {
-    		if(sscanf(line.c_str(), "%llu", &natoms) != 1)
-    			throw Exception(tr("Invalid number of atoms (line %1): %2").arg(stream.lineNumber()).arg(line.c_str()));
-
-			setProgressMaximum(natoms);
-		}
-    	else if(line.find("atom") != string::npos && line.find("types") != string::npos) {
-    		if(sscanf(line.c_str(), "%u", &natomtypes) != 1)
-    			throw Exception(tr("Invalid number of atom types (line %1): %2").arg(stream.lineNumber()).arg(line.c_str()));
-    	}
-    	else if(line.find("xlo") != string::npos && line.find("xhi") != string::npos) {
+    	if(line.find("xlo") != string::npos && line.find("xhi") != string::npos) {
     		if(sscanf(line.c_str(), FLOATTYPE_SCANF_STRING " " FLOATTYPE_SCANF_STRING, &xlo, &xhi) != 2)
     			throw Exception(tr("Invalid xlo/xhi values (line %1): %2").arg(stream.lineNumber()).arg(line.c_str()));
     	}
@@ -160,6 +150,15 @@ FileSourceImporter::FrameDataPtr LAMMPSDataImporter::FrameLoader::loadFile()
     		if(sscanf(line.c_str(), FLOATTYPE_SCANF_STRING " " FLOATTYPE_SCANF_STRING " " FLOATTYPE_SCANF_STRING, &xy, &xz, &yz) != 3)
     			throw Exception(tr("Invalid xy/xz/yz values (line %1): %2").arg(stream.lineNumber()).arg(line.c_str()));
     	}
+    	else if(line.find("atoms") != string::npos) {
+    		if(sscanf(line.c_str(), "%llu", &natoms) != 1)
+    			throw Exception(tr("Invalid number of atoms (line %1): %2").arg(stream.lineNumber()).arg(line.c_str()));
+			setProgressMaximum(natoms);
+		}
+    	else if(line.find("atom") != string::npos && line.find("types") != string::npos) {
+    		if(sscanf(line.c_str(), "%u", &natomtypes) != 1)
+    			throw Exception(tr("Invalid number of atom types (line %1): %2").arg(stream.lineNumber()).arg(line.c_str()));
+    	}
     	else if(line.find("bonds") != string::npos) {
     		if(sscanf(line.c_str(), "%llu", &nbonds) != 1)
     			throw Exception(tr("Invalid number of bonds (line %1): %2").arg(stream.lineNumber()).arg(line.c_str()));
@@ -168,29 +167,29 @@ FileSourceImporter::FrameDataPtr LAMMPSDataImporter::FrameLoader::loadFile()
     		if(sscanf(line.c_str(), "%u", &nbondtypes) != 1)
     			throw Exception(tr("Invalid number of bond types (line %1): %2").arg(stream.lineNumber()).arg(line.c_str()));
     	}
+    	else if(line.find("angles") != string::npos) {
+    		if(sscanf(line.c_str(), "%llu", &nangles) != 1)
+    			throw Exception(tr("Invalid number of angles (line %1): %2").arg(stream.lineNumber()).arg(line.c_str()));
+    	}
     	else if(line.find("angle") != string::npos && line.find("types") != string::npos) {
     		if(sscanf(line.c_str(), "%u", &nangletypes) != 1)
     			throw Exception(tr("Invalid number of angle types (line %1): %2").arg(stream.lineNumber()).arg(line.c_str()));
+    	}
+    	else if(line.find("dihedrals") != string::npos) {
+    		if(sscanf(line.c_str(), "%llu", &ndihedrals) != 1)
+    			throw Exception(tr("Invalid number of dihedrals (line %1): %2").arg(stream.lineNumber()).arg(line.c_str()));
     	}
     	else if(line.find("dihedral") != string::npos && line.find("types") != string::npos) {
     		if(sscanf(line.c_str(), "%u", &ndihedraltypes) != 1)
     			throw Exception(tr("Invalid number of dihedral types (line %1): %2").arg(stream.lineNumber()).arg(line.c_str()));
     	}
+    	else if(line.find("impropers") != string::npos) {
+    		if(sscanf(line.c_str(), "%llu", &nimpropers) != 1)
+    			throw Exception(tr("Invalid number of impropers (line %1): %2").arg(stream.lineNumber()).arg(line.c_str()));
+    	}
     	else if(line.find("improper") != string::npos && line.find("types") != string::npos) {
     		if(sscanf(line.c_str(), "%u", &nimpropertypes) != 1)
     			throw Exception(tr("Invalid number of improper types (line %1): %2").arg(stream.lineNumber()).arg(line.c_str()));
-    	}
-    	else if(line.find("angles") != string::npos) {
-    		if(sscanf(line.c_str(), "%u", &nangles) != 1)
-    			throw Exception(tr("Invalid number of angles (line %1): %2").arg(stream.lineNumber()).arg(line.c_str()));
-    	}
-    	else if(line.find("dihedrals") != string::npos) {
-    		if(sscanf(line.c_str(), "%u", &ndihedrals) != 1)
-    			throw Exception(tr("Invalid number of dihedrals (line %1): %2").arg(stream.lineNumber()).arg(line.c_str()));
-    	}
-    	else if(line.find("impropers") != string::npos) {
-    		if(sscanf(line.c_str(), "%u", &nimpropers) != 1)
-    			throw Exception(tr("Invalid number of impropers (line %1): %2").arg(stream.lineNumber()).arg(line.c_str()));
     	}
     	else if(line.find("extra") != string::npos && line.find("per") != string::npos && line.find("atom") != string::npos) {}
     	else if(line.find("triangles") != string::npos) {}
@@ -379,18 +378,9 @@ FileSourceImporter::FrameDataPtr LAMMPSDataImporter::FrameLoader::loadFile()
 		else if(keyword.startsWith("Improper Coeffs") || keyword.startsWith("AngleAngle Coeffs")) {
 			for(int i = 0; i < nimpropertypes; i++) stream.readLine();
 		}
-		else if(keyword.startsWith("Angles")) {
-			for(int i = 0; i < nangles; i++) stream.readLine();
-		}
-		else if(keyword.startsWith("Dihedrals")) {
-			for(int i = 0; i < ndihedrals; i++) stream.readLine();
-		}
-		else if(keyword.startsWith("Impropers")) {
-			for(int i = 0; i < nimpropers; i++) stream.readLine();
-		}
 		else if(keyword.startsWith("Bonds")) {
 
-			// Get the atomic IDs and positions.
+			// Get the atomic IDs, which have already been read.
 			ConstPropertyAccess<qlonglong> identifierProperty = frameData->findStandardParticleProperty(ParticlesObject::IdentifierProperty);
 			if(!identifierProperty)
 				throw Exception(tr("Atoms section must precede Bonds section in data file (error in line %1).").arg(stream.lineNumber()));
@@ -438,6 +428,132 @@ FileSourceImporter::FrameDataPtr LAMMPSDataImporter::FrameLoader::loadFile()
 			}
 			frameData->generateBondPeriodicImageProperty();
 		}
+		else if(keyword.startsWith("Angles")) {
+
+			// Get the atomic IDs, which have already been read.
+			ConstPropertyAccess<qlonglong> identifierProperty = frameData->findStandardParticleProperty(ParticlesObject::IdentifierProperty);
+			if(!identifierProperty)
+				throw Exception(tr("Atoms section must precede Angles section in data file (error in line %1).").arg(stream.lineNumber()));
+
+			// Create angles topology storage.
+			PropertyAccess<ParticleIndexTriplet> angleTopologyProperty = frameData->addAngleProperty(AnglesObject::OOClass().createStandardStorage(nangles, AnglesObject::TopologyProperty, false));
+
+			// Create angle type property.
+			PropertyAccess<int> typeProperty = frameData->addAngleProperty(AnglesObject::OOClass().createStandardStorage(nangles, AnglesObject::TypeProperty, true));
+
+			// Create angle types.
+			ParticleFrameData::TypeList* angleTypeList = frameData->createPropertyTypesList(typeProperty, ElementType::OOClass());
+			for(int i = 1; i <= nangletypes; i++)
+				angleTypeList->addTypeId(i);
+
+			setProgressMaximum(nangles);
+			int* angleType = typeProperty.begin();
+			ParticleIndexTriplet* angle = angleTopologyProperty.begin();
+			for(size_t i = 0; i < (size_t)nangles; i++, ++angle, ++angleType) {
+				if(!setProgressValueIntermittent(i)) return {};
+				stream.readLine();
+
+				qlonglong angleId;
+				if(sscanf(stream.line(), "%llu %u %llu %llu %llu", &angleId, angleType, &(*angle)[0], &(*angle)[1], &(*angle)[2]) != 5)
+					throw Exception(tr("Invalid angle specification (line %1): %2").arg(stream.lineNumber()).arg(stream.lineString()));
+
+				for(qlonglong& idx : *angle) {
+					if(idx < 0 || idx >= (qlonglong)identifierProperty.size() || idx != identifierProperty[idx]) {
+						auto iter = atomIdMap.find(idx);
+						if(iter == atomIdMap.end())
+							throw Exception(tr("Nonexistent atom ID encountered in line %1 of data file.").arg(stream.lineNumber()));
+						idx = iter->second;
+					}
+				}
+
+				if(*angleType < 1 || *angleType > nangletypes)
+					throw Exception(tr("Angle type out of range in Angles section of LAMMPS data file at line %1.").arg(stream.lineNumber()));
+			}
+		}
+		else if(keyword.startsWith("Dihedrals")) {
+
+			// Get the atomic IDs, which have already been read.
+			ConstPropertyAccess<qlonglong> identifierProperty = frameData->findStandardParticleProperty(ParticlesObject::IdentifierProperty);
+			if(!identifierProperty)
+				throw Exception(tr("Atoms section must precede Dihedrals section in data file (error in line %1).").arg(stream.lineNumber()));
+
+			// Create dihedrals topology storage.
+			PropertyAccess<ParticleIndexQuadruplet> dihedralTopologyProperty = frameData->addDihedralProperty(DihedralsObject::OOClass().createStandardStorage(ndihedrals, DihedralsObject::TopologyProperty, false));
+
+			// Create dihedral type property.
+			PropertyAccess<int> typeProperty = frameData->addDihedralProperty(DihedralsObject::OOClass().createStandardStorage(ndihedrals, DihedralsObject::TypeProperty, true));
+
+			// Create dihedral types.
+			ParticleFrameData::TypeList* dihedralTypeList = frameData->createPropertyTypesList(typeProperty, ElementType::OOClass());
+			for(int i = 1; i <= ndihedraltypes; i++)
+				dihedralTypeList->addTypeId(i);
+
+			setProgressMaximum(ndihedrals);
+			int* dihedralType = typeProperty.begin();
+			ParticleIndexQuadruplet* dihedral = dihedralTopologyProperty.begin();
+			for(size_t i = 0; i < (size_t)ndihedrals; i++, ++dihedral, ++dihedralType) {
+				if(!setProgressValueIntermittent(i)) return {};
+				stream.readLine();
+
+				qlonglong dihedralId;
+				if(sscanf(stream.line(), "%llu %u %llu %llu %llu %llu", &dihedralId, dihedralType, &(*dihedral)[0], &(*dihedral)[1], &(*dihedral)[2], &(*dihedral)[3]) != 6)
+					throw Exception(tr("Invalid dihedral specification (line %1): %2").arg(stream.lineNumber()).arg(stream.lineString()));
+
+				for(qlonglong& idx : *dihedral) {
+					if(idx < 0 || idx >= (qlonglong)identifierProperty.size() || idx != identifierProperty[idx]) {
+						auto iter = atomIdMap.find(idx);
+						if(iter == atomIdMap.end())
+							throw Exception(tr("Nonexistent atom ID encountered in line %1 of data file.").arg(stream.lineNumber()));
+						idx = iter->second;
+					}
+				}
+
+				if(*dihedralType < 1 || *dihedralType > ndihedraltypes)
+					throw Exception(tr("Dihedral type out of range in Dihedrals section of LAMMPS data file at line %1.").arg(stream.lineNumber()));
+			}
+		}
+		else if(keyword.startsWith("Impropers")) {
+
+			// Get the atomic IDs, which have already been read.
+			ConstPropertyAccess<qlonglong> identifierProperty = frameData->findStandardParticleProperty(ParticlesObject::IdentifierProperty);
+			if(!identifierProperty)
+				throw Exception(tr("Atoms section must precede Impropers section in data file (error in line %1).").arg(stream.lineNumber()));
+
+			// Create improper topology storage.
+			PropertyAccess<ParticleIndexQuadruplet> improperTopologyProperty = frameData->addImproperProperty(ImpropersObject::OOClass().createStandardStorage(nimpropers, ImpropersObject::TopologyProperty, false));
+
+			// Create improper type property.
+			PropertyAccess<int> typeProperty = frameData->addImproperProperty(ImpropersObject::OOClass().createStandardStorage(nimpropers, ImpropersObject::TypeProperty, true));
+
+			// Create improper types.
+			ParticleFrameData::TypeList* improperTypeList = frameData->createPropertyTypesList(typeProperty, ElementType::OOClass());
+			for(int i = 1; i <= nimpropertypes; i++)
+				improperTypeList->addTypeId(i);
+
+			setProgressMaximum(nimpropers);
+			int* improperType = typeProperty.begin();
+			ParticleIndexQuadruplet* improper = improperTopologyProperty.begin();
+			for(size_t i = 0; i < (size_t)nimpropers; i++, ++improper, ++improperType) {
+				if(!setProgressValueIntermittent(i)) return {};
+				stream.readLine();
+
+				qlonglong improperId;
+				if(sscanf(stream.line(), "%llu %u %llu %llu %llu %llu", &improperId, improperType, &(*improper)[0], &(*improper)[1], &(*improper)[2], &(*improper)[3]) != 6)
+					throw Exception(tr("Invalid improper specification (line %1): %2").arg(stream.lineNumber()).arg(stream.lineString()));
+
+				for(qlonglong& idx : *improper) {
+					if(idx < 0 || idx >= (qlonglong)identifierProperty.size() || idx != identifierProperty[idx]) {
+						auto iter = atomIdMap.find(idx);
+						if(iter == atomIdMap.end())
+							throw Exception(tr("Nonexistent atom ID encountered in line %1 of data file.").arg(stream.lineNumber()));
+						idx = iter->second;
+					}
+				}
+
+				if(*improperType < 1 || *improperType > nimpropertypes)
+					throw Exception(tr("Improper type out of range in Impropers section of LAMMPS data file at line %1.").arg(stream.lineNumber()));
+			}
+		}
 		else if(keyword.isEmpty() == false) {
 			throw Exception(tr("Unknown or unsupported keyword in line %1 of LAMMPS data file: %2.").arg(stream.lineNumber()-1).arg(QString::fromLocal8Bit(keyword)));
 		}
@@ -468,6 +584,12 @@ FileSourceImporter::FrameDataPtr LAMMPSDataImporter::FrameLoader::loadFile()
 	QString statusString = tr("Number of particles: %1").arg(natoms);
 	if(nbondtypes > 0 || nbonds > 0)
 		statusString += tr("\nNumber of bonds: %1").arg(nbonds);
+	if(nangletypes > 0 || nangles > 0)
+		statusString += tr("\nNumber of angles: %1").arg(nangles);
+	if(ndihedraltypes > 0 || ndihedrals > 0)
+		statusString += tr("\nNumber of dihedrals: %1").arg(ndihedrals);
+	if(nimpropertypes > 0 || nimpropers > 0)
+		statusString += tr("\nNumber of impropers: %1").arg(nimpropers);
 	frameData->setStatus(statusString);
 	return frameData;
 }

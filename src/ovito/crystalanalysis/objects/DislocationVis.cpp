@@ -572,7 +572,7 @@ void DislocationVis::clipDislocationLine(const std::deque<Point3>& line, const S
 	Point3 rp1 = simulationCell.absoluteToReduced(*v1);
 	Vector3 shiftVector = Vector3::Zero();
 	for(size_t dim = 0; dim < 3; dim++) {
-		if(simulationCell.pbcFlags()[dim]) {
+		if(simulationCell.hasPbc(dim)) {
 			while(rp1[dim] > 0) { rp1[dim] -= 1; shiftVector[dim] -= 1; }
 			while(rp1[dim] < 0) { rp1[dim] += 1; shiftVector[dim] += 1; }
 		}
@@ -586,7 +586,7 @@ void DislocationVis::clipDislocationLine(const std::deque<Point3>& line, const S
 			FloatType crossDir;
 			smallestT = FLOATTYPE_MAX;
 			for(size_t dim = 0; dim < 3; dim++) {
-				if(simulationCell.pbcFlags()[dim] && !clippedDimensions[dim]) {
+				if(simulationCell.hasPbc(dim) && !clippedDimensions[dim]) {
 					int d = (int)floor(rp2[dim]) - (int)floor(rp1[dim]);
 					if(d == 0) continue;
 					FloatType t;

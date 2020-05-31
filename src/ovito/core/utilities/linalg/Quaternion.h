@@ -228,8 +228,8 @@ public:
 	///////////////////////////////// Interpolation //////////////////////////////
 
 	/// \brief Interpolates between two quaternions using spherical linear interpolation.
-	/// \param q1 The first rotation.
-	/// \param q2 The second rotation.
+	/// \param q1 The first rotation (must be normalized).
+	/// \param q2 The second rotation (must be normalized).
 	/// \param alpha The parameter for the linear interpolation in the range [0,1].
 	/// \return A linear interpolation between \a q1 and \a q2.
     static QuaternionT interpolate(const QuaternionT& q1, const QuaternionT& q2, T alpha) {
@@ -258,6 +258,27 @@ public:
     	return res;
     }
 
+	/// \brief Interpolates between two quaternions using spherical linear interpolation.
+	/// \param q1 The first rotation.
+	/// \param q2 The second rotation.
+	/// \param alpha The parameter for the linear interpolation in the range [0,1].
+	/// \return A linear interpolation between \a q1 and \a q2.
+    static QuaternionT interpolateSafely(const QuaternionT& q1, const QuaternionT& q2, T alpha) {
+		T q1dot = q1.dot(q1);
+		T q2dot = q2.dot(q2);
+		if(q1dot > T(FLOATTYPE_EPSILON*FLOATTYPE_EPSILON) && q2dot > T(FLOATTYPE_EPSILON*FLOATTYPE_EPSILON)) {
+			T q1norm = sqrt(q1dot);
+			T q2norm = sqrt(q2dot);
+			return interpolate(
+				QuaternionT(q1[0] / q1norm, q1[1] / q1norm, q1[2] / q1norm, q1[3] / q1norm),
+				QuaternionT(q2[0] / q2norm, q2[1] / q2norm, q2[2] / q2norm, q2[3] / q2norm),
+				alpha);
+		}
+		else {
+			return q1;
+		}
+	}
+
 	/// \brief Interpolates between two quaternions using spherical quadratic interpolation.
 	/// \param q1 The first rotation (at t==0.0).
 	/// \param q2 The second rotation (at t==1.0).
@@ -268,7 +289,7 @@ public:
 	static QuaternionT interpolateQuad(const QuaternionT& q1, const QuaternionT& q2, const QuaternionT& out, const QuaternionT& in, T alpha) {
 		QuaternionT slerpP = interpolate(q1, q2, alpha);
 		QuaternionT slerpQ = interpolate(out, in, alpha);
-		T Ti = 2 * alpha * (1 - alpha);
+		T Ti = T(2) * alpha * (T(1) - alpha);
 		return interpolate(slerpP, slerpQ, Ti);
 	}
 

@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Copyright 2018 Alexander Stukowski
+//  Copyright 2020 Alexander Stukowski
 //
 //  This file is part of OVITO (Open Visualization Tool).
 //
@@ -41,8 +41,10 @@ class PipelineListItem : public RefMaker
 public:
 
 	enum PipelineItemType {
-		Object,
-		SubObject,
+		VisualElement,
+		Modifier,
+		DataSource,
+		DataObject,
 		VisualElementsHeader,
 		ModificationsHeader,
 		DataSourceHeader,
@@ -67,10 +69,13 @@ public:
 	bool isObjectActive() const;
 
 	/// Returns the title text for this list item.
-	QString title() const;
+	const QString& title() const { return _title; }
 
 	/// Returns the type of this list item.
 	PipelineItemType itemType() const { return _itemType; }
+
+	/// Returns whether this list item represents an OVITO object.
+	bool isObjectItem() const { return _itemType <= DataObject; }
 
 Q_SIGNALS:
 
@@ -85,6 +90,9 @@ protected:
 	/// This method is called when a reference target changes.
 	virtual bool referenceEvent(RefTarget* source, const ReferenceEvent& event) override;
 
+	/// Updates the stored title string of the item.
+	void updateTitle();
+
 private:
 
 	/// The object represented by this item in the list box.
@@ -95,6 +103,9 @@ private:
 
 	/// If this is a sub-object entry then this points to the parent.
 	PipelineListItem* _parent;
+
+	/// The display title of the list item.
+	QString _title;
 };
 
 }	// End of namespace

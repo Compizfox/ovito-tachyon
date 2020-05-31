@@ -82,9 +82,9 @@ QWidget* GlobalAttributesInspectionApplet::createWidget(MainWindow* mainWindow)
 /******************************************************************************
 * Updates the contents displayed in the inspector.
 ******************************************************************************/
-void GlobalAttributesInspectionApplet::updateDisplay(const PipelineFlowState& state, PipelineSceneNode* sceneNode)
+void GlobalAttributesInspectionApplet::updateDisplay(const PipelineFlowState& state, PipelineSceneNode* pipeline)
 {
-	_sceneNode = sceneNode;
+	DataInspectionApplet::updateDisplay(state, pipeline);
 	_tableModel->setContents(state.data());
 }
 
@@ -110,7 +110,7 @@ bool GlobalAttributesInspectionApplet::selectDataObject(PipelineObject* dataSour
 ******************************************************************************/
 void GlobalAttributesInspectionApplet::exportToFile()
 {
-	if(!_sceneNode)
+	if(!currentPipeline())
 		return;
 
 	// Let the user select a destination file.
@@ -139,7 +139,7 @@ void GlobalAttributesInspectionApplet::exportToFile()
 	// Export to selected file.
 	try {
 		// Create exporter service.
-		OORef<AttributeFileExporter> exporter = new AttributeFileExporter(_sceneNode->dataset());
+		OORef<AttributeFileExporter> exporter = new AttributeFileExporter(currentPipeline()->dataset());
 
 		// Load user-defined default settings.
 		exporter->loadUserDefaults();
@@ -148,7 +148,7 @@ void GlobalAttributesInspectionApplet::exportToFile()
 		exporter->setOutputFilename(exportFile);
 
 		// Set scene node to be exported.
-		exporter->setNodeToExport(_sceneNode);
+		exporter->setNodeToExport(currentPipeline());
 
 		// Let the user adjust the export settings.
 		FileExporterSettingsDialog settingsDialog(_mainWindow, exporter);

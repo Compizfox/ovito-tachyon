@@ -162,7 +162,7 @@ void DataInspectorPanel::onSceneSelectionChanged()
 	}
 	if(selectedNode != _selectedNodeListener.target()) {
 		_selectedNodeListener.setTarget(selectedNode);
-		_updateInvocation(this);
+		updateInspector();
 	}
 }
 
@@ -179,11 +179,7 @@ void DataInspectorPanel::onSceneNodeNotificationEvent(const ReferenceEvent& even
 ******************************************************************************/
 void DataInspectorPanel::onScenePreparationBegin()
 {
-	_waitingForSceneAnim.start();
-	QTimer::singleShot(400, this, [this]() {
-		if(_waitingForSceneAnim.state() == QMovie::Running)
-			_waitingForSceneIndicator->show();
-	});
+	_activityDelayTimer.start(400,  Qt::CoarseTimer, this);
 }
 
 /******************************************************************************
@@ -191,9 +187,24 @@ void DataInspectorPanel::onScenePreparationBegin()
 ******************************************************************************/
 void DataInspectorPanel::onScenePreparationEnd()
 {
+	_activityDelayTimer.stop();
 	_waitingForSceneIndicator->hide();
 	_waitingForSceneAnim.stop();
 	updateInspector();
+}
+
+/******************************************************************************
+* Handles timer events for this object.
+******************************************************************************/
+void DataInspectorPanel::timerEvent(QTimerEvent* event)
+{
+	if(event->timerId() == _activityDelayTimer.timerId()) {
+		OVITO_ASSERT(_activityDelayTimer.isActive());
+		_activityDelayTimer.stop();
+		_waitingForSceneAnim.start();
+		_waitingForSceneIndicator->show();
+	}
+	QWidget::timerEvent(event);
 }
 
 /******************************************************************************

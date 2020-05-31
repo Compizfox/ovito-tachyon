@@ -82,6 +82,9 @@ public:
 	/// \brief Asks the object for the result of the data pipeline.
 	virtual SharedFuture<PipelineFlowState> evaluate(const PipelineEvaluationRequest& request) override;
 
+	/// \brief Asks the pipeline stage to compute the preliminary results in a synchronous fashion.
+	virtual PipelineFlowState evaluateSynchronous(TimePoint time) override;
+
 	/// \brief Returns the number of animation frames this pipeline object can provide.
 	virtual int numberOfSourceFrames() const override;
 

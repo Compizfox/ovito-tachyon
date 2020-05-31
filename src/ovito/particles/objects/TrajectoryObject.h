@@ -34,7 +34,7 @@ namespace Ovito { namespace Particles {
 class OVITO_PARTICLES_EXPORT TrajectoryObject : public PropertyContainer
 {
 	/// Define a new property metaclass for this property container type.
-	class OOMetaClass : public PropertyContainerClass
+	class OVITO_PARTICLES_EXPORT OOMetaClass : public PropertyContainerClass
 	{
 	public:
 

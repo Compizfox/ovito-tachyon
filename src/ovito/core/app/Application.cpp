@@ -74,8 +74,11 @@ Application::Application() : _exitCode(0), _consoleMode(true), _headlessMode(tru
 	OVITO_ASSERT(_instance == nullptr);	// Only allowed to create one Application class instance.
 	_instance = this;
 
-	// Use all procesor cores by default.
+	// Use all available processor cores by default, or the user-specified
+	// number given by the OVITO_THREAD_COUNT environment variable.
 	_idealThreadCount = std::max(1, QThread::idealThreadCount());
+	if(qEnvironmentVariableIsSet("OVITO_THREAD_COUNT"))
+		_idealThreadCount = std::max(1, qgetenv("OVITO_THREAD_COUNT").toInt());
 }
 
 /******************************************************************************

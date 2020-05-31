@@ -107,9 +107,9 @@ private:
 	/// the vector (B-A) is not a wrapped vector.
 	Vector3 calculateShiftVector(const Point3& a, const Point3& b) const {
 		Vector3 d = cell().absoluteToReduced(b - a);
-		d.x() = cell().pbcFlags()[0] ? floor(d.x() + FloatType(0.5)) : FloatType(0);
-		d.y() = cell().pbcFlags()[1] ? floor(d.y() + FloatType(0.5)) : FloatType(0);
-		d.z() = cell().pbcFlags()[2] ? floor(d.z() + FloatType(0.5)) : FloatType(0);
+		d.x() = cell().hasPbc(0) ? std::floor(d.x() + FloatType(0.5)) : FloatType(0);
+		d.y() = cell().hasPbc(1) ? std::floor(d.y() + FloatType(0.5)) : FloatType(0);
+		d.z() = cell().hasPbc(2) ? std::floor(d.z() + FloatType(0.5)) : FloatType(0);
 		return cell().reducedToAbsolute(d);
 	}
 

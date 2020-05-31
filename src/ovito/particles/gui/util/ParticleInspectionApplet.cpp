@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Copyright 2019 Alexander Stukowski
+//  Copyright 2020 Alexander Stukowski
 //
 //  This file is part of OVITO (Open Visualization Tool).
 //
@@ -116,13 +116,13 @@ QWidget* ParticleInspectionApplet::createWidget(MainWindow* mainWindow)
 /******************************************************************************
 * Updates the contents displayed in the inspector.
 ******************************************************************************/
-void ParticleInspectionApplet::updateDisplay(const PipelineFlowState& state, PipelineSceneNode* sceneNode)
+void ParticleInspectionApplet::updateDisplay(const PipelineFlowState& state, PipelineSceneNode* pipeline)
 {
-	// Clear selection when a different scene node has been selected.
-	if(sceneNode != currentSceneNode())
+	// Clear selection when a different scene object has been selected.
+	if(pipeline != currentPipeline())
 		_pickingMode->resetSelection();
 
-	PropertyInspectionApplet::updateDisplay(state, sceneNode);
+	PropertyInspectionApplet::updateDisplay(state, pipeline);
 
 	if(_measuringModeAction->isChecked()) {
 		updateDistanceTable();
@@ -227,7 +227,7 @@ void ParticleInspectionApplet::PickingMode::mouseReleaseEvent(ViewportWindowInte
 		pickParticle(vpwin, event->pos(), pickResult);
 		if(!event->modifiers().testFlag(Qt::ControlModifier))
 			_pickedElements.clear();
-		if(pickResult.objNode == _applet->currentSceneNode()) {
+		if(pickResult.objNode == _applet->currentPipeline()) {
 			// Don't select the same particle twice. Instead, toggle selection.
 			bool alreadySelected = false;
 			for(auto p = _pickedElements.begin(); p != _pickedElements.end(); ++p) {
@@ -261,7 +261,7 @@ void ParticleInspectionApplet::PickingMode::mouseMoveEvent(ViewportWindowInterfa
 {
 	// Change mouse cursor while hovering over a particle.
 	PickResult pickResult;
-	if(pickParticle(vpwin, event->pos(), pickResult) && pickResult.objNode == _applet->currentSceneNode())
+	if(pickParticle(vpwin, event->pos(), pickResult) && pickResult.objNode == _applet->currentPipeline())
 		setCursor(SelectionMode::selectionCursor());
 	else
 		setCursor(QCursor());

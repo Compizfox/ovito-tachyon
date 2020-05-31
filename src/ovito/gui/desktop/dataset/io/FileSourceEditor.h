@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Copyright 2014 Alexander Stukowski
+//  Copyright 2020 Alexander Stukowski
 //
 //  This file is part of OVITO (Open Visualization Tool).
 //
@@ -42,9 +42,7 @@ class FileSourceEditor : public PropertiesEditor
 public:
 
 	/// Default constructor.
-	Q_INVOKABLE FileSourceEditor() {
-		connect(this, &PropertiesEditor::contentsReplaced, this, &FileSourceEditor::onEditorContentsReplaced);
-	}
+	Q_INVOKABLE FileSourceEditor() {}
 
 protected:
 
@@ -58,9 +56,6 @@ protected:
 	bool importNewFile(FileSource* fileSource, const QUrl& url, OvitoClassPtr importerType);
 
 protected Q_SLOTS:
-
-	/// Is called when a new object has been loaded into the editor.
-	void onEditorContentsReplaced(RefTarget* newObject);
 
 	/// Is called when the user presses the "Pick local input file" button.
 	void onPickLocalInputFile();
@@ -77,6 +72,9 @@ protected Q_SLOTS:
 	/// Updates the displayed status information.
 	void updateInformationLabel();
 
+	/// Updates the list of trajectory frames displayed in the UI.
+	void updateFramesList();
+
 	/// This is called when the user has changed the source URL.
 	void onWildcardPatternEntered();
 
@@ -92,6 +90,7 @@ private:
 	QLabel* _timeSeriesLabel = nullptr;
 	StatusWidget* _statusLabel;
 	QComboBox* _framesListBox = nullptr;
+	QStringListModel* _framesListModel = nullptr;
 };
 
 }	// End of namespace

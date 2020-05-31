@@ -484,15 +484,19 @@ FileSourceImporter::FrameDataPtr CAImporter::FrameLoader::loadFile()
 * This function is called by the system from the main thread after the
 * asynchronous loading task has finished.
 ******************************************************************************/
-OORef<DataCollection> CAImporter::CrystalAnalysisFrameData::handOver(const DataCollection* existing, bool isNewFile, FileSource* fileSource)
+OORef<DataCollection> CAImporter::CrystalAnalysisFrameData::handOver(const DataCollection* existing, bool isNewFile, CloneHelper& cloneHelper, FileSource* fileSource)
 {
-	// Insert simulation cell.
-	OORef<DataCollection> output = ParticleFrameData::handOver(existing, isNewFile, fileSource);
+	// Output simulation cell.
+	OORef<DataCollection> output = ParticleFrameData::handOver(existing, isNewFile, cloneHelper, fileSource);
 
-	// Insert defect surface.
+	// Output defect surface.
 	if(defectSurface()) {
-		SurfaceMesh* defectSurfaceObj = const_cast<SurfaceMesh*>(existing ? existing->getObject<SurfaceMesh>() : nullptr);
-		if(!defectSurfaceObj) {
+		OORef<SurfaceMesh> defectSurfaceObj;
+		if(const SurfaceMesh* existingSurfaceObj = existing ? existing->getObject<SurfaceMesh>() : nullptr) {
+			defectSurfaceObj = cloneHelper.cloneObject(existingSurfaceObj, false);
+			output->addObject(defectSurfaceObj);
+		}
+		else {
 			defectSurfaceObj = output->createObject<SurfaceMesh>(fileSource, tr("Defect mesh"));
 			OORef<SurfaceMeshVis> vis = new SurfaceMeshVis(fileSource->dataset());
 			vis->setShowCap(true);
@@ -504,37 +508,29 @@ OORef<DataCollection> CAImporter::CrystalAnalysisFrameData::handOver(const DataC
 				vis->loadUserDefaults();
 			defectSurfaceObj->setVisElement(vis);
 		}
-		else {
-			output->addObject(defectSurfaceObj);
-		}
 		defectSurface()->transferTo(defectSurfaceObj);
 		defectSurfaceObj->setDomain(output->getObject<SimulationCellObject>());
 	}
 
 	// Insert cluster graph.
 	if(_clusterGraph) {
-		ClusterGraphObject* clusterGraphObj = const_cast<ClusterGraphObject*>(existing ? existing->getObject<ClusterGraphObject>() : nullptr);
-		if(!clusterGraphObj) {
-			clusterGraphObj = output->createObject<ClusterGraphObject>(fileSource);
-		}
-		else {
-			output->addObject(clusterGraphObj);
-		}
+		ClusterGraphObject* clusterGraphObj = output->createObject<ClusterGraphObject>(fileSource);
 		clusterGraphObj->setStorage(clusterGraph());
 	}
 
 	// Insert dislocations.
 	if(_dislocations) {
-		DislocationNetworkObject* dislocationNetwork = const_cast<DislocationNetworkObject*>(existing ? existing->getObject<DislocationNetworkObject>() : nullptr);
-		if(!dislocationNetwork) {
+		OORef<DislocationNetworkObject> dislocationNetwork;
+		if(const DislocationNetworkObject* existingDislocationsObj = existing ? existing->getObject<DislocationNetworkObject>() : nullptr) {
+			dislocationNetwork = cloneHelper.cloneObject(existingDislocationsObj, false);
+			output->addObject(dislocationNetwork);
+		}
+		else {
 			dislocationNetwork = output->createObject<DislocationNetworkObject>(fileSource);
 			OORef<DislocationVis> vis = new DislocationVis(fileSource->dataset());
 			if(Application::instance()->executionContext() == Application::ExecutionContext::Interactive)
 				vis->loadUserDefaults();
 			dislocationNetwork->setVisElement(vis);
-		}
-		else {
-			output->addObject(dislocationNetwork);
 		}
 		dislocationNetwork->setDomain(output->getObject<SimulationCellObject>());
 		dislocationNetwork->setStorage(dislocations());

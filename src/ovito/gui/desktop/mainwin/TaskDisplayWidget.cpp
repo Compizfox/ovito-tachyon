@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Copyright 2018 Alexander Stukowski
+//  Copyright 2020 Alexander Stukowski
 //
 //  This file is part of OVITO (Open Visualization Tool).
 //
@@ -69,10 +69,13 @@ TaskDisplayWidget::TaskDisplayWidget(MainWindow* mainWindow) : QWidget(nullptr),
 void TaskDisplayWidget::taskStarted(TaskWatcher* taskWatcher)
 {
 	// Show progress indicator only if the task doesn't finish within 200 milliseconds.
-	if(isHidden())
-		QTimer::singleShot(200, this, &TaskDisplayWidget::showIndicator);
-	else
+	if(isHidden()) {
+		if(!_delayTimer.isActive())
+			_delayTimer.start(200, Qt::CoarseTimer, this);
+	}
+	else {
 		updateIndicator();
+	}
 
 	connect(taskWatcher, &TaskWatcher::progressRangeChanged, this, &TaskDisplayWidget::taskProgressChanged);
 	connect(taskWatcher, &TaskWatcher::progressValueChanged, this, &TaskDisplayWidget::taskProgressChanged);
@@ -85,6 +88,11 @@ void TaskDisplayWidget::taskStarted(TaskWatcher* taskWatcher)
 void TaskDisplayWidget::taskFinished(TaskWatcher* taskWatcher)
 {
 	updateIndicator();
+
+	// Stop delay timer if no tasks are running.
+	const TaskManager& taskManager = _mainWindow->datasetContainer().taskManager();
+	if(taskManager.runningTasks().empty())
+		_delayTimer.stop();
 }
 
 /******************************************************************************
@@ -95,6 +103,19 @@ void TaskDisplayWidget::taskProgressChanged()
 	const TaskManager& taskManager = _mainWindow->datasetContainer().taskManager();
 	if(taskManager.runningTasks().empty() == false)
 		updateIndicator();
+}
+
+/******************************************************************************
+* Handles timer events for this object.
+******************************************************************************/
+void TaskDisplayWidget::timerEvent(QTimerEvent* event)
+{
+	if(event->timerId() == _delayTimer.timerId()) {
+		OVITO_ASSERT(_delayTimer.isActive());
+		_delayTimer.stop();
+		showIndicator();
+	}
+	QWidget::timerEvent(event);
 }
 
 /******************************************************************************
@@ -121,6 +142,7 @@ void TaskDisplayWidget::updateIndicator()
 
 	const TaskManager& taskManager = _mainWindow->datasetContainer().taskManager();
 	if(taskManager.runningTasks().empty()) {
+		_delayTimer.stop();
 		hide();
 		_mainWindow->statusBar()->removeWidget(_progressTextDisplay);
 	}

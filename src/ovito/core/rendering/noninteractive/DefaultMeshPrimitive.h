@@ -40,7 +40,7 @@ public:
 	using MeshPrimitive::MeshPrimitive;
 
 	/// Sets the mesh to be stored in this buffer object.
-	virtual void setMesh(const TriMesh& mesh, const ColorA& meshColor, bool emphasizeEdges) override {
+	virtual void setMesh(const TriMesh& mesh, const ColorA& meshColor, bool emphasizeEdges, DepthSortingMode depthSortingMode) override {
 		// Create a shallow copy of the mesh and store it in this buffer object.
 		_mesh = mesh;
 		_meshColor = meshColor;

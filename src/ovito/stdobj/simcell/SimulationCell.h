@@ -75,6 +75,12 @@ public:
 	/// Returns the PBC flags.
 	const std::array<bool,3>& pbcFlags() const { return _pbcFlags; }
 
+	/// Returns whether the simulation cell has periodic boundary conditions applied in the given direction.
+	bool hasPbc(size_t dim) const { OVITO_ASSERT(dim < 3); return _pbcFlags[dim]; }
+
+	/// Returns whether the simulation cell has periodic boundary conditions applied in at least one direction.
+	bool hasPbc() const { return _pbcFlags[0] || _pbcFlags[1] || _pbcFlags[2]; }
+
 	/// Sets the PBC flags.
 	void setPbcFlags(const std::array<bool,3>& flags) { _pbcFlags = flags; }
 

@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Copyright 2018 Alexander Stukowski
+//  Copyright 2020 Alexander Stukowski
 //
 //  This file is part of OVITO (Open Visualization Tool).
 //
@@ -56,7 +56,7 @@ public:
 	virtual QWidget* createWidget(MainWindow* mainWindow) override;
 
 	/// Lets the applet update the contents displayed in the inspector.
-	virtual void updateDisplay(const PipelineFlowState& state, PipelineSceneNode* sceneNode) override;
+	virtual void updateDisplay(const PipelineFlowState& state, PipelineSceneNode* pipeline) override;
 
 	/// This is called when the applet is no longer visible.
 	virtual void deactivate(MainWindow* mainWindow) override;
@@ -66,11 +66,6 @@ protected:
 	/// Creates the evaluator object for filter expressions.
 	virtual std::unique_ptr<PropertyExpressionEvaluator> createExpressionEvaluator() override {
 		return std::make_unique<BondExpressionEvaluator>();
-	}
-
-	/// Determines whether the given property represents a color.
-	virtual bool isColorProperty(PropertyObject* property) const override {
-		return property->type() == BondsObject::ColorProperty;
 	}
 
 private:
