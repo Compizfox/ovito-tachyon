@@ -25,7 +25,7 @@
 # This is the canonical program version number:
 SET(OVITO_VERSION_MAJOR 		"3")
 SET(OVITO_VERSION_MINOR 		"0")
-SET(OVITO_VERSION_REVISION		"0")
+SET(OVITO_VERSION_REVISION		"1")
 
 # Increment the following version counter every time the .ovito file format
 # changes in a backward-incompatible way.
@@ -33,7 +33,7 @@ SET(OVITO_FILE_FORMAT_VERSION	"30004")
 
 # Extract revision number from Git repository in order to tag development builds of OVITO.
 FIND_PACKAGE(Git)
-IF(GIT_FOUND)
+IF(GIT_FOUND AND OVITO_USE_GIT_REVISION_NUMBER)
 	# Count the number of commits since the most recent git tag.
 	EXECUTE_PROCESS(COMMAND ${GIT_EXECUTABLE} "describe"
 		WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
@@ -67,8 +67,6 @@ IF(GIT_FOUND)
 		IF(NOT GIT_RESULT_VAR STREQUAL "0")
 			MESSAGE(FATAL "Failed to run git rev-list: ${GIT_RESULT_VAR}")
 		ENDIF()
-		# Add offset of 530 to the commit number to maintain continuous numbering sequence.
-		MATH(EXPR GIT_REVISION_NUMBER "${GIT_REVISION_NUMBER}+530")
 		SET(OVITO_VERSION_STRING "${OVITO_VERSION_MAJOR}.${OVITO_VERSION_MINOR}.${OVITO_VERSION_REVISION}-dev${GIT_REVISION_NUMBER}")
 	ENDIF()
 ELSE()
