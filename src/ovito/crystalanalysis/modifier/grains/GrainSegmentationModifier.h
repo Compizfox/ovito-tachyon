@@ -64,13 +64,6 @@ public:
 	};
 	Q_ENUMS(MergeAlgorithm);
 
-	enum StackingFaultHandling {
-		Handle,		///< FCC and HCP atoms are treated as the same type. Twin boundaries are properly handled.
-		Ignore,		///< FCC and HCP atoms are treated as the same type. Twin boundaries are ignored.
-		None,	    ///< FCC and HCP atoms are never merged (outside of orphan atom adoption).
-	};
-	Q_ENUMS(StackingFaultHandling);
-
 	/// Constructor.
 	Q_INVOKABLE GrainSegmentationModifier(DataSet* dataset);
 
@@ -87,8 +80,8 @@ private:
 	/// The merging algorithm to use.
 	DECLARE_MODIFIABLE_PROPERTY_FIELD(MergeAlgorithm, mergeAlgorithm, setMergeAlgorithm);
 
-	/// The stacking fault handling type to use.
-	DECLARE_MODIFIABLE_PROPERTY_FIELD(StackingFaultHandling, stackingFaultHandling, setStackingFaultHandling);
+	/// Controls whether to handle coherent boundaries
+	DECLARE_MODIFIABLE_PROPERTY_FIELD(bool, handleBoundaries, setHandleBoundaries);
 
 	/// Controls the amount of noise allowed inside a grain.
 	DECLARE_MODIFIABLE_PROPERTY_FIELD(FloatType, mergingThreshold, setMergingThreshold);

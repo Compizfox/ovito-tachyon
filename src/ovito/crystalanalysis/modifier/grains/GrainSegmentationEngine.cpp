@@ -57,13 +57,13 @@ GrainSegmentationEngine1::GrainSegmentationEngine1(
 			ConstPropertyPtr correspondenceProperty,
 			const SimulationCell& simCell,
 			GrainSegmentationModifier::MergeAlgorithm algorithmType, 
-			GrainSegmentationModifier::StackingFaultHandling stackingFaultHandling,
+			bool stackingFaultHandling,
 			bool outputBonds) :
 	_inputFingerprint(std::move(fingerprint)),
 	_positions(std::move(positions)),
 	_simCell(simCell),
 	_algorithmType(algorithmType),
-	_stackingFaultHandling(stackingFaultHandling),
+	_handleBoundaries(stackingFaultHandling),
 	_structureTypes(structureProperty),
 	_orientations(orientationProperty),
 	_correspondences(correspondenceProperty),
@@ -92,78 +92,78 @@ void GrainSegmentationEngine1::perform()
 
 
 static bool fill_neighbors(NearestNeighborFinder::Query<PTMAlgorithm::MAX_INPUT_NEIGHBORS>& neighQuery,
-                           size_t particleIndex,
-                           size_t offset,
-                           size_t num,
-                           ptm_atomicenv_t* env)
+						   size_t particleIndex,
+						   size_t offset,
+						   size_t num,
+						   ptm_atomicenv_t* env)
 {
-    neighQuery.findNeighbors(particleIndex);
-    int numNeighbors = neighQuery.results().size();
+	neighQuery.findNeighbors(particleIndex);
+	int numNeighbors = neighQuery.results().size();
 
-    if (numNeighbors < num) {
-        return false;
-    }
+	if (numNeighbors < num) {
+		return false;
+	}
 
-    if (offset == 0) {
-        env->atom_indices[0] = particleIndex;
-        env->points[0][0] = 0;
-        env->points[0][1] = 0;
-        env->points[0][2] = 0;
-    }
+	if (offset == 0) {
+		env->atom_indices[0] = particleIndex;
+		env->points[0][0] = 0;
+		env->points[0][1] = 0;
+		env->points[0][2] = 0;
+	}
 
-    for(int i = 0; i < num; i++) {
+	for(int i = 0; i < num; i++) {
 		int p = env->correspondences[i + 1 + offset] - 1;
-	    env->atom_indices[i + 1 + offset] = neighQuery.results()[p].index;
-	    env->points[i + 1 + offset][0] = neighQuery.results()[p].delta.x();
-	    env->points[i + 1 + offset][1] = neighQuery.results()[p].delta.y();
-	    env->points[i + 1 + offset][2] = neighQuery.results()[p].delta.z();
-    }
+		env->atom_indices[i + 1 + offset] = neighQuery.results()[p].index;
+		env->points[i + 1 + offset][0] = neighQuery.results()[p].delta.x();
+		env->points[i + 1 + offset][1] = neighQuery.results()[p].delta.y();
+		env->points[i + 1 + offset][2] = neighQuery.results()[p].delta.z();
+	}
 
-    return true;
+	return true;
 }
 
 // TODO: add numbers
 static void establish_atomic_environment(NearestNeighborFinder::Query<PTMAlgorithm::MAX_INPUT_NEIGHBORS>& neighQuery,
-                                         ConstPropertyAccess<qlonglong> correspondenceArray,
-                                         PTMAlgorithm::StructureType structureType,
-                                         size_t particleIndex,
-                                         ptm_atomicenv_t* env)
+										 ConstPropertyAccess<qlonglong> correspondenceArray,
+										 PTMAlgorithm::StructureType structureType,
+										 size_t particleIndex,
+										 ptm_atomicenv_t* env)
 {
-    int ptm_type = PTMAlgorithm::ovito_to_ptm_structure_type(structureType);
+	int ptm_type = PTMAlgorithm::ovito_to_ptm_structure_type(structureType);
 
-    neighQuery.findNeighbors(particleIndex);
-    int numNeighbors = neighQuery.results().size();
-    int num_inner = ptm_num_nbrs[ptm_type], num_outer = 0;
+	neighQuery.findNeighbors(particleIndex);
+	int numNeighbors = neighQuery.results().size();
+	int num_inner = ptm_num_nbrs[ptm_type], num_outer = 0;
 
 	if (ptm_type == PTM_MATCH_NONE) {
-        for (int i=0;i<PTM_MAX_INPUT_POINTS;i++) {
-            env->correspondences[i] = i;
-        }
+		for (int i=0;i<PTM_MAX_INPUT_POINTS;i++) {
+			env->correspondences[i] = i;
+		}
 
-        num_inner = numNeighbors;
+		num_inner = numNeighbors;
 	}
 	else {
 		numNeighbors = ptm_num_nbrs[ptm_type];
-        ptm_decode_correspondences(ptm_type, correspondenceArray[particleIndex], env->correspondences);
+		ptm_decode_correspondences(ptm_type, correspondenceArray[particleIndex], env->correspondences);
 	}
 
 	env->num = numNeighbors + 1;
 
-    if (ptm_type == PTM_MATCH_DCUB || ptm_type == PTM_MATCH_DHEX) {
-        num_inner = 4;
-        num_outer = 3;
-    }
-    else if (ptm_type == PTM_MATCH_GRAPHENE) {
-        num_inner = 3;
-        num_outer = 2;
-    }
+	if (ptm_type == PTM_MATCH_DCUB || ptm_type == PTM_MATCH_DHEX) {
+		num_inner = 4;
+		num_outer = 3;
+	}
+	else if (ptm_type == PTM_MATCH_GRAPHENE) {
+		num_inner = 3;
+		num_outer = 2;
+	}
 
-    fill_neighbors(neighQuery, particleIndex, 0, num_inner, env);
-    if (num_outer) {
-        for (int i=0;i<num_inner;i++) {
-            fill_neighbors(neighQuery, env->atom_indices[1 + i], num_inner + i * num_outer, num_outer, env);
-        }
-    }
+	fill_neighbors(neighQuery, particleIndex, 0, num_inner, env);
+	if (num_outer) {
+		for (int i=0;i<num_inner;i++) {
+			fill_neighbors(neighQuery, env->atom_indices[1 + i], num_inner + i * num_outer, num_outer, env);
+		}
+	}
 }
 
 /******************************************************************************
@@ -189,8 +189,8 @@ bool GrainSegmentationEngine1::identifyAtomicStructures()
 	// Perform analysis on each particle.
 	parallelForChunks(_numParticles, *this, [&](size_t startIndex, size_t count, Task& task) {
 
-        // Construct local neighbor list builder.
-        NearestNeighborFinder::Query<PTMAlgorithm::MAX_INPUT_NEIGHBORS> neighQuery(neighFinder);
+		// Construct local neighbor list builder.
+		NearestNeighborFinder::Query<PTMAlgorithm::MAX_INPUT_NEIGHBORS> neighQuery(neighFinder);
 
 		// Thread-local list of generated bonds connecting neighboring lattice atoms.
 		std::vector<NeighborBond> threadlocalNeighborBonds;
@@ -206,15 +206,15 @@ bool GrainSegmentationEngine1::identifyAtomicStructures()
 			if(task.isCanceled())
 				break;
 
-            // Decode the PTM correspondence
-            ptm_atomicenv_t env;
-            auto structureType = (PTMAlgorithm::StructureType)structuresArray[index];
-            establish_atomic_environment(neighQuery, correspondenceArray, structureType, index, &env);
+			// Decode the PTM correspondence
+			ptm_atomicenv_t env;
+			auto structureType = (PTMAlgorithm::StructureType)structuresArray[index];
+			establish_atomic_environment(neighQuery, correspondenceArray, structureType, index, &env);
 
-            int numNeighbors = env.num - 1;
-            if (structureType == PTMAlgorithm::OTHER) {
-                numNeighbors = std::min(numNeighbors, MAX_DISORDERED_NEIGHBORS);
-            }
+			int numNeighbors = env.num - 1;
+			if (structureType == PTMAlgorithm::OTHER) {
+				numNeighbors = std::min(numNeighbors, MAX_DISORDERED_NEIGHBORS);
+			}
 
 			for(int j = 0; j < numNeighbors; j++) {
 				size_t neighborIndex = env.atom_indices[j + 1];
@@ -250,32 +250,32 @@ bool GrainSegmentationEngine1::identifyAtomicStructures()
 
 bool GrainSegmentationEngine1::interface_FCC_HCP(NeighborBond& bond, FloatType& disorientation, Quaternion& output, size_t& index)
 {
-    disorientation = std::numeric_limits<FloatType>::infinity();
-    index = std::numeric_limits<size_t>::max();
+	disorientation = std::numeric_limits<FloatType>::infinity();
+	index = std::numeric_limits<size_t>::max();
 
-    auto a = bond.a;
-    auto b = bond.b;
-    if (_adjustedStructureTypes[b] < _adjustedStructureTypes[a]) {
-        std::swap(a, b);
-    }
+	auto a = bond.a;
+	auto b = bond.b;
+	if (_adjustedStructureTypes[b] < _adjustedStructureTypes[a]) {
+		std::swap(a, b);
+	}
 
-    if (_adjustedStructureTypes[a] != PTMAlgorithm::FCC || _adjustedStructureTypes[b] != PTMAlgorithm::HCP) {
-        return false;
-    }
+	if (_adjustedStructureTypes[a] != PTMAlgorithm::FCC || _adjustedStructureTypes[b] != PTMAlgorithm::HCP) {
+		return false;
+	}
 
-    const Quaternion& qa = _adjustedOrientations[a];
-    const Quaternion& qb = _adjustedOrientations[b];
-    double orientA[4] = { qa.w(), qa.x(), qa.y(), qa.z() };
-    double orientB[4] = { qb.w(), qb.x(), qb.y(), qb.z() };
-    disorientation = (FloatType)ptm::quat_disorientation_fcc_hcp(orientA, orientB);
-    disorientation = qRadiansToDegrees(disorientation);
+	const Quaternion& qa = _adjustedOrientations[a];
+	const Quaternion& qb = _adjustedOrientations[b];
+	double orientA[4] = { qa.w(), qa.x(), qa.y(), qa.z() };
+	double orientB[4] = { qb.w(), qb.x(), qb.y(), qb.z() };
+	disorientation = (FloatType)ptm::quat_disorientation_fcc_hcp(orientA, orientB);
+	disorientation = qRadiansToDegrees(disorientation);
 
-    output.w() = orientB[0];
-    output.x() = orientB[1];
-    output.y() = orientB[2];
-    output.z() = orientB[3];
-    index = b;
-    return true;
+	output.w() = orientB[0];
+	output.x() = orientB[1];
+	output.y() = orientB[2];
+	output.z() = orientB[3];
+	index = b;
+	return true;
 }
 
 /******************************************************************************
@@ -291,69 +291,69 @@ bool GrainSegmentationEngine1::rotateHCPAtoms()
 	ConstPropertyAccess<Quaternion> orientationsArray(orientations());
 	ConstPropertyAccess<qlonglong> correspondenceArray(correspondences());
 
-    // Construct local neighbor list builder.
-    NearestNeighborFinder::Query<PTMAlgorithm::MAX_INPUT_NEIGHBORS> neighQuery(neighFinder);
+	// Construct local neighbor list builder.
+	NearestNeighborFinder::Query<PTMAlgorithm::MAX_INPUT_NEIGHBORS> neighQuery(neighFinder);
 
-    // Make a copy of structure types and orientations
-    _adjustedStructureTypes.resize(structuresArray.size());
-    _adjustedOrientations.resize(orientationsArray.size());
+	// Make a copy of structure types and orientations
+	_adjustedStructureTypes.resize(structuresArray.size());
+	_adjustedOrientations.resize(orientationsArray.size());
 
-    // TODO: copy these properties in the correct way.
-    for (size_t i=0;i<structuresArray.size();i++) {
-        _adjustedStructureTypes[i] = structuresArray[i];
-        _adjustedOrientations[i] = orientationsArray[i];
-    }
+	// TODO: copy these properties in the correct way.
+	for (size_t i=0;i<structuresArray.size();i++) {
+		_adjustedStructureTypes[i] = structuresArray[i];
+		_adjustedOrientations[i] = orientationsArray[i];
+	}
 
-    // Only rotate HCP atoms if stacking fault handling is enabled
-    if (_stackingFaultHandling != GrainSegmentationModifier::Handle) {
-        return true;
-    }
+	// Only rotate HCP atoms if stacking fault handling is enabled
+	if (!_handleBoundaries) {
+		return true;
+	}
 
 	setProgressText(GrainSegmentationModifier::tr("Grain segmentation - rotating HCP atoms"));
 
-    // TODO: replace comparator with a lambda function
-    boost::heap::priority_queue<NeighborBond, boost::heap::compare<PriorityQueueCompare>> pq;
+	// TODO: replace comparator with a lambda function
+	boost::heap::priority_queue<NeighborBond, boost::heap::compare<PriorityQueueCompare>> pq;
 
-    size_t index;
-    Quaternion rotated;
-    FloatType disorientation;
+	size_t index;
+	Quaternion rotated;
+	FloatType disorientation;
 
-    // Populate priority queue with bonds at an FCC-HCP interface
-    for (auto bond : _neighborBonds) {
-        if (interface_FCC_HCP(bond, disorientation, rotated, index) && disorientation < _misorientationThreshold) {
-            pq.push(bond);
-        }
-    }
+	// Populate priority queue with bonds at an FCC-HCP interface
+	for (auto bond : _neighborBonds) {
+		if (interface_FCC_HCP(bond, disorientation, rotated, index) && disorientation < _misorientationThreshold) {
+			pq.push(bond);
+		}
+	}
 
-    while (pq.size()) {
-        auto bond = *pq.begin();
-        pq.pop();
+	while (pq.size()) {
+		auto bond = *pq.begin();
+		pq.pop();
 
-        if (!interface_FCC_HCP(bond, disorientation, rotated, index)) {
-            continue;
-        }
+		if (!interface_FCC_HCP(bond, disorientation, rotated, index)) {
+			continue;
+		}
 
-        // flip structure from HCP to FCC and adjust orientation
-        _adjustedStructureTypes[index] = PTMAlgorithm::FCC;
-        _adjustedOrientations[index] = rotated;
+		// flip structure from HCP to FCC and adjust orientation
+		_adjustedStructureTypes[index] = PTMAlgorithm::FCC;
+		_adjustedOrientations[index] = rotated;
 
-        // Decode the PTM correspondence
-        ptm_atomicenv_t env;
-        auto structureType = (PTMAlgorithm::StructureType)structuresArray[index];   //use original structure type for decoding correspondences
-        establish_atomic_environment(neighQuery, correspondenceArray, structureType, index, &env);
+		// Decode the PTM correspondence
+		ptm_atomicenv_t env;
+		auto structureType = (PTMAlgorithm::StructureType)structuresArray[index];   //use original structure type for decoding correspondences
+		establish_atomic_environment(neighQuery, correspondenceArray, structureType, index, &env);
 
-        int numNeighbors = env.num - 1;
-	    for(int j = 0; j < numNeighbors; j++) {
-		    size_t neighborIndex = env.atom_indices[j + 1];
-            bond.a = index;
-            bond.b = neighborIndex;
+		int numNeighbors = env.num - 1;
+		for(int j = 0; j < numNeighbors; j++) {
+			size_t neighborIndex = env.atom_indices[j + 1];
+			bond.a = index;
+			bond.b = neighborIndex;
 
-            size_t dummy;
-            if (interface_FCC_HCP(bond, disorientation, rotated, dummy) && disorientation < _misorientationThreshold) {
-                pq.push({index, neighborIndex, disorientation});
-            }
-        }
-    }
+			size_t dummy;
+			if (interface_FCC_HCP(bond, disorientation, rotated, dummy) && disorientation < _misorientationThreshold) {
+				pq.push({index, neighborIndex, disorientation});
+			}
+		}
+	}
 
 	return !isCanceled();
 }
@@ -389,13 +389,7 @@ bool GrainSegmentationEngine1::computeDisorientationAngles()
 			else if(structureType == PTMAlgorithm::HCP || structureType == PTMAlgorithm::HEX_DIAMOND || structureType == PTMAlgorithm::GRAPHENE)
 				bond.disorientation = (FloatType)ptm::quat_disorientation_hcp_conventional(orientA, orientB);
 
-            bond.disorientation = qRadiansToDegrees(bond.disorientation);
-		}
-		else if(_stackingFaultHandling == GrainSegmentationModifier::Ignore
-                && _adjustedStructureTypes[a] == PTMAlgorithm::FCC && _adjustedStructureTypes[b] == PTMAlgorithm::HCP) {
-
-            bond.disorientation = (FloatType)ptm::quat_disorientation_fcc_hcp(orientA, orientB);
-            bond.disorientation = qRadiansToDegrees(bond.disorientation);
+			bond.disorientation = qRadiansToDegrees(bond.disorientation);
 		}
 	});
 	if(isCanceled()) return false;
@@ -423,10 +417,10 @@ FloatType GrainSegmentationEngine1::calculate_disorientation(int structureType, 
 
 	// Convert structure type back to PTM representation
 	int type = 0;
-    if(structureType == PTMAlgorithm::OTHER) {
+	if(structureType == PTMAlgorithm::OTHER) {
 		qWarning() << "Grain segmentation: remap failure - disordered structure input";
-        return std::numeric_limits<FloatType>::max();
-    }
+		return std::numeric_limits<FloatType>::max();
+	}
 	else if(structureType == PTMAlgorithm::FCC) type = PTM_MATCH_FCC;
 	else if(structureType == PTMAlgorithm::HCP) type = PTM_MATCH_HCP;
 	else if(structureType == PTMAlgorithm::BCC) type = PTM_MATCH_BCC;
@@ -453,28 +447,28 @@ FloatType GrainSegmentationEngine1::calculate_disorientation(int structureType, 
 * Clustering using minimum spanning tree algorithm.
 ******************************************************************************/
 bool GrainSegmentationEngine1::minimum_spanning_tree_clustering(
-        std::vector<Quaternion>& qsum, DisjointSet& uf)
+		std::vector<Quaternion>& qsum, DisjointSet& uf)
 {
 	size_t progress = 0;
 	for(const NeighborBond& edge : _neighborBonds) {
 
-        if (edge.disorientation < _misorientationThreshold) {
-            size_t pa = uf.find(edge.a);
-            size_t pb = uf.find(edge.b);
-		    if(pa != pb && isCrystallineBond(edge)) {
-			    size_t parent = uf.merge(pa, pb);
-			    size_t child = (parent == pa) ? pb : pa;
-			    FloatType disorientation = calculate_disorientation(_adjustedStructureTypes[parent], qsum[parent], qsum[child]);
-			    OVITO_ASSERT(edge.a < edge.b);
-			    _dendrogram.emplace_back(parent, child, edge.disorientation, disorientation, 1, qsum[parent]);
-            }
-        }
+		if (edge.disorientation < _misorientationThreshold) {
+			size_t pa = uf.find(edge.a);
+			size_t pb = uf.find(edge.b);
+			if(pa != pb && isCrystallineBond(edge)) {
+				size_t parent = uf.merge(pa, pb);
+				size_t child = (parent == pa) ? pb : pa;
+				FloatType disorientation = calculate_disorientation(_adjustedStructureTypes[parent], qsum[parent], qsum[child]);
+				OVITO_ASSERT(edge.a < edge.b);
+				_dendrogram.emplace_back(parent, child, edge.disorientation, disorientation, 1, qsum[parent]);
+			}
+		}
 
 		// Update progress indicator.
 		if((progress++ % 1024) == 0) {
 			if(!incrementProgressValue(1024)) 
 				return false;
-        }
+		}
 	}
 
 	return !isCanceled();
@@ -488,23 +482,23 @@ bool GrainSegmentationEngine1::determineMergeSequence()
 	// Build graph.
 	if(_algorithmType == GrainSegmentationModifier::GraphClusteringAutomatic || _algorithmType == GrainSegmentationModifier::GraphClusteringManual) {
 
-	    setProgressText(GrainSegmentationModifier::tr("Grain segmentation - building graph"));
-	    setProgressValue(0);
-	    setProgressMaximum(neighborBonds().size());
+		setProgressText(GrainSegmentationModifier::tr("Grain segmentation - building graph"));
+		setProgressValue(0);
+		setProgressMaximum(neighborBonds().size());
 
-    	size_t progress = 0;
+		size_t progress = 0;
 		for (auto edge: neighborBonds()) {
 			if (isCrystallineBond(edge) && edge.disorientation < _misorientationThreshold) {
-		        FloatType weight = calculateGraphWeight(edge.disorientation);
-		        graph.add_edge(edge.a, edge.b, weight);
-            }
+				FloatType weight = calculateGraphWeight(edge.disorientation);
+				graph.add_edge(edge.a, edge.b, weight);
+			}
 
 			if((progress++ % 1024) == 0) {
 				if(!incrementProgressValue(1024)) 
 					return false;
-            }
-	    }
-    }
+			}
+		}
+	}
 
 	// Build dendrogram.
 	std::vector<Quaternion> qsum(_adjustedOrientations.cbegin(), _adjustedOrientations.cend());
@@ -566,59 +560,59 @@ fclose(fout);
 
 	if(_algorithmType == GrainSegmentationModifier::GraphClusteringAutomatic || _algorithmType == GrainSegmentationModifier::GraphClusteringManual) {
 
-	    // Create PropertyStorage objects for the output plot.
-	    PropertyAccess<FloatType> mergeDistanceArray = _mergeDistance = std::make_shared<PropertyStorage>(numPlot, PropertyStorage::Float, 1, 0, GrainSegmentationModifier::tr("Log merge distance"), false, DataTable::XProperty);
-	    PropertyAccess<FloatType> mergeSizeArray = _mergeSize = std::make_shared<PropertyStorage>(numPlot, PropertyStorage::Float, 1, 0, GrainSegmentationModifier::tr("Merge size"), false, DataTable::YProperty);
+		// Create PropertyStorage objects for the output plot.
+		PropertyAccess<FloatType> mergeDistanceArray = _mergeDistance = std::make_shared<PropertyStorage>(numPlot, PropertyStorage::Float, 1, 0, GrainSegmentationModifier::tr("Log merge distance"), false, DataTable::XProperty);
+		PropertyAccess<FloatType> mergeSizeArray = _mergeSize = std::make_shared<PropertyStorage>(numPlot, PropertyStorage::Float, 1, 0, GrainSegmentationModifier::tr("Merge size"), false, DataTable::YProperty);
 
-	    // Generate output data plot points from dendrogram data.
-	    FloatType* mergeDistanceIter = mergeDistanceArray.begin();
-	    FloatType* mergeSizeIter = mergeSizeArray.begin();
-	    for(const DendrogramNode& node : _dendrogram) {
-		    if(node.size >= _minPlotSize) {
-			    *mergeDistanceIter++ = std::log(node.distance);
-			    *mergeSizeIter++ = node.size;
-		    }
-	    }
+		// Generate output data plot points from dendrogram data.
+		FloatType* mergeDistanceIter = mergeDistanceArray.begin();
+		FloatType* mergeSizeIter = mergeSizeArray.begin();
+		for(const DendrogramNode& node : _dendrogram) {
+			if(node.size >= _minPlotSize) {
+				*mergeDistanceIter++ = std::log(node.distance);
+				*mergeSizeIter++ = node.size;
+			}
+		}
 
-	    // Temporarily sort dendrogram entries lexicographically, by (merge size, distance).
-	    boost::sort(_dendrogram, [](const DendrogramNode& a, const DendrogramNode& b) {if (a.size == b.size) return a.distance < b.distance; else return a.size < b.size;});
+		// Temporarily sort dendrogram entries lexicographically, by (merge size, distance).
+		boost::sort(_dendrogram, [](const DendrogramNode& a, const DendrogramNode& b) {if (a.size == b.size) return a.distance < b.distance; else return a.size < b.size;});
 
-        auto regressor = ThresholdSelection::Regressor(_dendrogram);
+		auto regressor = ThresholdSelection::Regressor(_dendrogram);
 
-	    // Sort dendrogram entries by distance (undoing the lexicographic sorting performed above).
-	    boost::sort(_dendrogram, [](const DendrogramNode& a, const DendrogramNode& b) { return a.distance < b.distance; });
+		// Sort dendrogram entries by distance (undoing the lexicographic sorting performed above).
+		boost::sort(_dendrogram, [](const DendrogramNode& a, const DendrogramNode& b) { return a.distance < b.distance; });
 
-        _suggestedMergingThreshold = regressor.calculate_threshold(_dendrogram, 3.0);
+		_suggestedMergingThreshold = regressor.calculate_threshold(_dendrogram, 3.0);
 
-	    // Create PropertyStorage objects for the output plot.
-        auto size = regressor.dsize.size();
-	    PropertyAccess<FloatType> logMergeSizeArray = _logMergeSize = std::make_shared<PropertyStorage>(size, PropertyStorage::Float, 1, 0, GrainSegmentationModifier::tr("Log merge size"), false, DataTable::XProperty);
-	    PropertyAccess<FloatType> logMergeDistanceArray = _logMergeDistance = std::make_shared<PropertyStorage>(size, PropertyStorage::Float, 1, 0, GrainSegmentationModifier::tr("Log merge distance"), false, DataTable::YProperty);
+		// Create PropertyStorage objects for the output plot.
+		auto size = regressor.dsize.size();
+		PropertyAccess<FloatType> logMergeSizeArray = _logMergeSize = std::make_shared<PropertyStorage>(size, PropertyStorage::Float, 1, 0, GrainSegmentationModifier::tr("Log merge size"), false, DataTable::XProperty);
+		PropertyAccess<FloatType> logMergeDistanceArray = _logMergeDistance = std::make_shared<PropertyStorage>(size, PropertyStorage::Float, 1, 0, GrainSegmentationModifier::tr("Log merge distance"), false, DataTable::YProperty);
 
-	    // Generate output data plot points from dendrogram data.
-	    FloatType* logMergeDistanceIter = logMergeDistanceArray.begin();
-	    FloatType* logMergeSizeIter = logMergeSizeArray.begin();
-        for (size_t i=0;i<size;i++) {
-		    *logMergeSizeIter++ = regressor.dsize[i];
-		    *logMergeDistanceIter++ = regressor.medianDistance[i];
-	    }
+		// Generate output data plot points from dendrogram data.
+		FloatType* logMergeDistanceIter = logMergeDistanceArray.begin();
+		FloatType* logMergeSizeIter = logMergeSizeArray.begin();
+		for (size_t i=0;i<size;i++) {
+			*logMergeSizeIter++ = regressor.dsize[i];
+			*logMergeDistanceIter++ = regressor.medianDistance[i];
+		}
 
 	}
-    else {
-	    // Create PropertyStorage objects for the output plot.
-	    PropertyAccess<FloatType> mergeDistanceArray = _mergeDistance = std::make_shared<PropertyStorage>(numPlot, PropertyStorage::Float, 1, 0, GrainSegmentationModifier::tr("Misorientation (degrees)"), false, DataTable::XProperty);
-	    PropertyAccess<FloatType> mergeSizeArray = _mergeSize = std::make_shared<PropertyStorage>(numPlot, PropertyStorage::Float, 1, 0, GrainSegmentationModifier::tr("Merge size"), false, DataTable::YProperty);
+	else {
+		// Create PropertyStorage objects for the output plot.
+		PropertyAccess<FloatType> mergeDistanceArray = _mergeDistance = std::make_shared<PropertyStorage>(numPlot, PropertyStorage::Float, 1, 0, GrainSegmentationModifier::tr("Misorientation (degrees)"), false, DataTable::XProperty);
+		PropertyAccess<FloatType> mergeSizeArray = _mergeSize = std::make_shared<PropertyStorage>(numPlot, PropertyStorage::Float, 1, 0, GrainSegmentationModifier::tr("Merge size"), false, DataTable::YProperty);
 
-	    // Generate output data plot points from dendrogram data.
-	    FloatType* mergeDistanceIter = mergeDistanceArray.begin();
-	    FloatType* mergeSizeIter = mergeSizeArray.begin();
-	    for(const DendrogramNode& node : _dendrogram) {
-		    if(node.size >= _minPlotSize) {
-			    *mergeDistanceIter++ = node.distance;
-			    *mergeSizeIter++ = node.size;
-		    }
-	    }
-    }
+		// Generate output data plot points from dendrogram data.
+		FloatType* mergeDistanceIter = mergeDistanceArray.begin();
+		FloatType* mergeSizeIter = mergeSizeArray.begin();
+		for(const DendrogramNode& node : _dendrogram) {
+			if(node.size >= _minPlotSize) {
+				*mergeDistanceIter++ = node.distance;
+				*mergeSizeIter++ = node.size;
+			}
+		}
+	}
 
 	return !isCanceled();
 }
@@ -650,29 +644,29 @@ void GrainSegmentationEngine2::perform()
 	FloatType mergingThreshold = _mergingThreshold;
 	if(_engine1->_algorithmType == GrainSegmentationModifier::GraphClusteringAutomatic) {
 		mergingThreshold = _engine1->suggestedMergingThreshold();
-    }
+	}
 
 	if(_engine1->_algorithmType == GrainSegmentationModifier::MinimumSpanningTree) {
 		mergingThreshold = log(mergingThreshold);
-    }
+	}
 
 	const std::vector<GrainSegmentationEngine1::DendrogramNode>& dendrogram = _engine1->_dendrogram;
 
 #if 0
-    // Refine the graph partitions
+	// Refine the graph partitions
 	if(_engine1->_algorithmType == GrainSegmentationModifier::GraphClusteringAutomatic) {
-        auto graph = _engine1->graph;
-        FloatType gamma = 1 / mergingThreshold;     // resolution parameter
+		auto graph = _engine1->graph;
+		FloatType gamma = 1 / mergingThreshold;	 // resolution parameter
 
-    	for(auto node = dendrogram.crbegin(); node != dendrogram.crend(); ++node) {
-            graph.reinstate_edge(node->a, node->b);
-            //printf("%e %e\n", node->distance, graph.wnode[node->a] * graph.wnode[node->b] / graph.adj[node->a][node->b]);
+		for(auto node = dendrogram.crbegin(); node != dendrogram.crend(); ++node) {
+			graph.reinstate_edge(node->a, node->b);
+			//printf("%e %e\n", node->distance, graph.wnode[node->a] * graph.wnode[node->b] / graph.adj[node->a][node->b]);
 
-            if (std::log(node->distance) < mergingThreshold) {
-                // test all options for reassignment
-            }
-        }
-    }
+			if (std::log(node->distance) < mergingThreshold) {
+				// test all options for reassignment
+			}
+		}
+	}
 #endif
 
 	ConstPropertyAccess<Quaternion> orientationsArray(_engine1->orientations());
@@ -833,16 +827,16 @@ bool GrainSegmentationEngine2::mergeOrphanAtoms()
 	/// The bonds connecting neighboring non-crystalline atoms.
 	std::vector<ParticleIndexPair> noncrystallineBonds;
 	for (auto nb: _engine1->neighborBonds()) {
-        if (atomClustersArray[nb.a] == 0 || atomClustersArray[nb.b] == 0) {
-            // Add bonds for both atoms
-            noncrystallineBonds.push_back({(qlonglong)nb.a, (qlonglong)nb.b});
-            noncrystallineBonds.push_back({(qlonglong)nb.b, (qlonglong)nb.a});
-        }
-    }
+		if (atomClustersArray[nb.a] == 0 || atomClustersArray[nb.b] == 0) {
+			// Add bonds for both atoms
+			noncrystallineBonds.push_back({(qlonglong)nb.a, (qlonglong)nb.b});
+			noncrystallineBonds.push_back({(qlonglong)nb.b, (qlonglong)nb.a});
+		}
+	}
 	if(isCanceled())
 		return false;
 
-    boost::stable_sort(noncrystallineBonds);
+	boost::stable_sort(noncrystallineBonds);
 
 	// Add orphan atoms to the grains.
 	setProgressMaximum(orphanAtoms.size());
