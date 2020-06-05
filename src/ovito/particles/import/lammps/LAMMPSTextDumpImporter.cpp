@@ -335,6 +335,20 @@ FileSourceImporter::FrameDataPtr LAMMPSTextDumpImporter::FrameLoader::loadFile()
 					}
 				}
 
+				// If a "diameter" column was loaded and stored in the "Radius" particle property,
+				// we need to divide values by two.
+				if(!fileColumnNames.empty()) {
+					for(int i = 0; i < (int)columnMapping.size() && i < fileColumnNames.size(); i++) {
+						if(columnMapping[i].property.type() == ParticlesObject::RadiusProperty && fileColumnNames[i] == "diameter") {
+							if(PropertyAccess<FloatType> radiusProperty = frameData->findStandardParticleProperty(ParticlesObject::RadiusProperty)) {
+								for(FloatType& r : radiusProperty)
+									r /= 2;
+							}
+							break;
+						}
+					}
+				}
+
 				// Detect dimensionality of system.
 				frameData->simulationCell().set2D(!columnMapping.hasZCoordinates());
 
@@ -393,7 +407,7 @@ InputColumnMapping LAMMPSTextDumpImporter::generateAutomaticColumnMapping(const 
 		else if(name == "id") columnMapping.mapStandardColumn(i, ParticlesObject::IdentifierProperty);
 		else if(name == "type" || name == "element" || name == "atom_types") columnMapping.mapStandardColumn(i, ParticlesObject::TypeProperty);
 		else if(name == "mass") columnMapping.mapStandardColumn(i, ParticlesObject::MassProperty);
-		else if(name == "radius") columnMapping.mapStandardColumn(i, ParticlesObject::RadiusProperty);
+		else if(name == "radius" || name == "diameter") columnMapping.mapStandardColumn(i, ParticlesObject::RadiusProperty);
 		else if(name == "mol") columnMapping.mapStandardColumn(i, ParticlesObject::MoleculeProperty);
 		else if(name == "q") columnMapping.mapStandardColumn(i, ParticlesObject::ChargeProperty);
 		else if(name == "ix") columnMapping.mapStandardColumn(i, ParticlesObject::PeriodicImageProperty, 0);
