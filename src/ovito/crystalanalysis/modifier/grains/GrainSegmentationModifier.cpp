@@ -47,7 +47,7 @@ DEFINE_PROPERTY_FIELD(GrainSegmentationModifier, outputBonds);
 DEFINE_PROPERTY_FIELD(GrainSegmentationModifier, colorParticlesByGrain);
 DEFINE_REFERENCE_FIELD(GrainSegmentationModifier, bondsVis);
 SET_PROPERTY_FIELD_LABEL(GrainSegmentationModifier, mergeAlgorithm, "Algorithm");
-SET_PROPERTY_FIELD_LABEL(GrainSegmentationModifier, stackingFaultHandling, "Stacking fault handling");
+SET_PROPERTY_FIELD_LABEL(GrainSegmentationModifier, stackingFaultHandling, "Handle stacking faults");
 SET_PROPERTY_FIELD_LABEL(GrainSegmentationModifier, mergingThreshold, "Merge threshold");
 SET_PROPERTY_FIELD_LABEL(GrainSegmentationModifier, minGrainAtomCount, "Minimum grain size (# of atoms)");
 SET_PROPERTY_FIELD_LABEL(GrainSegmentationModifier, orphanAdoption, "Adopt orphan atoms");
@@ -65,7 +65,8 @@ GrainSegmentationModifier::GrainSegmentationModifier(DataSet* dataset) : Asynchr
 		_mergingThreshold(0.0),
 		_orphanAdoption(true),
 		_outputBonds(false),
-		_colorParticlesByGrain(true)
+		_colorParticlesByGrain(true),
+		_stackingFaultHandling(MergeAtStackingFaults)
 {
 	// Create the visual element for the bonds.
 	setBondsVis(new BondsVis(dataset));

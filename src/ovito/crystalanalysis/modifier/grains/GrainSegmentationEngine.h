@@ -319,11 +319,11 @@ private:
         auto a = _adjustedStructureTypes[bond.a];
         auto b = _adjustedStructureTypes[bond.b];
 
-        if (a == PTMAlgorithm::OTHER) return false;
-        if (b == PTMAlgorithm::OTHER) return false;
-        if (a == b) return true;
+        if(a == PTMAlgorithm::OTHER) return false;
+        if(b == PTMAlgorithm::OTHER) return false;
+        if(a == b) return true;
 
-        if (_stackingFaultHandling == GrainSegmentationModifier::None)
+        if(_stackingFaultHandling == GrainSegmentationModifier::None)
             return false;
 
         return (a == PTMAlgorithm::FCC && b == PTMAlgorithm::HCP) || (a == PTMAlgorithm::HCP && b == PTMAlgorithm::FCC);

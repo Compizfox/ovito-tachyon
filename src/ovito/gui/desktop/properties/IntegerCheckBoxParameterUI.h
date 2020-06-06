@@ -29,28 +29,27 @@
 namespace Ovito {
 
 /******************************************************************************
-* This UI lets the user change an integer-value property of the object
-* being edited using a set of radio buttons.
+* This UI element lets the user change an integer-value property of the object
+* being edited using a check box.
 ******************************************************************************/
-class OVITO_GUI_EXPORT IntegerRadioButtonParameterUI : public PropertyParameterUI
+class OVITO_GUI_EXPORT IntegerCheckBoxParameterUI : public PropertyParameterUI
 {
 	Q_OBJECT
-	OVITO_CLASS(IntegerRadioButtonParameterUI)
+	OVITO_CLASS(IntegerCheckBoxParameterUI)
 
 public:
 
 	/// Constructor.
-	IntegerRadioButtonParameterUI(QObject* parentEditor, const char* propertyName);
+	IntegerCheckBoxParameterUI(QObject* parentEditor, const char* propertyName, const QString& checkBoxLabel, int uncheckedValue, int checkedValue);
 
 	/// Constructor for a PropertyField property.
-	IntegerRadioButtonParameterUI(QObject* parentEditor, const PropertyFieldDescriptor& propField);
+	IntegerCheckBoxParameterUI(QObject* parentEditor, const PropertyFieldDescriptor& propField, int uncheckedValue, int checkedValue);
 
-	/// This returns the radio button group managed by this ParameterUI.
-	QButtonGroup* buttonGroup() const { return _buttonGroup; }
+	/// Destructor.
+	virtual ~IntegerCheckBoxParameterUI();
 
-	/// Creates a new radio button widget that can be selected by the user
-	/// to set the property value to the given value.
-	QRadioButton* addRadioButton(int value, const QString& caption = QString());
+	/// This returns the checkbox managed by this parameter UI.
+	QCheckBox* checkBox() const { return _checkBox; }
 
 	/// This method is called when a new editable object has been assigned to the properties owner this
 	/// parameter UI belongs to.
@@ -62,25 +61,15 @@ public:
 	/// Sets the enabled state of the UI.
 	virtual void setEnabled(bool enabled) override;
 
-	/// Sets the tooltip text for the radio button widgets.
-	void setToolTip(const QString& text) const {
-		if(buttonGroup()) {
-			for(QAbstractButton* button : buttonGroup()->buttons())
-				button->setToolTip(text);
-		}
-	}
+	/// Sets the tooltip text for the check box.
+	void setToolTip(const QString& text) const { if(checkBox()) checkBox()->setToolTip(text); }
 
-	/// Sets the What's This helper text for the radio button widgets.
-	void setWhatsThis(const QString& text) const {
-		if(buttonGroup()) {
-			for(QAbstractButton* button : buttonGroup()->buttons())
-				button->setWhatsThis(text);
-		}
-	}
+	/// Sets the What's This helper text for the check box.
+	void setWhatsThis(const QString& text) const { if(checkBox()) checkBox()->setWhatsThis(text); }
 
 public:
 
-	Q_PROPERTY(QButtonGroup buttonGroup READ buttonGroup)
+	Q_PROPERTY(QCheckBox checkBox READ checkBox);
 
 public Q_SLOTS:
 
@@ -90,8 +79,14 @@ public Q_SLOTS:
 
 protected:
 
-	/// The radio button group.
-	QPointer<QButtonGroup> _buttonGroup;
+	/// The check box of the UI component.
+	QPointer<QCheckBox> _checkBox;
+
+	/// The parameter value that represents the unchecked state.
+	int _uncheckedValue = 0;
+
+	/// The parameter value that represents the checked state.
+	int _checkedValue = 1;
 };
 
 }	// End of namespace

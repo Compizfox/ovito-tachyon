@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Copyright 2013 Alexander Stukowski
+//  Copyright 2020 Alexander Stukowski
 //
 //  This file is part of OVITO (Open Visualization Tool).
 //
@@ -21,42 +21,48 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 
 #include <ovito/gui/desktop/GUI.h>
-#include <ovito/gui/desktop/properties/BooleanParameterUI.h>
+#include <ovito/gui/desktop/properties/IntegerCheckBoxParameterUI.h>
+#include <ovito/core/dataset/animation/controller/Controller.h>
+#include <ovito/core/dataset/animation/AnimationSettings.h>
 #include <ovito/core/dataset/UndoStack.h>
 #include <ovito/core/dataset/DataSetContainer.h>
-#include <ovito/core/dataset/animation/AnimationSettings.h>
-#include <ovito/core/dataset/animation/controller/Controller.h>
 
 namespace Ovito {
 
-IMPLEMENT_OVITO_CLASS(BooleanParameterUI);
+IMPLEMENT_OVITO_CLASS(IntegerCheckBoxParameterUI);
 
 /******************************************************************************
-* Constructor for a Qt property.
+* The constructor.
 ******************************************************************************/
-BooleanParameterUI::BooleanParameterUI(QObject* parentEditor, const char* propertyName, const QString& checkBoxLabel) :
-	PropertyParameterUI(parentEditor, propertyName)
+IntegerCheckBoxParameterUI::IntegerCheckBoxParameterUI(QObject* parentEditor, const char* propertyName, const QString& checkBoxLabel, int uncheckedValue, int checkedValue) :
+	PropertyParameterUI(parentEditor, propertyName),
+	_uncheckedValue(uncheckedValue),
+	_checkedValue(checkedValue)
 {
+	OVITO_ASSERT(uncheckedValue != checkedValue);
 	// Create UI widget.
 	_checkBox = new QCheckBox(checkBoxLabel);
-	connect(_checkBox.data(), &QCheckBox::clicked, this, &BooleanParameterUI::updatePropertyValue);
+	connect(_checkBox.data(), &QCheckBox::clicked, this, &IntegerCheckBoxParameterUI::updatePropertyValue);
 }
 
 /******************************************************************************
 * Constructor for a PropertyField property.
 ******************************************************************************/
-BooleanParameterUI::BooleanParameterUI(QObject* parentEditor, const PropertyFieldDescriptor& propField) :
-	PropertyParameterUI(parentEditor, propField)
+IntegerCheckBoxParameterUI::IntegerCheckBoxParameterUI(QObject* parentEditor, const PropertyFieldDescriptor& propField, int uncheckedValue, int checkedValue) :
+	PropertyParameterUI(parentEditor, propField),
+	_uncheckedValue(uncheckedValue),
+	_checkedValue(checkedValue)
 {
+	OVITO_ASSERT(uncheckedValue != checkedValue);
 	// Create UI widget.
 	_checkBox = new QCheckBox(propField.displayName());
-	connect(_checkBox.data(), &QCheckBox::clicked, this, &BooleanParameterUI::updatePropertyValue);
+	connect(_checkBox.data(), &QCheckBox::clicked, this, &IntegerCheckBoxParameterUI::updatePropertyValue);
 }
 
 /******************************************************************************
 * Destructor.
 ******************************************************************************/
-BooleanParameterUI::~BooleanParameterUI()
+IntegerCheckBoxParameterUI::~IntegerCheckBoxParameterUI()
 {
 	// Release widget.
 	delete checkBox();
@@ -66,7 +72,7 @@ BooleanParameterUI::~BooleanParameterUI()
 * This method is called when a new editable object has been assigned to the properties owner this
 * parameter UI belongs to.
 ******************************************************************************/
-void BooleanParameterUI::resetUI()
+void IntegerCheckBoxParameterUI::resetUI()
 {
 	PropertyParameterUI::resetUI();
 
@@ -79,7 +85,7 @@ void BooleanParameterUI::resetUI()
 
 	if(isReferenceFieldUI() && editObject()) {
 		// Update the displayed value when the animation time has changed.
-		connect(dataset()->container(), &DataSetContainer::timeChanged, this, &BooleanParameterUI::updateUI, Qt::UniqueConnection);
+		connect(dataset()->container(), &DataSetContainer::timeChanged, this, &IntegerCheckBoxParameterUI::updateUI, Qt::UniqueConnection);
 	}
 }
 
@@ -87,33 +93,39 @@ void BooleanParameterUI::resetUI()
 * This method is called when a new editable object has been assigned to the properties owner this
 * parameter UI belongs to.
 ******************************************************************************/
-void BooleanParameterUI::updateUI()
+void IntegerCheckBoxParameterUI::updateUI()
 {
 	PropertyParameterUI::updateUI();
 
 	if(checkBox() && editObject()) {
-		if(!isReferenceFieldUI()) {
-			QVariant val(false);
-			if(propertyName()) {
-				val = editObject()->property(propertyName());
-				OVITO_ASSERT_MSG(val.isValid(), "BooleanParameterUI::updateUI()", QString("The object class %1 does not define a property with the name %2 that can be cast to bool type.").arg(editObject()->metaObject()->className(), QString(propertyName())).toLocal8Bit().constData());
-				if(!val.isValid()) {
-					editObject()->throwException(tr("The object class %1 does not define a property with the name %2 that can be cast to bool type.").arg(editObject()->metaObject()->className(), QString(propertyName())));
-				}
-			}
-			else if(propertyField()) {
-				val = editObject()->getPropertyFieldValue(*propertyField());
-				OVITO_ASSERT(val.isValid());
-			}
-			checkBox()->setChecked(val.toBool());
+		int value = _uncheckedValue;
+		if(isReferenceFieldUI()) {
+			if(Controller* ctrl = dynamic_object_cast<Controller>(parameterObject()))
+				value = ctrl->currentIntValue();
 		}
+		else {
+			if(isQtPropertyUI()) {
+				QVariant val = editObject()->property(propertyName());
+				OVITO_ASSERT_MSG(val.isValid() && val.canConvert(QVariant::Int), "IntegerCheckBoxParameterUI::updateUI()", QString("The object class %1 does not define a property with the name %2 that can be cast to integer type.").arg(editObject()->metaObject()->className(), QString(propertyName())).toLocal8Bit().constData());
+				if(!val.isValid() || !val.canConvert(QVariant::Int)) {
+					editObject()->throwException(tr("The object class %1 does not define a property with the name %2 that can be cast to integer type.").arg(editObject()->metaObject()->className(), QString(propertyName())));
+				}
+				value = val.toInt();
+			}
+			else if(isPropertyFieldUI()) {
+				QVariant val = editObject()->getPropertyFieldValue(*propertyField());
+				OVITO_ASSERT(val.isValid());
+				value = val.toInt();
+			}
+		}
+		checkBox()->setChecked(value == _checkedValue);
 	}
 }
 
 /******************************************************************************
 * Sets the enabled state of the UI.
 ******************************************************************************/
-void BooleanParameterUI::setEnabled(bool enabled)
+void IntegerCheckBoxParameterUI::setEnabled(bool enabled)
 {
 	if(enabled == isEnabled()) return;
 	PropertyParameterUI::setEnabled(enabled);
@@ -129,17 +141,24 @@ void BooleanParameterUI::setEnabled(bool enabled)
 * Takes the value entered by the user and stores it in the property field
 * this property UI is bound to.
 ******************************************************************************/
-void BooleanParameterUI::updatePropertyValue()
+void IntegerCheckBoxParameterUI::updatePropertyValue()
 {
 	if(checkBox() && editObject()) {
 		undoableTransaction(tr("Change parameter"), [this]() {
-			if(isQtPropertyUI()) {
-				if(!editObject()->setProperty(propertyName(), checkBox()->isChecked())) {
-					OVITO_ASSERT_MSG(false, "BooleanParameterUI::updatePropertyValue()", QString("The value of property %1 of object class %2 could not be set.").arg(QString(propertyName()), editObject()->metaObject()->className()).toLocal8Bit().constData());
+			int value = checkBox()->isChecked() ? _checkedValue : _uncheckedValue;
+			if(isReferenceFieldUI()) {
+				if(Controller* ctrl = dynamic_object_cast<Controller>(parameterObject())) {
+					ctrl->setCurrentIntValue(value);
+					updateUI();
+				}
+			}
+			else if(isQtPropertyUI()) {
+				if(!editObject()->setProperty(propertyName(), value)) {
+					OVITO_ASSERT_MSG(false, "IntegerRadioButtonPropertyUI::updatePropertyValue()", QString("The value of property %1 of object class %2 could not be set.").arg(QString(propertyName()), editObject()->metaObject()->className()).toLocal8Bit().constData());
 				}
 			}
 			else if(isPropertyFieldUI()) {
-				editObject()->setPropertyFieldValue(*propertyField(), checkBox()->isChecked());
+				editObject()->setPropertyFieldValue(*propertyField(), value);
 			}
 			Q_EMIT valueEntered();
 		});

@@ -65,9 +65,9 @@ public:
 	Q_ENUMS(MergeAlgorithm);
 
 	enum StackingFaultHandling {
-		Handle,		///< FCC and HCP atoms are treated as the same type. Twin boundaries are properly handled.
-		Ignore,		///< FCC and HCP atoms are treated as the same type. Twin boundaries are ignored.
-		None,	    ///< FCC and HCP atoms are never merged (outside of orphan atom adoption).
+		None,	    				///< Cubic and hexagonal regions are never merged (outside of orphan atom adoption).
+		MergeAtStackingFaults,		///< Cubic and hexagonal regions are treated as the same type. Twin boundaries are properly handled.
+		MergeAtCoherentInterfaces,	///< Cubic and hexagonal regions are treated as the same type. Twin boundaries are ignored.
 	};
 	Q_ENUMS(StackingFaultHandling);
 

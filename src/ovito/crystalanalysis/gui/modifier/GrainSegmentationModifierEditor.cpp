@@ -28,6 +28,7 @@
 #include <ovito/gui/desktop/properties/IntegerParameterUI.h>
 #include <ovito/gui/desktop/properties/BooleanParameterUI.h>
 #include <ovito/gui/desktop/properties/IntegerRadioButtonParameterUI.h>
+#include <ovito/gui/desktop/properties/IntegerCheckBoxParameterUI.h>
 #include <ovito/gui/desktop/mainwin/MainWindow.h>
 #include <ovito/core/dataset/DataSetContainer.h>
 #include "GrainSegmentationModifierEditor.h"
@@ -93,20 +94,11 @@ void GrainSegmentationModifierEditor::createUI(const RolloutInsertionParameters&
 	BooleanParameterUI* colorParticlesByGrainUI = new BooleanParameterUI(this, PROPERTY_FIELD(GrainSegmentationModifier::colorParticlesByGrain));
 	sublayout2->addWidget(colorParticlesByGrainUI->checkBox(), 1, 0, 1, 2);
 
-	BooleanParameterUI* outputBondsUI = new BooleanParameterUI(this, PROPERTY_FIELD(GrainSegmentationModifier::outputBonds));
-	sublayout2->addWidget(outputBondsUI->checkBox(), 2, 0, 1, 2);
+	IntegerCheckBoxParameterUI* stackingFaultHandlingUI = new IntegerCheckBoxParameterUI(this, PROPERTY_FIELD(GrainSegmentationModifier::stackingFaultHandling), GrainSegmentationModifier::None, GrainSegmentationModifier::MergeAtStackingFaults);
+	sublayout2->addWidget(stackingFaultHandlingUI->checkBox(), 2, 0, 1, 2);
 
-	IntegerRadioButtonParameterUI* stackingFaultHandlingUI = new IntegerRadioButtonParameterUI(this, PROPERTY_FIELD(GrainSegmentationModifier::stackingFaultHandling));
-	QGridLayout* sublayout4 = new QGridLayout();
-	sublayout4->setContentsMargins(0,0,0,0);
-	sublayout4->setSpacing(4);
-	sublayout2->setColumnStretch(1, 1);
-	sublayout4->addWidget(new QLabel(tr("Stacking fault handling:")), 0, 0);
-	QRadioButton* stackingFaultButton = stackingFaultHandlingUI->addRadioButton(GrainSegmentationModifier::Handle, tr("Handle"));
-	sublayout4->addWidget(stackingFaultButton, 0, 1);
-	sublayout4->addWidget(stackingFaultHandlingUI->addRadioButton(GrainSegmentationModifier::Ignore, tr("Ignore")), 1, 1);
-	sublayout4->addWidget(stackingFaultHandlingUI->addRadioButton(GrainSegmentationModifier::None, tr("None")), 2, 1);
-	sublayout2->addLayout(sublayout4, 3, 0, 1, 2);
+	BooleanParameterUI* outputBondsUI = new BooleanParameterUI(this, PROPERTY_FIELD(GrainSegmentationModifier::outputBonds));
+	sublayout2->addWidget(outputBondsUI->checkBox(), 3, 0, 1, 2);
 
 	// Status label.
 	layout->addWidget(statusLabel());

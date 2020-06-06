@@ -299,15 +299,14 @@ bool GrainSegmentationEngine1::rotateHCPAtoms()
     _adjustedOrientations.resize(orientationsArray.size());
 
     // TODO: copy these properties in the correct way.
-    for (size_t i=0;i<structuresArray.size();i++) {
+    for(size_t i=0;i<structuresArray.size();i++) {
         _adjustedStructureTypes[i] = structuresArray[i];
         _adjustedOrientations[i] = orientationsArray[i];
     }
 
-    // Only rotate HCP atoms if stacking fault handling is enabled
-    if (_stackingFaultHandling != GrainSegmentationModifier::Handle) {
+    // Only rotate HCP atoms if stacking fault handling is enabled.
+    if(_stackingFaultHandling != GrainSegmentationModifier::MergeAtStackingFaults)
         return true;
-    }
 
 	setProgressText(GrainSegmentationModifier::tr("Grain segmentation - rotating HCP atoms"));
 
@@ -319,17 +318,17 @@ bool GrainSegmentationEngine1::rotateHCPAtoms()
     FloatType disorientation;
 
     // Populate priority queue with bonds at an FCC-HCP interface
-    for (auto bond : _neighborBonds) {
-        if (interface_FCC_HCP(bond, disorientation, rotated, index) && disorientation < _misorientationThreshold) {
+    for(auto bond : _neighborBonds) {
+        if(interface_FCC_HCP(bond, disorientation, rotated, index) && disorientation < _misorientationThreshold) {
             pq.push(bond);
         }
     }
 
-    while (pq.size()) {
+    while(pq.size()) {
         auto bond = *pq.begin();
         pq.pop();
 
-        if (!interface_FCC_HCP(bond, disorientation, rotated, index)) {
+        if(!interface_FCC_HCP(bond, disorientation, rotated, index)) {
             continue;
         }
 
@@ -349,7 +348,7 @@ bool GrainSegmentationEngine1::rotateHCPAtoms()
             bond.b = neighborIndex;
 
             size_t dummy;
-            if (interface_FCC_HCP(bond, disorientation, rotated, dummy) && disorientation < _misorientationThreshold) {
+            if(interface_FCC_HCP(bond, disorientation, rotated, dummy) && disorientation < _misorientationThreshold) {
                 pq.push({index, neighborIndex, disorientation});
             }
         }
@@ -391,7 +390,7 @@ bool GrainSegmentationEngine1::computeDisorientationAngles()
 
             bond.disorientation = qRadiansToDegrees(bond.disorientation);
 		}
-		else if(_stackingFaultHandling == GrainSegmentationModifier::Ignore
+		else if(_stackingFaultHandling == GrainSegmentationModifier::MergeAtCoherentInterfaces
                 && _adjustedStructureTypes[a] == PTMAlgorithm::FCC && _adjustedStructureTypes[b] == PTMAlgorithm::HCP) {
 
             bond.disorientation = (FloatType)ptm::quat_disorientation_fcc_hcp(orientA, orientB);
