@@ -56,7 +56,7 @@ BondsVis::BondsVis(DataSet* dataset) : DataVis(dataset),
 	_bondWidth(0.4),
 	_bondColor(0.6, 0.6, 0.6),
 	_useParticleColors(true),
-	_shadingMode(ArrowPrimitive::NormalShading),
+	_shadingMode(NormalShading),
 	_renderingQuality(ArrowPrimitive::HighQuality)
 {
 }
@@ -214,14 +214,14 @@ void BondsVis::render(TimePoint time, const std::vector<const DataObject*>& obje
 	// Check if we already have a valid rendering primitive that is up to date.
 	if(!arrowPrimitive
 			|| !arrowPrimitive->isValid(renderer)
-			|| !arrowPrimitive->setShadingMode(shadingMode())
+			|| !arrowPrimitive->setShadingMode(static_cast<ArrowPrimitive::ShadingMode>(shadingMode()))
 			|| !arrowPrimitive->setRenderingQuality(renderingQuality())) {
 
 		FloatType bondRadius = bondWidth() / 2;
 		if(bondTopologyProperty && positionProperty && bondRadius > 0) {
 
 			// Create bond geometry buffer.
-			arrowPrimitive = renderer->createArrowPrimitive(ArrowPrimitive::CylinderShape, shadingMode(), renderingQuality(), transparencyProperty != nullptr);
+			arrowPrimitive = renderer->createArrowPrimitive(ArrowPrimitive::CylinderShape, static_cast<ArrowPrimitive::ShadingMode>(shadingMode()), renderingQuality(), transparencyProperty != nullptr);
 			arrowPrimitive->startSetElements((int)bondTopologyProperty->size() * 2);
 
 			// Cache some values.

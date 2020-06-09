@@ -44,6 +44,13 @@ class OVITO_PARTICLES_EXPORT BondsVis : public DataVis
 
 public:
 
+	/// The shading modes supported by the bonds vis element.
+	enum ShadingMode {
+		NormalShading = ArrowPrimitive::ShadingMode::NormalShading,
+		FlatShading = ArrowPrimitive::ShadingMode::FlatShading
+	};
+	Q_ENUMS(ShadingMode);
+
 	/// Constructor.
 	Q_INVOKABLE BondsVis(DataSet* dataset);
 
@@ -62,7 +69,7 @@ public:
 
 public:
 
-    Q_PROPERTY(Ovito::ArrowPrimitive::ShadingMode shadingMode READ shadingMode WRITE setShadingMode);
+    Q_PROPERTY(Ovito::Particles::BondsVis::ShadingMode shadingMode READ shadingMode WRITE setShadingMode);
     Q_PROPERTY(Ovito::ArrowPrimitive::RenderingQuality renderingQuality READ renderingQuality WRITE setRenderingQuality);
 
 protected:
@@ -77,7 +84,7 @@ protected:
 	DECLARE_MODIFIABLE_PROPERTY_FIELD_FLAGS(bool, useParticleColors, setUseParticleColors, PROPERTY_FIELD_MEMORIZE);
 
 	/// Controls the shading mode for bonds.
-	DECLARE_MODIFIABLE_PROPERTY_FIELD_FLAGS(ArrowPrimitive::ShadingMode, shadingMode, setShadingMode, PROPERTY_FIELD_MEMORIZE);
+	DECLARE_MODIFIABLE_PROPERTY_FIELD_FLAGS(BondsVis::ShadingMode, shadingMode, setShadingMode, PROPERTY_FIELD_MEMORIZE);
 
 	/// Controls the rendering quality mode for bonds.
 	DECLARE_MODIFIABLE_PROPERTY_FIELD(ArrowPrimitive::RenderingQuality, renderingQuality, setRenderingQuality);

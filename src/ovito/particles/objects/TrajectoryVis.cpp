@@ -50,7 +50,7 @@ SET_PROPERTY_FIELD_UNITS_AND_MINIMUM(TrajectoryVis, lineWidth, WorldParameterUni
 TrajectoryVis::TrajectoryVis(DataSet* dataset) : DataVis(dataset),
 	_lineWidth(0.2),
 	_lineColor(0.6, 0.6, 0.6),
-	_shadingMode(ArrowPrimitive::FlatShading),
+	_shadingMode(FlatShading),
 	_showUpToCurrentTime(false),
 	_wrappedLines(false)
 {
@@ -145,7 +145,7 @@ void TrajectoryVis::render(TimePoint time, const std::vector<const DataObject*>&
 	if(!renderingPrimitives.segments || !renderingPrimitives.corners
 			|| !renderingPrimitives.segments->isValid(renderer)
 			|| !renderingPrimitives.corners->isValid(renderer)
-			|| !renderingPrimitives.segments->setShadingMode(shadingMode())
+			|| !renderingPrimitives.segments->setShadingMode(static_cast<ArrowPrimitive::ShadingMode>(shadingMode()))
 			|| !renderingPrimitives.corners->setShadingMode(cornerShadingMode)) {
 
 		// Update the rendering primitives.
@@ -190,7 +190,7 @@ void TrajectoryVis::render(TimePoint time, const std::vector<const DataObject*>&
 					}
 				}
 
-				renderingPrimitives.segments = renderer->createArrowPrimitive(ArrowPrimitive::CylinderShape, shadingMode(), ArrowPrimitive::HighQuality);
+				renderingPrimitives.segments = renderer->createArrowPrimitive(ArrowPrimitive::CylinderShape, static_cast<ArrowPrimitive::ShadingMode>(shadingMode()), ArrowPrimitive::HighQuality);
 				renderingPrimitives.corners = renderer->createParticlePrimitive(cornerShadingMode, ParticlePrimitive::HighQuality);
 
 				renderingPrimitives.segments->startSetElements(lineSegmentCount);

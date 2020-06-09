@@ -41,6 +41,13 @@ class OVITO_PARTICLES_EXPORT TrajectoryVis : public DataVis
 
 public:
 
+	/// The shading modes supported by the trajectory vis element.
+	enum ShadingMode {
+		NormalShading = ArrowPrimitive::ShadingMode::NormalShading,
+		FlatShading = ArrowPrimitive::ShadingMode::FlatShading
+	};
+	Q_ENUMS(ShadingMode);
+
 	/// \brief Constructor.
 	Q_INVOKABLE TrajectoryVis(DataSet* dataset);
 
@@ -52,7 +59,7 @@ public:
 
 public:
 
-    Q_PROPERTY(Ovito::ArrowPrimitive::ShadingMode shadingMode READ shadingMode WRITE setShadingMode);
+    Q_PROPERTY(Ovito::Particles::TrajectoryVis::ShadingMode shadingMode READ shadingMode WRITE setShadingMode);
 
 private:
 
@@ -72,7 +79,7 @@ private:
 	DECLARE_MODIFIABLE_PROPERTY_FIELD(bool, wrappedLines, setWrappedLines);
 
 	/// Controls the shading mode for lines.
-	DECLARE_MODIFIABLE_PROPERTY_FIELD_FLAGS(ArrowPrimitive::ShadingMode, shadingMode, setShadingMode, PROPERTY_FIELD_MEMORIZE);
+	DECLARE_MODIFIABLE_PROPERTY_FIELD_FLAGS(TrajectoryVis::ShadingMode, shadingMode, setShadingMode, PROPERTY_FIELD_MEMORIZE);
 };
 
 }	// End of namespace

@@ -42,6 +42,13 @@ class OVITO_PARTICLES_EXPORT VectorVis : public DataVis
 
 public:
 
+	/// The shading modes supported by the vector vis element.
+	enum ShadingMode {
+		NormalShading = ArrowPrimitive::ShadingMode::NormalShading,
+		FlatShading = ArrowPrimitive::ShadingMode::FlatShading
+	};
+	Q_ENUMS(ShadingMode);
+
 	/// The position mode for the arrows.
 	enum ArrowPosition {
 		Base,
@@ -63,7 +70,7 @@ public:
 
 public:
 
-    Q_PROPERTY(Ovito::ArrowPrimitive::ShadingMode shadingMode READ shadingMode WRITE setShadingMode);
+    Q_PROPERTY(Ovito::Particles::VectorVis::ShadingMode shadingMode READ shadingMode WRITE setShadingMode);
     Q_PROPERTY(Ovito::ArrowPrimitive::RenderingQuality renderingQuality READ renderingQuality WRITE setRenderingQuality);
 
 protected:
@@ -89,7 +96,7 @@ protected:
 	DECLARE_MODIFIABLE_PROPERTY_FIELD_FLAGS(FloatType, scalingFactor, setScalingFactor, PROPERTY_FIELD_MEMORIZE);
 
 	/// Controls the shading mode for arrows.
-	DECLARE_MODIFIABLE_PROPERTY_FIELD_FLAGS(ArrowPrimitive::ShadingMode, shadingMode, setShadingMode, PROPERTY_FIELD_MEMORIZE);
+	DECLARE_MODIFIABLE_PROPERTY_FIELD_FLAGS(VectorVis::ShadingMode, shadingMode, setShadingMode, PROPERTY_FIELD_MEMORIZE);
 
 	/// Controls the rendering quality mode for arrows.
 	DECLARE_MODIFIABLE_PROPERTY_FIELD(ArrowPrimitive::RenderingQuality, renderingQuality, setRenderingQuality);

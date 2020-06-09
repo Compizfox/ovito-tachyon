@@ -311,6 +311,9 @@ void MainWindow::createMainMenu()
 		fileMenu->addSeparator();
 		fileMenu->addAction(runScriptFileAction);
 	}
+	if(QAction* generateScriptFileAction = actionManager()->findAction(ACTION_SCRIPTING_GENERATE_CODE)) {
+		fileMenu->addAction(generateScriptFileAction);
+	}
 	fileMenu->addSeparator();
 	fileMenu->addAction(actionManager()->getAction(ACTION_FILE_NEW_WINDOW));
 	fileMenu->addSeparator();

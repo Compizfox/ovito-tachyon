@@ -146,7 +146,8 @@ OORef<DataCollection> ParticleFrameData::handOver(const DataCollection* existing
 					simulationCell().matrix().column(0) +
 					simulationCell().matrix().column(1) +
 					simulationCell().matrix().column(2)).length();
-			cellVis->setCellLineWidth(std::max(cellDiameter * FloatType(1.4e-3), FloatType(1e-8)));
+			cellVis->setDefaultCellLineWidth(std::max(cellDiameter * FloatType(1.4e-3), FloatType(1e-8)));
+			cellVis->setCellLineWidth(cellVis->defaultCellLineWidth());
 		}
 	}
 	else {

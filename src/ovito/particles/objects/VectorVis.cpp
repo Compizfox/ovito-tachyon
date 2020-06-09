@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Copyright 2019 Alexander Stukowski
+//  Copyright 2020 Alexander Stukowski
 //
 //  This file is part of OVITO (Open Visualization Tool).
 //
@@ -62,7 +62,7 @@ VectorVis::VectorVis(DataSet* dataset) : DataVis(dataset),
 	_arrowColor(1, 1, 0),
 	_arrowWidth(0.5),
 	_scalingFactor(1),
-	_shadingMode(ArrowPrimitive::FlatShading),
+	_shadingMode(FlatShading),
 	_renderingQuality(ArrowPrimitive::LowQuality)
 {
 }
@@ -192,10 +192,10 @@ void VectorVis::render(TimePoint time, const std::vector<const DataObject*>& obj
 	// Check if we already have a valid rendering primitive that is up to date.
 	if(!arrowPrimitive
 			|| !arrowPrimitive->isValid(renderer)
-			|| !arrowPrimitive->setShadingMode(shadingMode())
+			|| !arrowPrimitive->setShadingMode(static_cast<ArrowPrimitive::ShadingMode>(shadingMode()))
 			|| !arrowPrimitive->setRenderingQuality(renderingQuality())) {
 
-		arrowPrimitive = renderer->createArrowPrimitive(ArrowPrimitive::ArrowShape, shadingMode(), renderingQuality());
+		arrowPrimitive = renderer->createArrowPrimitive(ArrowPrimitive::ArrowShape, static_cast<ArrowPrimitive::ShadingMode>(shadingMode()), renderingQuality());
 
 		// Determine number of non-zero vectors.
 		int vectorCount = 0;
