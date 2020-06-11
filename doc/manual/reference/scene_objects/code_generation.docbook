@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="utf-8"?>
+<section version="5.0"
+         xsi:schemaLocation="http://docbook.org/ns/docbook http://docbook.org/xml/5.0/xsd/docbook.xsd"
+         xml:id="python_code_generation" xmlns="http://docbook.org/ns/docbook"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xmlns:xs="http://www.w3.org/2001/XMLSchema"
+         xmlns:xlink="http://www.w3.org/1999/xlink"
+         xmlns:xi="http://www.w3.org/2001/XInclude"
+         xmlns:ns="http://docbook.org/ns/docbook">
+  <title>Python code generator<ovito-pro/></title>
+
+  <para>
+    <informalfigure><screenshot><mediaobject><imageobject>
+       <imagedata fileref="images/scene_objects/code_generation.jpg" format="PNG" scale="102" />
+    </imageobject></mediaobject></screenshot></informalfigure>
+
+    OVITO Pro includes a Python code generation function, which can turn any <link linkend="usage.modification_pipeline">data pipeline</link>
+    created with the graphical user interface into a corresponding sequence of Python script statements, 
+    which may subsequently be executed outside of OVITO to automate data post-processing or visualization 
+    workflows. While you interactively adjust the parameters of modifiers, the code generation function  
+    produces corresponding script statements for OVITO's Python programming interface.
+    The generated source code may be saved to disk, further customized if desired,
+    and then run using the embedded 
+    <pydoc-link href="introduction/custom_modifiers" anchor="custom-modifier-functions" no-pro-tag="1"><command>ovitos</command></pydoc-link> 
+    script interpreter or any regular Python interpreter after installing the 
+    <link xlink:href="https://www.ovito.org/python-downloads/"><literal>ovito</literal></link> Python module.
+  </para>
+
+  <para>
+    The Python code generator is invoked by selecting <menuchoice><guimenu>File</guimenu><guimenuitem>Generate Python script</guimenuitem></menuchoice> from the
+    menu. The code generator window displays the dynamically generated 
+    source code, which gets updated in realtime while you make changes to the data pipeline or a modifier's settings.
+  </para>
+
+  <para>
+    You can activate the <emphasis>Visualization code</emphasis> option to let OVITO additionally generate code statements that
+    set up the virtual camera, render settings, and the visual appearance of the dataset exactly as you prescribed it
+    in the graphical user interface. 
+    This option is useful if you are going to use the generated Python script for automating image and animation rendering tasks.
+  </para>
+
+  <simplesect>
+    <title>Supported features</title>
+    <para>
+      The code generator can generate Python staments for the following aspects of the visualization scene:
+      <itemizedlist>
+        <listitem>Data file import (arguments of the <pydoc-link href="modules/ovito_io" anchor="ovito.io.import_file" no-pro-tag="1"><classname>import_file()</classname></pydoc-link> function)</listitem>
+        <listitem>Visual elements</listitem>
+        <listitem>Modifiers</listitem>
+        <listitem>Viewport layers</listitem>
+        <listitem>Viewport camera setup</listitem>
+        <listitem>Rendering engine configuration</listitem>
+        <listitem>Image and animation render settings</listitem>
+      </itemizedlist>
+    </para>
+    <para>
+      The following aspects are <emphasis>not</emphasis> covered by the code generator yet:
+      <itemizedlist>
+        <listitem>Direct modifications you make to imported data objects, e.g. particle type colors and radii</listitem>
+        <listitem>Data file export</listitem>
+        <listitem>Key-frame based parameter and object animations</listitem>
+      </itemizedlist>
+      Thus, you have may have to amend the generated script with corresponding code statatements yourself to 
+      take care of these things. See the sections 
+      <pydoc-link href="introduction/file_io" anchor="data-export" no-pro-tag="1">Data export</pydoc-link>
+      and 
+      <pydoc-link href="modules/ovito_data" anchor="ovito.data.ParticleType.radius" no-pro-tag="1">Setting the particle type radius</pydoc-link>
+      in the OVITO Python API documentation on how to do that.
+    </para>    
+  </simplesect>
+
+</section>
