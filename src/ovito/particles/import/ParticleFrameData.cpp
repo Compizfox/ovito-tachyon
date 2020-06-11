@@ -557,12 +557,11 @@ void ParticleFrameData::insertTypes(PropertyObject* typeProperty, TypeList* type
 			}
 			if(ParticleType* particleType = dynamic_object_cast<ParticleType>(elementType)) {
 				if(item.shapeMesh) {
-					TriMeshObject* shapeObject = particleType->shapeMesh();
-					if(!shapeObject) {
-						shapeObject = new TriMeshObject(typeProperty->dataset());
-						particleType->setShapeMesh(shapeObject);
-					}
+					TriMeshObject* shapeObject = new TriMeshObject(typeProperty->dataset());
 					shapeObject->setMesh(item.shapeMesh);
+					
+					particleType = typeProperty->makeMutable(particleType);
+					particleType->setShapeMesh(shapeObject);
 				}
 				else {
 					// Note: Do not automatically reset shape, because we don't want to loose
