@@ -42,153 +42,151 @@ class GrainSegmentationEngine1 : public AsynchronousModifier::Engine
 {
 public:
 
-    class Graph
-    {
-    public:
-	    size_t next = 0;
-	    std::map<size_t, FloatType> wnode;
-	    std::map<size_t, std::map<size_t, FloatType>> adj;
-	    std::map<size_t, std::map<size_t, FloatType>> deleted_adj;
+	class Graph
+	{
+	public:
+		size_t next = 0;
+		std::map<size_t, FloatType> wnode;
+		std::map<size_t, std::map<size_t, FloatType>> adj;
+		std::map<size_t, std::map<size_t, FloatType>> deleted_adj;
 
-	    size_t num_nodes() const {
-		    return adj.size();
-	    }
+		size_t num_nodes() const {
+			return adj.size();
+		}
 
-	    size_t next_node() const {
-		    return adj.begin()->first;
-	    }
+		size_t next_node() const {
+			return adj.begin()->first;
+		}
 
-	    std::tuple<FloatType, size_t> nearest_neighbor(size_t a) const {
-		    FloatType dmin = std::numeric_limits<FloatType>::max();
-		    size_t vmin = std::numeric_limits<size_t>::max();
+		std::tuple<FloatType, size_t> nearest_neighbor(size_t a) const {
+			FloatType dmin = std::numeric_limits<FloatType>::max();
+			size_t vmin = std::numeric_limits<size_t>::max();
 
-		    OVITO_ASSERT(adj.find(a) != adj.end());
-		    for (const auto& x : adj.find(a)->second) {
-			    size_t v = x.first;
-			    FloatType weight = x.second;
+			OVITO_ASSERT(adj.find(a) != adj.end());
+			for (const auto& x : adj.find(a)->second) {
+				size_t v = x.first;
+				FloatType weight = x.second;
 
-			    OVITO_ASSERT(v != a); // Graph has self loops.
-			    if(v == a) {
-				    qWarning() << "Graph has self loops";
-				    exit(3);
-			    }
+				OVITO_ASSERT(v != a); // Graph has self loops.
+				if(v == a)
+					throw Exception("Graph has self loops");
 
-			    OVITO_ASSERT(wnode.find(v) != wnode.end());
-			    FloatType d = wnode.find(v)->second / weight;
-			    OVITO_ASSERT(!std::isnan(d));
+				OVITO_ASSERT(wnode.find(v) != wnode.end());
+				FloatType d = wnode.find(v)->second / weight;
+				OVITO_ASSERT(!std::isnan(d));
 
-			    if (d < dmin) {
-				    dmin = d;
-				    vmin = v;
-			    }
-			    else if (d == dmin) {
-				    vmin = std::min(vmin, v);
-			    }
-		    }
+				if (d < dmin) {
+					dmin = d;
+					vmin = v;
+				}
+				else if (d == dmin) {
+					vmin = std::min(vmin, v);
+				}
+			}
 
-		    OVITO_ASSERT(wnode.find(a) != wnode.end());
-		    FloatType check = dmin * wnode.find(a)->second;
-		    OVITO_ASSERT(!std::isnan(check));
+			OVITO_ASSERT(wnode.find(a) != wnode.end());
+			FloatType check = dmin * wnode.find(a)->second;
+			OVITO_ASSERT(!std::isnan(check));
 
-		    return std::make_tuple(dmin * wnode.find(a)->second, vmin);
-	    }
+			return std::make_tuple(dmin * wnode.find(a)->second, vmin);
+		}
 
-	    void add_node(size_t u) {
-		    next = u + 1;
-		    wnode[u] = 0;
-	    }
+		void add_node(size_t u) {
+			next = u + 1;
+			wnode[u] = 0;
+		}
 
-	    void add_edge(size_t u, size_t v, FloatType w) {
+		void add_edge(size_t u, size_t v, FloatType w) {
 
-		    auto it_u = adj.find(u);
-		    if (it_u == adj.end()) {
-			    add_node(u);
-			    it_u = adj.emplace(u, std::map<size_t, FloatType>{{{v,w}}}).first;
-		    }
-		    else it_u->second[v] = w;
+			auto it_u = adj.find(u);
+			if (it_u == adj.end()) {
+				add_node(u);
+				it_u = adj.emplace(u, std::map<size_t, FloatType>{{{v,w}}}).first;
+			}
+			else it_u->second[v] = w;
 
-		    auto it_v = adj.find(v);
-		    if (it_v == adj.end()) {
-			    add_node(v);
-			    it_v = adj.emplace(v, std::map<size_t, FloatType>{{{u,w}}}).first;
-		    }
-		    else it_v->second[u] = w;
+			auto it_v = adj.find(v);
+			if (it_v == adj.end()) {
+				add_node(v);
+				it_v = adj.emplace(v, std::map<size_t, FloatType>{{{u,w}}}).first;
+			}
+			else it_v->second[u] = w;
 
-		    wnode[u] += w;
-		    wnode[v] += w;
-	    }
+			wnode[u] += w;
+			wnode[v] += w;
+		}
 
-	    void remove_node(size_t u) {
+		void remove_node(size_t u) {
 
-		    for (auto const& x: adj[u]) {
-			    size_t v = x.first;
-			    adj[v].erase(u);
-		    }
+			for (auto const& x: adj[u]) {
+				size_t v = x.first;
+				adj[v].erase(u);
+			}
 
-		    //adj.erase(u);
-		    //wnode.erase(u);
-            deleted_adj[u] = adj[u];
-            adj.erase(u);
-	    }
+			//adj.erase(u);
+			//wnode.erase(u);
+			deleted_adj[u] = adj[u];
+			adj.erase(u);
+		}
 
-	    void reinstate_node(size_t u) {
+		void reinstate_node(size_t u) {
 
-            adj[u] = deleted_adj[u];
-            deleted_adj.erase(u);
+			adj[u] = deleted_adj[u];
+			deleted_adj.erase(u);
 
-		    for (auto const& x: adj[u]) {
-			    size_t v = x.first;
-			    FloatType w = x.second;
-			    (adj[v])[u] += w;
-		    }
-	    }
+			for (auto const& x: adj[u]) {
+				size_t v = x.first;
+				FloatType w = x.second;
+				(adj[v])[u] += w;
+			}
+		}
 
-	    size_t contract_edge(size_t a, size_t b) {
+		size_t contract_edge(size_t a, size_t b) {
 
-		    if (adj[b].size() > adj[a].size()) {
-			    std::swap(a, b);
-		    }
+			if (adj[b].size() > adj[a].size()) {
+				std::swap(a, b);
+			}
 
-		    for (auto const& x: adj[b]) {
-			    size_t v = x.first;
-			    FloatType w = x.second;
-                if (v == a) continue;
+			for (auto const& x: adj[b]) {
+				size_t v = x.first;
+				FloatType w = x.second;
+				if (v == a) continue;
 
-			    (adj[a])[v] += w;
-			    (adj[v])[a] += w;
-		    }
+				(adj[a])[v] += w;
+				(adj[v])[a] += w;
+			}
 
-		    adj[a].erase(b);
-		    wnode[a] += wnode[b];
-		    remove_node(b);
-		    return a;
-	    }
+			adj[a].erase(b);
+			wnode[a] += wnode[b];
+			remove_node(b);
+			return a;
+		}
 
-	    size_t reinstate_edge(size_t a, size_t b) {
-            // TODO: investigate whether component sizes must obey > relation
+		size_t reinstate_edge(size_t a, size_t b) {
+			// TODO: investigate whether component sizes must obey > relation
 
-		    for (auto const& x: deleted_adj[b]) {
-			    size_t v = x.first;
-			    FloatType w = x.second;
-                if (v == a) continue;
+			for (auto const& x: deleted_adj[b]) {
+				size_t v = x.first;
+				FloatType w = x.second;
+				if (v == a) continue;
 
-			    (adj[a])[v] -= w;
-			    (adj[v])[a] -= w;
+				(adj[a])[v] -= w;
+				(adj[v])[a] -= w;
 
-                // remove edge if weight is approximately zero;
-                FloatType minWeight = calculateGraphWeight(_misorientationThreshold);
-                if ((adj[a])[v] < minWeight / 2)
-                    adj[a].erase(v);
+				// remove edge if weight is approximately zero;
+				FloatType minWeight = calculateGraphWeight(_misorientationThreshold);
+				if ((adj[a])[v] < minWeight / 2)
+					adj[a].erase(v);
 
-                if ((adj[v])[a] < minWeight / 2)
-                    adj[v].erase(a);
-		    }
+				if ((adj[v])[a] < minWeight / 2)
+					adj[v].erase(a);
+			}
 
-		    wnode[a] -= wnode[b];
-		    reinstate_node(b);
-		    return a;
-	    }
-    };
+			wnode[a] -= wnode[b];
+			reinstate_node(b);
+			return a;
+		}
+	};
 
 #ifndef Q_CC_MSVC
 	/// The maximum number of neighbor atoms taken into account for orphan atom adoption.
@@ -227,7 +225,7 @@ public:
 			ConstPropertyPtr correspondenceProperty,
 			const SimulationCell& simCell,
 			GrainSegmentationModifier::MergeAlgorithm algorithmType,
-			GrainSegmentationModifier::StackingFaultHandling stackingFaultHandling,
+			bool handleCoherentInterfaces,
 			bool outputBonds);
 
 	/// Performs the computation.
@@ -293,7 +291,7 @@ private:
 	bool identifyAtomicStructures();
 
 	/// Rotates HCP atoms to an equivalent FCC orientation.
-    bool rotateHCPAtoms();
+	bool rotateHCPAtoms();
 
 	/// Calculates the disorientation angle for each graph edge (i.e. bond).
 	bool computeDisorientationAngles();
@@ -311,37 +309,35 @@ private:
 	bool node_pair_sampling_clustering(Graph& graph, std::vector<Quaternion>& qsum);
 
 	// Selects a threshold for Node Pair Sampling algorithm
-    FloatType calculate_threshold_suggestion();
+	FloatType calculate_threshold_suggestion();
 
-    // Determines if a bond is crystalline
-    bool isCrystallineBond(const NeighborBond& bond)
-    {
-        auto a = _adjustedStructureTypes[bond.a];
-        auto b = _adjustedStructureTypes[bond.b];
+	// Determines if a bond is crystalline
+	bool isCrystallineBond(const NeighborBond& bond)
+	{
+		auto a = _adjustedStructureTypes[bond.a];
+		auto b = _adjustedStructureTypes[bond.b];
 
-        if(a == PTMAlgorithm::OTHER) return false;
-        if(b == PTMAlgorithm::OTHER) return false;
-        if(a == b) return true;
+		if (a == PTMAlgorithm::OTHER) return false;
+		if (b == PTMAlgorithm::OTHER) return false;
+		if (a == b) return true;
+		if (!_handleBoundaries) return false;
 
-        if(_stackingFaultHandling == GrainSegmentationModifier::None)
-            return false;
+		return (a == PTMAlgorithm::FCC && b == PTMAlgorithm::HCP) || (a == PTMAlgorithm::HCP && b == PTMAlgorithm::FCC);
+	}
 
-        return (a == PTMAlgorithm::FCC && b == PTMAlgorithm::HCP) || (a == PTMAlgorithm::HCP && b == PTMAlgorithm::FCC);
-    }
+	bool interface_FCC_HCP(NeighborBond& bond, FloatType& disorientation, Quaternion& output, size_t& index);
 
-    bool interface_FCC_HCP(NeighborBond& bond, FloatType& disorientation, Quaternion& output, size_t& index);
+	// Converts a disorientation to an edge weight for Node Pair Sampling algorithm
+	static FloatType calculateGraphWeight(FloatType disorientation) {
+		// This is fairly arbitrary but it works well.
+		return std::exp(-FloatType(1)/3 * disorientation * disorientation);
+	}
 
-    // Converts a disorientation to an edge weight for Node Pair Sampling algorithm
-    static FloatType calculateGraphWeight(FloatType disorientation) {
-        // This is fairly arbitrary but it works well.
-        return std::exp(-FloatType(1)/3 * disorientation * disorientation);
-    }
-
-    // TODO: remove this and replace with a lambda function if possible
-    struct PriorityQueueCompare
-    {
-        bool operator()(const NeighborBond &a, const NeighborBond &b) const {return a.disorientation < b.disorientation;}
-    };
+	// TODO: remove this and replace with a lambda function if possible
+	struct PriorityQueueCompare
+	{
+		bool operator()(const NeighborBond &a, const NeighborBond &b) const {return a.disorientation < b.disorientation;}
+	};
 
 private:
 
@@ -354,7 +350,7 @@ private:
 	GrainSegmentationModifier::MergeAlgorithm _algorithmType;
 
 	// The type of stacking fault handling
-	GrainSegmentationModifier::StackingFaultHandling _stackingFaultHandling;
+	bool _handleBoundaries;
 
 	/// Controls the output of neighbor bonds to the data pipeline for visualization purposes.
 	bool _outputBondsToPipeline;
@@ -407,7 +403,7 @@ private:
 	/// The adaptively computed merge threshold.
 	FloatType _suggestedMergingThreshold = 0;
 
-    // The graph used for the Node Pair Sampling methods
+	// The graph used for the Node Pair Sampling methods
 	Graph graph;
 
 	friend class GrainSegmentationEngine2;

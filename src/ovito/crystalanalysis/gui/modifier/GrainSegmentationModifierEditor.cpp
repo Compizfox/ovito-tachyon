@@ -28,7 +28,6 @@
 #include <ovito/gui/desktop/properties/IntegerParameterUI.h>
 #include <ovito/gui/desktop/properties/BooleanParameterUI.h>
 #include <ovito/gui/desktop/properties/IntegerRadioButtonParameterUI.h>
-#include <ovito/gui/desktop/properties/IntegerCheckBoxParameterUI.h>
 #include <ovito/gui/desktop/mainwin/MainWindow.h>
 #include <ovito/core/dataset/DataSetContainer.h>
 #include "GrainSegmentationModifierEditor.h"
@@ -91,12 +90,15 @@ void GrainSegmentationModifierEditor::createUI(const RolloutInsertionParameters&
 	BooleanParameterUI* orphanAdoptionUI = new BooleanParameterUI(this, PROPERTY_FIELD(GrainSegmentationModifier::orphanAdoption));
 	sublayout2->addWidget(orphanAdoptionUI->checkBox(), 0, 0, 1, 2);
 
+	// Grain coloring
 	BooleanParameterUI* colorParticlesByGrainUI = new BooleanParameterUI(this, PROPERTY_FIELD(GrainSegmentationModifier::colorParticlesByGrain));
 	sublayout2->addWidget(colorParticlesByGrainUI->checkBox(), 1, 0, 1, 2);
 
-	IntegerCheckBoxParameterUI* stackingFaultHandlingUI = new IntegerCheckBoxParameterUI(this, PROPERTY_FIELD(GrainSegmentationModifier::stackingFaultHandling), GrainSegmentationModifier::None, GrainSegmentationModifier::MergeAtStackingFaults);
-	sublayout2->addWidget(stackingFaultHandlingUI->checkBox(), 2, 0, 1, 2);
+	// Stacking fault handling
+	BooleanParameterUI* handleCoherentInterfacesUI = new BooleanParameterUI(this, PROPERTY_FIELD(GrainSegmentationModifier::handleCoherentInterfaces));
+	sublayout2->addWidget(handleCoherentInterfacesUI->checkBox(), 2, 0, 1, 2);
 
+	// Output bonds
 	BooleanParameterUI* outputBondsUI = new BooleanParameterUI(this, PROPERTY_FIELD(GrainSegmentationModifier::outputBonds));
 	sublayout2->addWidget(outputBondsUI->checkBox(), 3, 0, 1, 2);
 

@@ -39,7 +39,7 @@ namespace Ovito { namespace CrystalAnalysis {
 
 IMPLEMENT_OVITO_CLASS(GrainSegmentationModifier);
 DEFINE_PROPERTY_FIELD(GrainSegmentationModifier, mergeAlgorithm);
-DEFINE_PROPERTY_FIELD(GrainSegmentationModifier, stackingFaultHandling);
+DEFINE_PROPERTY_FIELD(GrainSegmentationModifier, handleCoherentInterfaces);
 DEFINE_PROPERTY_FIELD(GrainSegmentationModifier, mergingThreshold);
 DEFINE_PROPERTY_FIELD(GrainSegmentationModifier, minGrainAtomCount);
 DEFINE_PROPERTY_FIELD(GrainSegmentationModifier, orphanAdoption);
@@ -47,7 +47,7 @@ DEFINE_PROPERTY_FIELD(GrainSegmentationModifier, outputBonds);
 DEFINE_PROPERTY_FIELD(GrainSegmentationModifier, colorParticlesByGrain);
 DEFINE_REFERENCE_FIELD(GrainSegmentationModifier, bondsVis);
 SET_PROPERTY_FIELD_LABEL(GrainSegmentationModifier, mergeAlgorithm, "Algorithm");
-SET_PROPERTY_FIELD_LABEL(GrainSegmentationModifier, stackingFaultHandling, "Handle stacking faults");
+SET_PROPERTY_FIELD_LABEL(GrainSegmentationModifier, handleCoherentInterfaces, "Handle stacking faults and coherent interfaces");
 SET_PROPERTY_FIELD_LABEL(GrainSegmentationModifier, mergingThreshold, "Merge threshold");
 SET_PROPERTY_FIELD_LABEL(GrainSegmentationModifier, minGrainAtomCount, "Minimum grain size (# of atoms)");
 SET_PROPERTY_FIELD_LABEL(GrainSegmentationModifier, orphanAdoption, "Adopt orphan atoms");
@@ -66,7 +66,7 @@ GrainSegmentationModifier::GrainSegmentationModifier(DataSet* dataset) : Asynchr
 		_orphanAdoption(true),
 		_outputBonds(false),
 		_colorParticlesByGrain(true),
-		_stackingFaultHandling(MergeAtStackingFaults)
+		_handleCoherentInterfaces(true)
 {
 	// Create the visual element for the bonds.
 	setBondsVis(new BondsVis(dataset));
@@ -122,12 +122,12 @@ Future<AsynchronousModifier::EnginePtr> GrainSegmentationModifier::createEngine(
 	return std::make_shared<GrainSegmentationEngine1>(
 			particles,
 			posProperty->storage(),
-            structureProperty->storage(),
-            orientationProperty->storage(),
-            correspondenceProperty->storage(),
+			structureProperty->storage(),
+			orientationProperty->storage(),
+			correspondenceProperty->storage(),
 			simCell->data(),
 			mergeAlgorithm(),
-			stackingFaultHandling(),
+			handleCoherentInterfaces(),
 			outputBonds());
 }
 

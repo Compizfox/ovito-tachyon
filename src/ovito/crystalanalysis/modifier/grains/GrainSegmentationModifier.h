@@ -64,13 +64,6 @@ public:
 	};
 	Q_ENUMS(MergeAlgorithm);
 
-	enum StackingFaultHandling {
-		None,	    				///< Cubic and hexagonal regions are never merged (outside of orphan atom adoption).
-		MergeAtStackingFaults,		///< Cubic and hexagonal regions are treated as the same type. Twin boundaries are properly handled.
-		MergeAtCoherentInterfaces,	///< Cubic and hexagonal regions are treated as the same type. Twin boundaries are ignored.
-	};
-	Q_ENUMS(StackingFaultHandling);
-
 	/// Constructor.
 	Q_INVOKABLE GrainSegmentationModifier(DataSet* dataset);
 
@@ -87,8 +80,8 @@ private:
 	/// The merging algorithm to use.
 	DECLARE_MODIFIABLE_PROPERTY_FIELD(MergeAlgorithm, mergeAlgorithm, setMergeAlgorithm);
 
-	/// The stacking fault handling type to use.
-	DECLARE_MODIFIABLE_PROPERTY_FIELD(StackingFaultHandling, stackingFaultHandling, setStackingFaultHandling);
+	/// Controls whether to handle coherent crystal interfaces.
+	DECLARE_MODIFIABLE_PROPERTY_FIELD(bool, handleCoherentInterfaces, setHandleCoherentInterfaces);
 
 	/// Controls the amount of noise allowed inside a grain.
 	DECLARE_MODIFIABLE_PROPERTY_FIELD(FloatType, mergingThreshold, setMergingThreshold);
