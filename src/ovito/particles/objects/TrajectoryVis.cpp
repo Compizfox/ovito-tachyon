@@ -128,7 +128,7 @@ void TrajectoryVis::render(TimePoint time, const std::vector<const DataObject*>&
 	};
 
 	// The shading mode.
-	ParticlePrimitive::ShadingMode cornerShadingMode = (shadingMode() == ArrowPrimitive::NormalShading)
+	ParticlePrimitive::ShadingMode cornerShadingMode = (static_cast<ArrowPrimitive::ShadingMode>(shadingMode()) == ArrowPrimitive::NormalShading)
 			? ParticlePrimitive::NormalShading : ParticlePrimitive::FlatShading;
 	FloatType endFrame = showUpToCurrentTime() ? dataset()->animationSettings()->timeToFrame(time) : std::numeric_limits<FloatType>::max();
 
