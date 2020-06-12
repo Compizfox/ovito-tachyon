@@ -47,7 +47,7 @@ DEFINE_PROPERTY_FIELD(GrainSegmentationModifier, outputBonds);
 DEFINE_PROPERTY_FIELD(GrainSegmentationModifier, colorParticlesByGrain);
 DEFINE_REFERENCE_FIELD(GrainSegmentationModifier, bondsVis);
 SET_PROPERTY_FIELD_LABEL(GrainSegmentationModifier, mergeAlgorithm, "Algorithm");
-SET_PROPERTY_FIELD_LABEL(GrainSegmentationModifier, handleCoherentInterfaces, "Handle stacking faults and coherent interfaces");
+SET_PROPERTY_FIELD_LABEL(GrainSegmentationModifier, handleCoherentInterfaces, "Handle stacking faults");
 SET_PROPERTY_FIELD_LABEL(GrainSegmentationModifier, mergingThreshold, "Merge threshold");
 SET_PROPERTY_FIELD_LABEL(GrainSegmentationModifier, minGrainAtomCount, "Minimum grain size (# of atoms)");
 SET_PROPERTY_FIELD_LABEL(GrainSegmentationModifier, orphanAdoption, "Adopt orphan atoms");

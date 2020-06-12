@@ -290,8 +290,8 @@ private:
 	/// Performs the PTM algorithm. Determines the local structure type and the local lattice orientation.
 	bool identifyAtomicStructures();
 
-	/// Rotates HCP atoms to an equivalent FCC orientation.
-	bool rotateHCPAtoms();
+	/// Rotates hexagonal atoms (HCP and hex-diamond) to an equivalent cubic orientation.
+	bool rotateHexagonalAtoms();
 
 	/// Calculates the disorientation angle for each graph edge (i.e. bond).
 	bool computeDisorientationAngles();
@@ -325,7 +325,7 @@ private:
 		return (a == PTMAlgorithm::FCC && b == PTMAlgorithm::HCP) || (a == PTMAlgorithm::HCP && b == PTMAlgorithm::FCC);
 	}
 
-	bool interface_FCC_HCP(NeighborBond& bond, FloatType& disorientation, Quaternion& output, size_t& index);
+	bool interface_cubic_hex(NeighborBond& bond, FloatType& disorientation, Quaternion& output, size_t& index);
 
 	// Converts a disorientation to an edge weight for Node Pair Sampling algorithm
 	static FloatType calculateGraphWeight(FloatType disorientation) {

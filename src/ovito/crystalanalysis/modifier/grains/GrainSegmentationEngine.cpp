@@ -79,7 +79,7 @@ void GrainSegmentationEngine1::perform()
 {
 	// First phase of grain segmentation algorithm:
 	if(!identifyAtomicStructures()) return;
-	if(!rotateHCPAtoms()) return;
+	if(!rotateHexagonalAtoms()) return;
 	if(!computeDisorientationAngles()) return;
 	if(!determineMergeSequence()) return;
 
@@ -248,7 +248,7 @@ bool GrainSegmentationEngine1::identifyAtomicStructures()
 	return !isCanceled();
 }
 
-bool GrainSegmentationEngine1::interface_FCC_HCP(NeighborBond& bond, FloatType& disorientation, Quaternion& output, size_t& index)
+bool GrainSegmentationEngine1::interface_cubic_hex(NeighborBond& bond, FloatType& disorientation, Quaternion& output, size_t& index)
 {
 	disorientation = std::numeric_limits<FloatType>::infinity();
 	index = std::numeric_limits<size_t>::max();
@@ -259,7 +259,8 @@ bool GrainSegmentationEngine1::interface_FCC_HCP(NeighborBond& bond, FloatType& 
 		std::swap(a, b);
 	}
 
-	if (_adjustedStructureTypes[a] != PTMAlgorithm::FCC || _adjustedStructureTypes[b] != PTMAlgorithm::HCP) {
+	if ((_adjustedStructureTypes[a] != PTMAlgorithm::FCC || _adjustedStructureTypes[b] != PTMAlgorithm::HCP) &&
+		(_adjustedStructureTypes[a] != PTMAlgorithm::CUBIC_DIAMOND || _adjustedStructureTypes[b] != PTMAlgorithm::HEX_DIAMOND)) {
 		return false;
 	}
 
@@ -279,30 +280,30 @@ bool GrainSegmentationEngine1::interface_FCC_HCP(NeighborBond& bond, FloatType& 
 }
 
 /******************************************************************************
-* Rotates HCP atoms to an equivalent FCC orientation.
+* Rotates hexagonal atoms (HCP and hex-diamond) to an equivalent cubic orientation.
 ******************************************************************************/
-bool GrainSegmentationEngine1::rotateHCPAtoms()
+bool GrainSegmentationEngine1::rotateHexagonalAtoms()
 {
-	NearestNeighborFinder neighFinder(PTMAlgorithm::MAX_INPUT_NEIGHBORS);
-	if(!neighFinder.prepare(*positions(), cell(), nullptr, this))
-		return false;
-
 	ConstPropertyAccess<PTMAlgorithm::StructureType> structuresArray(structureTypes());
 	ConstPropertyAccess<Quaternion> orientationsArray(orientations());
 	ConstPropertyAccess<qlonglong> correspondenceArray(correspondences());
-
-	// Construct local neighbor list builder.
-	NearestNeighborFinder::Query<PTMAlgorithm::MAX_INPUT_NEIGHBORS> neighQuery(neighFinder);
 
 	// Make a copy of structure types and orientations.
 	_adjustedStructureTypes = std::vector<PTMAlgorithm::StructureType>(structuresArray.cbegin(), structuresArray.cend());
 	_adjustedOrientations = std::vector<Quaternion>(orientationsArray.cbegin(), orientationsArray.cend());
 
-	// Only rotate HCP atoms if stacking fault handling is enabled
+	// Only rotate hexagonal atoms if handling of coherent interfaces is enabled
 	if (!_handleBoundaries)
 		return true;
 
-	setProgressText(GrainSegmentationModifier::tr("Grain segmentation - rotating HCP atoms"));
+	setProgressText(GrainSegmentationModifier::tr("Grain segmentation - rotating hexagonal atoms"));
+
+	NearestNeighborFinder neighFinder(PTMAlgorithm::MAX_INPUT_NEIGHBORS);
+	if(!neighFinder.prepare(*positions(), cell(), nullptr, this))
+		return false;
+
+	// Construct local neighbor list builder.
+	NearestNeighborFinder::Query<PTMAlgorithm::MAX_INPUT_NEIGHBORS> neighQuery(neighFinder);
 
 	// TODO: replace comparator with a lambda function
 	boost::heap::priority_queue<NeighborBond, boost::heap::compare<PriorityQueueCompare>> pq;
@@ -311,9 +312,9 @@ bool GrainSegmentationEngine1::rotateHCPAtoms()
 	Quaternion rotated;
 	FloatType disorientation;
 
-	// Populate priority queue with bonds at an FCC-HCP interface
+	// Populate priority queue with bonds at an cubic-hexagonal interface
 	for (auto bond : _neighborBonds) {
-		if (interface_FCC_HCP(bond, disorientation, rotated, index) && disorientation < _misorientationThreshold) {
+		if (interface_cubic_hex(bond, disorientation, rotated, index) && disorientation < _misorientationThreshold) {
 			pq.push(bond);
 		}
 	}
@@ -322,17 +323,22 @@ bool GrainSegmentationEngine1::rotateHCPAtoms()
 		auto bond = *pq.begin();
 		pq.pop();
 
-		if (!interface_FCC_HCP(bond, disorientation, rotated, index)) {
+		if (!interface_cubic_hex(bond, disorientation, rotated, index)) {
 			continue;
 		}
 
-		// flip structure from HCP to FCC and adjust orientation
-		_adjustedStructureTypes[index] = PTMAlgorithm::FCC;
+		// flip structure from hexagonal to cubic and adjust orientation
+		if(_adjustedStructureTypes[index] == PTMAlgorithm::HCP)
+			_adjustedStructureTypes[index] = PTMAlgorithm::FCC;
+		else if(_adjustedStructureTypes[index] == PTMAlgorithm::HEX_DIAMOND)
+			_adjustedStructureTypes[index] = PTMAlgorithm::CUBIC_DIAMOND;
+		else
+			OVITO_ASSERT(false);
 		_adjustedOrientations[index] = rotated;
 
-		// Decode the PTM correspondence
+		// Decode the PTM correspondences.
 		ptm_atomicenv_t env;
-		auto structureType = (PTMAlgorithm::StructureType)structuresArray[index];   //use original structure type for decoding correspondences
+		auto structureType = (PTMAlgorithm::StructureType)structuresArray[index];   // Use original structure type for decoding correspondences.
 		establish_atomic_environment(neighQuery, correspondenceArray, structureType, index, &env);
 
 		int numNeighbors = env.num - 1;
@@ -342,7 +348,7 @@ bool GrainSegmentationEngine1::rotateHCPAtoms()
 			bond.b = neighborIndex;
 
 			size_t dummy;
-			if (interface_FCC_HCP(bond, disorientation, rotated, dummy) && disorientation < _misorientationThreshold) {
+			if (interface_cubic_hex(bond, disorientation, rotated, dummy) && disorientation < _misorientationThreshold) {
 				pq.push({index, neighborIndex, disorientation});
 			}
 		}

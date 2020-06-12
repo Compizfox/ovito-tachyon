@@ -10,23 +10,34 @@
          xmlns:ns="http://docbook.org/ns/docbook">
   <title>Grain segmentation</title>
   <para>
-  This modifier determines the grain structure in a polycrystalline microstructure.
+    This modifier identifies the individual grains in a polycrystalline microstructure by grouping atoms
+    in crystal regions having similar local lattice orientations. The algorithm works in three steps:
+    <orderedlist>
+      <listitem>The local structural environment and orientation of each atom is determined using the <link linkend="particles.modifiers.polyhedral_template_matching">Polyhedral Template Matching</link> (PTM) modifier.</listitem>
+      <listitem>A graph representation of the input structure is created using the neighbors of each atom, where each atom is a graph node and each neighbor bond is a graph edge.</listitem>
+      <listitem>Grains are formed by hierarchical clustering of the graph.</listitem>
+    </orderedlist>
   </para>
   <para>
-    The algorithm works in three steps:
-      <itemizedlist>
-        <listitem>The local structural environment and orientation of each atom is determined using <link linkend="particles.modifiers.polyhedral_template_matching">Polyhedral Template Matching</link> (PTM).</listitem>
-        <listitem>A graph is created using the neighbors of each atom, where each atom is a graph node and each bond is a graph edge.</listitem>
-        <listitem>Grains are created by hierarchical clustering of the graph.</listitem>
-      </itemizedlist>
-  </para>
-  <para>
-  The modifier sets the <literal>Cluster</literal> property, which is encoded as an integer value and indicates which grain an atom belongs to. A cluster value of zero means the atom does not belong to any grain.
-  The modifier also sets the <literal>Structure Type</literal>, <literal>RMSD</literal>, and <literal>Orientation</literal> properties for each particle. A description of these properties is given in the <link linkend="particles.modifiers.polyhedral_template_matching">Polyhedral Template Matching</link> documentation.
+  The modifier assigns the <literal>Cluster</literal> output property to particles 
+  to indicate the grain each atom belongs to encoded as an integer value. The special cluster value 0 means an atom does not 
+  belong to any grain.
+  The modifier furthermore computes a mean lattice orientation for each identified grain and outputs a list of
+  all grains as a <link linkend="scene_objects.data_table">data table</link>.
   </para>
 
+  <note><title>IMPORTANT NOTICE:</title>
+    <para>
+      This modifier and the underlying algorithm are still considered experimental. Please use this 
+      early preview version with caution and help us improve the algorithm by reporting any issues you may observe when applying it to your simulations.
+      This documentation page is only preliminary and will be further expanded in a future version of OVITO. 
+      Peter Mahler Larsen is the lead author of the grain segmentation algorithm and can be contacted 
+      either directly or through the official OVITO tech support channels if needed.
+    </para>
+  </note>
+
   <para>
-  The method is illustrated in the table below. The local structural environment is determined for every atom using PTM (left). PTM also determines the local orientations (coloured, middle) but does not explicitly
+  The grain segmentation algorithm is illustrated in the figures below. The local structural environment is determined for every atom using PTM (left). PTM also determines the local orientations (coloured, middle) but does not explicitly
   group atoms into grains. Hierarchical clustering is used to identify grains (right).
   </para>
 
@@ -57,23 +68,34 @@
     <informalfigure><screenshot><mediaobject><imageobject>
       <imagedata fileref="images/modifiers/grain_segmentation_panel.png" format="PNG" scale="50" />
     </imageobject></mediaobject></screenshot></informalfigure>
+    <informalfigure><screenshot><mediaobject><imageobject>
+      <imagedata fileref="images/modifiers/grain_segmentation_table.png" format="PNG" scale="85" />
+    </imageobject></mediaobject></screenshot></informalfigure>
 
   <simplesect>
-    <title>Algorithm</title>
+    <title>Algorithm selection</title>
     <para>
-    The modifier creates grains by performing hierarchical clustering on the graph. Two types of hierarchical clustering algorithms are implemented:
+    The modifier creates grains by performing hierarchical clustering on the nearest-neighbor atom graph. 
+    Two types of hierarchical clustering algorithms are implemented:
     </para>
 
     <variablelist>
       <varlistentry>
-        <term>Node Pair Sampling</term>
+        <term>Graph Clustering (automatic / manual)</term>
         <listitem>
           <para>
-          Edge weights are set as <literal>exp(-d<superscript>2</superscript>/3)</literal>, where <literal>d</literal> is the misorientation in degrees. Grains are built up by contracting edges using the <emphasis>Node Pair Sampling</emphasis> method of <link xlink:href="https://arxiv.org/abs/1806.01664">Bonald et al.</link>
+          Graph edge weights are initialized as <literal>exp(-d<superscript>2</superscript>/3)</literal>, where <literal>d</literal> is the misorientation 
+          in degrees between two neighboring atoms. Grains are built up by contracting edges using the <emphasis>Node Pair Sampling</emphasis> method 
+          of <link xlink:href="https://arxiv.org/abs/1806.01664">Bonald et al.</link>
           </para>
           <para>
-          This algorithm produces good segmentations in a range of microstructure types. It performs well on low-angle grain boundaries and can discriminate between grains and sub-grains.
-          A drawback is that the merge distance parameter does not have an intuitive physical meaning.
+            This algorithm produces good segmentations in a range of microstructure types. It performs well on low-angle grain boundaries and can discriminate between grains and sub-grains.
+            A drawback is that the merge distance threshold parameter does not have an intuitive physical meaning. 
+          </para>
+          <para>
+            The automatic mode alleviates this problem by choosing a good merge threshold automatically for you using a statistical 
+            analysis of the sequence of graph merging steps, stopping the merging of crystallite clusters as soon as a 
+            deviation from the regular exponential behavior is observed.
           </para>
         </listitem>
       </varlistentry>
@@ -82,21 +104,21 @@
         <term>Minimum Spanning Tree</term>
         <listitem>
           <para>
-          In this algorithm the graph is replaced by its <link xlink:href="https://en.wikipedia.org/wiki/Minimum_spanning_tree">minimum spanning tree.</link>
-          The edge weights are the misorientations between neighboring atoms.
-          Grains are built up by contracting edges in sorted order (by misorientation, low to high).
-          The distance of a contraction (or merge) is simply the edge misorientation.
+            In this algorithm the graph gets replaced by its <link xlink:href="https://en.wikipedia.org/wiki/Minimum_spanning_tree">minimum spanning tree.</link>
+            The edge weights are the misorientation angles between neighboring atoms.
+            Grains are built up by contracting edges in sorted order (by misorientation, low to high).
+            The distance of a contraction (or merge) is simply the edge misorientation.
           </para>
 
           <para>
-          This is a fast algorithm which has lower memory usage. The merge distance has a simple interpretation (misorientation between neighboring atoms) and is scale invariant.
-          Drawbacks are that it can produce poor results in microstructures containing low-angle grain boundaries, and it performs poorly in the presense of local perturbations due to, e.g., thermal atomic displacements or elastic lattice distortions. 
-          This method is best suited for low-temperature simulations.
+            This is a fast algorithm which has lower memory usage. The merge distance has a simple interpretation (misorientation between neighboring atoms or crystal clusters) and is scale invariant.
+            Drawbacks are that it can produce poor results in microstructures containing low-angle grain boundaries, and it performs poorly in the presense of local perturbations due to, e.g., thermal atomic displacements or elastic lattice distortions. 
+            This method is best suited for low-temperature simulations.
           </para>
 
           <para>
-          This approach is similar to that of <link xlink:href="https://doi.org/10.1007/s11837-013-0831-9">Panzarino and Rupert</link>. The key differences are the use of PTM (more robust structural determination),
-          a faster algorithm (minutes instead of days), and the formulation as a hierarchical clustering problem (effects of cutoff choices are visible).
+            This approach is similar to that of <link xlink:href="https://doi.org/10.1007/s11837-013-0831-9">Panzarino and Rupert</link>. The key differences are the use of PTM (more robust structural determination),
+            a faster algorithm (minutes instead of days), and the formulation as a hierarchical clustering problem (effects of cutoff choices are visible).
           </para>
         </listitem>
       </varlistentry>
@@ -130,15 +152,6 @@
       </varlistentry>
 
       <varlistentry>
-        <term>RMSD cutoff</term>
-        <listitem>
-          <para>
-            The cutoff in the Root-Mean-Square Deviation used to determine the local structural environment. More details are given in the <link linkend="particles.modifiers.polyhedral_template_matching">Polyhedral Template Matching</link> documentation.
-          </para>
-        </listitem>
-      </varlistentry>
-
-      <varlistentry>
         <term>Adopt orphan atoms</term>
         <listitem>
           <para>
@@ -158,10 +171,26 @@
       </varlistentry>
 
       <varlistentry>
+        <term>Handle stacking faults</term>
+        <listitem>
+          <para>
+            This option lets the algorithm merge atoms having hexagonal crystal structures (e.g. HCP) with atoms having cubic  
+            structures (e.g. FCC) at coherent crystal interfaces. Thus, statcking faults will become part of 
+            the surrounding grain. Furthermore, atoms of coherent twin boundaries will be attributed to one of the two adjacent 
+            grains. 
+          </para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term>Output bonds</term>
         <listitem>
           <para>
-            Whether to visualize the edges of the initial graph as bonds between atoms. This option is mainly for debugging purposes and has large memory requirements. It is not recommended for large datasets.
+            Whether to visualize the edges of the initial neighbor graph as bonds between atoms. 
+            Local lattice disorientations are output as a bond property named <literal>Disorientation</literal>,
+            which may be visualized using the <link linkend="particles.modifiers.color_coding">Color coding</link> modifier of OVITO.
+            This output option is mainly meant for debugging purposes and has large memory requirements. 
+            It is not recommended for large datasets.
           </para>
         </listitem>
       </varlistentry>
@@ -173,7 +202,7 @@
   <simplesect>
     <title>Example</title>
     <para>
-      The panel below illustrates the effect of varying the merge threshold in a polycrystalline graphene sample, using the <emphasis>Node Pair Sampling</emphasis> algorithm.
+      The panel below illustrates the effect of varying the merge threshold in a polycrystalline graphene sample, using the <emphasis>Graph Clustering</emphasis> algorithm.
       A good segmentation into 6 grains is achieved using a merge threshold of 14 (left).
       Reducing the threshold to 13.5 reveals a subgrain structure in the largest grain (middle). A further reduction of the threshold to 12.5 splits the largest grain into three subgrains (right).
     </para>
@@ -220,4 +249,3 @@
   </simplesect>
 
 </section>
-
