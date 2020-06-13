@@ -66,11 +66,14 @@
   <xsl:template match="ovito-pro" name="ovito-pro">
     <xsl:variable name="pro.description.page" select="//section[@id='credits.ovito_pro']"/>
     <a class="ovito-pro-tag" data-tooltip="This program feature is only available in the Pro edition of OVITO. Click to learn more." data-tooltip-position="bottom">
+      <xsl:attribute name="href">https://www.ovito.org/about/ovito-pro/</xsl:attribute>
+    <!--
       <xsl:attribute name="href">
         <xsl:call-template name="href.target">
           <xsl:with-param name="object" select="$pro.description.page" />
         </xsl:call-template>
       </xsl:attribute>
+    -->
       pro
     </a>
   </xsl:template>

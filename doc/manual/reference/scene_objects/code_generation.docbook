@@ -44,13 +44,13 @@
     <para>
       The code generator can generate Python staments for the following aspects of the visualization scene:
       <itemizedlist>
-        <listitem>Data file import (arguments of the <pydoc-link href="modules/ovito_io" anchor="ovito.io.import_file" no-pro-tag="1"><classname>import_file()</classname></pydoc-link> function)</listitem>
+        <listitem>Data file import (all arguments of the <pydoc-link href="modules/ovito_io" anchor="ovito.io.import_file" no-pro-tag="1"><classname>import_file()</classname></pydoc-link> function)</listitem>
         <listitem>Visual elements</listitem>
         <listitem>Modifiers</listitem>
         <listitem>Viewport layers</listitem>
         <listitem>Viewport camera setup</listitem>
         <listitem>Rendering engine configuration</listitem>
-        <listitem>Image and animation render settings</listitem>
+        <listitem>Image/animation render settings</listitem>
       </itemizedlist>
     </para>
     <para>
