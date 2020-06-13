@@ -56,6 +56,11 @@ public:
 	/// Selects a specific data object in this applet.
 	virtual bool selectDataObject(PipelineObject* dataSource, const QString& objectIdentifierHint, const QVariant& modeHint) override;
 
+	/// Determines whether the given property represents a color.
+	virtual bool isColorProperty(PropertyObject* property) const override {
+		return property->dataType() == PropertyStorage::Float && property->componentCount() == 3 && property->name().contains(QStringLiteral("Color"));
+	}
+
 private Q_SLOTS:
 
 	/// Is called when the user selects a different container object from the list.

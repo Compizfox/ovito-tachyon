@@ -23,7 +23,6 @@
 #include <ovito/particles/Particles.h>
 #include "PTMAlgorithm.h"
 
-#include <3rdparty/ptm/ptm_functions.h>
 
 namespace Ovito { namespace Particles {
 
@@ -59,7 +58,7 @@ typedef struct
 {
 	const NearestNeighborFinder* neighFinder;
 	ConstPropertyAccess<int> particleTypes;
-	std::vector< uint64_t > *precachedNeighbors;
+	std::vector< uint64_t > *cachedNeighbors;
 
 } ptmnbrdata_t;
 
@@ -68,7 +67,7 @@ static int get_neighbours(void* vdata, size_t _unused_lammps_variable, size_t at
 	ptmnbrdata_t* nbrdata = (ptmnbrdata_t*)vdata;
 	const NearestNeighborFinder* neighFinder = nbrdata->neighFinder;
 	const ConstPropertyAccess<int>& particleTypes = nbrdata->particleTypes;
-	std::vector< uint64_t >& precachedNeighbors = *nbrdata->precachedNeighbors;
+	std::vector< uint64_t >& cachedNeighbors = *nbrdata->cachedNeighbors;
 
 	// Find nearest neighbors.
 	NearestNeighborFinder::Query<PTMAlgorithm::MAX_INPUT_NEIGHBORS> neighQuery(*neighFinder);
@@ -76,29 +75,28 @@ static int get_neighbours(void* vdata, size_t _unused_lammps_variable, size_t at
 	int numNeighbors = std::min(num_requested - 1, neighQuery.results().size());
 	OVITO_ASSERT(numNeighbors <= PTMAlgorithm::MAX_INPUT_NEIGHBORS);
 
-	int permutation[PTM_MAX_INPUT_POINTS];
-	ptm_index_to_permutation(numNeighbors, precachedNeighbors[atom_index], permutation);
+    ptm_decode_correspondences(PTM_MATCH_FCC,   //this gives us default behaviour
+                               cachedNeighbors[atom_index], env->correspondences);
 
 	// Bring neighbor coordinates into a form suitable for the PTM library.
-	env->correspondences[0] = 0;
 	env->atom_indices[0] = atom_index;
 	env->points[0][0] = 0;
 	env->points[0][1] = 0;
 	env->points[0][2] = 0;
 	for(int i = 0; i < numNeighbors; i++) {
-
-		//env->correspondences[index] = permutation[i] + 1;
-		env->atom_indices[i+1] = neighQuery.results()[permutation[i]].index;
-		env->points[i+1][0] = neighQuery.results()[permutation[i]].delta.x();
-		env->points[i+1][1] = neighQuery.results()[permutation[i]].delta.y();
-		env->points[i+1][2] = neighQuery.results()[permutation[i]].delta.z();
+		int p = env->correspondences[i+1] - 1;
+		env->atom_indices[i+1] = neighQuery.results()[p].index;
+		env->points[i+1][0] = neighQuery.results()[p].delta.x();
+		env->points[i+1][1] = neighQuery.results()[p].delta.y();
+		env->points[i+1][2] = neighQuery.results()[p].delta.z();
 	}
 
 	// Build list of particle types for ordering identification.
 	if(particleTypes) {
 		env->numbers[0] = particleTypes[atom_index];
 		for(int i = 0; i < numNeighbors; i++) {
-			env->numbers[i+1] = particleTypes[neighQuery.results()[permutation[i]].index];
+    		int p = env->correspondences[i+1] - 1;
+			env->numbers[i+1] = particleTypes[neighQuery.results()[p].index];
 		}
 	}
 	else {
@@ -116,7 +114,7 @@ static int get_neighbours(void* vdata, size_t _unused_lammps_variable, size_t at
 * Identifies the local structure of the given particle and builds the list of
 * nearest neighbors that form the structure.
 ******************************************************************************/
-PTMAlgorithm::StructureType PTMAlgorithm::Kernel::identifyStructure(size_t particleIndex, std::vector< uint64_t >& precachedNeighbors, Quaternion* qtarget)
+PTMAlgorithm::StructureType PTMAlgorithm::Kernel::identifyStructure(size_t particleIndex, std::vector< uint64_t >& cachedNeighbors, Quaternion* qtarget)
 {
 	// Validate input.
 	if(particleIndex >= _algo.particleCount())
@@ -130,7 +128,7 @@ PTMAlgorithm::StructureType PTMAlgorithm::Kernel::identifyStructure(size_t parti
 	ptmnbrdata_t nbrdata;
 	nbrdata.neighFinder = &_algo;
 	nbrdata.particleTypes = _algo._identifyOrdering ? _algo._particleTypes : nullptr;
-	nbrdata.precachedNeighbors = &precachedNeighbors;
+	nbrdata.cachedNeighbors = &cachedNeighbors;
 
 	int32_t flags = 0;
 	if(_algo._typesToIdentify[SC]) flags |= PTM_CHECK_SC;
@@ -143,27 +141,29 @@ PTMAlgorithm::StructureType PTMAlgorithm::Kernel::identifyStructure(size_t parti
 	if(_algo._typesToIdentify[GRAPHENE]) flags |= PTM_CHECK_GRAPHENE;
 
 	// Call PTM library to identify the local structure.
-	int32_t type;
-	double F_res[3];
-
-	ptm_index(_handle,
+	ptm_result_t result;
+	int errorCode = ptm_index(_handle,
 			particleIndex, get_neighbours, (void*)&nbrdata,
 			flags,
 			true,
-			&type,
-			&_orderingType,
-			&_scale,
-			&_rmsd,
-			_q,
-			_algo._calculateDefGradient ? _F.elements() : nullptr,
-			_algo._calculateDefGradient ? F_res : nullptr,
-			nullptr,
-			nullptr,
-			&_interatomicDistance,
-			nullptr,
-			&_bestTemplateIndex,
-			&_bestTemplate,
+			true,
+			_algo._calculateDefGradient,
+			&result,
 			&_env);
+
+	int32_t type = result.structure_type;
+	_orderingType = result.structure_type;
+	_scale = result.scale;
+	_rmsd = result.rmsd;
+	_interatomicDistance = result.interatomic_distance;
+	_bestTemplateIndex = result.best_template_index;
+	_bestTemplate = result.best_template;
+	memcpy(_q, result.orientation, 4 * sizeof(double));
+	if (_algo._calculateDefGradient) {
+		memcpy(_F.elements(), result.F,  9 * sizeof(double));
+	}
+
+	OVITO_ASSERT(errorCode == PTM_NO_ERROR);
 
 	// Convert PTM classification back to our own scheme.
 	if(type == PTM_MATCH_NONE || (_algo._rmsdCutoff != 0 && _rmsd > _algo._rmsdCutoff)) {
@@ -177,18 +177,7 @@ PTMAlgorithm::StructureType PTMAlgorithm::Kernel::identifyStructure(size_t parti
 		_F.setZero();
 	}
 	else {
-		if(type == PTM_MATCH_SC) _structureType = SC;
-		else if(type == PTM_MATCH_FCC) _structureType = FCC;
-		else if(type == PTM_MATCH_HCP) _structureType = HCP;
-		else if(type == PTM_MATCH_ICO) _structureType = ICO;
-		else if(type == PTM_MATCH_BCC) _structureType = BCC;
-		else if(type == PTM_MATCH_DCUB) _structureType = CUBIC_DIAMOND;
-		else if(type == PTM_MATCH_DHEX) _structureType = HEX_DIAMOND;
-		else if(type == PTM_MATCH_GRAPHENE) _structureType = GRAPHENE;
-		else {
-			OVITO_ASSERT(false);
-			_structureType = OTHER;
-		}
+		_structureType = ptm_to_ovito_structure_type(type);
 	}
 
 #if 0
@@ -260,7 +249,7 @@ PTMAlgorithm::StructureType PTMAlgorithm::Kernel::identifyStructure(size_t parti
 #endif
 }
 
-int PTMAlgorithm::Kernel::precacheNeighbors(size_t particleIndex, uint64_t* res)
+int PTMAlgorithm::Kernel::cacheNeighbors(size_t particleIndex, uint64_t* res)
 {
 	// Validate input.
 	if(particleIndex >= _algo.particleCount())
@@ -287,7 +276,7 @@ int PTMAlgorithm::Kernel::precacheNeighbors(size_t particleIndex, uint64_t* res)
 /******************************************************************************
 * Returns the number of neighbors for the PTM structure found for the current particle.
 ******************************************************************************/
-int PTMAlgorithm::Kernel::numStructureNeighbors() const
+int PTMAlgorithm::Kernel::numTemplateNeighbors() const
 {
 	return ptm_num_nbrs[_structureType];
 }
@@ -296,13 +285,12 @@ int PTMAlgorithm::Kernel::numStructureNeighbors() const
 * Returns the neighbor information corresponding to the i-th neighbor in the
 * PTM template identified for the current particle.
 ******************************************************************************/
-const NearestNeighborFinder::Neighbor& PTMAlgorithm::Kernel::getNeighborInfo(int index) const
+const NearestNeighborFinder::Neighbor& PTMAlgorithm::Kernel::getTemplateNeighbor(int index) const
 {
 	OVITO_ASSERT(_structureType != OTHER);
-	OVITO_ASSERT(index >= 0 && index < numStructureNeighbors());
+	OVITO_ASSERT(index >= 0 && index < numTemplateNeighbors());
 	int mappedIndex = _env.correspondences[index + 1] - 1;
-	OVITO_ASSERT(mappedIndex >= 0 && mappedIndex < results().size());
-	return results()[mappedIndex];
+	return getNearestNeighbor(mappedIndex);
 }
 
 /******************************************************************************
@@ -312,7 +300,7 @@ const NearestNeighborFinder::Neighbor& PTMAlgorithm::Kernel::getNeighborInfo(int
 const Vector_3<double>& PTMAlgorithm::Kernel::getIdealNeighborVector(int index) const
 {
 	OVITO_ASSERT(_structureType != OTHER);
-	OVITO_ASSERT(index >= 0 && index < numStructureNeighbors());
+	OVITO_ASSERT(index >= 0 && index < numTemplateNeighbors());
 	OVITO_ASSERT(_bestTemplate != nullptr);
 	return *reinterpret_cast<const Vector_3<double>*>(_bestTemplate[index + 1]);
 }

@@ -57,6 +57,10 @@
               <entry>Calculates the atomic-level elastic strain tensors in crystalline systems.</entry>
             </row>
             <row>
+              <entry><link linkend="particles.modifiers.grain_segmentation">Grain&#xA0;segmentation</link></entry>
+              <entry>Determines the grain structure in a polycrystalline microstructure.</entry>
+            </row>
+            <row>
               <entry><link linkend="particles.modifiers.histogram">Histogram</link></entry>
               <entry>Computes the histogram of a property.</entry>
             </row>
@@ -292,6 +296,8 @@
   <xi:include href="particles/displacement_vectors.docbook"/>
 
   <xi:include href="particles/elastic_strain.docbook"/>
+
+  <xi:include href="particles/grain_segmentation.docbook"/>
 
   <xi:include href="particles/expand_selection.docbook"/>
 

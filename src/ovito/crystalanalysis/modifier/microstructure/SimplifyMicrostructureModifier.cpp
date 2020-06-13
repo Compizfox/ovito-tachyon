@@ -63,7 +63,7 @@ bool SimplifyMicrostructureModifier::OOMetaClass::isApplicableTo(const DataColle
 * Creates and initializes a computation engine that will compute the
 * modifier's results.
 ******************************************************************************/
-Future<AsynchronousModifier::ComputeEnginePtr> SimplifyMicrostructureModifier::createEngine(const PipelineEvaluationRequest& request, ModifierApplication* modApp, const PipelineFlowState& input)
+Future<AsynchronousModifier::EnginePtr> SimplifyMicrostructureModifier::createEngine(const PipelineEvaluationRequest& request, ModifierApplication* modApp, const PipelineFlowState& input)
 {
 	// Get modifier input.
 	const Microstructure* microstructure = input.getObject<Microstructure>();
@@ -140,7 +140,7 @@ void SimplifyMicrostructureModifier::SimplifyMicrostructureEngine::smoothMeshIte
 /******************************************************************************
 * Injects the computed results of the engine into the data pipeline.
 ******************************************************************************/
-void SimplifyMicrostructureModifier::SimplifyMicrostructureEngine::emitResults(TimePoint time, ModifierApplication* modApp, PipelineFlowState& state)
+void SimplifyMicrostructureModifier::SimplifyMicrostructureEngine::applyResults(TimePoint time, ModifierApplication* modApp, PipelineFlowState& state)
 {
 	 // Output simplified microstructure to the pipeline state, overwriting the input microstructure.
 	if(const Microstructure* microstructureObj = state.getObject<Microstructure>()) {

@@ -82,6 +82,9 @@ public:
 	/// while trying to fulfill it.
     virtual void setException(std::exception_ptr&& ex) override;
 
+    /// Switches the task into the 'exception' state to signal that an exception has occurred.
+    void setException(const std::exception_ptr& ex) { ProgressiveTask::setException(ex); }
+
 protected:
 
     virtual void registerWatcher(TaskWatcher* watcher) override;

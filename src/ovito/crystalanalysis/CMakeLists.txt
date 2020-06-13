@@ -44,6 +44,9 @@ SET(SourceFiles
 	modifier/dxa/DislocationTracer.cpp
 	modifier/elasticstrain/ElasticStrainModifier.cpp
 	modifier/elasticstrain/ElasticStrainEngine.cpp
+	modifier/grains/GrainSegmentationModifier.cpp
+	modifier/grains/GrainSegmentationEngine.cpp
+	modifier/grains/NodePairSampling.cpp
 	modifier/microstructure/SimplifyMicrostructureModifier.cpp
 )
 
@@ -67,6 +70,7 @@ OVITO_STANDARD_PLUGIN(CrystalAnalysis
 		CrystalAnalysis.cpp
 		${SourceFiles}
 	PLUGIN_DEPENDENCIES Particles Mesh StdObj Grid Delaunay
+	PRIVATE_LIB_DEPENDENCIES PolyhedralTemplateMatching
 	OPTIONAL_PLUGIN_DEPENDENCIES StdMod
 )
 

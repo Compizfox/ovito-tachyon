@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Copyright 2018 Alexander Stukowski
+//  Copyright 2020 Alexander Stukowski
 //
 //  This file is part of OVITO (Open Visualization Tool).
 //
@@ -48,18 +48,10 @@ public:
 	/// Constructor.
 	Q_INVOKABLE PolyhedralTemplateMatchingModifier(DataSet* dataset);
 
-	/// This method indicates whether cached computation results of the modifier should be discarded whenever
-	/// a parameter of the modifier changes.
-	virtual bool discardResultsOnModifierChange(const PropertyFieldEvent& event) const override {
-		// Avoid a recomputation from scratch if the RMSD cutoff has been changed.
-		if(event.field() == &PROPERTY_FIELD(rmsdCutoff)) return false;
-		return StructureIdentificationModifier::discardResultsOnModifierChange(event);
-	}
-
 protected:
 
 	/// Creates a computation engine that will compute the modifier's results.
-	virtual Future<ComputeEnginePtr> createEngine(const PipelineEvaluationRequest& request, ModifierApplication* modApp, const PipelineFlowState& input) override;
+	virtual Future<EnginePtr> createEngine(const PipelineEvaluationRequest& request, ModifierApplication* modApp, const PipelineFlowState& input) override;
 
 	/// Is called when the value of a property of this object has changed.
 	virtual void propertyChanged(const PropertyFieldDescriptor& field) override;
@@ -80,7 +72,8 @@ private:
 			_interatomicDistances(outputInteratomicDistance ? std::make_shared<PropertyStorage>(positions->size(), PropertyStorage::Float, 1, 0, tr("Interatomic Distance"), true) : nullptr),
 			_orientations(outputOrientation ? ParticlesObject::OOClass().createStandardStorage(positions->size(), ParticlesObject::OrientationProperty, true) : nullptr),
 			_deformationGradients(outputDeformationGradient ? ParticlesObject::OOClass().createStandardStorage(positions->size(), ParticlesObject::ElasticDeformationGradientProperty, true) : nullptr),
-			_orderingTypes(particleTypes ? std::make_shared<PropertyStorage>(positions->size(), PropertyStorage::Int, 1, 0, tr("Ordering Type"), true) : nullptr)
+			_orderingTypes(particleTypes ? std::make_shared<PropertyStorage>(positions->size(), PropertyStorage::Int, 1, 0, tr("Ordering Type"), true) : nullptr),
+			_correspondences(outputOrientation ? std::make_shared<PropertyStorage>(positions->size(), PropertyStorage::Int64, 1, 0, tr("Correspondences"), true) : nullptr)	// only output correspondences if orientations are selected
 			{
 				_algorithm.emplace();
 				_algorithm->setCalculateDefGradient(outputDeformationGradient);
@@ -92,13 +85,24 @@ private:
 		virtual void perform() override;
 
 		/// Injects the computed results into the data pipeline.
-		virtual void emitResults(TimePoint time, ModifierApplication* modApp, PipelineFlowState& state) override;
+		virtual void applyResults(TimePoint time, ModifierApplication* modApp, PipelineFlowState& state) override;
+
+		/// This method is called by the system whenever a parameter of the modifier changes.
+		/// The method can be overriden by subclasses to indicate to the caller whether the engine object should be 
+		/// discarded (false) or may be kept in the cache, because the computation results are not affected by the changing parameter (true). 
+		virtual bool modifierChanged(const PropertyFieldEvent& event) override {
+			// Avoid a recomputation if the user changes just the RMSD cutoff parameter.
+			if(event.field() == &PROPERTY_FIELD(rmsdCutoff))
+				return true;
+			return StructureIdentificationEngine::modifierChanged(event);
+		}
 
 		const PropertyPtr& rmsd() const { return _rmsd; }
 		const PropertyPtr& interatomicDistances() const { return _interatomicDistances; }
 		const PropertyPtr& orientations() const { return _orientations; }
 		const PropertyPtr& deformationGradients() const { return _deformationGradients; }
 		const PropertyPtr& orderingTypes() const { return _orderingTypes; }
+		const PropertyPtr& correspondences() const { return _correspondences; }
 
 		/// Returns the RMSD value range of the histogram.
 		FloatType rmsdHistogramRange() const { return _rmsdHistogramRange; }
@@ -123,6 +127,7 @@ private:
 		const PropertyPtr _orientations;
 		const PropertyPtr _deformationGradients;
 		const PropertyPtr _orderingTypes;
+		const PropertyPtr _correspondences;
 		PropertyPtr _rmsdHistogram;
 		FloatType _rmsdHistogramRange;
 	};

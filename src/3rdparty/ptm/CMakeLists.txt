@@ -31,6 +31,7 @@ ADD_LIBRARY(PolyhedralTemplateMatching
 	ptm_alloy_types.cpp
 	ptm_canonical_coloured.cpp
 	ptm_convex_hull_incremental.cpp
+	ptm_correspondences.cpp
 	ptm_deformation_gradient.cpp
 	ptm_graph_data.cpp
 	ptm_graph_tools.cpp
@@ -41,6 +42,7 @@ ADD_LIBRARY(PolyhedralTemplateMatching
 	ptm_normalize_vertices.cpp
 	ptm_polar.cpp
 	ptm_quat.cpp
+	ptm_solid_angles.cpp
 	ptm_structure_matcher.cpp
 	ptm_voronoi_cell.cpp
 )

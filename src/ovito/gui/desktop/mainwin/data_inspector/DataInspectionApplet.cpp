@@ -156,7 +156,7 @@ bool DataInspectionApplet::selectDataObject(PipelineObject* dataSource, const QS
 		const ConstDataObjectPath& objectPath = item->data(Qt::UserRole).value<ConstDataObjectPath>();
 		if(!objectPath.empty()) {
 			if(objectPath.back()->dataSource() == dataSource) {
-				if(objectIdentifierHint.isEmpty() || objectPath.back()->identifier().startsWith(objectIdentifierHint)) {
+				if(objectIdentifierHint.isEmpty() || objectPath.back()->identifier() == objectIdentifierHint || objectPath.back()->identifier().startsWith(objectIdentifierHint + QChar('.'))) {
 					_objectSelectionWidget->setCurrentRow(i);
 					return true;
 				}

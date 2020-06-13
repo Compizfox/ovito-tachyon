@@ -153,6 +153,17 @@ public:
     /// \param ex The exception to store into the task object.
     virtual void setException(std::exception_ptr&& ex);
 
+    /// \brief Switches the task into the 'exception' state to signal that an exception has occurred.
+    /// \param ex The exception to store into the task object.
+    void setException(const std::exception_ptr& ex) { setException(std::exception_ptr(ex)); }
+
+    /// \brief Returns the internal exception store, which contains an exception object in case the task has failed.
+    const std::exception_ptr& exceptionStore() const { return _exceptionStore; }
+
+    /// \brief Resets the task object to its initial state, so that it can be run again.
+    /// \note This method may only be called on a task that has finished running.
+    virtual void startOver();
+
     /// \brief Blocks execution until the given future enters the completed state.
     /// \param future The future to wait for.
     /// \return false if the either this task or the future have been canceled.

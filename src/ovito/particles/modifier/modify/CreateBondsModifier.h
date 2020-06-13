@@ -69,7 +69,7 @@ public:
 private:
 
 	/// Compute engine that creates bonds between particles.
-	class BondsEngine : public ComputeEngine
+	class BondsEngine : public Engine
 	{
 	public:
 
@@ -91,7 +91,10 @@ private:
 		virtual void perform() override;
 
 		/// Injects the computed results into the data pipeline.
-		virtual void emitResults(TimePoint time, ModifierApplication* modApp, PipelineFlowState& state) override;
+		virtual void applyResults(TimePoint time, ModifierApplication* modApp, PipelineFlowState& state) override;
+
+		/// This method is called by the system whenever the preliminary pipeline input changes.
+		virtual bool pipelineInputChanged() override { return false; }
 
 		/// Returns the list of generated bonds.
 		std::vector<Bond>& bonds() { return _bonds; }
@@ -122,9 +125,6 @@ public:
 	/// \param modApp The ModifierApplication object that has been created for this modifier.
 	virtual void initializeModifier(ModifierApplication* modApp) override;
 
-	/// Indicate that outdated computation results should never be reused if the modifier's inputs have changed.
-	virtual bool discardResultsOnInputChange() const override { return true; }
-
 	/// Sets the cutoff radius for a pair of particle types.
 	void setPairwiseCutoff(const QVariant& typeA, const QVariant& typeB, FloatType cutoff);
 
@@ -137,7 +137,7 @@ protected:
 	virtual bool referenceEvent(RefTarget* source, const ReferenceEvent& event) override;
 
 	/// Creates a computation engine that will compute the modifier's results.
-	virtual Future<ComputeEnginePtr> createEngine(const PipelineEvaluationRequest& request, ModifierApplication* modApp, const PipelineFlowState& input) override;
+	virtual Future<EnginePtr> createEngine(const PipelineEvaluationRequest& request, ModifierApplication* modApp, const PipelineFlowState& input) override;
 
 	/// Looks up a particle type in the type list based on the name or the numeric ID.
 	static const ElementType* lookupParticleType(const PropertyObject* typeProperty, const QVariant& typeSpecification);

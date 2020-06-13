@@ -86,41 +86,15 @@ public:
 	/// This method is called by the system after the modifier has been inserted into a data pipeline.
 	virtual void initializeModifier(ModifierApplication* modApp) override;
 
-	/// This method indicates whether cached computation results of the modifier should be discarded whenever
-	/// a parameter of the modifier changes.
-	virtual bool discardResultsOnModifierChange(const PropertyFieldEvent& event) const override {
-		// Avoid a full recomputation if just the plot settings change.
-		if(event.field() == &PROPERTY_FIELD(fixRealSpaceXAxisRange) ||
-			event.field() == &PROPERTY_FIELD(fixRealSpaceYAxisRange) ||
-			event.field() == &PROPERTY_FIELD(realSpaceXAxisRangeStart) ||
-			event.field() == &PROPERTY_FIELD(realSpaceXAxisRangeEnd) ||
-			event.field() == &PROPERTY_FIELD(realSpaceYAxisRangeStart) ||
-			event.field() == &PROPERTY_FIELD(realSpaceYAxisRangeEnd) ||
-			event.field() == &PROPERTY_FIELD(fixReciprocalSpaceXAxisRange) ||
-			event.field() == &PROPERTY_FIELD(fixReciprocalSpaceYAxisRange) ||
-			event.field() == &PROPERTY_FIELD(reciprocalSpaceXAxisRangeStart) ||
-			event.field() == &PROPERTY_FIELD(reciprocalSpaceXAxisRangeEnd) ||
-			event.field() == &PROPERTY_FIELD(reciprocalSpaceYAxisRangeStart) ||
-			event.field() == &PROPERTY_FIELD(reciprocalSpaceYAxisRangeEnd) ||
-			event.field() == &PROPERTY_FIELD(normalizeRealSpace) ||
-			event.field() == &PROPERTY_FIELD(normalizeRealSpaceByRDF) ||
-			event.field() == &PROPERTY_FIELD(normalizeRealSpaceByCovariance) ||
-			event.field() == &PROPERTY_FIELD(normalizeReciprocalSpace) ||
-			event.field() == &PROPERTY_FIELD(typeOfRealSpacePlot) ||
-			event.field() == &PROPERTY_FIELD(typeOfReciprocalSpacePlot))
-			return false;
-		return AsynchronousModifier::discardResultsOnModifierChange(event);
-	}
-
 protected:
 
 	/// Creates a computation engine that will compute the modifier's results.
-	virtual Future<ComputeEnginePtr> createEngine(const PipelineEvaluationRequest& request, ModifierApplication* modApp, const PipelineFlowState& input) override;
+	virtual Future<EnginePtr> createEngine(const PipelineEvaluationRequest& request, ModifierApplication* modApp, const PipelineFlowState& input) override;
 
 private:
 
 	/// Computes the modifier's results.
-	class CorrelationAnalysisEngine : public ComputeEngine
+	class CorrelationAnalysisEngine : public Engine
 	{
 	public:
 
@@ -145,6 +119,41 @@ private:
 			_averagingDirection(averagingDirection),
 			_neighCorrelation(doComputeNeighCorrelation ? std::make_shared<PropertyStorage>(numberOfNeighBins, PropertyStorage::Float, 1, 0, tr("Neighbor C(r)"), true, DataTable::YProperty) : nullptr) {}
 
+		/// Computes the modifier's results and stores them in this object for later retrieval.
+		virtual void perform() override;
+
+		/// Injects the computed results into the data pipeline.
+		virtual void applyResults(TimePoint time, ModifierApplication* modApp, PipelineFlowState& state) override;
+
+		/// This method is called by the system whenever a parameter of the modifier changes.
+		/// The method can be overriden by subclasses to indicate to the caller whether the engine object should be 
+		/// discarded (false) or may be kept in the cache, because the computation results are not affected by the changing parameter (true). 
+		virtual bool modifierChanged(const PropertyFieldEvent& event) override {
+
+			// Avoid a full recomputation if one of the plotting-related parameters of the modifier change.
+			if(event.field() == &PROPERTY_FIELD(fixRealSpaceXAxisRange) ||
+					event.field() == &PROPERTY_FIELD(fixRealSpaceYAxisRange) ||
+					event.field() == &PROPERTY_FIELD(realSpaceXAxisRangeStart) ||
+					event.field() == &PROPERTY_FIELD(realSpaceXAxisRangeEnd) ||
+					event.field() == &PROPERTY_FIELD(realSpaceYAxisRangeStart) ||
+					event.field() == &PROPERTY_FIELD(realSpaceYAxisRangeEnd) ||
+					event.field() == &PROPERTY_FIELD(fixReciprocalSpaceXAxisRange) ||
+					event.field() == &PROPERTY_FIELD(fixReciprocalSpaceYAxisRange) ||
+					event.field() == &PROPERTY_FIELD(reciprocalSpaceXAxisRangeStart) ||
+					event.field() == &PROPERTY_FIELD(reciprocalSpaceXAxisRangeEnd) ||
+					event.field() == &PROPERTY_FIELD(reciprocalSpaceYAxisRangeStart) ||
+					event.field() == &PROPERTY_FIELD(reciprocalSpaceYAxisRangeEnd) ||
+					event.field() == &PROPERTY_FIELD(normalizeRealSpace) ||
+					event.field() == &PROPERTY_FIELD(normalizeRealSpaceByRDF) ||
+					event.field() == &PROPERTY_FIELD(normalizeRealSpaceByCovariance) ||
+					event.field() == &PROPERTY_FIELD(normalizeReciprocalSpace) ||
+					event.field() == &PROPERTY_FIELD(typeOfRealSpacePlot) ||
+					event.field() == &PROPERTY_FIELD(typeOfReciprocalSpacePlot))
+				return true;
+
+			return Engine::modifierChanged(event);
+		}
+
 		/// Compute real and reciprocal space correlation function via FFT.
 		void computeFftCorrelation();
 
@@ -153,9 +162,6 @@ private:
 
 		/// Compute means and covariance.
 		void computeLimits();
-
-		/// Computes the modifier's results and stores them in this object for later retrieval.
-		virtual void perform() override;
 
 		/// Returns the property storage that contains the input particle positions.
 		const ConstPropertyPtr& positions() const { return _positions; }
@@ -174,9 +180,6 @@ private:
 
 		/// Returns the neighbor cutoff radius.
 		FloatType neighCutoff() const { return _neighCutoff; }
-
-		/// Injects the computed results into the data pipeline.
-		virtual void emitResults(TimePoint time, ModifierApplication* modApp, PipelineFlowState& state) override;
 
 		/// Returns the real-space correlation function.
 		const PropertyPtr& realSpaceCorrelation() const { return _realSpaceCorrelation; }

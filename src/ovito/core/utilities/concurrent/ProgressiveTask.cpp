@@ -157,4 +157,17 @@ void ProgressiveTask::setProgressText(const QString& progressText)
 		QMetaObject::invokeMethod(watcher, "promiseProgressTextChanged", Qt::QueuedConnection, Q_ARG(QString, progressText));
 }
 
+void ProgressiveTask::startOver()
+{
+	Task::startOver();
+
+	_totalProgressValue = 0;
+	_totalProgressMaximum = 0;
+    _progressValue = 0;
+    _progressMaximum = 0;
+    _intermittentUpdateCounter = 0;
+    _progressText.clear();
+    _progressTime.invalidate();
+}
+
 }	// End of namespace

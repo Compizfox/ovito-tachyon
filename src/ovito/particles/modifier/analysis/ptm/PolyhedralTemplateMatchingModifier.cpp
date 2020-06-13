@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Copyright 2018 Alexander Stukowski
+//  Copyright 2020 Alexander Stukowski
 //
 //  This file is part of OVITO (Open Visualization Tool).
 //
@@ -107,7 +107,7 @@ void PolyhedralTemplateMatchingModifier::propertyChanged(const PropertyFieldDesc
 /******************************************************************************
 * Creates and initializes a computation engine that will compute the modifier's results.
 ******************************************************************************/
-Future<AsynchronousModifier::ComputeEnginePtr> PolyhedralTemplateMatchingModifier::createEngine(const PipelineEvaluationRequest& request, ModifierApplication* modApp, const PipelineFlowState& input)
+Future<AsynchronousModifier::EnginePtr> PolyhedralTemplateMatchingModifier::createEngine(const PipelineEvaluationRequest& request, ModifierApplication* modApp, const PipelineFlowState& input)
 {
 	if(structureTypes().size() != PTMAlgorithm::NUM_STRUCTURE_TYPES)
 		throwException(tr("The number of structure types has changed. Please remove this modifier from the data pipeline and insert it again."));
@@ -185,7 +185,7 @@ void PolyhedralTemplateMatchingModifier::PTMEngine::perform()
 				continue;
 
 			// Calculate ordering of neighbors
-			kernel.precacheNeighbors(index, &cachedNeighbors[index]);
+			kernel.cacheNeighbors(index, &cachedNeighbors[index]);
 		}
 	});
 	if(isCanceled())
@@ -201,6 +201,7 @@ void PolyhedralTemplateMatchingModifier::PTMEngine::perform()
 	PropertyAccess<Quaternion> orientationsArray(orientations());
 	PropertyAccess<Matrix3> deformationGradientsArray(deformationGradients());
 	PropertyAccess<int> orderingTypesArray(orderingTypes());
+	PropertyAccess<qlonglong> correspondencesArray(correspondences());
 
 	// Perform analysis on each particle.
 	parallelForChunks(positions()->size(), *this, [&](size_t startIndex, size_t count, Task& task) {
@@ -235,9 +236,10 @@ void PolyhedralTemplateMatchingModifier::PTMEngine::perform()
 			rmsdArray[index] = kernel.rmsd();
 			if(type != PTMAlgorithm::OTHER) {
 				if(interatomicDistancesArray) interatomicDistancesArray[index] = kernel.interatomicDistance();
-				if(orientationsArray) orientationsArray[index] = kernel.orientation();
 				if(deformationGradientsArray) deformationGradientsArray[index] = kernel.deformationGradient();
+				if(orientationsArray) orientationsArray[index] = kernel.orientation();
 				if(orderingTypesArray) orderingTypesArray[index] = kernel.orderingType();
+				if(correspondencesArray) correspondencesArray[index] = kernel.correspondence();
 			}
 		}
 	});
@@ -305,9 +307,9 @@ PropertyPtr PolyhedralTemplateMatchingModifier::PTMEngine::postProcessStructureT
 /******************************************************************************
 * Injects the computed results of the engine into the data pipeline.
 ******************************************************************************/
-void PolyhedralTemplateMatchingModifier::PTMEngine::emitResults(TimePoint time, ModifierApplication* modApp, PipelineFlowState& state)
+void PolyhedralTemplateMatchingModifier::PTMEngine::applyResults(TimePoint time, ModifierApplication* modApp, PipelineFlowState& state)
 {
-	StructureIdentificationEngine::emitResults(time, modApp, state);
+	StructureIdentificationEngine::applyResults(time, modApp, state);
 
 	// Also output structure type counts, which have been computed by the base class.
 	state.addAttribute(QStringLiteral("PolyhedralTemplateMatching.counts.OTHER"), QVariant::fromValue(getTypeCount(PTMAlgorithm::OTHER)), modApp);
@@ -331,8 +333,13 @@ void PolyhedralTemplateMatchingModifier::PTMEngine::emitResults(TimePoint time, 
 	if(interatomicDistances() && modifier->outputInteratomicDistance()) {
 		particles->createProperty(interatomicDistances());
 	}
-	if(orientations() && modifier->outputOrientation()) {
-		particles->createProperty(orientations());
+	if(modifier->outputOrientation()) {
+		if(orientations()) {
+			particles->createProperty(orientations());
+		}
+		if(correspondences()) {
+			particles->createProperty(correspondences());
+		}
 	}
 	if(deformationGradients() && modifier->outputDeformationGradient()) {
 		particles->createProperty(deformationGradients());

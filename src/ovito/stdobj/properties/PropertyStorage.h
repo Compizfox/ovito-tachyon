@@ -345,7 +345,7 @@ using PropertyPtr = std::shared_ptr<PropertyStorage>;
 using ConstPropertyPtr = std::shared_ptr<const PropertyStorage>;
 
 /// Class template returning the Qt data type identifier for the components in the given C++ array structure.
-template<typename T> struct PropertyStoragePrimitiveDataType { static constexpr int value = qMetaTypeId<T>(); };
+template<typename T, typename = void> struct PropertyStoragePrimitiveDataType { static constexpr int value = qMetaTypeId<T>(); };
 #ifdef Q_CC_MSVC // MSVC compiler doesn't treat qMetaTypeId() function as constexpr. Workaround:
 template<> struct PropertyStoragePrimitiveDataType<int> { static constexpr PropertyStorage::StandardDataType value = PropertyStorage::Int; };
 template<> struct PropertyStoragePrimitiveDataType<qlonglong> { static constexpr PropertyStorage::StandardDataType value = PropertyStorage::Int64; };
@@ -360,6 +360,7 @@ template<typename T> struct PropertyStoragePrimitiveDataType<Matrix_3<T>> : publ
 template<typename T> struct PropertyStoragePrimitiveDataType<QuaternionT<T>> : public PropertyStoragePrimitiveDataType<T> {};
 template<typename T> struct PropertyStoragePrimitiveDataType<ColorT<T>> : public PropertyStoragePrimitiveDataType<T> {};
 template<typename T> struct PropertyStoragePrimitiveDataType<SymmetricTensor2T<T>> : public PropertyStoragePrimitiveDataType<T> {};
+template<typename T> struct PropertyStoragePrimitiveDataType<T, typename std::enable_if<std::is_enum<T>::value>::type> : public PropertyStoragePrimitiveDataType<std::make_signed_t<std::underlying_type_t<T>>> {};
 
 }	// End of namespace
 }	// End of namespace

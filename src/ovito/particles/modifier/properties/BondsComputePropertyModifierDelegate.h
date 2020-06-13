@@ -78,12 +78,12 @@ public:
 private:
 
 	/// Asynchronous compute engine that does the actual work in a separate thread.
-	class ComputeEngine : public ComputePropertyModifierDelegate::PropertyComputeEngine
+	class Engine : public ComputePropertyModifierDelegate::PropertyComputeEngine
 	{
 	public:
 
 		/// Constructor.
-		ComputeEngine(
+		Engine(
 				const TimeInterval& validityInterval,
 				TimePoint time,
 				PropertyPtr outputProperty,
@@ -100,7 +100,7 @@ private:
 		virtual QString inputVariableTable() const override;
 
 		/// Injects the computed results into the data pipeline.
-		virtual void emitResults(TimePoint time, ModifierApplication* modApp, PipelineFlowState& state) override;
+		virtual void applyResults(TimePoint time, ModifierApplication* modApp, PipelineFlowState& state) override;
 
 	private:
 

@@ -73,7 +73,7 @@ public:
 protected:
 
 	/// Creates a computation engine that will compute the modifier's results.
-	virtual Future<ComputeEnginePtr> createEngine(const PipelineEvaluationRequest& request, ModifierApplication* modApp, const PipelineFlowState& input) override;
+	virtual Future<EnginePtr> createEngine(const PipelineEvaluationRequest& request, ModifierApplication* modApp, const PipelineFlowState& input) override;
 
 	/// Computes the centrosymmetry parameter of a single particle.
 	static FloatType computeCSP(NearestNeighborFinder& neighList, size_t particleIndex, CSPMode mode);
@@ -81,7 +81,7 @@ protected:
 private:
 
 	/// Computes the modifier's results.
-	class CentroSymmetryEngine : public ComputeEngine
+	class CentroSymmetryEngine : public Engine
 	{
 	public:
 
@@ -98,7 +98,7 @@ private:
 		virtual void perform() override;
 
 		/// Injects the computed results into the data pipeline.
-		virtual void emitResults(TimePoint time, ModifierApplication* modApp, PipelineFlowState& state) override;
+		virtual void applyResults(TimePoint time, ModifierApplication* modApp, PipelineFlowState& state) override;
 
 		/// Returns the property storage that contains the computed per-particle CSP values.
 		const PropertyPtr& csp() const { return _csp; }

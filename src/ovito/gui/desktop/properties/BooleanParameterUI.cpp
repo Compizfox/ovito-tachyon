@@ -72,9 +72,9 @@ void BooleanParameterUI::resetUI()
 
 	if(checkBox()) {
 		if(isReferenceFieldUI())
-			checkBox()->setEnabled(parameterObject() != NULL && isEnabled());
+			checkBox()->setEnabled(parameterObject() && isEnabled());
 		else
-			checkBox()->setEnabled(editObject() != NULL && isEnabled());
+			checkBox()->setEnabled(editObject() && isEnabled());
 	}
 
 	if(isReferenceFieldUI() && editObject()) {
@@ -119,9 +119,9 @@ void BooleanParameterUI::setEnabled(bool enabled)
 	PropertyParameterUI::setEnabled(enabled);
 	if(checkBox()) {
 		if(isReferenceFieldUI())
-			checkBox()->setEnabled(parameterObject() != NULL && isEnabled());
+			checkBox()->setEnabled(parameterObject() && isEnabled());
 		else
-			checkBox()->setEnabled(editObject() != NULL && isEnabled());
+			checkBox()->setEnabled(editObject() && isEnabled());
 	}
 }
 

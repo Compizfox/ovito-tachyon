@@ -181,9 +181,9 @@ typename Ovito::detail::resulting_future_type<FC,std::add_lvalue_reference_t<con
 
 		// Don't execute continuation function in case of an exception state in the original task.
 		// In such a case, forward the exception state to the continuation promise.
-		if(finishedTask->_exceptionStore) {
+		if(finishedTask->exceptionStore()) {
 			continuationTask->setStarted();
-			continuationTask->setException(std::exception_ptr(finishedTask->_exceptionStore));
+			continuationTask->setException(finishedTask->exceptionStore());
 			continuationTask->setFinished();
 			return;
 		}

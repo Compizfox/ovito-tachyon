@@ -37,7 +37,13 @@ StructureListParameterUI::StructureListParameterUI(PropertiesEditor* parentEdito
 	: RefTargetListParameterUI(parentEditor, PROPERTY_FIELD(StructureIdentificationModifier::structureTypes)),
 	  _showCheckBoxes(showCheckBoxes)
 {
-	connect(tableWidget(230), &QTableWidget::doubleClicked, this, &StructureListParameterUI::onDoubleClickStructureType);
+#ifdef Q_OS_MAC
+	int tableWidgetHeight = 240;
+#else
+	int tableWidgetHeight = 300;
+#endif
+
+	connect(tableWidget(tableWidgetHeight), &QTableWidget::doubleClicked, this, &StructureListParameterUI::onDoubleClickStructureType);
 	connect(parentEditor, &PropertiesEditor::contentsReplaced, tableWidget(), &QTableView::resizeRowsToContents);
 	tableWidget()->setAutoScroll(false);
 

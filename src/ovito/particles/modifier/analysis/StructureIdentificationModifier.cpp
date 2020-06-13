@@ -106,7 +106,7 @@ QVector<bool> StructureIdentificationModifier::getTypesToIdentify(int numTypes) 
 /******************************************************************************
 * Injects the computed results of the engine into the data pipeline.
 ******************************************************************************/
-void StructureIdentificationModifier::StructureIdentificationEngine::emitResults(TimePoint time, ModifierApplication* modApp, PipelineFlowState& state)
+void StructureIdentificationModifier::StructureIdentificationEngine::applyResults(TimePoint time, ModifierApplication* modApp, PipelineFlowState& state)
 {
 	StructureIdentificationModifier* modifier = static_object_cast<StructureIdentificationModifier>(modApp->modifier());
 	OVITO_ASSERT(modifier);

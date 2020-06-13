@@ -193,19 +193,34 @@ public:
 	/// \return A reference to \c this quaternion, which has been changed.
 	QuaternionT& operator/=(T s) { x() /= s; y() /= s; z() /= s; w() /= s; return *this; }
 
+	/// \brief Component-wise increment operator.
+	/// \param q The quaternion to add to this quaternion.
+	/// \return A reference to \c this quaternion, which has been changed.
+	QuaternionT& operator+=(const QuaternionT& q) { x() += q.x(); y() += q.y(); z() += q.z(); w() += q.w(); return *this; }
+
+	/// \brief Component-wise decrement operator.
+	/// \param q The quaternion to subtract from this quaternion.
+	/// \return A reference to \c this quaternion, which has been changed.
+	QuaternionT& operator-=(const QuaternionT& q) { x() -= q.x(); y() -= q.y(); z() -= q.z(); w() -= q.w(); return *this; }
+
 	/// \brief Computes the scalar product of two quaternions.
 	Q_DECL_CONSTEXPR T dot(const QuaternionT& b) const { return x()*b.x() + y()*b.y() + z()*b.z() + w()*b.w(); }
 
+	/// \brief Computes norm of quaternion.
+	inline FloatType norm() const {
+		return sqrt(dot(*this));
+	}
+
 	/// \brief Normalizes this quaternion to unit length.
 	inline void normalize() {
-		T c = sqrt(dot(*this));
+		T c = this->norm();
 		OVITO_ASSERT_MSG(c > 0, "Quaternion::normalize", "Cannot normalize the null quaternion.");
 		x() /= c; y() /= c; z() /= c; w() /= c;
 	}
 
 	/// \brief Returns a Normalized version of this quaternion.
 	inline QuaternionT normalized() const {
-		T c = sqrt(dot(*this));
+		T c = this->norm();
 		OVITO_ASSERT_MSG(c > 0, "Quaternion::normalized", "Cannot normalize the null quaternion.");
 		return { x() / c, y() / c, z() / c, w() / c };
 	}

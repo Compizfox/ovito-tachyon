@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Copyright 2017 Alexander Stukowski
+//  Copyright 2020 Alexander Stukowski
 //
 //  This file is part of OVITO (Open Visualization Tool).
 //
@@ -68,8 +68,10 @@ void TaskWatcher::promiseFinished()
 
 void TaskWatcher::promiseStarted()
 {
-	if(isWatching())
+	if(isWatching()) {
+		_finished = false; // Need to reset interal finished flag, in case task is run a second time.
     	Q_EMIT started();
+	}
 }
 
 void TaskWatcher::promiseProgressRangeChanged(qlonglong maximum)

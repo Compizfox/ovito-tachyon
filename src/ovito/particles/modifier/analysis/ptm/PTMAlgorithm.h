@@ -62,20 +62,20 @@ public:
     };
     Q_ENUMS(StructureType);
 
-	/// The lattice ordering types known by the PTM routine.
-	enum OrderingType {
-		ORDERING_NONE = 0,
-		ORDERING_PURE = 1,
-		ORDERING_L10 = 2,
-		ORDERING_L12_A = 3,
-		ORDERING_L12_B = 4,
-		ORDERING_B2 = 5,
-		ORDERING_ZINCBLENDE_WURTZITE = 6,
-		ORDERING_BORON_NITRIDE = 7,
+    /// The lattice ordering types known by the PTM routine.
+    enum OrderingType {
+        ORDERING_NONE = 0,
+        ORDERING_PURE = 1,
+        ORDERING_L10 = 2,
+        ORDERING_L12_A = 3,
+        ORDERING_L12_B = 4,
+        ORDERING_B2 = 5,
+        ORDERING_ZINCBLENDE_WURTZITE = 6,
+        ORDERING_BORON_NITRIDE = 7,
 
-		NUM_ORDERING_TYPES 	//< This just counts the number of defined ordering types.
-	};
-	Q_ENUMS(OrderingType);
+        NUM_ORDERING_TYPES 	//< This just counts the number of defined ordering types.
+    };
+    Q_ENUMS(OrderingType);
 
 #ifndef Q_CC_MSVC
     /// Maximum number of input nearest neighbors needed for the PTM analysis.
@@ -93,6 +93,34 @@ public:
     /// Maximum number of nearest neighbors for any structure returned by the PTM analysis routine.
     enum { MAX_OUTPUT_NEIGHBORS = 16 };
 #endif
+
+    /// Converts a PTM Ovito StructureType to the PTM index.
+    static StructureType ptm_to_ovito_structure_type(int type) {
+		if(type == PTM_MATCH_NONE) return OTHER;
+		if(type == PTM_MATCH_SC) return SC;
+		if(type == PTM_MATCH_FCC) return FCC;
+		if(type == PTM_MATCH_HCP) return HCP;
+		if(type == PTM_MATCH_ICO) return ICO;
+		if(type == PTM_MATCH_BCC) return BCC;
+		if(type == PTM_MATCH_DCUB) return CUBIC_DIAMOND;
+		if(type == PTM_MATCH_DHEX) return HEX_DIAMOND;
+		if(type == PTM_MATCH_GRAPHENE) return GRAPHENE;
+        OVITO_ASSERT(0);
+    }
+
+    /// Converts an Ovito StructureType to the PTM index.
+    static int ovito_to_ptm_structure_type(StructureType type) {
+		if(type == OTHER) return PTM_MATCH_NONE;
+		if(type == SC) return PTM_MATCH_SC;
+		if(type == FCC) return PTM_MATCH_FCC;
+		if(type == HCP) return PTM_MATCH_HCP;
+		if(type == ICO) return PTM_MATCH_ICO;
+		if(type == BCC) return PTM_MATCH_BCC;
+		if(type == CUBIC_DIAMOND) return PTM_MATCH_DCUB;
+		if(type == HEX_DIAMOND) return PTM_MATCH_DHEX;
+		if(type == GRAPHENE) return PTM_MATCH_GRAPHENE;
+        OVITO_ASSERT(0);
+    }
 
     /// Creates the algorithm object.
     PTMAlgorithm();
@@ -162,10 +190,10 @@ public:
         /// Identifies the local structure of the given particle and builds the list of nearest neighbors
         /// that form that structure. Subsequently, in case of a successful match, additional outputs of the calculation
         /// can be retrieved with the query methods below.
-        StructureType identifyStructure(size_t particleIndex, std::vector< uint64_t >& precachedNeighbors, Quaternion* qtarget);
+        StructureType identifyStructure(size_t particleIndex, std::vector<uint64_t>& cachedNeighbors, Quaternion* qtarget);
 
         // Calculates the topological ordering of a particle's neighbors.
-        int precacheNeighbors(size_t particleIndex, uint64_t* res);
+        int cacheNeighbors(size_t particleIndex, uint64_t* res);
 
         /// Returns the structure type identified by the PTM for the current particle.
         StructureType structureType() const { return _structureType; }
@@ -188,21 +216,58 @@ public:
         }
 
         /// The index of the best-matching structure template.
-    	int bestTemplateIndex() const { return _bestTemplateIndex; }
+        int bestTemplateIndex() const { return _bestTemplateIndex; }
 
         /// Returns the number of neighbors for the PTM structure found for the current particle.
-        int numStructureNeighbors() const;
+        int numTemplateNeighbors() const;
+
+        /// Returns the number of nearest neighbors found for the current particle.
+        int numNearestNeighbors() const { return results().size(); }
+		//int numNearestNeighbors() const { return _env.num - 1; }
+
+        /// Returns the number of nearest neighbors that lie within a ball of twice the radius of the nearest neighbor distance.
+		int numGoodNeighbors() const {
+            //return results().size();
+
+			FloatType minDist = std::numeric_limits<FloatType>::infinity();;
+			FloatType distances[PTM_MAX_INPUT_POINTS];
+            //qDebug() << "_env.num:" << _env.num << PTM_MAX_INPUT_POINTS << minDist;
+            OVITO_ASSERT(_env.num <= PTM_MAX_INPUT_POINTS);
+			for (int i=1;i<_env.num;i++) {
+				FloatType dx = _env.points[i][0];
+				FloatType dy = _env.points[i][1];
+				FloatType dz = _env.points[i][2];
+				distances[i] = sqrt(dx * dx + dy * dy + dz * dz);
+				minDist = std::min(minDist, distances[i]);
+			}
+
+			int n = 0;
+			for (int i=1;i<_env.num;i++) {
+				if (distances[i] < 2 * minDist)
+					n++;
+			}
+
+			return n;
+		}
+
+		int correspondence() {
+            int type = ovito_to_ptm_structure_type(structureType());
+            return ptm_encode_correspondences(type, _env.correspondences);
+		}
+
+        /// Returns the neighbor information for the i-th nearest neighbor of the current particle.
+        const NearestNeighborFinder::Neighbor& getNearestNeighbor(int index) const {
+            OVITO_ASSERT(index >= 0 && index < results().size());
+            return results()[index];
+        }
 
         /// Returns the neighbor information corresponding to the i-th neighbor in the PTM template
         /// identified for the current particle.
-        const NearestNeighborFinder::Neighbor& getNeighborInfo(int index) const;
+        const NearestNeighborFinder::Neighbor& getTemplateNeighbor(int index) const;
 
         /// Returns the ideal vector corresponding to the i-th neighbor in the PTM template
         /// identified for the current particle.
         const Vector_3<double>& getIdealNeighborVector(int index) const;
-
-//TODO: don't leave this public
-    	ptm_atomicenv_t _env;
 
     private:
         /// Reference to the parent algorithm object.
@@ -213,16 +278,17 @@ public:
 
         // Output quantities computed by the PTM routine during the last call to identifyStructure():
         double _rmsd;
-    	double _scale;
+        double _scale;
         double _interatomicDistance;
-    	double _q[4];
+        double _q[4];
         Matrix_3<double> _F{Matrix_3<double>::Zero()};
         StructureType _structureType = OTHER;
-    	int32_t _orderingType = ORDERING_NONE;
-    	int _bestTemplateIndex;
-    	const double (*_bestTemplate)[3] = nullptr;
-    	//int8_t _correspondences[MAX_INPUT_NEIGHBORS+1];
-	std::vector<uint64_t> _cachedNeighbors;
+        int32_t _orderingType = ORDERING_NONE;
+        int _bestTemplateIndex;
+        const double (*_bestTemplate)[3] = nullptr;
+        //int8_t _correspondences[MAX_INPUT_NEIGHBORS+1];
+        std::vector<uint64_t> _cachedNeighbors;
+        ptm_atomicenv_t _env;
     };
 
 private:

@@ -181,11 +181,11 @@ void ElasticStrainEngine::perform()
 /******************************************************************************
 * Injects the computed results of the engine into the data pipeline.
 ******************************************************************************/
-void ElasticStrainEngine::emitResults(TimePoint time, ModifierApplication* modApp, PipelineFlowState& state)
+void ElasticStrainEngine::applyResults(TimePoint time, ModifierApplication* modApp, PipelineFlowState& state)
 {
 	ElasticStrainModifier* modifier = static_object_cast<ElasticStrainModifier>(modApp->modifier());
 
-	StructureIdentificationEngine::emitResults(time, modApp, state);
+	StructureIdentificationEngine::applyResults(time, modApp, state);
 
 	// Output cluster graph.
 	ClusterGraphObject* clusterGraphObj = state.createObject<ClusterGraphObject>(modApp);
