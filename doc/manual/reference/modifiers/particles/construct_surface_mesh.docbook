@@ -235,7 +235,7 @@ JOM: Vol. 66, Issue 3 (2014), 399-407</link></literallayout>
   	</variablelist>
   </simplesect>
 
-  <simplesect>
+  <simplesect id="particles.modifiers.construct_surface_mesh.regions">
     <title>Identification of volumetric regions <ovito-pro/></title>
     <para>
       <informalfigure>
