@@ -55,7 +55,7 @@ public:
 
 	/// Constructor.
 	BoundedPriorityQueue(int size, const Compare& comp = Compare()) : _maxSize(size), _comp(comp) {
-		OVITO_ASSERT(size <= QUEUE_SIZE_LIMIT);
+		OVITO_ASSERT(size >= 0 && size <= QUEUE_SIZE_LIMIT);
 	}
 
 	/// Returns the current number of elements in the queue.
@@ -115,7 +115,7 @@ public:
 	const_iterator end() const { return &_data[_count]; }
 
 	/// Returns the i-th entry in the queue.
-	const value_type& operator[](int i) const { OVITO_ASSERT(i < _count); return _data[i]; }
+	const value_type& operator[](int i) const { OVITO_ASSERT(i >= 0 && i < _count); return _data[i]; }
 
 	/// Sort the entries of the queue.
 	void sort() { std::sort(_data.begin(), _data.begin() + _count, _comp); }

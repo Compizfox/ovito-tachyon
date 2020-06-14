@@ -162,8 +162,8 @@ void PolyhedralTemplateMatchingModifier::PTMEngine::perform()
 	setProgressMaximum(positions()->size());
 	setProgressText(tr("Pre-calculating neighbor ordering"));
 
-	// Pre-order neighbors of each particle
-	std::vector< uint64_t > cachedNeighbors(positions()->size());
+	// Pre-order neighbors of each particle.
+	std::vector<uint64_t> cachedNeighbors(positions()->size());
 	parallelForChunks(positions()->size(), *this, [&](size_t startIndex, size_t count, Task& task) {
 		// Create a thread-local kernel for the PTM algorithm.
 		PTMAlgorithm::Kernel kernel(*_algorithm);

@@ -54,26 +54,27 @@ PTMAlgorithm::Kernel::~Kernel()
 }
 
 // Neighbor data passed to PTM routine.  Used in the get_neighbours callback function.
-typedef struct
+struct ptmnbrdata_t
 {
 	const NearestNeighborFinder* neighFinder;
 	ConstPropertyAccess<int> particleTypes;
-	std::vector< uint64_t > *cachedNeighbors;
-
-} ptmnbrdata_t;
+	const std::vector<uint64_t>* cachedNeighbors;
+};
 
 static int get_neighbours(void* vdata, size_t _unused_lammps_variable, size_t atom_index, int num_requested, ptm_atomicenv_t* env)
 {
 	ptmnbrdata_t* nbrdata = (ptmnbrdata_t*)vdata;
 	const NearestNeighborFinder* neighFinder = nbrdata->neighFinder;
 	const ConstPropertyAccess<int>& particleTypes = nbrdata->particleTypes;
-	std::vector< uint64_t >& cachedNeighbors = *nbrdata->cachedNeighbors;
+	const std::vector<uint64_t>& cachedNeighbors = *nbrdata->cachedNeighbors;
 
 	// Find nearest neighbors.
+	OVITO_ASSERT(atom_index < cachedNeighbors.size());
 	NearestNeighborFinder::Query<PTMAlgorithm::MAX_INPUT_NEIGHBORS> neighQuery(*neighFinder);
 	neighQuery.findNeighbors(atom_index);
 	int numNeighbors = std::min(num_requested - 1, neighQuery.results().size());
 	OVITO_ASSERT(numNeighbors <= PTMAlgorithm::MAX_INPUT_NEIGHBORS);
+	OVITO_ASSERT(cachedNeighbors[atom_index] != 0);
 
     ptm_decode_correspondences(PTM_MATCH_FCC,   //this gives us default behaviour
                                cachedNeighbors[atom_index], env->correspondences);
@@ -85,6 +86,8 @@ static int get_neighbours(void* vdata, size_t _unused_lammps_variable, size_t at
 	env->points[0][2] = 0;
 	for(int i = 0; i < numNeighbors; i++) {
 		int p = env->correspondences[i+1] - 1;
+		OVITO_ASSERT(p >= 0);
+		OVITO_ASSERT(p < neighQuery.results().size());
 		env->atom_indices[i+1] = neighQuery.results()[p].index;
 		env->points[i+1][0] = neighQuery.results()[p].delta.x();
 		env->points[i+1][1] = neighQuery.results()[p].delta.y();
@@ -114,8 +117,10 @@ static int get_neighbours(void* vdata, size_t _unused_lammps_variable, size_t at
 * Identifies the local structure of the given particle and builds the list of
 * nearest neighbors that form the structure.
 ******************************************************************************/
-PTMAlgorithm::StructureType PTMAlgorithm::Kernel::identifyStructure(size_t particleIndex, std::vector< uint64_t >& cachedNeighbors, Quaternion* qtarget)
+PTMAlgorithm::StructureType PTMAlgorithm::Kernel::identifyStructure(size_t particleIndex, const std::vector<uint64_t>& cachedNeighbors, Quaternion* qtarget)
 {
+	OVITO_ASSERT(cachedNeighbors.size() == _algo.particleCount());
+
 	// Validate input.
 	if(particleIndex >= _algo.particleCount())
 		throw Exception("Particle index is out of range.");
@@ -123,7 +128,6 @@ PTMAlgorithm::StructureType PTMAlgorithm::Kernel::identifyStructure(size_t parti
 	// Make sure public constants remain consistent with internal ones from the PTM library.
 	OVITO_STATIC_ASSERT(MAX_INPUT_NEIGHBORS == PTM_MAX_INPUT_POINTS - 1);
 	OVITO_STATIC_ASSERT(MAX_OUTPUT_NEIGHBORS == PTM_MAX_NBRS);
-
 
 	ptmnbrdata_t nbrdata;
 	nbrdata.neighFinder = &_algo;
@@ -252,8 +256,7 @@ PTMAlgorithm::StructureType PTMAlgorithm::Kernel::identifyStructure(size_t parti
 int PTMAlgorithm::Kernel::cacheNeighbors(size_t particleIndex, uint64_t* res)
 {
 	// Validate input.
-	if(particleIndex >= _algo.particleCount())
-		throw Exception("Particle index is out of range.");
+	OVITO_ASSERT(particleIndex < _algo.particleCount());
 
 	// Make sure public constants remain consistent with internal ones from the PTM library.
 	OVITO_STATIC_ASSERT(MAX_INPUT_NEIGHBORS == PTM_MAX_INPUT_POINTS - 1);

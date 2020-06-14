@@ -177,8 +177,10 @@ int preorder_neighbours(void* _voronoi_handle, int num_input_points, double (*in
 	int num = std::min(PTM_MAX_INPUT_POINTS - 1, num_input_points);
 
 	int ret = ptm::calculate_neighbour_ordering(_voronoi_handle, num, input_points, data);
-	if (ret != 0)
+	if (ret != 0) {
+		*res = 0;
 		return ret;
+	}
 
 	int8_t correspondences[PTM_MAX_INPUT_POINTS];
     correspondences[0] = 0;
