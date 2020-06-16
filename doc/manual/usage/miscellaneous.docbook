@@ -14,12 +14,12 @@
   </para>
 
   <simplesect xml:id="usage.saving_loading_scene">
-  <title>Saving the program state</title>
+  <title>Saving the session state</title>
     <para>
-      You can save the complete working state of the program, including the data pipeline, viewports, render settings, etc., to a <literal>.ovito</literal> <emphasis>state file</emphasis>
-      (main menu: <menuchoice><guimenu>File</guimenu><guimenuitem>Save Program State</guimenuitem></menuchoice>). This allows you
-      to preserve the current visualization setup for future use. For instance, you can use a state file as a template to visualize multiple simulations
-      using the same data analysis pipeline and camera setup.
+      You can save the current program session, including the data pipeline, viewports, render settings, etc., to a <literal>.ovito</literal> <emphasis>state file</emphasis>
+      (main menu: <menuchoice><guimenu>File</guimenu><guimenuitem>Save Session State</guimenuitem></menuchoice>). This allows you
+      to preserve the current visualization setup for future use. For instance, you can use a state file as a template to 
+      visualize several simulations using the same data analysis pipeline and camera setup.
     </para>
   </simplesect>
 

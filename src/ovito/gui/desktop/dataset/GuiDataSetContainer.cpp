@@ -137,9 +137,9 @@ bool GuiDataSetContainer::fileSaveAs(const QString& filename)
 	if(filename.isEmpty()) {
 
 		if(!mainWindow())
-			currentSet()->throwException(tr("Cannot save program state. No filename has been specified."));
+			currentSet()->throwException(tr("Cannot save session state. No filename has been specified."));
 
-		QFileDialog dialog(mainWindow(), tr("Save Program State As"));
+		QFileDialog dialog(mainWindow(), tr("Save Session State As"));
 		dialog.setNameFilter(tr("OVITO State Files (*.ovito);;All Files (*)"));
 		dialog.setAcceptMode(QFileDialog::AcceptSave);
 		dialog.setFileMode(QFileDialog::AnyFile);
@@ -188,11 +188,11 @@ bool GuiDataSetContainer::askForSaveChanges()
 
 	QString message;
 	if(currentSet()->filePath().isEmpty() == false) {
-		message = tr("The current scene has been modified. Do you want to save the changes?");
+		message = tr("The current session state has been modified. Do you want to save the changes?");
 		message += QString("\n\nFile: %1").arg(currentSet()->filePath());
 	}
 	else {
-		message = tr("The current scene has not been saved. Do you want to save it?");
+		message = tr("The current program session has not been saved. Do you want to save it?");
 	}
 
 	QMessageBox::StandardButton result = QMessageBox::question(mainWindow(), tr("Save changes"),
@@ -234,7 +234,7 @@ bool GuiDataSetContainer::fileLoad(const QString& filename)
 
 		QFile fileStream(absoluteFilepath);
 		if(!fileStream.open(QIODevice::ReadOnly))
-			throw Exception(tr("Failed to open state file '%1' for reading.").arg(absoluteFilepath), this);
+			throw Exception(tr("Failed to open session state file '%1' for reading.").arg(absoluteFilepath), this);
 
 		QDataStream dataStream(&fileStream);
 		ObjectLoadStream stream(dataStream);
@@ -243,7 +243,7 @@ bool GuiDataSetContainer::fileLoad(const QString& filename)
 		// the precision used in this build.
 		if(stream.floatingPointPrecision() > sizeof(FloatType)) {
 			if(mainWindow()) {
-				QString msg = tr("The state file has been written with a version of this program that uses %1-bit floating-point precision. "
+				QString msg = tr("The session state file has been written with a version of this program that uses %1-bit floating-point precision. "
 					   "The version of this program that you are currently using only supports %2-bit precision numbers. "
 					   "The precision of all numbers stored in the input file will be truncated during loading.").arg(stream.floatingPointPrecision()*8).arg(sizeof(FloatType)*8);
 				QMessageBox::warning(mainWindow(), tr("Floating-point precision mismatch"), msg);
@@ -254,7 +254,7 @@ bool GuiDataSetContainer::fileLoad(const QString& filename)
 		stream.close();
 
 		if(!dataSet)
-			throw Exception(tr("State file '%1' does not contain a dataset.").arg(absoluteFilepath), this);
+			throw Exception(tr("Session state file '%1' does not contain a dataset.").arg(absoluteFilepath), this);
 	}
 	catch(Exception& ex) {
 		// Provide a local context for the error.
