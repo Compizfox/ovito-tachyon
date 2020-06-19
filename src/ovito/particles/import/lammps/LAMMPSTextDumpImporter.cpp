@@ -300,9 +300,12 @@ FileSourceImporter::FrameDataPtr LAMMPSTextDumpImporter::FrameLoader::loadFile()
 				// Sort the particle type list since we created particles on the go and their order depends on the occurrence of types in the file.
 				columnParser.sortParticleTypes();
 
-				// Find out if coordinates are given in reduced format and need to be rescaled to absolute format.
+				// Determine if particle coordinates are given in reduced form and need to be rescaled to absolute form.
 				bool reducedCoordinates = false;
 				if(!fileColumnNames.empty()) {
+					// If the dump file contains column names, then we can use them to detect 
+					// the type of particle coordinates. Reduced coordinates are found in columns
+					// "xs, ys, zs" or "xsu, ysu, zsu".
 					for(int i = 0; i < (int)columnMapping.size() && i < fileColumnNames.size(); i++) {
 						if(columnMapping[i].property.type() == ParticlesObject::PositionProperty) {
 							reducedCoordinates = (
@@ -316,11 +319,15 @@ FileSourceImporter::FrameDataPtr LAMMPSTextDumpImporter::FrameLoader::loadFile()
 					}
 				}
 				else {
-					// Check if all atom coordinates are within the [0,1] interval.
-					// If yes, we assume reduced coordinate format.
+					// If no column names are available, use the following heuristic:
+					// Assume reduced coordinates if all particle coordinates are within the [-0.02,1.02] interval.
+					// We allow coordinates to be slightly outside the [0,1] interval, because LAMMPS
+					// wraps around particles at the periodic boundaries only occasionally.
 					if(ConstPropertyAccess<Point3> posProperty = frameData->findStandardParticleProperty(ParticlesObject::PositionProperty)) {
+						// Compute bound box of particle positions.
 						Box3 boundingBox;
 						boundingBox.addPoints(posProperty);
+						// Check if bounding box is inside the (slightly extended) unit cube.
 						if(Box3(Point3(FloatType(-0.02)), Point3(FloatType(1.02))).containsBox(boundingBox))
 							reducedCoordinates = true;
 					}

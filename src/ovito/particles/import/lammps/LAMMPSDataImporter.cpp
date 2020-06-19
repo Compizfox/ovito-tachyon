@@ -339,7 +339,7 @@ FileSourceImporter::FrameDataPtr LAMMPSDataImporter::FrameLoader::loadFile()
 			}
 		}
 		else if(keyword.startsWith("Masses")) {
-			massTable.resize(natomtypes+1, 0);
+			massTable.resize(natomtypes + 1, 0);
 			for(int i = 1; i <= natomtypes; i++) {
 				// Try to parse atom types names, which some data files list as comments in the Masses section.
 				const char* start = stream.readLine();
@@ -350,13 +350,13 @@ FileSourceImporter::FrameDataPtr LAMMPSDataImporter::FrameLoader::loadFile()
     			if(sscanf(start, "%i " FLOATTYPE_SCANF_STRING, &atomType, &mass) != 2 || atomType < 1 || atomType > natomtypes)
 					throw Exception(tr("Invalid mass specification (line %1): %2").arg(stream.lineNumber()).arg(stream.lineString()));
 				massTable[atomType] = mass;
-				typeList->setTypeMass(i, mass);
+				typeList->setTypeMass(atomType, mass);
 
 				while(*start && *start != '#') start++;
 				if(*start) {
 					QStringList words = QString::fromLocal8Bit(start).split(QRegularExpression("\\s+"), QString::SkipEmptyParts);
 					if(words.size() == 2)
-						typeList->setTypeName(i, words[1]);
+						typeList->setTypeName(atomType, words[1]);
 				}
 			}
 		}
