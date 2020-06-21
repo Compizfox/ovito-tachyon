@@ -552,5 +552,20 @@ void PropertyStorage::copyRangeFrom(const PropertyStorage& source, size_t source
 	std::memcpy(buffer() + destIndex * this->stride(), source.cbuffer() + sourceIndex * source.stride(), this->stride() * count);
 }
 
+/******************************************************************************
+* Checks if this property storage and its contents exactly match those of 
+* another property storage.
+******************************************************************************/
+bool PropertyStorage::equals(const PropertyStorage& other) const
+{
+	if(this->type() != other.type()) return false;
+	if(this->type() == GenericUserProperty && this->name() != other.name()) return false;
+	if(this->dataType() != other.dataType()) return false;
+	if(this->size() != other.size()) return false;
+	if(this->componentCount() != other.componentCount()) return false;
+	OVITO_ASSERT(this->stride() == other.stride());
+	return std::equal(this->cbuffer(), this->cbuffer() + this->size() * this->stride(), other.cbuffer());
+}
+
 }	// End of namespace
 }	// End of namespace
