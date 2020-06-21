@@ -20,7 +20,7 @@
 
   <para>
     Voxel grids can be imported into OVITO from simulation data files, for example charge density fields
-    output by DFT simulation codes. See the list of <link linkend="usage.import.formats">supported input formats</link> of OVITO. 
+    output by DFT simulation codes. See the list of <link linkend="file_formats.input">supported input formats</link> of OVITO. 
     Additionally, voxel grids can be dynamically generated within OVITO, for example using the <link linkend="particles.modifiers.bin_and_reduce">Spatial binning</link> modifier,
     which maps per-particle quantities onto the voxel cells of a structured grid.
   </para>

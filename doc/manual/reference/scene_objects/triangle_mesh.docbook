@@ -18,7 +18,7 @@
     Typically, they are imported as extra objects into the scene using the <menuchoice><guimenu>File</guimenu><guimenuitem>Load File</guimenuitem></menuchoice>
     function of OVITO. You can use triangle meshes, for example, to visualize additional geometry next to your simulation data. 
     OVITO supports several common geometry file formats
-    such as STL, OBJ and VTK. See <link linkend="usage.import.formats">this page</link> for a complete list. 
+    such as STL, OBJ and VTK. See <link linkend="file_formats.input">this page</link> for a complete list. 
   </para>
   <para>
     Either the faces or vertices of a triangle mesh may be associated with color information &#x2014; if such 

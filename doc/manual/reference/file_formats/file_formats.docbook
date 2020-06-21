@@ -1,0 +1,253 @@
+<?xml version="1.0" encoding="utf-8"?>
+<section version="5.0"
+         xsi:schemaLocation="http://docbook.org/ns/docbook http://docbook.org/xml/5.0/xsd/docbook.xsd"
+         xml:id="file_formats" xmlns="http://docbook.org/ns/docbook"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xmlns:xs="http://www.w3.org/2001/XMLSchema"
+         xmlns:xlink="http://www.w3.org/1999/xlink"
+         xmlns:xi="http://www.w3.org/2001/XInclude"
+         xmlns:ns="http://docbook.org/ns/docbook">
+  <title>File formats</title>
+
+  <para>
+    <itemizedlist>
+      <listitem><xref linkend="file_formats.input" xrefstyle="template:%t" /></listitem>
+      <listitem><xref linkend="file_formats.output" xrefstyle="template:%t" /></listitem>
+    </itemizedlist>
+  </para>
+
+  <section xml:id="file_formats.input">
+    <title>Input formats</title>
+    <para>
+      OVITO can read the following file formats:
+      <informaltable>
+        <tgroup cols="3">
+          <colspec colname='name'/>
+          <colspec colname='descr'/>
+          <colspec colname='datatype'/>
+          <thead>
+            <row>
+              <entry>Format name</entry>
+              <entry>Description</entry>
+              <entry>Data type(s)</entry>
+            </row>
+          </thead>
+
+          <tbody>
+
+            <row>
+              <entry>LAMMPS&#xA0;dump</entry>
+              <entry><para>File format used by the <link xlink:href="http://lammps.sandia.gov">LAMMPS</link> molecular dynamics code. OVITO supports both text-based and binary dump files.</para></entry>
+              <entry><link linkend="scene_objects.particles">particles</link></entry>
+            </row>
+            <row>
+              <entry>LAMMPS&#xA0;data</entry>
+              <entry><para>File format used by the <link xlink:href="http://lammps.sandia.gov/doc/read_data.html">LAMMPS</link> molecular dynamics code.</para></entry>
+              <entry><link linkend="scene_objects.particles">particles</link>, <link linkend="scene_objects.bonds">bonds</link>, angles, dihedrals, impropers</entry>
+            </row>
+            <row>
+              <entry>XYZ</entry>
+              <entry><para>Simple column-based text format for particle data, which is documented <link xlink:href="http://en.wikipedia.org/wiki/XYZ_file_format">here</link>.</para>
+                <para>OVITO can read the <link xlink:href="http://libatoms.github.io/QUIP/io.html#module-ase.io.extxyz">extended XYZ format</link>, which supports arbitrary sets of particle data columns, 
+                and can store addtional information such as the simulation cell geometry and boundary conditions.</para>
+                </entry>
+              <entry><link linkend="scene_objects.particles">particles</link></entry>
+            </row>
+            <row>
+              <entry>POSCAR / XDATCAR / CHGCAR</entry>
+              <entry><para>File formats used by the <emphasis>ab initio</emphasis> simulation package <link xlink:href="http://www.vasp.at/">VASP</link>.
+                    OVITO can import atomistic configurations and also charge density fields from CHGCAR files.</para></entry>
+              <entry><link linkend="scene_objects.particles">particles</link>, <link linkend="scene_objects.voxel_grid">voxel&#xA0;grids</link></entry>
+            </row>
+            <row>
+              <entry>IMD</entry>
+              <entry><para>File format used by the molecular dynamics code <link xlink:href="http://imd.itap.physik.uni-stuttgart.de/">IMD</link>.</para></entry>
+              <entry><link linkend="scene_objects.particles">particles</link></entry>
+            </row>
+            <row>
+              <entry>CFG</entry>
+              <entry><para>File format used by the <link xlink:href="http://li.mit.edu/Archive/Graphics/A/">AtomEye</link> visualization program.</para></entry>
+              <entry><link linkend="scene_objects.particles">particles</link></entry>
+            </row>
+            <row>
+              <entry>DL_POLY</entry>
+              <entry><para>File format used by the molecular simulation package <link xlink:href="https://www.scd.stfc.ac.uk/Pages/DL_POLY.aspx">DL_POLY</link>.</para></entry>
+              <entry><link linkend="scene_objects.particles">particles</link></entry>
+            </row>
+            <row>
+              <entry>PARCAS</entry>
+              <entry><para>Binary file format written by the MD code <emphasis>Parcas</emphasis> developed in K. Nordlund's group at University of Helsinki.</para></entry>
+              <entry><link linkend="scene_objects.particles">particles</link></entry>
+            </row>
+            <row>
+              <entry>NetCDF</entry>
+              <entry><para>Binary format for molecular dynamics data following the <link xlink:href="http://ambermd.org/netcdf/nctraj.pdf">AMBER format convention</link>. NetCDF files are produced by the LAMMPS <link xlink:href="http://lammps.sandia.gov/doc/dump_netcdf.html">dump netcdf</link> command.</para></entry>
+              <entry><link linkend="scene_objects.particles">particles</link></entry>
+            </row>
+            <row>
+              <entry>PDB</entry>
+              <entry><para>Protein Data Bank (PDB) files (experimental support).</para></entry>
+              <entry><link linkend="scene_objects.particles">particles</link>, <link linkend="scene_objects.bonds">bonds</link></entry>
+            </row>
+            <row>
+              <entry>FHI-aims</entry>
+              <entry><para>Geometry and log-file formats used by the <emphasis>ab initio</emphasis> simulation package <link xlink:href="https://aimsclub.fhi-berlin.mpg.de/index.php">FHI-aims</link>.</para></entry>
+              <entry><link linkend="scene_objects.particles">particles</link></entry>
+            </row>
+            <row>
+              <entry>GSD/HOOMD</entry>
+              <entry><para>Binary format for molecular dynamics data used by the <link xlink:href="https://glotzerlab.engin.umich.edu/hoomd-blue/">HOOMD-blue</link> code. See <link xlink:href="https://gsd.readthedocs.io">GSD (General Simulation Data) format</link>.</para></entry>
+              <entry><link linkend="scene_objects.particles">particles</link></entry>
+            </row>
+            <row>
+              <entry>CASTEP</entry>
+              <entry><para>File format used by the <link xlink:href="http://www.castep.org">CASTEP</link> ab initio code. OVITO can read the <link xlink:href="http://www.tcm.phy.cam.ac.uk/castep/documentation/WebHelp/content/modules/castep/expcastepfileformats.htm"><literal>.cell</literal>, <literal>.md</literal> and <literal>.geom</literal> formats</link>.</para></entry>
+              <entry><link linkend="scene_objects.particles">particles</link></entry>
+            </row>
+            <row>
+              <entry>XSF</entry>
+              <entry><para>File format used by the <link xlink:href="http://www.xcrysden.org/doc/XSF.html">XCrySDen</link> program.</para></entry>
+              <entry><link linkend="scene_objects.particles">particles</link>, <link linkend="scene_objects.voxel_grid">voxel&#xA0;grids</link></entry>
+            </row>
+            <row>
+              <entry>Cube</entry>
+              <entry><para>File format used by the <emphasis>Gaussian</emphasis> simulation package. Specifications of the format can be found <link xlink:href="https://h5cube-spec.readthedocs.io/en/latest/cubeformat.html">here</link> and <link xlink:href="http://paulbourke.net/dataformats/cube/">here</link>.</para></entry>
+              <entry><link linkend="scene_objects.particles">particles</link>, <link linkend="scene_objects.voxel_grid">voxel&#xA0;grids</link></entry>
+            </row>
+            <row>
+              <entry>GALAMOST</entry>
+              <entry><para>XML-based file format used by the <emphasis>GALAMOST</emphasis> molecular dynamics code.</para></entry>
+              <entry><link linkend="scene_objects.particles">particles</link>, <link linkend="scene_objects.bonds">bonds</link></entry>
+            </row>
+            <row>
+              <entry>Quantum Espresso</entry>
+              <entry><para>Input data format used by the <link xlink:href="https://www.quantum-espresso.org/">Quantum Espresso</link> electronic-structure calculation code.</para></entry>
+              <entry><link linkend="scene_objects.particles">particles</link></entry>
+            </row>
+            <row>
+              <entry>CIF</entry>
+              <entry><para><link xlink:href="https://www.iucr.org/resources/cif">Crystallographic Information File</link> format as specified by the
+                International Union of Crystallography (IUCr). Parser supports only small-molecule crystal structures.</para></entry>
+              <entry><link linkend="scene_objects.particles">particles</link></entry>
+            </row>
+            <row>
+              <entry>VTK</entry>
+              <entry><para>Format used by the <emphasis>Visualization Toolkit</emphasis> (VTK). This text-based format is documented <link xlink:href="http://www.vtk.org/VTK/img/file-formats.pdf">here</link>. Note that OVITO supports only triangular cells.</para></entry>
+              <entry><link linkend="scene_objects.triangle_mesh">triangle&#xA0;meshes</link></entry>
+            </row>
+            <row>
+              <entry>OBJ</entry>
+              <entry><para>Common text-based format for storing triangle mesh geometry (see <link xlink:href="https://en.wikipedia.org/wiki/Wavefront_.obj_file">here</link>).</para></entry>
+              <entry><link linkend="scene_objects.triangle_mesh">triangle&#xA0;meshes</link></entry>
+            </row>
+            <row>
+              <entry>STL</entry>
+              <entry><para>Another popular format for storing triangle mesh geometry (see <link xlink:href="https://en.wikipedia.org/wiki/STL_(file_format)">here</link>). Note that OVITO supports only STL files in ASCII format.</para></entry>
+              <entry><link linkend="scene_objects.triangle_mesh">triangle&#xA0;meshes</link></entry>
+            </row>
+            <row>
+              <entry>ParaDiS</entry>
+              <entry><para>File format of the <link xlink:href="http://paradis.stanford.edu">ParaDiS</link> discrete dislocation dynamics code.</para></entry>
+              <entry><link linkend="scene_objects.dislocations">dislocation&#xA0;lines</link></entry>
+            </row>
+            <row>
+              <entry>oxDNA</entry>
+              <entry><para>Configuration/topology file format used by the <link xlink:href="https://dna.physics.ox.ac.uk/">oxDNA</link> simulation code for coarse-grained DNA models.</para></entry>
+              <entry><link linkend="scene_objects.particles">particles</link>, <link linkend="scene_objects.bonds">bonds</link></entry>
+            </row>
+
+          </tbody>
+        </tgroup>
+      </informaltable>
+    </para>
+
+  </section>
+
+  <section xml:id="file_formats.output">
+    <title>Output formats</title>
+    <para>
+      OVITO can export data to the following file formats:
+      <informaltable>
+        <tgroup cols="3">
+          <colspec colname='name'/>
+          <colspec colname='descr'/>
+          <colspec colname='datatype'/>
+          <thead>
+            <row>
+              <entry>Format name</entry>
+              <entry>Description</entry>
+              <entry>Data type(s)</entry>
+            </row>
+          </thead>
+
+          <tbody>
+
+            <row>
+              <entry>LAMMPS&#xA0;dump</entry>
+              <entry><para>Text-based file format produced and read by the <link xlink:href="http://lammps.sandia.gov">LAMMPS</link> molecular dynamics code.</para></entry>
+              <entry><link linkend="scene_objects.particles">particles</link></entry>
+            </row>
+            <row>
+              <entry>LAMMPS&#xA0;data</entry>
+              <entry><para>File format read by the <link xlink:href="http://lammps.sandia.gov">LAMMPS</link> molecular dynamics code.</para></entry>
+              <entry><link linkend="scene_objects.particles">particles</link>, <link linkend="scene_objects.bonds">bonds</link>, angles, dihedrals, impropers</entry>
+            </row>
+            <row>
+              <entry>XYZ</entry>
+              <entry><para>A simple column-based text format, which is documented <link xlink:href="http://en.wikipedia.org/wiki/XYZ_file_format">here</link> and <link xlink:href="http://libatoms.github.io/QUIP/io.html#module-ase.io.extxyz">here</link>.</para></entry>
+              <entry><link linkend="scene_objects.particles">particles</link></entry>
+            </row>
+            <row>
+              <entry>POSCAR</entry>
+              <entry><para>File format used by the <emphasis>ab initio</emphasis> simulation package <link xlink:href="http://www.vasp.at/">VASP</link>.</para></entry>
+              <entry><link linkend="scene_objects.particles">particles</link></entry>
+            </row>
+            <row>
+              <entry>IMD</entry>
+              <entry><para>File format used by the molecular dynamics code <link xlink:href="http://imd.itap.physik.uni-stuttgart.de/">IMD</link>.</para></entry>
+              <entry><link linkend="scene_objects.particles">particles</link></entry>
+            </row>
+            <row>
+              <entry>FHI-aims</entry>
+              <entry><para>File format used by the <emphasis>ab initio</emphasis> simulation package <link xlink:href="https://aimsclub.fhi-berlin.mpg.de/index.php">FHI-aims</link>.</para></entry>
+              <entry><link linkend="scene_objects.particles">particles</link></entry>
+            </row>
+            <row>
+              <entry>NetCDF</entry>
+              <entry><para>Binary format for molecular dynamics data following the <link xlink:href="http://ambermd.org/netcdf/nctraj.pdf">AMBER format convention</link>.</para></entry>
+              <entry><link linkend="scene_objects.particles">particles</link></entry>
+            </row>
+            <row>
+              <entry>GSD/HOOMD</entry>
+              <entry><para>Binary format for molecular dynamics data used by the <link xlink:href="https://glotzerlab.engin.umich.edu/hoomd-blue/">HOOMD-blue</link> code. See <link xlink:href="https://gsd.readthedocs.io">GSD (General Simulation Data) format</link>.</para></entry>
+              <entry><link linkend="scene_objects.particles">particles</link>, <link linkend="scene_objects.bonds">bonds</link>, global&#xA0;attributes</entry>
+            </row>
+            <row>
+              <entry>Table&#xA0;of&#xA0;values</entry>
+              <entry><para>A simple tabular text file with scalar quantities computed by OVITO's data pipeline.</para></entry>
+              <entry>global&#xA0;attributes</entry>
+            </row>
+            <row>
+              <entry>VTK</entry>
+              <entry><para>Generic text-based data format used by the ParaView software.</para></entry>
+              <entry><link linkend="scene_objects.surface_mesh">surface&#xA0;meshes</link>, <link linkend="scene_objects.voxel_grid">voxel&#xA0;grids</link>, <link linkend="scene_objects.dislocations">dislocations</link></entry>
+            </row>
+            <row>
+              <entry>POV-Ray&#xA0;scene</entry>
+              <entry><para>Exports the entire scene to a file that can be rendered with <link xlink:href="http://www.povray.org/">POV-Ray</link>.</para></entry>
+              <entry>any</entry>
+            </row>
+            <row>
+              <entry>Crystal&#xA0;Analysis&#xA0;(.ca)</entry>
+              <entry><para>Format that can store dislocation lines extracted from an atomistic crystal model by the <link linkend="particles.modifiers.dislocation_analysis">Dislocation Analysis</link> modifier.
+              The format is documented <link linkend="particles.modifiers.dislocation_analysis.fileformat">here</link>.</para></entry>
+              <entry><link linkend="scene_objects.dislocations">dislocations</link>, <link linkend="scene_objects.surface_mesh">surface&#xA0;meshes</link></entry>
+            </row>
+
+          </tbody>
+        </tgroup>
+      </informaltable>
+    </para>
+  </section>  
+
+</section>

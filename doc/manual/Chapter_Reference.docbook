@@ -11,6 +11,7 @@
 
   <para>
     <itemizedlist>
+      <listitem><xref linkend="file_formats" xrefstyle="template:%t" /></listitem>
       <listitem><xref linkend="reference.pipelines" xrefstyle="template:%t" /></listitem>
       <listitem><xref linkend="scene_objects" xrefstyle="template:%t" /></listitem>
       <listitem><xref linkend="visual_elements" xrefstyle="template:%t" /></listitem>
@@ -22,6 +23,7 @@
     </itemizedlist>
   </para>
 
+  <xi:include href="reference/file_formats/file_formats.docbook"/>
   <xi:include href="reference/scene_objects/pipelines.docbook"/>
   <xi:include href="reference/scene_objects/scene_objects.docbook"/>
   <xi:include href="reference/visual_elements/visual_elements.docbook"/>

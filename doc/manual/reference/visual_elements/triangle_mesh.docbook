@@ -22,7 +22,7 @@
     This <link linkend="visual_elements">visual element</link> controls the appearance of triangle meshes,
     which are general polyhedral objects made of vertices and triangular faces connecting those vertices.
     Typically, <link linkend="scene_objects.triangle_mesh">triangle meshes</link> are imported into OVITO from an external
-    data file, for example an STL or an OBJ file. See the list of supported file formats <link linkend="usage.import.formats">here</link>.
+    data file, for example an STL or an OBJ file. See the <link linkend="file_formats.input">list of supported file formats</link>.
   </para>
   <para>
     The faces or the vertices of a triangle mesh may be associated with color information loaded from the imported geoemtry file. 
