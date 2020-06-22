@@ -79,19 +79,19 @@ private:
     /// Tessellates one cube.
     void processCube(int i, int j, int k);
 
-    /// tTests if the components of the tessellation of the cube should be
+    /// Tests if the components of the tessellation of the cube should be
     /// connected by the interior of an ambiguous face.
-    bool testFace(char face);
+    bool testFace(signed char face);
 
     /// Tests if the components of the tessellation of the cube should be
     /// connected through the interior of the cube.
-    bool testInterior(char s);
+    bool testInterior(signed char s);
 
     /// Computes almost all the vertices of the mesh by interpolation along the cubes edges.
     void computeIntersectionPoints(FloatType iso, Task& promise);
 
     /// Adds triangles to the mesh.
-    void addTriangle(int i, int j, int k, const char* trig, char n, HalfEdgeMesh::vertex_index v12 = HalfEdgeMesh::InvalidIndex);
+    void addTriangle(int i, int j, int k, const signed char* trig, signed char n, HalfEdgeMesh::vertex_index v12 = HalfEdgeMesh::InvalidIndex);
 
     /// Adds a vertex on the current horizontal edge.
     HalfEdgeMesh::vertex_index createEdgeVertexX(int i, int j, int k, FloatType u) {
@@ -156,9 +156,9 @@ private:
 
     FloatType     _cube[8];   ///< values of the implicit function on the active cube
     unsigned char _lut_entry; ///< cube sign representation in [0..255]
-    unsigned char _case;      ///< case of the active cube in [0..15]
-    unsigned char _config;    ///< configuration of the active cube
-    unsigned char _subconfig; ///< subconfiguration of the active cube
+    signed char _case;        ///< case of the active cube in [0..15]
+    signed char _config;      ///< configuration of the active cube
+    signed char _subconfig;   ///< subconfiguration of the active cube
 
     /// The generated surface mesh.
     SurfaceMeshData& _outputMesh;
