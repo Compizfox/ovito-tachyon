@@ -343,12 +343,14 @@ void DislocationVis::render(TimePoint time, const std::vector<const DataObject*>
 		Vector3 normalizedBurgersVector;
 		Vector3 lastBurgersVector = Vector3::Zero();
 		int lastRegion = -1;
+		int lastDislocationIndex = -1;
+		const DislocationSegment* lastInputDislocationSegment = nullptr;
 		for(size_t lineSegmentIndex = 0; lineSegmentIndex < renderableLines->lineSegments().size(); lineSegmentIndex++) {
 			const auto& lineSegment = renderableLines->lineSegments()[lineSegmentIndex];
 			if(lineSegment.burgersVector != lastBurgersVector || lineSegment.region != lastRegion) {
 				lastBurgersVector = lineSegment.burgersVector;
 				lastRegion = lineSegment.region;
-				lineColor = Color(0.8f,0.8f,0.8f);
+				lineColor = Color(0.8, 0.8, 0.8);
 				const MicrostructurePhase* phase = nullptr;
 				if(dislocationsObj && renderableLines->clusterGraph()) {
 					Cluster* cluster = renderableLines->clusterGraph()->findCluster(lineSegment.region);
@@ -387,21 +389,35 @@ void DislocationVis::render(TimePoint time, const std::vector<const DataObject*>
 			}
 			subobjToSegmentMap[lineSegmentIndex] = lineSegment.dislocationIndex;
 			Vector3 delta = lineSegment.verts[1] - lineSegment.verts[0];
+			Color segmentColor = lineColor;
 			if(lineColoringMode() == ColorByCharacter) {
 				FloatType dot = std::abs(delta.dot(normalizedBurgersVector));
 				if(dot != 0) dot /= delta.length();
 				if(dot > 1) dot = 1;
 				FloatType angle = std::acos(dot) / (FLOATTYPE_PI/2);
 				if(angle <= FloatType(0.5))
-					lineColor = Color(1, angle * 2, angle * 2);
+					segmentColor = Color(1, angle * 2, angle * 2);
 				else
-					lineColor = Color((FloatType(1)-angle) * 2, (FloatType(1)-angle) * 2, 1);
+					segmentColor = Color((FloatType(1)-angle) * 2, (FloatType(1)-angle) * 2, 1);
 			}
-			primitives.segments->setElement(lineSegmentIndex, lineSegment.verts[0], delta, ColorA(lineColor), lineRadius);
+			if(dislocationsObj) {
+				if(lastDislocationIndex != lineSegment.dislocationIndex) {
+					lastDislocationIndex = lineSegment.dislocationIndex;
+					const auto& segmentList = dislocationsObj->segments();
+					lastInputDislocationSegment = (lastDislocationIndex >= 0 && lastDislocationIndex < segmentList.size()) ? 
+						segmentList[lastDislocationIndex] : nullptr;
+				}
+				if(lastInputDislocationSegment) {
+					if(lastInputDislocationSegment->customColor.r() >= 0 && lastInputDislocationSegment->customColor.g() >= 0 && lastInputDislocationSegment->customColor.b() >= 0) {
+						segmentColor = lastInputDislocationSegment->customColor;
+					}
+				}
+			}
+			primitives.segments->setElement(lineSegmentIndex, lineSegment.verts[0], delta, segmentColor, lineRadius);
 			if(lineSegmentIndex != 0 && lineSegment.verts[0].equals(renderableLines->lineSegments()[lineSegmentIndex-1].verts[1])) {
 				subobjToSegmentMap[cornerPoints.size() + lineSegmentCount] = lineSegment.dislocationIndex;
 				cornerPoints.push_back(lineSegment.verts[0]);
-				cornerColors.push_back(lineColor);
+				cornerColors.push_back(segmentColor);
 			}
 		}
 		OVITO_ASSERT(cornerPoints.size() == cornerCount);
