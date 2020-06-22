@@ -32,7 +32,10 @@ IF((UNIX OR APPLE) AND NOT EMSCRIPTEN)
 ENDIF()
 
 # Enable Geogram's support for 64-bit indices.
-TARGET_COMPILE_DEFINITIONS(geogram PUBLIC "GARGANTUA=1" )
+TARGET_COMPILE_DEFINITIONS(geogram PUBLIC "GARGANTUA=1")
+
+# Disable atomics, because OVITO doesn't make use of Geogram's multi-threading support.
+TARGET_COMPILE_DEFINITIONS(geogram PUBLIC "GEO_USE_DUMMY_ATOMICS=1")
 
 IF(BUILD_SHARED_LIBS)
 	# Build shared library version of Geogram lib.
