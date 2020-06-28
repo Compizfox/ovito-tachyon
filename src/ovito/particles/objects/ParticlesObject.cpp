@@ -109,7 +109,7 @@ ImpropersObject* ParticlesObject::makeImpropersMutable()
 const BondsObject* ParticlesObject::expectBonds() const
 {
     if(!bonds())
-		throwException(tr("There are no bonds."));
+		throwException(tr("This operation requires bonds as input, but the particle system has no bond topology defined."));
 	return bonds();
 }
 
@@ -407,7 +407,7 @@ void ParticlesObject::addBonds(const std::vector<Bond>& newBonds, BondsVis* bond
 		PropertyAccess<Vector3I> newBondsPeriodicImages = bonds->createProperty(BondsObject::PeriodicImageProperty, true);
 		PropertyAccess<int> newBondTypeProperty = bondType ? bonds->createProperty(BondsObject::TypeProperty, true) : nullptr;
 
-		if(newBondTypeProperty)
+		if(newBondTypeProperty && !newBondTypeProperty.propertyObject()->elementType(bondType->numericId()))
 			newBondTypeProperty.propertyObject()->addElementType(bondType);
 
 		// Copy bonds information into the extended arrays.

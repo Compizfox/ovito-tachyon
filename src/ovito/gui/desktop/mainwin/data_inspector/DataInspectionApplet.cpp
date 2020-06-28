@@ -180,7 +180,7 @@ void DataInspectionApplet::TableView::keyPressEvent(QKeyEvent* event)
             return;
 
         // QModelIndex::operator < sorts first by row, then by column. This is what we need.
-        qSort(indices);
+        std::sort(indices.begin(), indices.end());
 
         int lastRow = indices.first().row();
         int lastColumn = indices.first().column();

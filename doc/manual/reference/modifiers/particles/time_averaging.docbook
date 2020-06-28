@@ -20,28 +20,34 @@
       <varlistentry>
         <term>Attributes</term>
         <listitem>
+          <para>
           <link linkend="usage.global_attributes">Global attributes</link> are scalar variables associated with the dataset,
           which may vary with time. The modifier will compute the global mean value 
           of the selected input attribute and output it as a new attribute, which does not change with time. 
+          </para>
         </listitem>
       </varlistentry>
       <varlistentry>
         <term>Data tables</term>
         <listitem>
+          <para>
           The modifier can compute the time-averaged versions of <link linkend="scene_objects.data_table">data tables</link>.
           Data tables typically contain dynamically computed structural or statistical information such as a <link linkend="particles.modifiers.coordination_analysis">radial distribution function</link>
           or <link linkend="particles.modifiers.histogram">histograms</link> of some particle property.
           With the help of the <emphasis>Time averaging</emphasis> modifier you can average such time-varying tables over the entire trajectory.
+          </para>
         </listitem>
       </varlistentry>
       <varlistentry>
         <term>Properties</term>
         <listitem>
+          <para>
           Finally, the modifier supports computing time averages of properties (e.g. <link linkend="scene_objects.particles">particle</link> or <link linkend="scene_objects.voxel_grid">voxel grid</link> properties).
           The average values of the selected input property are output as a new property with the appended name suffix "Average".
           Note that, for the computation to work, the number of data elements (e.g. particles) must not change with time. 
           Thus, make sure you place the <emphasis>Time averaging</emphasis> modifier in the data pipeline before any filter operations
           that dynamically remove particles from the system.     
+          </para>
         </listitem>
       </varlistentry>
     </variablelist>

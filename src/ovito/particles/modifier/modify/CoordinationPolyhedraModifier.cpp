@@ -116,7 +116,7 @@ void CoordinationPolyhedraModifier::ComputePolyhedraEngine::perform()
 		// Collect the bonds that are part of the coordination polyhedron.
 		std::vector<Point3> bondVectors;
 		const Point3& p1 = positionsArray[i];
-		for(Bond bond : bondMap.bondsOfParticle(i)) {
+		for(BondWithIndex bond : bondMap.bondsOfParticle(i)) {
 			if(bond.index2 < _positions->size()) {
 				Vector3 delta = positionsArray[bond.index2] - p1;
 				if(bond.pbcShift.x()) delta += cell().matrix().column(0) * (FloatType)bond.pbcShift.x();

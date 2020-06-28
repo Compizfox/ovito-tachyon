@@ -230,9 +230,9 @@ void CommonNeighborAnalysisModifier::BondCNAEngine::perform()
 		// Determine common neighbors shared by both particles.
 		int numCommonNeighbors = 0;
 		std::array<std::pair<size_t, Vector3I>, 32> commonNeighbors;
-		for(Bond neighborBond1 : bondMap.bondsOfParticle(currentBondParticle1)) {
+		for(BondWithIndex neighborBond1 : bondMap.bondsOfParticle(currentBondParticle1)) {
 			OVITO_ASSERT(neighborBond1.index1 == currentBondParticle1);
-			for(Bond neighborBond2 : bondMap.bondsOfParticle(currentBondParticle2)) {
+			for(BondWithIndex neighborBond2 : bondMap.bondsOfParticle(currentBondParticle2)) {
 				OVITO_ASSERT(neighborBond2.index1 == currentBondParticle2);
 				if(neighborBond2.index2 == neighborBond1.index2 && neighborBond1.pbcShift == currentBondPbcShift + neighborBond2.pbcShift) {
 					if(numCommonNeighbors == commonNeighbors.size()) {
@@ -251,7 +251,7 @@ void CommonNeighborAnalysisModifier::BondCNAEngine::perform()
 		std::array<CNAPairBond, 64> commonNeighborBonds;
 		int numCommonNeighborBonds = 0;
 		for(int ni1 = 0; ni1 < numCommonNeighbors; ni1++) {
-			for(Bond neighborBond : bondMap.bondsOfParticle(commonNeighbors[ni1].first)) {
+			for(BondWithIndex neighborBond : bondMap.bondsOfParticle(commonNeighbors[ni1].first)) {
 				for(int ni2 = 0; ni2 < ni1; ni2++) {
 					if(commonNeighbors[ni2].first == neighborBond.index2 && commonNeighbors[ni1].second + neighborBond.pbcShift == commonNeighbors[ni2].second) {
 						if(numCommonNeighborBonds == commonNeighborBonds.size()) {

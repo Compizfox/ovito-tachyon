@@ -51,6 +51,22 @@ public:
 	/// This returns the checkbox managed by this parameter UI.
 	QCheckBox* checkBox() const { return _checkBox; }
 
+	/// Changes the parameter value that represents the unchecked state.
+	void setUncheckedValue(int uncheckedValue) {
+		if(_uncheckedValue != uncheckedValue) {
+			_uncheckedValue = uncheckedValue;
+			updateUI();
+		}
+	}
+
+	/// Changes the parameter value that represents the checked state.
+	void setCheckedValue(int checkedValue) {
+		if(_checkedValue != checkedValue) {
+			_checkedValue = checkedValue;
+			updateUI();
+		}
+	}
+
 	/// This method is called when a new editable object has been assigned to the properties owner this
 	/// parameter UI belongs to.
 	virtual void resetUI() override;

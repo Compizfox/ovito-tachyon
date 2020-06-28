@@ -1,0 +1,122 @@
+<?xml version="1.0" encoding="utf-8"?>
+<section version="5.0"
+         xsi:schemaLocation="http://docbook.org/ns/docbook http://docbook.org/xml/5.0/xsd/docbook.xsd"
+         xml:id="particles.modifiers.bond_analysis"
+         xmlns="http://docbook.org/ns/docbook"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xmlns:xs="http://www.w3.org/2001/XMLSchema"
+         xmlns:xlink="http://www.w3.org/1999/xlink"
+         xmlns:xi="http://www.w3.org/2001/XInclude"
+         xmlns:ns="http://docbook.org/ns/docbook">
+  <title>Bond analysis<ovito-pro/></title>
+
+  <para>
+    <informalfigure><screenshot><mediaobject><imageobject>
+       <imagedata fileref="images/modifiers/bond_analysis_panel.png" format="PNG" scale="50" />
+    </imageobject></mediaobject></screenshot></informalfigure>
+    This modifier computes two histograms for a system of particles with <link linkend="scene_objects.bonds">bonds</link>:
+    <orderedlist>
+      <listitem>
+        The distribution of the <emphasis>bond lengths</emphasis>, i.e. the histogram of distances between pairs of particles connected by bonds.
+      </listitem>
+      <listitem>
+        The distribution of the <emphasis>bond angles</emphasis> formed by pairs of bonds meeting at the same particle.
+      </listitem>
+    </orderedlist>
+    The modifier only includes <link linkend="scene_objects.bonds">bonded</link> particles in these distributions,
+    whereas non-bonded pairs will be ignored. Typically, the bond topology is read from the 
+    input simulation file or it needs to be generated within OVITO using the <link linkend="particles.modifiers.create_bonds">Create bonds</link> modifier.
+    For computing the radial distribution function (RDF) of a system (histogram of the distances between pairs of
+    particles, including non-bonded ones) you can use the <link linkend="particles.modifiers.coordination_analysis">Coordination analysis</link> modifier instead.
+  </para>
+
+  <simplesect>
+    <title>Bond angle distribution</title>
+    <para>
+      The computed histogram counts in equisized bins the angles formed by pairs of bonds meeting at the same particle. 
+      Bond angles &#x398; may range from 0 to 180 degrees. The modifier option <emphasis>Use cosines of angles</emphasis> switches the 
+      x-axis of the histogram to the range [-1, +1], now computing the distribution of <inlineequation><mathphrase>cos(&#x398;)</mathphrase></inlineequation> values in the system.
+    </para>
+    <para>
+      The modifier outputs the bond angle histogram as a <link linkend="scene_objects.data_table">data table</link>, which can be opened in the 
+      pipeline data inspector using the <guibutton>Show in data inspector</guibutton> button.
+    </para>
+  </simplesect>
+
+  <simplesect>
+    <title>Bond length distribution</title>
+    <para>
+      The bond length histogram ranges from 0 to the cutoff parameter of the modifier.
+      Bonds exceeding the specified length cutoff will not be counted in the bond length histogram,
+      but they will still be included in the bond angle histogram.
+    </para>
+  </simplesect>
+
+  <simplesect>
+    <title>Partitioned distributions</title>
+    <para>
+      The modifier provides the option to partition the computed distributions into several partial distributions, 
+      one for each combination of bond types or particle types.
+      <variablelist>
+        <varlistentry>
+          <term>Bond type</term>
+          <listitem><para>
+            Computes a separate bond angle histogram for each combination of two bond types and a 
+            bond length histogram for each bond type in the system. 
+          </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term>Bond selection</term>
+          <listitem><para>
+            Treats currently selected bonds and unselected bonds as two different kinds of bonds.
+            Computes three separate bond angle histograms: one for angles formed by two selected bonds,
+            one for angles formed by two unselected bonds, and one for angles formed by one selected and one unselected bond.
+            This option allows you to calculate the bond angle distribution only for a specific subset of bonds.
+          </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term>Particle type</term>
+          <listitem><para>
+            Computes separate bond angle histograms for each combination of three particle types and 
+            bond length histograms for each pair-wise combination of particle types. 
+            If the number of particle types in the system is <inlineequation><mathphrase>N</mathphrase></inlineequation>,
+            then the bond length distribution, which involves pairs of particles, will be partitioned into 
+            <inlineequation><mathphrase>N*(N+1)/2</mathphrase></inlineequation> partial distributions.
+            Correspondingly, the bond angle distribution, involving triplets of particles (with the central particle discriminable),
+            gets partitioned into <inlineequation><mathphrase>N*N*(N+1)/2</mathphrase></inlineequation> partial bond angle distributions.
+          </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term>Bond type</term>
+          <listitem><para>
+            Treats currently selected and unselected particles as two different species.
+            Computes three separate bond length histograms: one for bonds connecting two selected particles,
+            one for bonds connecting two unselected particles, and one for bonds connecting one selected and one unselected particle.
+            Accordingly, the bond angle histogram is partioned into six partial histograms, one for each triplet combination 
+            of selected and unselected particles.
+          </para></listitem>
+        </varlistentry>
+      </variablelist>
+    </para>
+  </simplesect>
+
+  <simplesect>
+    <title>Time-averaged distributions</title>
+    <para>
+      The <emphasis>Bond analysis</emphasis> modifier calculates the instantaneous bond length and angle distributions for 
+      just one simulation frame at a time. 
+      You can subsequently apply the <link linkend="particles.modifiers.time_averaging">Time averaging</link> modifier to reduce 
+      the instantaneous distributions to a single mean distribution by averaging the 
+      output <link linkend="scene_objects.data_table">data table</link> over all frames of the 
+      loaded MD trajectory.
+    </para>
+  </simplesect>
+
+  <simplesect>
+    <title>See also</title>
+    <para>
+      <pydoc-link href="modules/ovito_modifiers" anchor="ovito.modifiers.BondAnalysisModifier"><classname>BondAnalysisModifier</classname> (Python API)</pydoc-link>
+    </para>
+  </simplesect>
+
+</section>

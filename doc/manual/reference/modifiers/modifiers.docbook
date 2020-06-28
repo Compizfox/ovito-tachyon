@@ -37,6 +37,10 @@
               <entry>Calculates local strain tensors based on the relative motion of neighboring particles. </entry>
             </row>
             <row>
+              <entry><link linkend="particles.modifiers.bond_analysis">Bond&#xA0;analysis</link><ovito-pro/></entry>
+              <entry>Computes bond angle and bond length distributions.</entry>
+            </row>
+            <row>
               <entry><link linkend="particles.modifiers.cluster_analysis">Cluster&#xA0;analysis</link></entry>
               <entry>Decomposes a particle system into clusters of particles.</entry>
             </row>
@@ -260,6 +264,8 @@
   <xi:include href="particles/assign_color.docbook"/>
 
   <xi:include href="particles/atomic_strain.docbook"/>
+
+  <xi:include href="particles/bond_analysis.docbook"/>
 
   <xi:include href="particles/centrosymmetry.docbook"/>
 

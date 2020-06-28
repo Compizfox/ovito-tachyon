@@ -61,8 +61,12 @@ const PropertyObject* PropertyContainer::expectProperty(int typeId) const
 	if(!getOOMetaClass().isValidStandardPropertyId(typeId))
 		throwException(tr("Selections are not supported for %1.").arg(getOOMetaClass().propertyClassDisplayName()));
 	const PropertyObject* property = getProperty(typeId);
-	if(!property)
-		throwException(tr("Required property '%1' does not exist in the input dataset.").arg(getOOMetaClass().standardPropertyName(typeId)));
+	if(!property) {
+		if(typeId == PropertyStorage::GenericSelectionProperty)
+			throwException(tr("The operation requires an input %1 selection.").arg(getOOMetaClass().elementDescriptionName()));
+		else
+			throwException(tr("Required %2 property '%1' does not exist in the input dataset.").arg(getOOMetaClass().standardPropertyName(typeId), getOOMetaClass().elementDescriptionName()));
+	}
 	if(property->size() != elementCount())
 		throwException(tr("Property array '%1' has wrong length. It does not match the number of elements in the parent container.").arg(property->name()));
 	return property;
