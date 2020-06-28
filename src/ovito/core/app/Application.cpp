@@ -199,6 +199,9 @@ bool Application::initialize()
 ******************************************************************************/
 void Application::createQtApplication(int& argc, char** argv)
 {
+	// OVITO prefers the "C" locale over the system's default locale.
+	QLocale::setDefault(QLocale::c());
+
 	if(headlessMode()) {
 #if defined(Q_OS_LINUX)
 		// Determine font directory path.
