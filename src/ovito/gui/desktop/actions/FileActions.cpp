@@ -99,13 +99,13 @@ void ActionManager::on_HelpOpenGLInfo_triggered()
 	textEdit->setReadOnly(true);
 	QString text;
 	QTextStream stream(&text, QIODevice::WriteOnly | QIODevice::Text);
-	stream << "======= System info =======" << Qt::endl;
-	stream << "Date: " << QDateTime::currentDateTime().toString() << Qt::endl;
-	stream << "Application: " << QApplication::applicationName() << " " << QApplication::applicationVersion() << Qt::endl;
+	stream << "======= System info =======" << endl;
+	stream << "Date: " << QDateTime::currentDateTime().toString() << endl;
+	stream << "Application: " << QApplication::applicationName() << " " << QApplication::applicationVersion() << endl;
 #if defined(Q_OS_MAC)
-	stream << "OS: Mac OS X (" << QSysInfo::macVersion() << ")" << Qt::endl;
+	stream << "OS: Mac OS X (" << QSysInfo::macVersion() << ")" << endl;
 #elif defined(Q_OS_WIN)
-	stream << "OS: Windows (" << QSysInfo::windowsVersion() << ")" << Qt::endl;
+	stream << "OS: Windows (" << QSysInfo::windowsVersion() << ")" << endl;
 #elif defined(Q_OS_LINUX)
 	stream << "OS: Linux" << endl;
 	// Get 'uname' output.
@@ -121,29 +121,29 @@ void ActionManager::on_HelpOpenGLInfo_triggered()
 	lsbProcess.waitForFinished();
 	QByteArray lsbOutput = lsbProcess.readAllStandardOutput();
 	lsbOutput.replace('\n', ' ');
-	stream << "LSB output: " << lsbOutput << Qt::endl;
+	stream << "LSB output: " << lsbOutput << endl;
 #endif
-	stream << "Architecture: " << (QT_POINTER_SIZE*8) << " bit" << Qt::endl;
-	stream << "Floating-point size: " << (sizeof(FloatType)*8) << " bit" << Qt::endl;
-	stream << "Qt version: " << QT_VERSION_STR << Qt::endl;
-	stream << "Command line: " << QCoreApplication::arguments().join(' ') << Qt::endl;
-	stream << "======= OpenGL info =======" << Qt::endl;
+	stream << "Architecture: " << (QT_POINTER_SIZE*8) << " bit" << endl;
+	stream << "Floating-point size: " << (sizeof(FloatType)*8) << " bit" << endl;
+	stream << "Qt version: " << QT_VERSION_STR << endl;
+	stream << "Command line: " << QCoreApplication::arguments().join(' ') << endl;
+	stream << "======= OpenGL info =======" << endl;
 	const QSurfaceFormat& format = OpenGLSceneRenderer::openglSurfaceFormat();
-	stream << "Version: " << format.majorVersion() << QStringLiteral(".") << format.minorVersion() << Qt::endl;
-	stream << "Profile: " << (format.profile() == QSurfaceFormat::CoreProfile ? "core" : (format.profile() == QSurfaceFormat::CompatibilityProfile ? "compatibility" : "none")) << Qt::endl;
-	stream << "Alpha: " << format.hasAlpha() << Qt::endl;
-	stream << "Vendor: " << OpenGLSceneRenderer::openGLVendor() << Qt::endl;
-	stream << "Renderer: " << OpenGLSceneRenderer::openGLRenderer() << Qt::endl;
-	stream << "Version string: " << OpenGLSceneRenderer::openGLVersion() << Qt::endl;
-	stream << "Swap behavior: " << (format.swapBehavior() == QSurfaceFormat::SingleBuffer ? QStringLiteral("single buffer") : (format.swapBehavior() == QSurfaceFormat::DoubleBuffer ? QStringLiteral("double buffer") : (format.swapBehavior() == QSurfaceFormat::TripleBuffer ? QStringLiteral("triple buffer") : QStringLiteral("other")))) << Qt::endl;
-	stream << "Depth buffer size: " << format.depthBufferSize() << Qt::endl;
-	stream << "Stencil buffer size: " << format.stencilBufferSize() << Qt::endl;
-	stream << "Shading language: " << OpenGLSceneRenderer::openGLSLVersion() << Qt::endl;
-	stream << "Geometry shaders supported: " << (OpenGLSceneRenderer::geometryShadersSupported() ? "yes" : "no") << Qt::endl;
-	stream << "Using deprecated functions: " << (format.testOption(QSurfaceFormat::DeprecatedFunctions) ? "yes" : "no") << Qt::endl;
-	stream << "Using point sprites: " << (OpenGLSceneRenderer::pointSpritesEnabled() ? "yes" : "no") << Qt::endl;
-	stream << "Using geometry shaders: " << (OpenGLSceneRenderer::geometryShadersEnabled() ? "yes" : "no") << Qt::endl;
-	stream << "Context sharing enabled: " << (OpenGLSceneRenderer::contextSharingEnabled() ? "yes" : "no") << Qt::endl;
+	stream << "Version: " << format.majorVersion() << QStringLiteral(".") << format.minorVersion() << endl;
+	stream << "Profile: " << (format.profile() == QSurfaceFormat::CoreProfile ? "core" : (format.profile() == QSurfaceFormat::CompatibilityProfile ? "compatibility" : "none")) << endl;
+	stream << "Alpha: " << format.hasAlpha() << endl;
+	stream << "Vendor: " << OpenGLSceneRenderer::openGLVendor() << endl;
+	stream << "Renderer: " << OpenGLSceneRenderer::openGLRenderer() << endl;
+	stream << "Version string: " << OpenGLSceneRenderer::openGLVersion() << endl;
+	stream << "Swap behavior: " << (format.swapBehavior() == QSurfaceFormat::SingleBuffer ? QStringLiteral("single buffer") : (format.swapBehavior() == QSurfaceFormat::DoubleBuffer ? QStringLiteral("double buffer") : (format.swapBehavior() == QSurfaceFormat::TripleBuffer ? QStringLiteral("triple buffer") : QStringLiteral("other")))) << endl;
+	stream << "Depth buffer size: " << format.depthBufferSize() << endl;
+	stream << "Stencil buffer size: " << format.stencilBufferSize() << endl;
+	stream << "Shading language: " << OpenGLSceneRenderer::openGLSLVersion() << endl;
+	stream << "Geometry shaders supported: " << (OpenGLSceneRenderer::geometryShadersSupported() ? "yes" : "no") << endl;
+	stream << "Using deprecated functions: " << (format.testOption(QSurfaceFormat::DeprecatedFunctions) ? "yes" : "no") << endl;
+	stream << "Using point sprites: " << (OpenGLSceneRenderer::pointSpritesEnabled() ? "yes" : "no") << endl;
+	stream << "Using geometry shaders: " << (OpenGLSceneRenderer::geometryShadersEnabled() ? "yes" : "no") << endl;
+	stream << "Context sharing enabled: " << (OpenGLSceneRenderer::contextSharingEnabled() ? "yes" : "no") << endl;
 	if(!text.isEmpty())
 		textEdit->setPlainText(text);
 	else
