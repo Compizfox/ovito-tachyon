@@ -83,6 +83,9 @@ bool GuiApplication::processCommandLineParameters()
 ******************************************************************************/
 void GuiApplication::createQtApplication(int& argc, char** argv)
 {
+	// OVITO prefers the "C" locale over the system's default locale.
+	QLocale::setDefault(QLocale::c());
+
 	if(headlessMode()) {
 		StandaloneApplication::createQtApplication(argc, argv);
 	}

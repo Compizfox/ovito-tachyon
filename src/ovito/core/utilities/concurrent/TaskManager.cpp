@@ -336,7 +336,7 @@ bool TaskManager::waitForTaskUIThread(const TaskPtr& task, const TaskPtr& depend
 #ifdef Q_OS_UNIX
 	::signal(SIGINT, oldSignalHandler);
 	activeEventLoop = nullptr;
-	if(userInterrupt.load()) {
+	if(userInterrupt.loadAcquire()) {
 		cancelAll();
 		return false;
 	}
