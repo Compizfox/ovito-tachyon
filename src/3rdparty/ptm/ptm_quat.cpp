@@ -166,15 +166,15 @@ void quat_rot(double* r, double* a, double* b)
 static void rotate_and_flip(double* q, double* r)
 {
 	double temp[4];
-        quat_rot(q, r, temp);
+    quat_rot(q, r, temp);
 	memcpy(q, temp, 4 * sizeof(double));
-        if (q[0] < 0)
-        {
+    if (q[0] < 0)
+    {
 		q[0] = -q[0];
 		q[1] = -q[1];
 		q[2] = -q[2];
 		q[3] = -q[3];
-        }
+    }
 }
 
 static int rotate_quaternion_into_fundamental_zone(int num_generators, const double (*generator)[4], double* q)
@@ -472,16 +472,20 @@ double quat_disorientation_cubic_to_hexagonal(double* qhcp, double* qfcc)
     double closest[4];
 
     double min_disorientation = INFINITY;
-	for (int i=0;i<2;i++) {
-		double rotated[4];
-		ptm::quat_rot(qfcc, map_fcc_to_hcp[i], rotated);
-		double disorientation = ptm::quat_disorientation_hcp_conventional(qhcp, rotated);
-        printf("\t%f\n", disorientation);
-        if (disorientation < min_disorientation) {
-            memcpy(closest, rotated, 4 * sizeof(double));
-    		min_disorientation = disorientation;
-        }
-	}
+    for (int j=0;j<24;j++) {
+	    double adjusted[4];
+	    ptm::quat_rot(qfcc, (double*)generator_cubic[j], adjusted);
+
+	    for (int i=0;i<2;i++) {
+		    double rotated[4];
+		    ptm::quat_rot(adjusted, map_fcc_to_hcp[i], rotated);
+		    double disorientation = ptm::quat_disorientation_hcp_conventional(qhcp, rotated);
+            if (disorientation < min_disorientation) {
+                memcpy(closest, rotated, 4 * sizeof(double));
+        		min_disorientation = disorientation;
+            }
+	    }
+    }
 
     memcpy(qfcc, closest, 4 * sizeof(double));
 	rotate_quaternion_into_hcp_conventional_fundamental_zone(qfcc);

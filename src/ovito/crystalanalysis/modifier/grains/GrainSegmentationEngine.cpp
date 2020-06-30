@@ -269,7 +269,9 @@ bool GrainSegmentationEngine1::interface_cubic_hex(NeighborBond& bond, bool pare
     // We want ordering of (a, b) to be (parent phase, defect phase)
     bool flipped = false;
     flipped |= parent_fcc && structureA == PTMAlgorithm::HCP;
+    flipped |= !parent_fcc && structureA == PTMAlgorithm::FCC;
     flipped |= parent_dcub && structureA == PTMAlgorithm::HEX_DIAMOND;
+    flipped |= !parent_dcub && structureA == PTMAlgorithm::CUBIC_DIAMOND;
     if (flipped) {
         std::swap(a, b);
         std::swap(structureA, structureB);
@@ -284,13 +286,9 @@ bool GrainSegmentationEngine1::interface_cubic_hex(NeighborBond& bond, bool pare
     	disorientation = (FloatType)ptm::quat_disorientation_hexagonal_to_cubic(orientA, orientB);
     }
     else {
-        printf("(%f %f %f %f), (%f %f %f %f)\n", orientA[0], orientA[1], orientA[2], orientA[3],
-                                                orientB[0], orientB[1], orientB[2], orientB[3]);
     	disorientation = (FloatType)ptm::quat_disorientation_cubic_to_hexagonal(orientA, orientB);
     }
 	disorientation = qRadiansToDegrees(disorientation);
-
-    printf("%d: %d %d\t%f\n", parent_fcc, structureA, structureB, disorientation);
 
 	output.w() = orientB[0];
 	output.x() = orientB[1];
