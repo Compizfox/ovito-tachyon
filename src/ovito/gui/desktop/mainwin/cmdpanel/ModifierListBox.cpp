@@ -385,7 +385,11 @@ void ModifierListBox::updateApplicableModifiersList()
 				modifierItem = new QStandardItem();
 				_model->insertRow(currentRowIndex, modifierItem);
 			}
+#if QT_VERSION >= QT_VERSION_CHECK(5, 10, 0)
 			modifierItem->setText(QStringLiteral("   ") + fileName.chopped(3));
+#else
+			modifierItem->setText(QStringLiteral("   ") + fileName.left(fileName.size() - 3));
+#endif
 			modifierItem->setData(QVariant::fromValue(scriptsDirectory.filePath(fileName)), Qt::UserRole);
 			numScripts++;
 			currentRowIndex++;	
