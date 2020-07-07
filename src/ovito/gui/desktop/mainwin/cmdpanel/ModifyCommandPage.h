@@ -68,8 +68,8 @@ protected Q_SLOTS:
 	/// Handles the ACTION_MODIFIER_DELETE command, which deleted the selected modifier from the stack.
 	void onDeleteModifier();
 
-	/// Is called when the user has selected an item in the modifier class list.
-	void onModifierAdd(int index);
+	/// Is called when the user has selected an item in the modifier list to be inserted into the pipeline.
+	void applyModifiers(const QVector<OORef<Modifier>>& modifiers);
 
 	/// This called when the user double clicks on an item in the modifier stack.
 	void onModifierStackDoubleClicked(const QModelIndex& index);

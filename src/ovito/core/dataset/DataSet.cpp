@@ -625,7 +625,7 @@ void DataSet::saveToFile(const QString& filePath)
     	throwException(tr("Failed to open output file '%1' for writing.").arg(absolutePath));
 
 	QDataStream dataStream(&fileStream);
-	ObjectSaveStream stream(dataStream);
+	ObjectSaveStream stream(dataStream, SynchronousOperation::create(taskManager()));
 	stream.saveObject(this);
 	stream.close();
 

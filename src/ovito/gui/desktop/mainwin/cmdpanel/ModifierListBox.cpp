@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Copyright 2017 Alexander Stukowski
+//  Copyright 2020 Alexander Stukowski
 //
 //  This file is part of OVITO (Open Visualization Tool).
 //
@@ -155,6 +155,15 @@ ModifierListBox::ModifierListBox(QWidget* parent, PipelineListModel* pipelineLis
 	categoryItem->setTextAlignment(Qt::AlignCenter);
 	_model->appendRow(categoryItem);
 
+	// Create category for user-defined modifier scripts.
+	categoryItem = new QStandardItem(tr("Python modifiers"));
+	categoryItem->setFont(categoryFont);
+	categoryItem->setBackground(categoryBackgroundBrush);
+	categoryItem->setForeground(categoryForegroundBrush);
+	categoryItem->setFlags(Qt::ItemIsEnabled);
+	categoryItem->setTextAlignment(Qt::AlignCenter);
+	_model->appendRow(categoryItem);
+
 	// Append the "Show all modifiers" item at the end of the list.
 	QStandardItem* showAllItem = new QStandardItem(tr("Show all modifiers..."));
 	QFont boldFont = font();
@@ -200,6 +209,18 @@ ModifierListBox::ModifierListBox(QWidget* parent, PipelineListModel* pipelineLis
 	_filterModel->sort(0);
 	_filterModel->setSourceModel(_model);
 	setModel(_filterModel);
+
+    connect(this, (void (QComboBox::*)(int))&QComboBox::activated, this, &ModifierListBox::listItemSelected);
+
+	// Add the built-in extension script directory.
+	QDir prefixDir(QCoreApplication::applicationDirPath());
+	_modifierScriptDirectories.push_back(prefixDir.absolutePath() + QChar('/') + QStringLiteral(OVITO_SCRIPT_EXTENSIONS_RELATIVE_PATH) + QStringLiteral("/modifiers"));
+
+	// Add the user extension script directory.
+	_modifierScriptDirectories.push_back(QDir::homePath() + QStringLiteral("/.config/Ovito/scripts/modifiers"));
+
+	for(QDir& dir : _modifierScriptDirectories)
+		dir.makeAbsolute();
 }
 
 /******************************************************************************
@@ -215,7 +236,10 @@ bool ModifierListBox::filterAcceptsRow(int source_row, const QModelIndex& source
 		if(source_row >= _model->rowCount(source_parent) - 2)
 			return false;
 		// Don't show the modifier templates category if there are no templates.
-		if(_numModifierTemplates == 0 && source_row == _model->rowCount(source_parent) - 3)
+		if(_numModifierTemplates == 0 && source_row == _model->rowCount(source_parent) - 4 - _numModifierScripts)
+			return false;
+		// Don't show the user-defined modifier scripts category if there are no scripts.
+		if(_numModifierScripts == 0 && source_row == _model->rowCount(source_parent) - 3)
 			return false;
 		return true;
 	}
@@ -245,7 +269,7 @@ bool ModifierListBox::filterAcceptsRow(int source_row, const QModelIndex& source
 ******************************************************************************/
 bool ModifierListBox::filterSortLessThan(const QModelIndex& source_left, const QModelIndex& source_right)
 {
-	if(showAllModifiers() || source_left.row() <= 1 || source_right.row() <= 1 || source_left.row() >= _model->rowCount()-2 || source_right.row() >= _model->rowCount()-2) {
+	if(showAllModifiers() || source_left.row() <= 1 || source_right.row() <= 1 || source_left.row() >= _model->rowCount() - 2 || source_right.row() >= _model->rowCount() - 2) {
 		return source_left.row() < source_right.row();
 	}
 	else {
@@ -327,23 +351,120 @@ void ModifierListBox::updateApplicableModifiersList()
 	// Load custom modifier templates.
 	ModifierTemplates modifierTemplates;
 	int numCustom = 0;
+	int currentRowIndex = _model->rowCount() - 3 - _numModifierTemplates - _numModifierScripts;
 	for(const QString& name : modifierTemplates.templateList()) {
 		QStandardItem* modifierItem;
 		if(numCustom < _numModifierTemplates) {
-			modifierItem = _model->item(_model->rowCount() - 2 - _numModifierTemplates + numCustom);
+			modifierItem = _model->item(currentRowIndex);
 		}
 		else {
 			modifierItem = new QStandardItem();
-			_model->insertRow(_model->rowCount() - 2, modifierItem);
+			_model->insertRow(currentRowIndex, modifierItem);
 		}
 		modifierItem->setText(QStringLiteral("   ") + name);
 		modifierItem->setData(QVariant::fromValue(name), Qt::UserRole);
 		numCustom++;
+		currentRowIndex++;
 	}
-	// Remove unused entries.
+	// Remove excess list items.
 	if(numCustom < _numModifierTemplates)
-		_model->removeRows(_model->rowCount() - 2 - _numModifierTemplates + numCustom, _numModifierTemplates - numCustom);
+		_model->removeRows(currentRowIndex, _numModifierTemplates - numCustom);
 	_numModifierTemplates = numCustom;
+	currentRowIndex++;
+
+	// Load user-defined Python script modifiers.
+	int numScripts = 0;
+	for(const QDir& scriptsDirectory : _modifierScriptDirectories) {
+		QStringList scriptFiles = scriptsDirectory.entryList(QStringList() << QStringLiteral("*.py"), QDir::Files, QDir::Name);
+		for(const QString& fileName : scriptFiles) {
+			QStandardItem* modifierItem;
+			if(numScripts < _numModifierScripts) {
+				modifierItem = _model->item(currentRowIndex);
+			}
+			else {
+				modifierItem = new QStandardItem();
+				_model->insertRow(currentRowIndex, modifierItem);
+			}
+			modifierItem->setText(QStringLiteral("   ") + fileName.chopped(3));
+			modifierItem->setData(QVariant::fromValue(scriptsDirectory.filePath(fileName)), Qt::UserRole);
+			numScripts++;
+			currentRowIndex++;	
+		}
+	}
+	// Remove excess list items.
+	if(numScripts < _numModifierScripts)
+		_model->removeRows(currentRowIndex, _numModifierScripts - numScripts);
+	_numModifierScripts = numScripts;
+}
+
+/******************************************************************************
+* Is called when the user has selected an item in the modifier class list.
+******************************************************************************/
+void ModifierListBox::listItemSelected(int index)
+{
+	QModelIndex sourceIndex = _filterModel->mapToSource(_filterModel->index(index, 0));
+
+	DataSet* dataset = _pipelineList->datasetContainer().currentSet();
+
+	QVariant itemData = sourceIndex.data(Qt::UserRole);
+	if(ModifierClassPtr modifierClass = itemData.value<ModifierClassPtr>()) {
+		UndoableTransaction::handleExceptions(dataset->undoStack(), tr("Apply modifier"), [&]() {
+			// Create an instance of the modifier class.
+			OORef<Modifier> modifier = static_object_cast<Modifier>(modifierClass->createInstance(dataset));
+			OVITO_CHECK_OBJECT_POINTER(modifier);
+			// Load user-defined default parameter values.
+			modifier->loadUserDefaults();
+			// Apply it.
+			Q_EMIT applyModifiers({modifier});
+		});
+	}
+	else if(sourceIndex.row() >= _model->rowCount() - 3 - _numModifierScripts - _numModifierTemplates && sourceIndex.row() < _model->rowCount() - 3 - _numModifierScripts) {
+		QString templateName = itemData.toString();
+		OVITO_ASSERT(!templateName.isEmpty());
+
+		UndoableTransaction::handleExceptions(dataset->undoStack(), tr("Insert modifier template"), [&]() {
+			// Load modifier template from the store.
+			ModifierTemplates modifierTemplates;
+			QVector<OORef<Modifier>> modifierSet = modifierTemplates.instantiateTemplate(templateName, dataset);
+			Q_EMIT applyModifiers(modifierSet);
+		});
+	}
+	else if(sourceIndex.row() >= _model->rowCount() - 2 - _numModifierScripts && sourceIndex.row() < _model->rowCount() - 2) {
+		QString scriptPath = itemData.toString();
+		OVITO_ASSERT(!scriptPath.isEmpty());
+
+		UndoableTransaction::handleExceptions(dataset->undoStack(), tr("Insert Python modifier"), [&]() {
+
+			// Load source code from template file.
+			QFile file(scriptPath);
+			if(!file.open(QIODevice::ReadOnly | QIODevice::Text))
+				throw Exception(tr("Failed to open Python file '%1' for reading: %2").arg(scriptPath).arg(file.errorString()));
+			QString scriptCode = tr("# This is a copy of the template file '%1'.\n# Feel free to modify the code below as needed.\n\n").arg(QDir::toNativeSeparators(scriptPath)) + QString::fromUtf8(file.readAll());
+
+			// Get the PythonScriptModifier modifier class.
+			if(OvitoClassPtr clazz = PluginManager::instance().findClass({}, QStringLiteral("PythonScriptModifier"))) {
+				if(!clazz->isAbstract() && clazz->isDerivedFrom(Modifier::OOClass())) {
+					const Modifier::OOMetaClass* modifierClass = static_cast<const Modifier::OOMetaClass*>(clazz);
+
+					// Instantiate the PythonScriptModifier class.
+					OORef<Modifier> modifier = static_object_cast<Modifier>(modifierClass->createInstance(dataset));
+					OVITO_CHECK_OBJECT_POINTER(modifier);
+					modifier->setTitle(sourceIndex.data(Qt::DisplayRole).toString().trimmed());
+					modifier->loadUserDefaults();
+
+					// Assign the script code.
+					const PropertyFieldDescriptor* scriptPropertyField = modifierClass->findPropertyField("script");
+					OVITO_ASSERT(scriptPropertyField);
+					modifier->setPropertyFieldValue(*scriptPropertyField, QVariant::fromValue(scriptCode));
+
+					// Insert modifier into data pipeline.
+					Q_EMIT applyModifiers({modifier});
+				}
+			}
+		});
+	}
+
+	setCurrentIndex(0);
 }
 
 }	// End of namespace

@@ -55,14 +55,14 @@
   <simplesect>
     <title>Partitioned distributions</title>
     <para>
-      The modifier provides the option to partition the computed distributions into several partial distributions, 
-      one for each combination of bond types or particle types.
+      The modifier can partition the computed distributions into several partial histograms, 
+      one for each combination of bond or particle types. The following partitioning modes are available:
       <variablelist>
         <varlistentry>
           <term>Bond type</term>
           <listitem><para>
-            Computes a separate bond angle histogram for each combination of two bond types and a 
-            bond length histogram for each bond type in the system. 
+            Computes a separate bond angle histogram for each pair-wise combination of two bond types and a 
+            length histogram for each individual bond type.
           </para></listitem>
         </varlistentry>
         <varlistentry>
@@ -87,7 +87,7 @@
           </para></listitem>
         </varlistentry>
         <varlistentry>
-          <term>Bond type</term>
+          <term>Particle selection</term>
           <listitem><para>
             Treats currently selected and unselected particles as two different species.
             Computes three separate bond length histograms: one for bonds connecting two selected particles,

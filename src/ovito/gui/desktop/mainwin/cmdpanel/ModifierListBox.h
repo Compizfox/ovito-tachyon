@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Copyright 2013 Alexander Stukowski
+//  Copyright 2020 Alexander Stukowski
 //
 //  This file is part of OVITO (Open Visualization Tool).
 //
@@ -54,6 +54,11 @@ public:
 		return (_showAllModifiers || _mostRecentlyUsedModifiers.size() < 4);
 	}
 
+Q_SIGNALS:
+
+	/// Signals that a sequence of modifiers should be inserted into the current pipeline.
+	void applyModifiers(const QVector<OORef<Modifier>>& modifiers);
+
 private Q_SLOTS:
 
 	/// Updates the list box of modifier classes that can be applied to the currently selected
@@ -62,6 +67,9 @@ private Q_SLOTS:
 
 	/// Updates the MRU list after the user has selected a modifier.
 	void updateMRUList(const QString& selectedModifierName);
+
+	/// Is called when the user has selected an item in the modifier class list.
+	void listItemSelected(int index);
 
 private:
 
@@ -74,7 +82,7 @@ private:
 	/// The modification list model.
 	PipelineListModel* _pipelineList;
 
-	/// The list items representing modifier types.
+	/// The list items representing modifier classes.
 	QVector<QStandardItem*> _modifierItems;
 
 	/// The item model containing all entries of the combo box.
@@ -89,11 +97,17 @@ private:
 	/// The number of modifier templates in the list.
 	int _numModifierTemplates = 0;
 
+	/// The number of user-defined Python modifiers in the list.
+	int _numModifierScripts = 0;
+
 	/// MRU list of modifiers.
 	QStringList _mostRecentlyUsedModifiers;
 
 	/// Maximum number of modifiers shown in the MRU list.
 	int _maxMRUSize = 8;
+
+	/// The list of directories searched for user-defined modifier scripts.
+	QVector<QDir> _modifierScriptDirectories;
 
 	Q_OBJECT
 };

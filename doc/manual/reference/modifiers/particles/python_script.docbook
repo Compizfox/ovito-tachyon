@@ -11,64 +11,90 @@
   <title>Python script modifier<ovito-pro/></title>
 
   <para>
-
     <informalfigure><screenshot><mediaobject><imageobject>
        <imagedata fileref="images/modifiers/python_script_panel.png" format="PNG" scale="50" />
     </imageobject></mediaobject></screenshot></informalfigure>
-      <informalfigure><screenshot><mediaobject><imageobject>
-       <imagedata fileref="images/modifiers/python_script_code_editor.png" format="PNG" scale="75" />
-    </imageobject></mediaobject></screenshot></informalfigure>
 
-    The <emphasis>Python script</emphasis> modifier lets you write your own user-defined modifier function for manipulating or
-    analyzing simulation data. Writing a user-defined modifier function is useful when the <link linkend="particles.modifiers">built-in
-    modifiers</link> of OVITO are insufficient to solve your specific problem.
-    </para>
+    Lets you write your own user-defined modifier function in the Python language to manipulate, analyze or process the simulation data in custom ways. 
+    User-defined modifier functions are useful when the set of <link linkend="particles.modifiers">built-in modifiers</link> of OVITO is insufficient 
+    to solve your specific problem.
+  </para>
   <para>
-    The <emphasis>Python script</emphasis> modifier participates in OVITO's <link linkend="usage.modification_pipeline">data pipeline system</link> in the same
-    way the built-in modifier types of OVITO do. Whenever it is invoked by the system as part of a pipeline evaluation, it executes a
-    user-defined function that you write in the Python programming language. This function has full access to the data that is produced
-    by the upstream part of the pipeline and may modify or extend the data if desired.
+    The Python script modifier is inserted into a data pipeline in the same way as a regular modifier.
+    The system executes the user-defined Python function whenever it needs to recompute the results of the data pipeline,
+    e.g. when jumping to a new trajectory frame. An integrated code editor lets 
+    you edit the function's source code and implement your own data algorithms.
+    Within the user-defined Python function, you have full access to the input dataset produced by the upstream data pipeline, 
+    with the possibility to manipulate or extend the dataset via OVITO's Python programming interface.
   </para>
 
   <simplesect>
     <title>Usage</title>
 
     <para>
-      After inserting a new Python script modifier into the pipeline, you can open its code editor using the
-      <guibutton>Edit script</guibutton> button. The editor window lets you enter the source code for the user-defined modifier function.
-      This Python function must be called <code>modify()</code>. Note that you are free to define additional helper functions
-      in case you want to invoke them as sub-routines from the main <code>modify()</code> function.
+      <informalfigure><screenshot><mediaobject><imageobject>
+        <imagedata fileref="images/modifiers/python_script_code_editor.png" format="PNG" scale="75" />
+      </imageobject></mediaobject></screenshot></informalfigure>
+      After inserting a new Python script modifier into the pipeline, you can open the integrated code editor using the
+      <guibutton>Code editor</guibutton> button. The editor window lets you change the source code for the user-defined modifier function,
+      which initially consists of a few example statements. You should replace these statements with your own code, performing the 
+      specific computations or actions that are needed for solving your problem. 
+      The Python modifier function must be named <code>modify()</code>. Note that you are free to define further functions within the same source file
+      and call them from the main <code>modify()</code> function as sub-routines.
       The <pydoc-link href="introduction/custom_modifiers" anchor="custom-modifier-functions" no-pro-tag="1">corresponding section</pydoc-link> of the scripting manual provides further
       instructions on how to write a user-defined modifier function.
     </para>
 
     <para>
-      When you are done writing or changing the user-defined modifier function in the code editor, you need to press the
-      <emphasis>Commit and run script</emphasis> button in the editor's toolbar (the "Play" button). This will compile and run the code
-      currently in the code editor once. Note that during this commit step, the <code>modify()</code> function itself does not
-      get invoked yet. Only the main program statements of the code are executed if there are any aside from the definition of the
-      <code>modify()</code> function. After the commit was successful, the modifier function will automatically and repeatedly be invoked by the system whenever
-      data pipeline results need to be recomputed.
+      Once you are done writing the user-defined modifier function, press the <emphasis>Commit and run script</emphasis> button 
+      in the toolbar of the code editor window (the "Play" button). This will compile the code by executing any top-level statements 
+      aside from the function definition and then request an update of the data pipeline. During this pipeline update, 
+      your <code>modify()</code> function will get invoked by the system.
     </para>
 
     <para>
-      This also means you have to write the <code>modify()</code> function in a way such that it can be called an arbitrary number of times
-      and for arbitrary animation times. Since it is completely up to the system when and how often the <code>modify()</code> function
-      gets invoked, the function should not perform any actions that could have side effects on the global state of the program.
-      In other words, the function may only operate on the data that it receives from the system as an input parameter, and nothing else.
+      Note that the pipeline system may run your <code>modify()</code> function repeatedly, 
+      for example when stepping through the frames of a simulation trajectory. That means you should always write your <code>modify()</code> function
+      in such a way that it doesn't have any side effects, e.g. by altering the global state of the program. The function should be "pure" and stateless in the sense 
+      that it only operates on the current dataset received from the system as an input parameter.
+      The pipeline is free to decide whether it caches the output of your modifier function, and it may call your function 
+      repeatedly and in any order for the sequence of frames of a simulation trajectory. Thus, the function must be designed such that it processes 
+      each frame in isolation. 
     </para>
+
   </simplesect>
 
   <simplesect>
-    <title>Make a user-defined modifier permanently available</title>
+    <title>Make your modifier function permanently available in OVITO</title>
     <para>
-      The modifier panel contains an input field that lets you optionally assign a descriptive name to your
-      script modifier. This name will be displayed in the <link linkend="usage.modification_pipeline.pipeline_listbox">pipeline editor</link> and
-      makes it easier for you to identify the modifier in case you use several different Python modifiers in a pipeline.
-      If you have written a user-defined modifier function that you would like to
-      reuse in future program sessions, it is possible to save the entire Python script modifier, including the source code of the
-      <code>modify()</code> function, as a <link linkend="modifier_templates">modifier template</link>. This template will appear as a new
-      entry in the list of available modifiers, allowing you to easily access the user-defined modifier in the future.
+      First, you should give your modifier a meaningful name to make it easier for you to identify it among other modifiers 
+      in the data pipeline in the future. The <link linkend="usage.modification_pipeline.pipeline_listbox">pipeline editor</link>
+      OVITO allows you to change the title of the modifier from its default name "Python script" to a more descriptive name 
+      that better summarizes the specific purpose of your Python function. Make sure the existing modifier item is selected in the 
+      pipeline editor and click it a second time to assign a new name. 
+    </para>
+    <para>
+      Next, you have two alternative ways of making your Python modifier function permanently available in future program
+      sessions. One is to save the Python script modifier, including the source code of the
+      <code>modify()</code> function, as a <link linkend="modifier_templates">modifier template</link>. The modifier template will appear as a new
+      entry in the list of available modifiers, allowing you to easily access the user-defined modifier in the future and insert it into a new data 
+      pipeline.
+    </para>
+    <para>
+      The second option is to store the source code of the modifier function as a <filename>.py</filename> file in 
+      one of the following directories on your computer. OVITO Pro will automatically search these directories and 
+      display all <filename>.py</filename> scripts in the available modifiers list, from where you can inserted them 
+      into a pipeline with a single click.
+      <itemizedlist>
+        <listitem>All platforms: <filename>&lt;HOME&gt;/.config/Ovito/scripts/modifiers/*.py</filename></listitem>
+        <listitem>Linux: <filename>&lt;INSTALLDIR&gt;/share/ovito/scripts/modifiers/*.py</filename></listitem>
+        <listitem>Windows: <filename>&lt;INSTALLDIR&gt;/scripts/modifiers/*.py</filename></listitem>
+        <listitem>macOS: <filename>&lt;INSTALLDIR&gt;/Ovito.app/Contents/Resources/scripts/modifiers/*.py</filename></listitem>
+        <listitem>Anaconda: <filename>&lt;INSTALLDIR&gt;/share/ovito/scripts/modifiers/*.py</filename></listitem>
+      </itemizedlist>
+      Here, <filename>&lt;HOME&gt;</filename> and <filename>&lt;INSTALLDIR&gt;</filename> refer to your home directory and 
+      the installation location of OVITO Pro on your computer, respectively. The latter location already contains a bunch of
+      Python files with predefined modifier functions shipping with the program.
     </para>
   </simplesect>
 
@@ -76,7 +102,7 @@
     <title>Examples</title>
     <para>
       <pydoc-link href="introduction/examples" anchor="user-defined-modifier-functions" no-pro-tag="1">This page</pydoc-link> provides several code examples
-      demonstrating how to implement a <literal>modify()</literal> function:
+      demonstrating how to write a <literal>modify()</literal> function:
       <itemizedlist>
         <listitem><pydoc-link href="introduction/examples/modifiers/msd_calculation" no-pro-tag="1">Calculating mean square displacement</pydoc-link></listitem>
         <listitem><pydoc-link href="introduction/examples/modifiers/order_parameter_calculation" no-pro-tag="1">Custom order parameter calculation</pydoc-link></listitem>

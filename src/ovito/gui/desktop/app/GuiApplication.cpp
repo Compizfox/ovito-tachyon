@@ -159,7 +159,7 @@ bool GuiApplication::startupApplication()
 			msgbox.setText(tr("<p>This is a preview version of %1 with a limited life span, which did expire on %2.</p>"
 				"<p>Please obtain the final program release, which is now available on our website "
 				"<a href=\"https://www.ovito.org/\">www.ovito.org</a>.</p>"
-				"<p>This pre-release build of %2 can no longer be used and will quit now.</p>")
+				"<p>This pre-release build of %1 can no longer be used and will quit now.</p>")
 					.arg(Application::applicationName())
 					.arg(expirationDate.toString(Qt::SystemLocaleLongDate)));
 			msgbox.setTextInteractionFlags(Qt::TextBrowserInteraction);

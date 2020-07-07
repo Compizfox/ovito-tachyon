@@ -99,7 +99,7 @@ ModifyCommandPage::ModifyCommandPage(MainWindow* mainWindow, QWidget* parent) : 
 	_pipelineListModel = new PipelineListModel(_datasetContainer, this);
 	_modifierSelector = new ModifierListBox(this, _pipelineListModel);
     layout->addWidget(_modifierSelector, 1, 0, 1, 1);
-    connect(_modifierSelector, (void (QComboBox::*)(int))&QComboBox::activated, this, &ModifyCommandPage::onModifierAdd);
+    connect(_modifierSelector, &ModifierListBox::applyModifiers, this, &ModifyCommandPage::applyModifiers);
 
 	class PipelineListView : public QListView {
 	public:
@@ -278,39 +278,15 @@ void ModifyCommandPage::updateActions(PipelineListItem* currentItem)
 }
 
 /******************************************************************************
-* Is called when the user has selected an item in the modifier class list.
+* Is called when the user has selected an item in the modifier list to be 
+* inserted into the pipeline.
 ******************************************************************************/
-void ModifyCommandPage::onModifierAdd(int index)
+void ModifyCommandPage::applyModifiers(const QVector<OORef<Modifier>>& modifiers)
 {
-	if(index >= 0 && pipelineListModel()->isUpToDate()) {
-		ModifierClassPtr modifierClass = _modifierSelector->itemData(index).value<ModifierClassPtr>();
-		if(modifierClass) {
-			UndoableTransaction::handleExceptions(_datasetContainer.currentSet()->undoStack(), tr("Apply modifier"), [modifierClass, this]() {
-				// Create an instance of the modifier.
-				OORef<Modifier> modifier = static_object_cast<Modifier>(modifierClass->createInstance(_datasetContainer.currentSet()));
-				OVITO_CHECK_OBJECT_POINTER(modifier);
-				// Load user-defined default parameters.
-				modifier->loadUserDefaults();
-				// Apply it.
-				pipelineListModel()->applyModifiers({modifier});
-			});
-			pipelineListModel()->requestUpdate();
-		}
-		else {
-			QString templateName = _modifierSelector->itemData(index).toString();
-			if(!templateName.isEmpty()) {
-				UndoableTransaction::handleExceptions(_datasetContainer.currentSet()->undoStack(), tr("Insert modifier template"), [templateName, this]() {
-					// Load modifier template from the store.
-					ModifierTemplates modifierTemplates;
-					QVector<OORef<Modifier>> modifierSet = modifierTemplates.instantiateTemplate(templateName, _datasetContainer.currentSet());
-					pipelineListModel()->applyModifiers(modifierSet);
-				});
-				pipelineListModel()->requestUpdate();
-			}
-		}
+	if(!pipelineListModel()->isUpToDate()) return;
 
-		_modifierSelector->setCurrentIndex(0);
-	}
+	pipelineListModel()->applyModifiers(modifiers);
+	pipelineListModel()->requestUpdate();
 }
 
 /******************************************************************************

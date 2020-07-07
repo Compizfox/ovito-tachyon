@@ -143,25 +143,16 @@ public:
 	/// \param value The value to be converted. This is in user units.
 	/// \return The string representation of the value. This can be converted back using parseString().
 	/// \sa parseString()
-	virtual QString formatValue(FloatType value) override {
-		return QString::number(value);
-	}
+	virtual QString formatValue(FloatType value) override;
 
 	/// \brief Returns the positive step size used by spinner widgets for this parameter unit type.
 	/// \param currentValue The current value of the spinner in native units. This can be used to make the step size value dependent.
 	/// \param upDirection Specifies whether the spinner is dragged in the positive or the negative direction.
 	/// \return The numeric step size used by SpinnerWidget for this parameter type. This is in native units.
-	virtual FloatType stepSize(FloatType currentValue, bool upDirection) override {
-		int exponent;
-		currentValue = nativeToUser(currentValue);
-		if(currentValue != 0) {
-			exponent = (int)std::floor(std::log10(std::abs(currentValue)) - FloatType(1));
-			if(exponent < -12) exponent = -12;
-			else if(exponent > 6) exponent = 6;
-		}
-		else exponent = 0;
-		return userToNative(std::pow(FloatType(10), exponent));
-	}
+	virtual FloatType stepSize(FloatType currentValue, bool upDirection) override;
+
+	/// \brief Given an arbitrary value, which is potentially invalid, rounds it to the closest valid value.
+	virtual FloatType roundValue(FloatType value) override;
 };
 
 /**

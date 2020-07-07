@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Copyright 2014 Alexander Stukowski
+//  Copyright 2020 Alexander Stukowski
 //
 //  This file is part of OVITO (Open Visualization Tool).
 //
@@ -45,8 +45,9 @@ public:
 
 	/// \brief Initializes the ObjectLoadStream.
 	/// \param source The Qt data stream from which the data is read. This stream must support random access.
+	/// \param operation The task handle that allows to cancel the loading process.
 	/// \throw Exception if the source stream does not support random access, or if an I/O error occurs.
-	ObjectLoadStream(QDataStream& source);
+	ObjectLoadStream(QDataStream& source, SynchronousOperation operation);
 
 	// Calls close() to close the ObjectLoadStream.
 	virtual ~ObjectLoadStream() { ObjectLoadStream::close(); }
@@ -114,5 +115,3 @@ private:
 };
 
 }	// End of namespace
-
-

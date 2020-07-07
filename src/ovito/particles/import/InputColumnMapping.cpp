@@ -78,11 +78,11 @@ void InputColumnMapping::loadFromStream(LoadStream& stream)
 /******************************************************************************
  * Saves the mapping into a byte array.
  *****************************************************************************/
-QByteArray InputColumnMapping::toByteArray() const
+QByteArray InputColumnMapping::toByteArray(TaskManager& taskManager) const
 {
 	QByteArray buffer;
 	QDataStream dstream(&buffer, QIODevice::WriteOnly);
-	SaveStream stream(dstream);
+	SaveStream stream(dstream, SynchronousOperation::createSignal(taskManager));
 	saveToStream(stream);
 	stream.close();
 	return buffer;
@@ -91,10 +91,10 @@ QByteArray InputColumnMapping::toByteArray() const
 /******************************************************************************
  * Loads the mapping from a byte array.
  *****************************************************************************/
-void InputColumnMapping::fromByteArray(const QByteArray& array)
+void InputColumnMapping::fromByteArray(const QByteArray& array, TaskManager& taskManager)
 {
 	QDataStream dstream(array);
-	LoadStream stream(dstream);
+	LoadStream stream(dstream, SynchronousOperation::createSignal(taskManager));
 	loadFromStream(stream);
 	stream.close();
 }

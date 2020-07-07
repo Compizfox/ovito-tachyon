@@ -115,8 +115,8 @@ public:
 	/// If an exception is thrown by the functor, all changes done by the functor
 	/// so far will be undone and an error message is shown to the user.
 	template<typename Function>
-	void undoableTransaction(const QString& operationLabel, Function&& func) {
-		UndoableTransaction::handleExceptions(dataset()->undoStack(), operationLabel, std::forward<Function>(func));
+	bool undoableTransaction(const QString& operationLabel, Function&& func) {
+		return UndoableTransaction::handleExceptions(dataset()->undoStack(), operationLabel, std::forward<Function>(func));
 	}
 
 public Q_SLOTS:

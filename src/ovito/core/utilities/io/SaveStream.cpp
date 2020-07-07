@@ -33,8 +33,10 @@ using namespace std;
 /******************************************************************************
 * Opens the stream for writing.
 ******************************************************************************/
-SaveStream::SaveStream(QDataStream& destination) : _os(destination), _isOpen(false)
+SaveStream::SaveStream(QDataStream& destination, SynchronousOperation operation) : 
+	_os(destination), _operation(std::move(operation))
 {
+	OVITO_ASSERT(_operation.isValid());
 	OVITO_ASSERT_MSG(!_os.device()->isSequential(), "SaveStream constructor", "SaveStream class requires a seekable output stream.");
 	if(_os.device()->isSequential())
 		throw Exception("SaveStream class requires a seekable output stream.");

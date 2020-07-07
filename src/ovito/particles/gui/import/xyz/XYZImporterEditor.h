@@ -46,7 +46,7 @@ public:
 	virtual bool inspectNewFile(FileImporter* importer, const QUrl& sourceFile, QWidget* parent) override;
 
 	/// Displays a dialog box that allows the user to edit the custom file column to particle property mapping.
-	bool showEditColumnMappingDialog(XYZImporter* importer, const QUrl& sourceFile, QWidget* parent);
+	bool showEditColumnMappingDialog(XYZImporter* importer, const QUrl& sourceFile, MainWindow* mainWindow);
 
 protected:
 

@@ -211,7 +211,7 @@ void FileColumnParticleExporterEditor::onParticlePropertyItemChanged()
 	// Remember the output column mapping for the next time.
 	QSettings settings;
 	settings.beginGroup("exporter/particles/");
-	settings.setValue("columnmapping", particleExporter->columnMapping().toByteArray());
+	settings.setValue("columnmapping", particleExporter->columnMapping().toByteArray(particleExporter->dataset()->taskManager()));
 	settings.endGroup();
 }
 

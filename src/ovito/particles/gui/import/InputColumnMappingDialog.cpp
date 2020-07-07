@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Copyright 2013 Alexander Stukowski
+//  Copyright 2020 Alexander Stukowski
 //
 //  This file is part of OVITO (Open Visualization Tool).
 //
@@ -34,7 +34,7 @@ enum {
 /******************************************************************************
 * Constructor.
 ******************************************************************************/
-InputColumnMappingDialog::InputColumnMappingDialog(const InputColumnMapping& mapping, QWidget* parent) : QDialog(parent)
+InputColumnMappingDialog::InputColumnMappingDialog(const InputColumnMapping& mapping, QWidget* parent, TaskManager& taskManager) : QDialog(parent), _taskManager(taskManager)
 {
 	OVITO_CHECK_POINTER(parent);
 	setWindowTitle(tr("File column mapping"));
@@ -132,7 +132,7 @@ QString InputColumnMappingDialog::dataTypeToString(int dataType)
 void InputColumnMappingDialog::onOk()
 {
 	try {
-		// First validate the current mapping.
+		// First, validate the current mapping.
 		mapping().validate();
 
 		// Close dialog box.
@@ -293,13 +293,13 @@ void InputColumnMappingDialog::onSavePreset()
 		int index = presetNames.indexOf(name);
 		if(index >= 0) {
 			// Overwrite existing preset with the same name.
-			presetData[index] = m.toByteArray();
+			presetData[index] = m.toByteArray(_taskManager);
 		}
 		else {
 			// Add a new preset. Sort alphabetically.
 			index = std::lower_bound(presetNames.begin(), presetNames.end(), name) - presetNames.begin();
 			presetNames.insert(index, name);
-			presetData.insert(index, m.toByteArray());
+			presetData.insert(index, m.toByteArray(_taskManager));
 		}
 
 		// Write mappings to settings store.
@@ -345,7 +345,7 @@ void InputColumnMappingDialog::onLoadPreset()
 
 		// Load preset.
 		InputColumnMapping mapping;
-		mapping.fromByteArray(presetData[presetNames.indexOf(name)]);
+		mapping.fromByteArray(presetData[presetNames.indexOf(name)], _taskManager);
 
 		for(int index = 0; index < (int)mapping.size() && index < _tableWidget->rowCount(); index++) {
 			_fileColumnBoxes[index]->setChecked(mapping[index].isMapped());

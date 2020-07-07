@@ -141,7 +141,7 @@ void LAMMPSBinaryDumpImporter::setColumnMapping(const InputColumnMapping& mappin
 		// Remember the mapping for the next time.
 		QSettings settings;
 		settings.beginGroup("viz/importer/lammps_binary_dump/");
-		settings.setValue("colmapping", mapping.toByteArray());
+		settings.setValue("colmapping", mapping.toByteArray(dataset()->taskManager()));
 		settings.endGroup();
 	}
 

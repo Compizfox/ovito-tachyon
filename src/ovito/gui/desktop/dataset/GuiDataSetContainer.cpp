@@ -237,7 +237,7 @@ bool GuiDataSetContainer::fileLoad(const QString& filename)
 			throw Exception(tr("Failed to open session state file '%1' for reading.").arg(absoluteFilepath), this);
 
 		QDataStream dataStream(&fileStream);
-		ObjectLoadStream stream(dataStream);
+		ObjectLoadStream stream(dataStream, SynchronousOperation::create(taskManager()));
 
 		// Issue a warning when the floating-point precision of the input file does not match
 		// the precision used in this build.

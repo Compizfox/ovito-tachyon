@@ -74,6 +74,38 @@ FloatType FloatParameterUnit::parseString(const QString& valueString)
 }
 
 /******************************************************************************
+* Returns the positive step size used by spinner widgets for this parameter unit type.
+******************************************************************************/
+FloatType FloatParameterUnit::stepSize(FloatType currentValue, bool upDirection) 
+{
+	int exponent;
+	currentValue = nativeToUser(currentValue);
+	if(currentValue != 0) {
+		exponent = (int)std::floor(std::log10(std::abs(currentValue)) - FloatType(1));
+		if(exponent < -12) exponent = -12;
+		else if(exponent > 6) exponent = 6;
+	}
+	else exponent = 0;
+	return userToNative(std::pow(FloatType(10), exponent));
+}
+
+/******************************************************************************
+* Given an arbitrary value, which is potentially invalid, rounds it to the closest valid value.
+******************************************************************************/
+FloatType FloatParameterUnit::roundValue(FloatType value)
+{
+	return value;
+}
+
+/******************************************************************************
+* Converts a numeric value to a string.
+******************************************************************************/
+QString FloatParameterUnit::formatValue(FloatType value) 
+{
+	return QString::number(value);
+}
+
+/******************************************************************************
 * Converts the given string to a value.
 ******************************************************************************/
 FloatType IntegerParameterUnit::parseString(const QString& valueString)

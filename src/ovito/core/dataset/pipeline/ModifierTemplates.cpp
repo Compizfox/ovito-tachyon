@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Copyright 2017 Alexander Stukowski
+//  Copyright 2020 Alexander Stukowski
 //
 //  This file is part of OVITO (Open Visualization Tool).
 //
@@ -49,7 +49,7 @@ int ModifierTemplates::createTemplate(const QString& templateName, const QVector
 
 	QByteArray buffer;
 	QDataStream dstream(&buffer, QIODevice::WriteOnly);
-	ObjectSaveStream stream(dstream);
+	ObjectSaveStream stream(dstream, SynchronousOperation::create(modifiers.front()->dataset()->taskManager()));
 
 	// Serialize modifiers.
 	for(Modifier* modifier : modifiers) {
@@ -158,7 +158,7 @@ QVector<OORef<Modifier>> ModifierTemplates::instantiateTemplate(const QString& t
 		if(buffer.isEmpty())
 			throw Exception(tr("Modifier template with the name '%1' does not exist.").arg(templateName));
 		QDataStream dstream(buffer);
-		ObjectLoadStream stream(dstream);
+		ObjectLoadStream stream(dstream, SynchronousOperation::create(dataset->taskManager()));
 		stream.setDataset(dataset);
 		for(int chunkId = stream.expectChunkRange(0,1); chunkId == 1; chunkId = stream.expectChunkRange(0,1)) {
 			modifierSet.push_back(stream.loadObject<Modifier>());

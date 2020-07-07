@@ -54,10 +54,10 @@ public:
 	void loadFromStream(LoadStream& stream);
 
 	/// \brief Converts the mapping data into a byte array.
-	QByteArray toByteArray() const;
+	QByteArray toByteArray(TaskManager& taskManager) const;
 
 	/// \brief Loads the mapping from a byte array.
-	void fromByteArray(const QByteArray& array);
+	void fromByteArray(const QByteArray& array, TaskManager& taskManager);
 };
 
 template<class PropertyContainerType>
@@ -81,10 +81,10 @@ public:
 	void loadFromStream(LoadStream& stream) { static_cast<OutputColumnMapping&>(*this).loadFromStream(stream); }
 
 	/// \brief Converts the mapping data into a byte array.
-	QByteArray toByteArray() const { return static_cast<const OutputColumnMapping&>(*this).toByteArray(); }
+	QByteArray toByteArray(TaskManager& taskManager) const { return static_cast<const OutputColumnMapping&>(*this).toByteArray(taskManager); }
 
 	/// \brief Loads the mapping from a byte array.
-	void fromByteArray(const QByteArray& array) { static_cast<OutputColumnMapping&>(*this).fromByteArray(array); }
+	void fromByteArray(const QByteArray& array, TaskManager& taskManager) { static_cast<OutputColumnMapping&>(*this).fromByteArray(array, taskManager); }
 };
 
 /**

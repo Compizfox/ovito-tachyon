@@ -57,7 +57,7 @@ bool XYZImporterEditor::inspectNewFile(FileImporter* importer, const QUrl& sourc
 		if(settings.contains("columnmapping")) {
 			try {
 				InputColumnMapping storedMapping;
-				storedMapping.fromByteArray(settings.value("columnmapping").toByteArray());
+				storedMapping.fromByteArray(settings.value("columnmapping").toByteArray(), importer->dataset()->taskManager());
 				std::copy_n(storedMapping.begin(), std::min(storedMapping.size(), mapping.size()), mapping.begin());
 			}
 			catch(Exception& ex) {
@@ -69,14 +69,14 @@ bool XYZImporterEditor::inspectNewFile(FileImporter* importer, const QUrl& sourc
 		}
 	}
 
-	InputColumnMappingDialog dialog(mapping, parent);
+	InputColumnMappingDialog dialog(mapping, parent, importer->dataset()->taskManager());
 	if(dialog.exec() == QDialog::Accepted) {
 		xyzImporter->setColumnMapping(dialog.mapping());
 
 		// Remember the user-defined mapping for the next time.
 		QSettings settings;
 		settings.beginGroup("viz/importer/xyz/");
-		settings.setValue("columnmapping", dialog.mapping().toByteArray());
+		settings.setValue("columnmapping", dialog.mapping().toByteArray(importer->dataset()->taskManager()));
 		settings.endGroup();
 
 		return true;
@@ -89,7 +89,7 @@ bool XYZImporterEditor::inspectNewFile(FileImporter* importer, const QUrl& sourc
  * Displays a dialog box that allows the user to edit the custom file column to particle
  * property mapping.
  *****************************************************************************/
-bool XYZImporterEditor::showEditColumnMappingDialog(XYZImporter* importer, const QUrl& sourceFile, QWidget* parent)
+bool XYZImporterEditor::showEditColumnMappingDialog(XYZImporter* importer, const QUrl& sourceFile, MainWindow* mainWindow)
 {
 	Future<InputColumnMapping> inspectFuture = importer->inspectFileHeader(FileSourceImporter::Frame(sourceFile));
 	if(!importer->dataset()->taskManager().waitForFuture(inspectFuture))
@@ -104,13 +104,13 @@ bool XYZImporterEditor::showEditColumnMappingDialog(XYZImporter* importer, const
 		mapping = customMapping;
 	}
 
-	InputColumnMappingDialog dialog(mapping, parent);
+	InputColumnMappingDialog dialog(mapping, mainWindow, importer->dataset()->taskManager());
 	if(dialog.exec() == QDialog::Accepted) {
 		importer->setColumnMapping(dialog.mapping());
 		// Remember the user-defined mapping for the next time.
 		QSettings settings;
 		settings.beginGroup("viz/importer/xyz/");
-		settings.setValue("columnmapping", dialog.mapping().toByteArray());
+		settings.setValue("columnmapping", dialog.mapping().toByteArray(importer->dataset()->taskManager()));
 		settings.endGroup();
 		return true;
 	}

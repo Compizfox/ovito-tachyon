@@ -38,7 +38,7 @@ SET_OVITO_OBJECT_EDITOR(LAMMPSTextDumpImporter, LAMMPSTextDumpImporterEditor);
  * Displays a dialog box that allows the user to edit the custom file column to particle
  * property mapping.
  *****************************************************************************/
-bool LAMMPSTextDumpImporterEditor::showEditColumnMappingDialog(LAMMPSTextDumpImporter* importer, const QUrl& sourceFile, QWidget* parent)
+bool LAMMPSTextDumpImporterEditor::showEditColumnMappingDialog(LAMMPSTextDumpImporter* importer, const QUrl& sourceFile, MainWindow* mainWindow)
 {
 	Future<InputColumnMapping> inspectFuture = importer->inspectFileHeader(FileSourceImporter::Frame(sourceFile));
 	if(!importer->dataset()->taskManager().waitForFuture(inspectFuture))
@@ -53,7 +53,7 @@ bool LAMMPSTextDumpImporterEditor::showEditColumnMappingDialog(LAMMPSTextDumpImp
 		mapping = customMapping;
 	}
 
-	InputColumnMappingDialog dialog(mapping, parent);
+	InputColumnMappingDialog dialog(mapping, mainWindow, importer->dataset()->taskManager());
 	if(dialog.exec() == QDialog::Accepted) {
 		importer->setCustomColumnMapping(dialog.mapping());
 		importer->setUseCustomColumnMapping(true);

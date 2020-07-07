@@ -164,7 +164,7 @@ protected:
 	///
 	/// It is safe to access sub-objects when overriding this this method.
 	/// The default implementation of this method does nothing.
-	virtual void loadFromStreamComplete() {}
+	virtual void loadFromStreamComplete(ObjectLoadStream& stream) {}
 
 	/// This method is called after the reference counter of this object has reached zero
 	/// and before the object is being finally deleted. You should not call this method from user

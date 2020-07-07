@@ -125,7 +125,7 @@ protected:
 	virtual void loadFromStream(ObjectLoadStream& stream) override;
 
 	/// This method is called once for this object after it has been completely loaded from a stream.
-	virtual void loadFromStreamComplete() override;
+	virtual void loadFromStreamComplete(ObjectLoadStream& stream) override;
 
 private:
 

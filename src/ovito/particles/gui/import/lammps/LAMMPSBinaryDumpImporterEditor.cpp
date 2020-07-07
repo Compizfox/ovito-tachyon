@@ -54,7 +54,7 @@ bool LAMMPSBinaryDumpImporterEditor::inspectNewFile(FileImporter* importer, cons
 			if(settings.contains("colmapping")) {
 				try {
 					InputColumnMapping storedMapping;
-					storedMapping.fromByteArray(settings.value("colmapping").toByteArray());
+					storedMapping.fromByteArray(settings.value("colmapping").toByteArray(), importer->dataset()->taskManager());
 					std::copy_n(storedMapping.begin(), std::min(storedMapping.size(), mapping.size()), mapping.begin());
 				}
 				catch(Exception& ex) {
@@ -64,7 +64,7 @@ bool LAMMPSBinaryDumpImporterEditor::inspectNewFile(FileImporter* importer, cons
 			}
 		}
 
-		InputColumnMappingDialog dialog(mapping, parent);
+		InputColumnMappingDialog dialog(mapping, parent, importer->dataset()->taskManager());
 		if(dialog.exec() == QDialog::Accepted) {
 			lammpsImporter->setColumnMapping(dialog.mapping());
 			return true;
@@ -85,15 +85,15 @@ bool LAMMPSBinaryDumpImporterEditor::inspectNewFile(FileImporter* importer, cons
  * Displays a dialog box that allows the user to edit the custom file column to particle
  * property mapping.
  *****************************************************************************/
-bool LAMMPSBinaryDumpImporterEditor::showEditColumnMappingDialog(LAMMPSBinaryDumpImporter* importer, QWidget* parent)
+bool LAMMPSBinaryDumpImporterEditor::showEditColumnMappingDialog(LAMMPSBinaryDumpImporter* importer, MainWindow* mainWindow)
 {
-	InputColumnMappingDialog dialog(importer->columnMapping(), parent);
+	InputColumnMappingDialog dialog(importer->columnMapping(), mainWindow, importer->dataset()->taskManager());
 	if(dialog.exec() == QDialog::Accepted) {
 		importer->setColumnMapping(dialog.mapping());
 		// Remember the user-defined mapping for the next time.
 		QSettings settings;
 		settings.beginGroup("viz/importer/lammps_binary_dump/");
-		settings.setValue("colmapping", dialog.mapping().toByteArray());
+		settings.setValue("colmapping", dialog.mapping().toByteArray(importer->dataset()->taskManager()));
 		settings.endGroup();
 		return true;
 	}
