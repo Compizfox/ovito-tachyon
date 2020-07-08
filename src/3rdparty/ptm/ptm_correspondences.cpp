@@ -73,6 +73,7 @@ static bool is_single_shell(int type)
     }
     else {
         assert(0);
+        return false;
     }
 }
 
