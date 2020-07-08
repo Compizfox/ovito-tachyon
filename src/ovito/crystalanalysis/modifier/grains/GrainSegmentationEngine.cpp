@@ -361,7 +361,7 @@ bool GrainSegmentationEngine1::rotateHexagonalAtoms()
 	for (auto bond : _neighborBonds) {
 		if (interface_cubic_hex(bond, parent_fcc, parent_dcub, disorientation, rotated, index)
             && disorientation < _misorientationThreshold) {
-			pq.push(bond);
+			pq.push({bond.a, bond.b, disorientation});
 		}
 	}
 
@@ -387,8 +387,6 @@ bool GrainSegmentationEngine1::rotateHexagonalAtoms()
 		int numNeighbors = env.num - 1;
 		for(int j = 0; j < numNeighbors; j++) {
 			size_t neighborIndex = env.atom_indices[j + 1];
-			bond.a = index;
-			bond.b = neighborIndex;
 
 			size_t dummy;
 			if (interface_cubic_hex(bond, parent_fcc, parent_dcub, disorientation, rotated, dummy)
