@@ -410,11 +410,17 @@ void GSDImporter::FrameLoader::parseEllipsoidShape(int typeId, ParticleFrameData
 	abc.y() = definition.value("b").toDouble();
 	abc.z() = definition.value("c").toDouble();
 	if(abc.x() <= 0)
-		throw Exception(tr("Missing or invalid 'a' field in 'Ellipsoid' particle shape definition in GSD file."));
-	if(abc.y() <= 0)
-		throw Exception(tr("Missing or invalid 'b' field in 'Ellipsoid' particle shape definition in GSD file."));
-	if(abc.z() <= 0)
-		throw Exception(tr("Missing or invalid 'c' field in 'Ellipsoid' particle shape definition in GSD file."));
+		throw Exception(tr("Missing or invalid 'a' field in 'Ellipsoid' particle shape definition in GSD file. Value must be positive."));
+	
+	if(abc.y() == 0.0)
+		abc.y() = abc.x();
+	else if(abc.y() < 0.0)
+		throw Exception(tr("Invalid 'b' field in 'Ellipsoid' particle shape definition in GSD file. Value must not be negative."));
+	
+	if(abc.z() == 0.0)
+		abc.z() = abc.y();
+	else if(abc.z() < 0.0)
+		throw Exception(tr("Invalid 'c' field in 'Ellipsoid' particle shape definition in GSD file. Value must not be negative."));
 
 	// Create the 'Aspherical Shape' particle property if it doesn't exist yet.
 	PropertyAccess<Vector3> ashapeProperty = frameData->findStandardParticleProperty(ParticlesObject::AsphericalShapeProperty);
