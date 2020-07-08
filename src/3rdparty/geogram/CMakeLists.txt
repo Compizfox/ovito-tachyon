@@ -1,6 +1,6 @@
 #######################################################################################
 #
-#  Copyright 2019 Alexander Stukowski and Technische Universität Darmstadt
+#  Copyright 2020 Alexander Stukowski and Technische Universität Darmstadt
 #
 #  This file is part of OVITO (Open Visualization Tool).
 #
@@ -35,7 +35,9 @@ ENDIF()
 TARGET_COMPILE_DEFINITIONS(geogram PUBLIC "GARGANTUA=1")
 
 # Disable atomics, because OVITO doesn't make use of Geogram's multi-threading support.
-TARGET_COMPILE_DEFINITIONS(geogram PUBLIC "GEO_USE_DUMMY_ATOMICS=1")
+IF(NOT WIN32)
+	TARGET_COMPILE_DEFINITIONS(geogram PUBLIC "GEO_USE_DUMMY_ATOMICS=1")
+ENDIF()
 
 IF(BUILD_SHARED_LIBS)
 	# Build shared library version of Geogram lib.
