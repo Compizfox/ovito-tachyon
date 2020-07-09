@@ -249,45 +249,45 @@ bool GrainSegmentationEngine1::identifyAtomicStructures()
 }
 
 bool GrainSegmentationEngine1::interface_cubic_hex(NeighborBond& bond, bool parent_fcc, bool parent_dcub,
-                                                   FloatType& disorientation, Quaternion& output, size_t& index)
+												   FloatType& disorientation, Quaternion& output, size_t& index)
 {
 	disorientation = std::numeric_limits<FloatType>::infinity();
 	index = std::numeric_limits<size_t>::max();
-    // Check for a coherent interface (or a crystalline bond, which we check below)
-    if (!isCrystallineBond(bond)) {
-        return false;
-    }
+	// Check for a coherent interface (or a crystalline bond, which we check below)
+	if (!isCrystallineBond(bond)) {
+		return false;
+	}
 
 	auto a = bond.a;
 	auto b = bond.b;
-    auto structureA = _adjustedStructureTypes[a];
-    auto structureB = _adjustedStructureTypes[b];
-    if (structureA == structureB) {
-        return false;
-    }
+	auto structureA = _adjustedStructureTypes[a];
+	auto structureB = _adjustedStructureTypes[b];
+	if (structureA == structureB) {
+		return false;
+	}
 
-    // We want ordering of (a, b) to be (parent phase, defect phase)
-    bool flipped = false;
-    flipped |= parent_fcc && structureA == PTMAlgorithm::HCP;
-    flipped |= !parent_fcc && structureA == PTMAlgorithm::FCC;
-    flipped |= parent_dcub && structureA == PTMAlgorithm::HEX_DIAMOND;
-    flipped |= !parent_dcub && structureA == PTMAlgorithm::CUBIC_DIAMOND;
-    if (flipped) {
-        std::swap(a, b);
-        std::swap(structureA, structureB);
-    }
+	// We want ordering of (a, b) to be (parent phase, defect phase)
+	bool flipped = false;
+	flipped |= parent_fcc && structureA == PTMAlgorithm::HCP;
+	flipped |= !parent_fcc && structureA == PTMAlgorithm::FCC;
+	flipped |= parent_dcub && structureA == PTMAlgorithm::HEX_DIAMOND;
+	flipped |= !parent_dcub && structureA == PTMAlgorithm::CUBIC_DIAMOND;
+	if (flipped) {
+		std::swap(a, b);
+		std::swap(structureA, structureB);
+	}
 
 	const Quaternion& qa = _adjustedOrientations[a];
 	const Quaternion& qb = _adjustedOrientations[b];
 	double orientA[4] = { qa.w(), qa.x(), qa.y(), qa.z() };
 	double orientB[4] = { qb.w(), qb.x(), qb.y(), qb.z() };
 
-    if (structureA == PTMAlgorithm::FCC || structureA == PTMAlgorithm::CUBIC_DIAMOND) {
-    	disorientation = (FloatType)ptm::quat_disorientation_hexagonal_to_cubic(orientA, orientB);
-    }
-    else {
-    	disorientation = (FloatType)ptm::quat_disorientation_cubic_to_hexagonal(orientA, orientB);
-    }
+	if (structureA == PTMAlgorithm::FCC || structureA == PTMAlgorithm::CUBIC_DIAMOND) {
+		disorientation = (FloatType)ptm::quat_disorientation_hexagonal_to_cubic(orientA, orientB);
+	}
+	else {
+		disorientation = (FloatType)ptm::quat_disorientation_cubic_to_hexagonal(orientA, orientB);
+	}
 	disorientation = qRadiansToDegrees(disorientation);
 
 	output.w() = orientB[0];
@@ -317,30 +317,30 @@ bool GrainSegmentationEngine1::rotateHexagonalAtoms()
 
 	setProgressText(GrainSegmentationModifier::tr("Grain segmentation - rotating minority atoms"));
 
-    // Count structure types
-    int structureCounts[PTMAlgorithm::NUM_STRUCTURE_TYPES] = {0};
-    for (auto structureType: structuresArray) {
-        structureCounts[(int)structureType]++;
-    }
+	// Count structure types
+	int structureCounts[PTMAlgorithm::NUM_STRUCTURE_TYPES] = {0};
+	for (auto structureType: structuresArray) {
+		structureCounts[(int)structureType]++;
+	}
 
-    bool parent_fcc = structureCounts[(size_t)PTMAlgorithm::FCC] >= structureCounts[(size_t)PTMAlgorithm::HCP];
-    bool parent_dcub = structureCounts[(size_t)PTMAlgorithm::CUBIC_DIAMOND] >= structureCounts[(size_t)PTMAlgorithm::HEX_DIAMOND];
+	bool parent_fcc = structureCounts[(size_t)PTMAlgorithm::FCC] >= structureCounts[(size_t)PTMAlgorithm::HCP];
+	bool parent_dcub = structureCounts[(size_t)PTMAlgorithm::CUBIC_DIAMOND] >= structureCounts[(size_t)PTMAlgorithm::HEX_DIAMOND];
 
-    // Set structure targets (i.e. which way a structure will flip)
-    PTMAlgorithm::StructureType target[PTMAlgorithm::NUM_STRUCTURE_TYPES];
-    if (parent_fcc) {
-        target[(size_t)PTMAlgorithm::HCP] = PTMAlgorithm::FCC;
-    }
-    else {
-        target[(size_t)PTMAlgorithm::FCC] = PTMAlgorithm::HCP;
-    }
+	// Set structure targets (i.e. which way a structure will flip)
+	PTMAlgorithm::StructureType target[PTMAlgorithm::NUM_STRUCTURE_TYPES];
+	if (parent_fcc) {
+		target[(size_t)PTMAlgorithm::HCP] = PTMAlgorithm::FCC;
+	}
+	else {
+		target[(size_t)PTMAlgorithm::FCC] = PTMAlgorithm::HCP;
+	}
 
-    if (parent_dcub) {
-        target[(size_t)PTMAlgorithm::HEX_DIAMOND] = PTMAlgorithm::CUBIC_DIAMOND;
-    }
-    else {
-        target[(size_t)PTMAlgorithm::CUBIC_DIAMOND] = PTMAlgorithm::HEX_DIAMOND;
-    }
+	if (parent_dcub) {
+		target[(size_t)PTMAlgorithm::HEX_DIAMOND] = PTMAlgorithm::CUBIC_DIAMOND;
+	}
+	else {
+		target[(size_t)PTMAlgorithm::CUBIC_DIAMOND] = PTMAlgorithm::HEX_DIAMOND;
+	}
 
 
 	NearestNeighborFinder neighFinder(PTMAlgorithm::MAX_INPUT_NEIGHBORS);
@@ -360,7 +360,7 @@ bool GrainSegmentationEngine1::rotateHexagonalAtoms()
 	// Populate priority queue with bonds at an cubic-hexagonal interface
 	for (auto bond : _neighborBonds) {
 		if (interface_cubic_hex(bond, parent_fcc, parent_dcub, disorientation, rotated, index)
-            && disorientation < _misorientationThreshold) {
+			&& disorientation < _misorientationThreshold) {
 			pq.push({bond.a, bond.b, disorientation});
 		}
 	}
@@ -374,8 +374,8 @@ bool GrainSegmentationEngine1::rotateHexagonalAtoms()
 		}
 
 		// flip structure from 'defect' phase to parent phase and adjust orientation
-        auto defectStructureType = _adjustedStructureTypes[index];
-        auto targetStructureType = target[(size_t)defectStructureType];
+		auto defectStructureType = _adjustedStructureTypes[index];
+		auto targetStructureType = target[(size_t)defectStructureType];
 		_adjustedStructureTypes[index] = targetStructureType;
 		_adjustedOrientations[index] = rotated;
 
@@ -390,7 +390,7 @@ bool GrainSegmentationEngine1::rotateHexagonalAtoms()
 
 			size_t dummy;
 			if (interface_cubic_hex(bond, parent_fcc, parent_dcub, disorientation, rotated, dummy)
-                && disorientation < _misorientationThreshold) {
+				&& disorientation < _misorientationThreshold) {
 				pq.push({index, neighborIndex, disorientation});
 			}
 		}
@@ -581,6 +581,7 @@ FILE* fout = fopen(filename, "w");
 		size_t sa = uf.nodesize(uf.find(node.a));
 		size_t sb = uf.nodesize(uf.find(node.b));
 		size_t dsize = std::min(sa, sb);
+		node.gm_size = sqrt(sa * sb);
 		uf.merge(node.a, node.b);
 
 #if DEBUG_OUTPUT
@@ -615,18 +616,14 @@ fclose(fout);
 			}
 		}
 
-		// Temporarily sort dendrogram entries lexicographically, by (merge size, distance).
-		boost::sort(_dendrogram, [](const DendrogramNode& a, const DendrogramNode& b) {if (a.size == b.size) return a.distance < b.distance; else return a.size < b.size;});
-
-		auto regressor = ThresholdSelection::Regressor(_dendrogram);
-
-		// Sort dendrogram entries by distance (undoing the lexicographic sorting performed above).
+		// Sort dendrogram entries by distance.
 		boost::sort(_dendrogram, [](const DendrogramNode& a, const DendrogramNode& b) { return a.distance < b.distance; });
 
-		_suggestedMergingThreshold = regressor.calculate_threshold(_dendrogram, 3.0);
+		auto regressor = ThresholdSelection::Regressor(_dendrogram);
+		_suggestedMergingThreshold = regressor.calculate_threshold(_dendrogram, 1.5);
 
 		// Create PropertyStorage objects for the output plot.
-		auto size = regressor.dsize.size();
+		auto size = regressor.residuals.size();
 		PropertyAccess<FloatType> logMergeSizeArray = _logMergeSize = std::make_shared<PropertyStorage>(size, PropertyStorage::Float, 1, 0, GrainSegmentationModifier::tr("Log merge size"), false, DataTable::XProperty);
 		PropertyAccess<FloatType> logMergeDistanceArray = _logMergeDistance = std::make_shared<PropertyStorage>(size, PropertyStorage::Float, 1, 0, GrainSegmentationModifier::tr("Log merge distance"), false, DataTable::YProperty);
 
@@ -634,8 +631,8 @@ fclose(fout);
 		FloatType* logMergeDistanceIter = logMergeDistanceArray.begin();
 		FloatType* logMergeSizeIter = logMergeSizeArray.begin();
 		for (size_t i=0;i<size;i++) {
-			*logMergeSizeIter++ = regressor.dsize[i];
-			*logMergeDistanceIter++ = regressor.medianDistance[i];
+			*logMergeSizeIter++ = regressor.xs[i];
+			*logMergeDistanceIter++ = regressor.ys[i];
 		}
 
 	}

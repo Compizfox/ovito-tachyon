@@ -213,6 +213,7 @@ public:
 		FloatType distance = std::numeric_limits<FloatType>::lowest();
 		FloatType disorientation = std::numeric_limits<FloatType>::lowest();
 		size_t size = 0;
+        FloatType gm_size = 0;
 		Quaternion orientation;
 	};
 
