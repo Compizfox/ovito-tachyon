@@ -86,8 +86,8 @@ void GrainSegmentationEngine1::perform()
 	// Release data that is no longer needed.
 	_positions.reset();
 
-	if(!_outputBondsToPipeline)
-		decltype(_neighborBonds){}.swap(_neighborBonds);
+	//if(!_outputBondsToPipeline)
+	//	decltype(_neighborBonds){}.swap(_neighborBonds);
 }
 
 
