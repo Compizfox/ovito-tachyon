@@ -468,7 +468,7 @@ bool DataSet::renderScene(RenderSettings* settings, Viewport* viewport, FrameBuf
 				operation.setProgressMaximum(numberOfFrames);
 
 				// Render frames, one by one.
-				for(int frameIndex = 0; frameIndex < numberOfFrames && notCanceled; frameIndex++) {
+				for(int frameIndex = 0; frameIndex < numberOfFrames && notCanceled && !operation.isCanceled(); frameIndex++) {
 					int frameNumber = firstFrameNumber + frameIndex * settings->everyNthFrame() + settings->fileNumberBase();
 
 					operation.setProgressValue(frameIndex);
