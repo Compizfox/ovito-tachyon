@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Copyright 2013 Alexander Stukowski
+//  Copyright 2020 Alexander Stukowski
 //
 //  This file is part of OVITO (Open Visualization Tool).
 //
@@ -154,7 +154,7 @@ void NumericalParameterUI::setEnabled(bool enabled)
 void NumericalParameterUI::onSpinnerValueChanged()
 {
 	ViewportSuspender noVPUpdate(dataset()->viewportConfig());
-	if(!dataset()->undoStack().isRecording()) {
+	if(!_isDraggingSpinner) {
 		UndoableTransaction transaction(dataset()->undoStack(), tr("Change parameter"));
 		updatePropertyValue();
 		transaction.commit();
@@ -170,7 +170,9 @@ void NumericalParameterUI::onSpinnerValueChanged()
 ******************************************************************************/
 void NumericalParameterUI::onSpinnerDragStart()
 {
+	OVITO_ASSERT(!_isDraggingSpinner);
 	dataset()->undoStack().beginCompoundOperation(tr("Change parameter"));
+	_isDraggingSpinner = true;
 }
 
 /******************************************************************************
@@ -178,7 +180,9 @@ void NumericalParameterUI::onSpinnerDragStart()
 ******************************************************************************/
 void NumericalParameterUI::onSpinnerDragStop()
 {
+	OVITO_ASSERT(_isDraggingSpinner);
 	dataset()->undoStack().endCompoundOperation();
+	_isDraggingSpinner = false;
 }
 
 /******************************************************************************
@@ -186,7 +190,9 @@ void NumericalParameterUI::onSpinnerDragStop()
 ******************************************************************************/
 void NumericalParameterUI::onSpinnerDragAbort()
 {
+	OVITO_ASSERT(_isDraggingSpinner);
 	dataset()->undoStack().endCompoundOperation(false);
+	_isDraggingSpinner = false;
 }
 
 /******************************************************************************

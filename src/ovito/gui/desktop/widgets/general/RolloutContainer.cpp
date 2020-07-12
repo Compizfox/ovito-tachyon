@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Copyright 2017 Alexander Stukowski
+//  Copyright 2020 Alexander Stukowski
 //
 //  This file is part of OVITO (Open Visualization Tool).
 //
@@ -30,7 +30,8 @@ namespace Ovito {
 /******************************************************************************
 * Constructs the container.
 ******************************************************************************/
-RolloutContainer::RolloutContainer(QWidget* parent) : QScrollArea(parent)
+RolloutContainer::RolloutContainer(QWidget* parent, MainWindow* mainWindow) : QScrollArea(parent),
+	_mainWindow(mainWindow)
 {
 	setFrameStyle(QFrame::Panel | QFrame::Sunken);
 	setWidgetResizable(true);
@@ -180,18 +181,26 @@ void Rollout::setCollapsed(bool collapsed)
 }
 
 /******************************************************************************
+* Returns the rollout container widget this rollout belongs to.
+******************************************************************************/
+RolloutContainer* Rollout::container() const
+{
+	QWidget* p = parentWidget();
+	while(p != nullptr) {
+		if(RolloutContainer* container = qobject_cast<RolloutContainer*>(p))
+			return container;
+		p = p->parentWidget();
+	}
+	return nullptr;
+}
+
+/******************************************************************************
 * Makes sure that the rollout is visible in the rollout container.
 ******************************************************************************/
 void Rollout::ensureVisible()
 {
-	QWidget* p = parentWidget();
-	while(p != nullptr) {
-		if(RolloutContainer* container = qobject_cast<RolloutContainer*>(p)) {
-			container->ensureWidgetVisible(this, 0, 0);
-			break;
-		}
-		p = p->parentWidget();
-	}
+	if(RolloutContainer* container = this->container())
+		container->ensureWidgetVisible(this, 0, 0);
 }
 
 /******************************************************************************
@@ -314,7 +323,11 @@ void Rollout::paintEvent(QPaintEvent* event)
 ******************************************************************************/
 void Rollout::onHelpButton()
 {
-	MainWindow* mainWindow = qobject_cast<MainWindow*>(window());
+	MainWindow* mainWindow = nullptr;
+	if(RolloutContainer* container = this->container())
+		mainWindow = container->mainWindow();
+	if(!mainWindow)
+		mainWindow = qobject_cast<MainWindow*>(window());
 	if(mainWindow)
 		mainWindow->openHelpTopic(_helpPage);
 }

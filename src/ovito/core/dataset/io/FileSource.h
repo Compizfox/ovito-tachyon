@@ -77,7 +77,7 @@ public:
 	int numberOfFiles() const { return _numberOfFiles; }
 
 	/// \brief Returns the number of animation frames this pipeline object can provide.
-	virtual int numberOfSourceFrames() const override { return _frames.size(); }
+	virtual int numberOfSourceFrames() const override;
 
 	/// \brief Given an animation time, computes the source frame to show.
 	virtual int animationTimeToSourceFrame(TimePoint time) const override;
@@ -136,6 +136,13 @@ private:
 	/// Computes the time interval covered on the time line by the given source source.
 	TimeInterval frameTimeInterval(int frame) const;
 
+	/// If the file source currently uses a wildcard search pattern, replaces it 
+	/// with a single concrete filename. 
+	void removeWildcardFilePattern();
+
+	/// Generates a wildcard file seach pattern unless the file source already uses a pattern. 
+	void generateWildcardFilePattern();
+
 private:
 
 	/// The associated importer object that is responsible for parsing the input file.
@@ -155,6 +162,12 @@ private:
 
 	/// Stores the prototypes of the loaded data objects.
 	DECLARE_MODIFIABLE_REFERENCE_FIELD_FLAGS(DataCollection, dataCollection, setDataCollection, PROPERTY_FIELD_ALWAYS_DEEP_COPY | PROPERTY_FIELD_NO_CHANGE_MESSAGE | PROPERTY_FIELD_DONT_SAVE_RECOMPUTABLE_DATA);
+
+	/// Controls the automatic generation of a file name pattern in the GUI.
+	DECLARE_MODIFIABLE_PROPERTY_FIELD_FLAGS(bool, autoGenerateFilePattern, setAutoGenerateFilePattern, PROPERTY_FIELD_MEMORIZE);
+
+	/// Restricts the timeline to a single static frame of the loaded trajectory. 
+	DECLARE_MODIFIABLE_PROPERTY_FIELD(int, restrictToFrame, setRestrictToFrame);
 
 	/// The list of frames of the data source.
 	QVector<FileSourceImporter::Frame> _frames;

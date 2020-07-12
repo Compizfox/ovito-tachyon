@@ -91,8 +91,7 @@ private:
 	StatusWidget* _statusLabel;
 	QComboBox* _framesListBox = nullptr;
 	QStringListModel* _framesListModel = nullptr;
+	QLabel* _playbackRatioDisplay = nullptr;
 };
 
 }	// End of namespace
-
-

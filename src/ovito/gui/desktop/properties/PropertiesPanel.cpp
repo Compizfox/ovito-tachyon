@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Copyright 2013 Alexander Stukowski
+//  Copyright 2020 Alexander Stukowski
 //
 //  This file is part of OVITO (Open Visualization Tool).
 //
@@ -31,7 +31,7 @@ namespace Ovito {
 * Constructs the panel.
 ******************************************************************************/
 PropertiesPanel::PropertiesPanel(QWidget* parent, MainWindow* mainWindow) :
-	RolloutContainer(parent), _mainWindow(mainWindow)
+	RolloutContainer(parent, mainWindow), _mainWindow(mainWindow)
 {
 }
 
@@ -45,9 +45,9 @@ PropertiesPanel::~PropertiesPanel()
 /******************************************************************************
 * Sets the target object being edited in the panel.
 ******************************************************************************/
-void PropertiesPanel::setEditObject(RefTarget* newEditObject)
+void PropertiesPanel::setEditObject(RefTarget* newEditObject, OORef<PropertiesEditor> newEditor)
 {
-	if(newEditObject == editObject() && (newEditObject != nullptr) == (editor() != nullptr))
+	if(newEditObject == editObject() && (newEditObject != nullptr) == (editor() != nullptr) && !newEditor)
 		return;
 
 	if(editor()) {
@@ -55,7 +55,8 @@ void PropertiesPanel::setEditObject(RefTarget* newEditObject)
 
 		// Can we re-use the old editor?
 		if(newEditObject != nullptr && editor()->editObject() != nullptr
-			&& editor()->editObject()->getOOClass() == newEditObject->getOOClass()) {
+			&& editor()->editObject()->getOOClass() == newEditObject->getOOClass()
+			&& !newEditor) {
 
 			editor()->setEditObject(newEditObject);
 			return;
@@ -68,7 +69,7 @@ void PropertiesPanel::setEditObject(RefTarget* newEditObject)
 
 	if(newEditObject) {
 		// Open new properties editor.
-		_editor = PropertiesEditor::create(newEditObject);
+		_editor = newEditor ? std::move(newEditor) : PropertiesEditor::create(newEditObject);
 		if(editor() && _mainWindow) {
 			editor()->initialize(this, _mainWindow, RolloutInsertionParameters(), nullptr);
 			editor()->setEditObject(newEditObject);

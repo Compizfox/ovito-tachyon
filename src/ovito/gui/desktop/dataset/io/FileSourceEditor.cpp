@@ -25,6 +25,7 @@
 #include <ovito/gui/desktop/properties/BooleanActionParameterUI.h>
 #include <ovito/gui/desktop/properties/IntegerParameterUI.h>
 #include <ovito/gui/desktop/properties/SubObjectParameterUI.h>
+#include <ovito/gui/desktop/dialogs/ModalPropertiesEditorDialog.h>
 #include <ovito/gui/desktop/dialogs/ImportFileDialog.h>
 #include <ovito/gui/desktop/dialogs/ImportRemoteFileDialog.h>
 #include <ovito/gui/desktop/dataset/io/FileImporterEditor.h>
@@ -36,6 +37,7 @@
 #include <ovito/core/viewport/ViewportConfiguration.h>
 #include <ovito/core/app/PluginManager.h>
 #include "FileSourceEditor.h"
+#include "FileSourcePlaybackRateEditor.h"
 
 namespace Ovito {
 
@@ -72,32 +74,44 @@ void FileSourceEditor::createUI(const RolloutInsertionParameters& rolloutParams)
 
 	QGroupBox* sourceBox = new QGroupBox(tr("Data source"), rollout);
 	layout->addWidget(sourceBox);
-	QGridLayout* gridlayout = new QGridLayout(sourceBox);
-	gridlayout->setContentsMargins(4,4,4,4);
-	gridlayout->setColumnStretch(1,1);
-	gridlayout->setVerticalSpacing(2);
-	gridlayout->setHorizontalSpacing(6);
+	QGridLayout* gridlayout1 = new QGridLayout(sourceBox);
+	gridlayout1->setContentsMargins(4,4,4,4);
+	gridlayout1->setColumnStretch(1,1);
+	gridlayout1->setVerticalSpacing(2);
 	_filenameLabel = new QLineEdit();
 	_filenameLabel->setReadOnly(true);
 	_filenameLabel->setFrame(false);
-	gridlayout->addWidget(new QLabel(tr("Current file:")), 0, 0);
-	gridlayout->addWidget(_filenameLabel, 0, 1);
+	QLabel* label = new QLabel(tr("Current file:"));
+	int maxLabelWidth = label->sizeHint().width();
+	gridlayout1->addWidget(label, 0, 0);
+	gridlayout1->addWidget(_filenameLabel, 0, 1);
 	_sourcePathLabel = new QLineEdit();
 	_sourcePathLabel->setReadOnly(true);
 	_sourcePathLabel->setFrame(false);
-	gridlayout->addWidget(new QLabel(tr("Directory:")), 1, 0);
-	gridlayout->addWidget(_sourcePathLabel, 1, 1);
+	label = new QLabel(tr("Directory:"));
+	maxLabelWidth = std::max(label->sizeHint().width(), maxLabelWidth);
+	gridlayout1->addWidget(label, 1, 0);
+	gridlayout1->addWidget(_sourcePathLabel, 1, 1);
 
-	QGroupBox* wildcardBox = new QGroupBox(tr("Time series"), rollout);
+	QGroupBox* wildcardBox = new QGroupBox(tr("File sequence"), rollout);
 	layout->addWidget(wildcardBox);
-	gridlayout = new QGridLayout(wildcardBox);
-	gridlayout->setContentsMargins(4,4,4,4);
-	gridlayout->setVerticalSpacing(2);
-	gridlayout->setColumnStretch(1, 1);
+	QGridLayout* gridlayout2 = new QGridLayout(wildcardBox);
+	gridlayout2->setContentsMargins(4,4,4,4);
+	gridlayout2->setVerticalSpacing(2);
+	gridlayout2->setColumnStretch(1, 1);
 	_wildcardPatternTextbox = new QLineEdit();
 	connect(_wildcardPatternTextbox, &QLineEdit::returnPressed, this, &FileSourceEditor::onWildcardPatternEntered);
-	gridlayout->addWidget(new QLabel(tr("File pattern:")), 0, 0);
-	gridlayout->addWidget(_wildcardPatternTextbox, 0, 1);
+
+	label = new QLabel(tr("Search pattern:"));
+	maxLabelWidth = std::max(label->sizeHint().width(), maxLabelWidth);
+	gridlayout2->addWidget(label, 0, 0);
+	gridlayout2->addWidget(_wildcardPatternTextbox, 0, 1);
+
+	BooleanParameterUI* autoGenerateFilePatternUI = new BooleanParameterUI(this, PROPERTY_FIELD(FileSource::autoGenerateFilePattern));
+	autoGenerateFilePatternUI->checkBox()->setText(tr("auto-generate"));
+	gridlayout2->addWidget(autoGenerateFilePatternUI->checkBox(), 1, 0);
+	maxLabelWidth = std::max(autoGenerateFilePatternUI->checkBox()->sizeHint().width(), maxLabelWidth);
+
 	_fileSeriesLabel = new QLabel();
 	QFont smallFont = _fileSeriesLabel->font();
 #ifdef Q_OS_MAC
@@ -108,10 +122,20 @@ void FileSourceEditor::createUI(const RolloutInsertionParameters& rolloutParams)
 	smallFont.setPointSize(std::max(6, smallFont.pointSize() - 1));
 #endif
 	_fileSeriesLabel->setFont(smallFont);
-	gridlayout->addWidget(_fileSeriesLabel, 1, 1);
+	gridlayout2->addWidget(_fileSeriesLabel, 1, 1);
 
 	if(!parentEditor()) {
-		gridlayout->addWidget(new QLabel(tr("Current frame:")), 2, 0);
+
+		QGroupBox* trajectoryBox = new QGroupBox(tr("Trajectory"), rollout);
+		layout->addWidget(trajectoryBox);
+		QGridLayout* gridlayout3 = new QGridLayout(trajectoryBox);
+		gridlayout3->setContentsMargins(4,4,4,4);
+		gridlayout3->setVerticalSpacing(2);
+		gridlayout3->setColumnStretch(1, 1);
+
+		label = new QLabel(tr("Current frame:"));
+		maxLabelWidth = std::max(label->sizeHint().width(), maxLabelWidth);
+		gridlayout3->addWidget(label, 0, 0);
 		_framesListBox = new QComboBox();
 		_framesListBox->setEditable(false);
 		// To improve performance of drop-down list display:
@@ -121,11 +145,36 @@ void FileSourceEditor::createUI(const RolloutInsertionParameters& rolloutParams)
 		_framesListModel = new QStringListModel(this);
 		_framesListBox->setModel(_framesListModel);
 		connect(_framesListBox, (void (QComboBox::*)(int))&QComboBox::activated, this, &FileSourceEditor::onFrameSelected);
-		gridlayout->addWidget(_framesListBox, 2, 1);
+		gridlayout3->addWidget(_framesListBox, 0, 1);
 		_timeSeriesLabel = new QLabel();
 		_timeSeriesLabel->setFont(smallFont);
-		gridlayout->addWidget(_timeSeriesLabel, 3, 1);
+		gridlayout3->addWidget(_timeSeriesLabel, 1, 1);
+
+ 		label = new QLabel(tr("Playback ratio:"));
+		maxLabelWidth = std::max(label->sizeHint().width(), maxLabelWidth);
+		gridlayout3->addWidget(label, 2, 0);
+
+		QHBoxLayout* sublayout = new QHBoxLayout();
+		sublayout->setContentsMargins(0,0,0,0);
+		sublayout->setSpacing(6);
+		gridlayout3->addLayout(sublayout, 2, 1);
+
+		_playbackRatioDisplay = new QLabel(tr("1 / 1"));
+		sublayout->addWidget(_playbackRatioDisplay);
+		sublayout->addStretch(1);
+		QPushButton* editPlaybackBtn = new QPushButton(tr("Change..."));
+		sublayout->addWidget(editPlaybackBtn);
+		connect(editPlaybackBtn, &QPushButton::clicked, this, [&]() {
+			if(!editObject()) return;
+			ModalPropertiesEditorDialog(editObject(), new FileSourcePlaybackRateEditor(), container(), 
+				mainWindow(), tr("Configure Trajectory Playback"), tr("Change trajectory playback"), "data_sources.html").exec();
+			updateInformationLabel();
+		});
+		
+		gridlayout3->setColumnMinimumWidth(0, maxLabelWidth);
 	}
+	gridlayout1->setColumnMinimumWidth(0, maxLabelWidth);
+	gridlayout2->setColumnMinimumWidth(0, maxLabelWidth);
 
 	QGroupBox* statusBox = new QGroupBox(tr("Status"), rollout);
 	layout->addWidget(statusBox);
@@ -133,32 +182,6 @@ void FileSourceEditor::createUI(const RolloutInsertionParameters& rolloutParams)
 	sublayout->setContentsMargins(4,4,4,4);
 	_statusLabel = new StatusWidget(rollout);
 	sublayout->addWidget(_statusLabel);
-
-	// Create another rollout for animation control.
-	rollout = createRollout(tr("Animation"), rolloutParams.after(rollout).collapse(), "data_sources.html");
-
-	// Create the rollout contents.
-	layout = new QVBoxLayout(rollout);
-	layout->setContentsMargins(4,4,4,4);
-	layout->setSpacing(4);
-
-	QHBoxLayout* subsublayout = new QHBoxLayout();
-	subsublayout->setContentsMargins(0,0,0,0);
-	subsublayout->setSpacing(2);
-	IntegerParameterUI* playbackSpeedNumeratorUI = new IntegerParameterUI(this, PROPERTY_FIELD(FileSource::playbackSpeedNumerator));
-	subsublayout->addWidget(new QLabel(tr("Playback rate:")));
-	subsublayout->addLayout(playbackSpeedNumeratorUI->createFieldLayout());
-	subsublayout->addWidget(new QLabel(tr("/")));
-	IntegerParameterUI* playbackSpeedDenominatorUI = new IntegerParameterUI(this, PROPERTY_FIELD(FileSource::playbackSpeedDenominator));
-	subsublayout->addLayout(playbackSpeedDenominatorUI->createFieldLayout());
-	layout->addLayout(subsublayout);
-
-	subsublayout = new QHBoxLayout();
-	subsublayout->setContentsMargins(0,0,0,0);
-	IntegerParameterUI* playbackStartUI = new IntegerParameterUI(this, PROPERTY_FIELD(FileSource::playbackStartTime));
-	subsublayout->addWidget(new QLabel(tr("Start at animation frame:")));
-	subsublayout->addLayout(playbackStartUI->createFieldLayout());
-	layout->addLayout(subsublayout);
 
 	// Show settings editor of importer class.
 	new SubObjectParameterUI(this, PROPERTY_FIELD(FileSource::importer), rolloutParams.after(rollout));
@@ -270,7 +293,6 @@ bool FileSourceEditor::importNewFile(FileSource* fileSource, const QUrl& url, Ov
 		fileimporter = importerFuture.result();
 		if(!fileimporter)
 			fileSource->throwException(tr("Could not detect the format of the file to be imported. The format might not be supported."));
-
 	}
 	else {
 		// Caller has provided a specific importer type.
@@ -367,7 +389,7 @@ void FileSourceEditor::onWildcardPatternEntered()
 }
 
 /******************************************************************************
-* Updates the displayed status informations.
+* Updates the displayed status information.
 ******************************************************************************/
 void FileSourceEditor::updateInformationLabel()
 {
@@ -383,6 +405,8 @@ void FileSourceEditor::updateInformationLabel()
 			_framesListBox->clear();
 			_framesListBox->setEnabled(false);
 		}
+		if(_playbackRatioDisplay)
+			_playbackRatioDisplay->setText(QString());
 		return;
 	}
 
@@ -424,6 +448,13 @@ void FileSourceEditor::updateInformationLabel()
 			_timeSeriesLabel->setText(tr("Showing frame %1 of %2").arg(fileSource->dataCollectionFrame()+1).arg(fileSource->frames().count()));
 		else
 			_timeSeriesLabel->setText(tr("No frames available"));
+	}
+
+	if(_playbackRatioDisplay) {
+		if(fileSource->restrictToFrame() < 0)
+			_playbackRatioDisplay->setText(tr("%1 / %2").arg(fileSource->playbackSpeedNumerator()).arg(fileSource->playbackSpeedDenominator()));
+		else
+			_playbackRatioDisplay->setText(tr("single frame"));
 	}
 
 	if(_framesListBox) {
@@ -474,7 +505,14 @@ void FileSourceEditor::onFrameSelected(int index)
 	FileSource* fileSource = static_object_cast<FileSource>(editObject());
 	if(!fileSource) return;
 
-	dataset()->animationSettings()->setTime(fileSource->sourceFrameToAnimationTime(index));
+	if(fileSource->restrictToFrame() < 0) {
+		dataset()->animationSettings()->setTime(fileSource->sourceFrameToAnimationTime(index));
+	}
+	else {
+		undoableTransaction(tr("Select static frame"), [&]() {
+			fileSource->setRestrictToFrame(index);
+		});
+	}
 }
 
 /******************************************************************************
