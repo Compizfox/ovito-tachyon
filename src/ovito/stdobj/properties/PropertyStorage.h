@@ -302,6 +302,9 @@ public:
 		return false;
 	}
 
+	/// Checks if this property storage and its contents exactly match those of another property storage.
+	bool equals(const PropertyStorage& other) const;
+
 private:
 
 	/// Grows the storage buffer to accomodate at least the given number of data elements.

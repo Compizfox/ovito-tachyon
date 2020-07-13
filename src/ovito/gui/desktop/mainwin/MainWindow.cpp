@@ -307,10 +307,15 @@ void MainWindow::createMainMenu()
 	fileMenu->addAction(actionManager()->getAction(ACTION_FILE_OPEN));
 	fileMenu->addAction(actionManager()->getAction(ACTION_FILE_SAVE));
 	fileMenu->addAction(actionManager()->getAction(ACTION_FILE_SAVEAS));
-	if(QAction* runScriptFileAction = actionManager()->findAction(ACTION_SCRIPTING_RUN_FILE)) {
-		fileMenu->addSeparator();
+	fileMenu->addSeparator();
+	if(QAction* runScriptFileAction = actionManager()->findAction(ACTION_SCRIPTING_RUN_FILE))
 		fileMenu->addAction(runScriptFileAction);
-	}
+	else
+		fileMenu->addAction(QIcon(":/gui/actions/file/scripting_manual.bw.svg"), tr("Run Python script..."))->setEnabled(false);
+	if(QAction* generateScriptFileAction = actionManager()->findAction(ACTION_SCRIPTING_GENERATE_CODE))
+		fileMenu->addAction(generateScriptFileAction);
+	else
+		fileMenu->addAction(QIcon(":/gui/actions/file/scripting_manual.bw.svg"), tr("Generate Python script..."))->setEnabled(false);
 	fileMenu->addSeparator();
 	fileMenu->addAction(actionManager()->getAction(ACTION_FILE_NEW_WINDOW));
 	fileMenu->addSeparator();

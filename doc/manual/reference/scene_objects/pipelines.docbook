@@ -30,5 +30,6 @@
 
   <xi:include href="data_sources.docbook"/>
   <xi:include href="clone_pipeline.docbook"/>
+  <xi:include href="code_generation.docbook"/>
 
 </section>

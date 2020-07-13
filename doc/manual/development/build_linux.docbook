@@ -7,7 +7,7 @@
          xmlns:xlink="http://www.w3.org/1999/xlink"
          xmlns:xi="http://www.w3.org/2001/XInclude"
          xmlns:ns="http://docbook.org/ns/docbook">
-  <title>Building OVITO on Linux</title>
+  <title>Building OVITO Basic on Linux</title>
 
   <para>
   The following instructions have been written for Ubuntu Linux 16.04 or newer, or any compatible Debian-based distribution.

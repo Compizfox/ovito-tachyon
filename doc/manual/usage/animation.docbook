@@ -14,46 +14,43 @@
     In addition to simply visualizing a simulation trajectory, OVITO provides powerful animation capabilities,
     which let you animate the virtual camera, modifiers or visual parameters. The following sections explain OVITO's
     animation system in more detail.
-    <figure>
-    	<title>The animation panel of the <link linkend="scene_objects.file_source">External File</link> data source.</title>
-        <screenshot><mediaobject><imageobject>
-        <imagedata fileref="images/usage/animation/file_source_animation_panel.png" format="PNG"/>
-        </imageobject></mediaobject></screenshot>
-    </figure>
+    <informalfigure><screenshot><mediaobject><imageobject>
+      <imagedata fileref="images/usage/animation/file_source_animation_panel.png" format="PNG" scale="75"/>
+   </imageobject></mediaobject></screenshot></informalfigure>
   </para>
 
   <simplesect>
     <title>Animation frames vs. simulation frames</title>
     <para>
-       After loading a simulation sequence into OVITO, the timeline below the viewport windows indicates
+       After loading a simulation sequence into OVITO, the timeline below the viewport area indicates
        the length of the current animation interval. Animation frame numbers start at zero in OVITO. Thus, an animation
        ending at frame 100, for example, consists of 101 video frames.
     </para>
     <para>
        It is important to point out the semantic difference between <emphasis>simulation frames</emphasis>
-       (i.e. the series of imported simulation snapshots) and <emphasis>animation frames</emphasis>, which are
-       the time units used in OVITO's internal timeline.
+       (i.e. the imported simulation snapshots) and <emphasis>animation frames</emphasis>, which are
+       the time units used by OVITO's animation timeline.
        Normally there is a one-to-one mapping between the two, i.e., the number of animation frames in OVITO's timeline is
        automatically adjusted to match the number of frames of the loaded simulation trajectory.
-       This default can be overridden by activating the <guilabel>Custom animation interval</guilabel>
-       option in the <link linkend="animation.animation_settings_dialog">Animation settings dialog</link>.
+       This default behavior can be overridden in the <link linkend="animation.animation_settings_dialog">Animation settings</link> dialog.
        Then you will be in control of the animation length. If you extend the animation interval beyond the
-       number of imported simulation frames, you will get additional still images at the end of the rendered animation.
+       number of imported simulation frames, you will get additional static vide frames at the end of the rendered animation.
     </para>
     <para>
-       The <guilabel>Animation panel</guilabel> of the <link linkend="scene_objects.file_source">External file</link> data source (see screenshot)
-       provides two options controlling how the frames of the simulation trajectory
+       Furthermore, the <link linkend="scene_objects.file_source.configure_playback">Configure trajectory playback</link> dialog,
+       which is accessible from the <link linkend="scene_objects.file_source">External file</link> panel (see screenshot),
+       provides control of how the frames of the simulation trajectory
        get mapped to animation frames. The <guilabel>Playback rate</guilabel>
-       setting allows you to specify a mapping that is not one to one. For example, a playback rate of
-       1:2 stretches the simulation sequence to extend over twice as many animation frames. Each snapshot
+       setting allows you to specify a mapping that is not one-to-one. For example, a playback rate of
+       1/2 stretches the simulation sequence to extend over twice as many animation frames. Each snapshot
        of the simulation will then be visible for two consecutive video frames. A playback rate of
-       2:1, in contrast, compresses the playback of the simulation sequence to half of the animation frames.
+       2/1, in contrast, compresses the playback of the simulation sequence to half of the animation frames.
        Then, every other simulation frame gets skipped in the rendered animation.
     </para>
     <para>
-       The <guilabel>Start at animation frame</guilabel> setting specifies the point on OVITO's timeline at which
-       playback of the simulation sequence begins. By default it starts immediately at animation frame 0, but you can
-       change this number, e.g. to insert still frames at the beginning of a movie.
+       The <guilabel>Starting at animation frame</guilabel> setting specifies where on OVITO's timeline the
+       playback of the simulation trajectory begins. By default it starts immediately at animation frame 0, but you can
+       change this number, e.g. to insert static frames frames at the beginning of a movie.
     </para>
     <para>
        Note that OVITO provides the possibility to insert several simulation datasets into one scene to show them

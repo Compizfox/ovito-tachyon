@@ -67,7 +67,7 @@ bool MarchingCubes::generateIsosurface(FloatType isolevel, Task& task)
                 for(int p = 0; p < 8; ++p) {
                     _cube[p] = getFieldValue(i+((p^(p>>1))&1), j+((p>>1)&1), k+((p>>2)&1)) - isolevel;
                     if(std::abs(_cube[p]) < _epsilon) _cube[p] = _epsilon;
-                    if(_cube[p] > 0) _lut_entry += 1 << p;
+                    if(_cube[p] > 0) _lut_entry |= (1 << p);
                 }
                 processCube(i,j,k);
             }
@@ -115,7 +115,7 @@ void MarchingCubes::computeIntersectionPoints(FloatType isolevel, Task& task)
 * Test a face.
 * if face>0 return true if the face contains a part of the surface
 ******************************************************************************/
-bool MarchingCubes::testFace(char face)
+bool MarchingCubes::testFace(signed char face)
 {
     FloatType A,B,C,D;
 
@@ -141,11 +141,11 @@ bool MarchingCubes::testFace(char face)
 * if s == 7, return true  if the interior is empty
 * if s ==-7, return false if the interior is empty
 ******************************************************************************/
-bool MarchingCubes::testInterior(char s)
+bool MarchingCubes::testInterior(signed char s)
 {
     FloatType t, At=0, Bt=0, Ct=0, Dt=0, a, b;
-    char  test =  0;
-    char  edge = -1; // reference edge of the triangulation
+    signed char  test =  0;
+    signed char  edge = -1; // reference edge of the triangulation
 
     switch( _case )
     {
@@ -611,7 +611,7 @@ void MarchingCubes::processCube(int i, int j, int k)
 /******************************************************************************
 * Adds triangles to the mesh.
 ******************************************************************************/
-void MarchingCubes::addTriangle(int i, int j, int k, const char* trig, char n, HalfEdgeMesh::vertex_index v12)
+void MarchingCubes::addTriangle(int i, int j, int k, const signed char* trig, signed char n, HalfEdgeMesh::vertex_index v12)
 {
     HalfEdgeMesh::vertex_index tv[3];
 

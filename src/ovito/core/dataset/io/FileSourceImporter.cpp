@@ -84,32 +84,6 @@ void FileSourceImporter::requestFramesUpdate(bool refetchCurrentFile)
 	for(RefMaker* refmaker : dependents()) {
 		if(FileSource* fileSource = dynamic_object_cast<FileSource>(refmaker)) {
 			try {
-#if 0
-				// If wildcard pattern search has been disabled, replace
-				// wildcard pattern URLs with an actual filename.
-				if(!autoGenerateWildcardPattern()) {
-					if(std::any_of(fileSource->sourceUrls().begin(), fileSource->sourceUrls().end(), [](const QUrl& url) {
-							return isWildcardPattern(url);
-						})) {
-						std::vector<QUrl> urls = fileSource->sourceUrls();
-						for(QUrl& url : urls) {
-							QFileInfo fileInfo(fileSource->sourceUrl().path());
-							if(isWildcardPattern(url)) {
-								if(fileSource->storedFrameIndex() >= 0 && fileSource->storedFrameIndex() < fileSource->frames().size()) {
-									QUrl currentUrl = fileSource->frames()[fileSource->storedFrameIndex()].sourceFile;
-									if(currentUrl != fileSource->sourceUrl()) {
-										fileSource->setSource(currentUrl, this, true);
-										continue;
-									}
-								}
-							}
-						}
-						fileSource->setSource(std::move(urls), this, true);
-						continue;
-					}
-				}
-#endif
-
 				// Scan input source for animation frames.
 				fileSource->updateListOfFrames(refetchCurrentFile);
 			}
@@ -185,8 +159,12 @@ OORef<PipelineSceneNode> FileSourceImporter::importFile(std::vector<QUrl> source
 	OORef<FileSource> fileSource = existingFileSource;
 
 	// Create the object that will insert the imported data into the scene.
-	if(!fileSource)
+	if(!fileSource) {
 		fileSource = new FileSource(dataset());
+		// Load user-defined default settings.
+		if(Application::instance()->executionContext() == Application::ExecutionContext::Interactive)
+			fileSource->loadUserDefaults();
+	}
 
 	// Create a new object node in the scene for the linked data.
 	OORef<PipelineSceneNode> pipeline;

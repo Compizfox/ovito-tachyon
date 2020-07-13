@@ -85,24 +85,22 @@ ColorLegendOverlay::ColorLegendOverlay(DataSet* dataset) : ViewportOverlay(datas
 	_outlineColor(1,1,1),
 	_outlineEnabled(false)
 {
-	if(Application::instance()->executionContext() == Application::ExecutionContext::Interactive) {
-		// Find a ColorCodingModifiers in the scene that we can connect to.
-		dataset->sceneRoot()->visitObjectNodes([this](PipelineSceneNode* node) {
-			PipelineObject* obj = node->dataProvider();
-			while(obj) {
-				if(ModifierApplication* modApp = dynamic_object_cast<ModifierApplication>(obj)) {
-					if(ColorCodingModifier* mod = dynamic_object_cast<ColorCodingModifier>(modApp->modifier())) {
-						setModifier(mod);
-						if(mod->isEnabled())
-							return false;	// Stop search.
-					}
-					obj = modApp->input();
+	// Find a ColorCodingModifier in the scene that we can connect to.
+	dataset->sceneRoot()->visitObjectNodes([this](PipelineSceneNode* node) {
+		PipelineObject* obj = node->dataProvider();
+		while(obj) {
+			if(ModifierApplication* modApp = dynamic_object_cast<ModifierApplication>(obj)) {
+				if(ColorCodingModifier* mod = dynamic_object_cast<ColorCodingModifier>(modApp->modifier())) {
+					setModifier(mod);
+					if(mod->isEnabled())
+						return false;	// Stop search.
 				}
-				else break;
+				obj = modApp->input();
 			}
-			return true;
-		});
-	}
+			else break;
+		}
+		return true;
+	});
 }
 
 /******************************************************************************
@@ -118,7 +116,7 @@ void ColorLegendOverlay::renderImplementation(QPainter& painter, const ViewProje
 		// Escalate to an error state if in batch mode.
 		if(Application::instance()->consoleMode()) {
 			throwException(tr("You are trying to render a Viewport with a ColorLegendOverlay whose 'modifier' property has "
-							  "not been linked to a ColorCodingModifier. Did you forget to assign it?"));
+							  "not been set to any ColorCodingModifier. Did you forget to assign it?"));
 		}
 		else {
 			// Ignore invalid configuration in GUI mode by not rendering the legend.

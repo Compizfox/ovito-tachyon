@@ -41,7 +41,7 @@
     its visual appearance is controlled by the accompanying <link linkend="visual_elements.surface_mesh">surface mesh</link> visual element.
   </para>
   <para>
-    See the <link linkend="usage.import.formats">list of input file formats</link> supported by OVITO to find out how to import
+    See the <link linkend="file_formats.input">list of input file formats</link> supported by OVITO to find out how to import
     voxel grids into the program. You can also apply the isosurface modifier on a dynamically generated voxel grid output by the
     <link linkend="particles.modifiers.bin_and_reduce">Spatial binning</link> modifier of OVITO.
   </para>

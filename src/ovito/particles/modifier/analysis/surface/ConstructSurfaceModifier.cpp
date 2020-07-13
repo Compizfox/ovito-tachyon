@@ -170,7 +170,7 @@ void ConstructSurfaceModifier::AlphaShapeEngine::perform()
 		throw Exception(tr("Simulation cell is degenerate."));
 
 	double alpha = probeSphereRadius() * probeSphereRadius();
-	FloatType ghostLayerSize = probeSphereRadius() * FloatType(3);
+	FloatType ghostLayerSize = probeSphereRadius() * FloatType(3.5);
 
 	// Check if combination of radius parameter and simulation cell size is valid.
 	for(size_t dim = 0; dim < 3; dim++) {
@@ -592,13 +592,13 @@ void ConstructSurfaceModifier::AlphaShapeEngine::applyResults(TimePoint time, Mo
 	if(_identifyRegions) {
 
 		// Output more global attributes.
-		state.addAttribute(QStringLiteral("ConstructSurfaceMesh.specific_surface_area"), QVariant::fromValue(_totalCellVolume ? (surfaceArea() / _totalCellVolume) : 0), modApp);
-		state.addAttribute(QStringLiteral("ConstructSurfaceMesh.solid_volume"), QVariant::fromValue(_totalFilledVolume), modApp);
-		state.addAttribute(QStringLiteral("ConstructSurfaceMesh.empty_volume"), QVariant::fromValue(_totalEmptyVolume), modApp);
 		state.addAttribute(QStringLiteral("ConstructSurfaceMesh.cell_volume"), QVariant::fromValue(_totalCellVolume), modApp);
+		state.addAttribute(QStringLiteral("ConstructSurfaceMesh.specific_surface_area"), QVariant::fromValue(_totalCellVolume ? (surfaceArea() / _totalCellVolume) : 0), modApp);
+		state.addAttribute(QStringLiteral("ConstructSurfaceMesh.filled_volume"), QVariant::fromValue(_totalFilledVolume), modApp);
 		state.addAttribute(QStringLiteral("ConstructSurfaceMesh.filled_fraction"), QVariant::fromValue(_totalCellVolume ? (_totalFilledVolume / _totalCellVolume) : 0), modApp);
-		state.addAttribute(QStringLiteral("ConstructSurfaceMesh.empty_fraction"), QVariant::fromValue(_totalCellVolume ? (_totalEmptyVolume / _totalCellVolume) : 0), modApp);
 		state.addAttribute(QStringLiteral("ConstructSurfaceMesh.filled_region_count"), QVariant::fromValue(_filledRegionCount), modApp);
+		state.addAttribute(QStringLiteral("ConstructSurfaceMesh.empty_volume"), QVariant::fromValue(_totalEmptyVolume), modApp);
+		state.addAttribute(QStringLiteral("ConstructSurfaceMesh.empty_fraction"), QVariant::fromValue(_totalCellVolume ? (_totalEmptyVolume / _totalCellVolume) : 0), modApp);
 		state.addAttribute(QStringLiteral("ConstructSurfaceMesh.empty_region_count"), QVariant::fromValue(_emptyRegionCount), modApp);
 
 		QString statusString = tr("Surface area: %1\n# filled regions (volume): %2 (%3)\n# empty regions (volume): %4 (%5)")

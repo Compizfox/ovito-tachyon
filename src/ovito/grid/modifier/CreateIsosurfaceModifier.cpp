@@ -44,8 +44,7 @@ SET_PROPERTY_FIELD_LABEL(CreateIsosurfaceModifier, isolevelController, "Isolevel
 /******************************************************************************
 * Constructs the modifier object.
 ******************************************************************************/
-CreateIsosurfaceModifier::CreateIsosurfaceModifier(DataSet* dataset) : AsynchronousModifier(dataset),
-	_subject(&VoxelGrid::OOClass())
+CreateIsosurfaceModifier::CreateIsosurfaceModifier(DataSet* dataset) : AsynchronousModifier(dataset)
 {
 	setIsolevelController(ControllerManager::createFloatController(dataset));
 

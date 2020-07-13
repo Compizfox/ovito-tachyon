@@ -190,7 +190,7 @@ public:
         /// Identifies the local structure of the given particle and builds the list of nearest neighbors
         /// that form that structure. Subsequently, in case of a successful match, additional outputs of the calculation
         /// can be retrieved with the query methods below.
-        StructureType identifyStructure(size_t particleIndex, std::vector<uint64_t>& cachedNeighbors, Quaternion* qtarget);
+        StructureType identifyStructure(size_t particleIndex, const std::vector<uint64_t>& cachedNeighbors, Quaternion* qtarget);
 
         // Calculates the topological ordering of a particle's neighbors.
         int cacheNeighbors(size_t particleIndex, uint64_t* res);

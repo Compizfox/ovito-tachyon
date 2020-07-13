@@ -22,7 +22,6 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 
 #include <ovito/crystalanalysis/CrystalAnalysis.h>
-#include <ovito/crystalanalysis/modifier/grains/GrainSegmentationEngine.h>
 #include <ovito/crystalanalysis/modifier/grains/GrainSegmentationModifier.h>
 #include <ovito/gui/desktop/properties/FloatParameterUI.h>
 #include <ovito/gui/desktop/properties/IntegerParameterUI.h>
@@ -171,7 +170,6 @@ void GrainSegmentationModifierEditor::plotMerges()
 		}
 		_mergeRangeIndicator->setInterval(std::numeric_limits<double>::lowest(), mergingThreshold);
 		_mergeRangeIndicator->show();
-
 
 		// Look up the data table in the modifier's pipeline output.
 		_logPlotWidget->setTable(state.getObjectBy<DataTable>(modifierApplication(), QStringLiteral("grains-log")));

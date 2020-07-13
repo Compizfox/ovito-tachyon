@@ -300,9 +300,12 @@ FileSourceImporter::FrameDataPtr LAMMPSTextDumpImporter::FrameLoader::loadFile()
 				// Sort the particle type list since we created particles on the go and their order depends on the occurrence of types in the file.
 				columnParser.sortParticleTypes();
 
-				// Find out if coordinates are given in reduced format and need to be rescaled to absolute format.
+				// Determine if particle coordinates are given in reduced form and need to be rescaled to absolute form.
 				bool reducedCoordinates = false;
 				if(!fileColumnNames.empty()) {
+					// If the dump file contains column names, then we can use them to detect 
+					// the type of particle coordinates. Reduced coordinates are found in columns
+					// "xs, ys, zs" or "xsu, ysu, zsu".
 					for(int i = 0; i < (int)columnMapping.size() && i < fileColumnNames.size(); i++) {
 						if(columnMapping[i].property.type() == ParticlesObject::PositionProperty) {
 							reducedCoordinates = (
@@ -316,11 +319,15 @@ FileSourceImporter::FrameDataPtr LAMMPSTextDumpImporter::FrameLoader::loadFile()
 					}
 				}
 				else {
-					// Check if all atom coordinates are within the [0,1] interval.
-					// If yes, we assume reduced coordinate format.
+					// If no column names are available, use the following heuristic:
+					// Assume reduced coordinates if all particle coordinates are within the [-0.02,1.02] interval.
+					// We allow coordinates to be slightly outside the [0,1] interval, because LAMMPS
+					// wraps around particles at the periodic boundaries only occasionally.
 					if(ConstPropertyAccess<Point3> posProperty = frameData->findStandardParticleProperty(ParticlesObject::PositionProperty)) {
+						// Compute bound box of particle positions.
 						Box3 boundingBox;
 						boundingBox.addPoints(posProperty);
+						// Check if bounding box is inside the (slightly extended) unit cube.
 						if(Box3(Point3(FloatType(-0.02)), Point3(FloatType(1.02))).containsBox(boundingBox))
 							reducedCoordinates = true;
 					}
@@ -332,6 +339,20 @@ FileSourceImporter::FrameDataPtr LAMMPSTextDumpImporter::FrameLoader::loadFile()
 						const AffineTransformation simCell = frameData->simulationCell().matrix();
 						for(Point3& p : posProperty)
 							p = simCell * p;
+					}
+				}
+
+				// If a "diameter" column was loaded and stored in the "Radius" particle property,
+				// we need to divide values by two.
+				if(!fileColumnNames.empty()) {
+					for(int i = 0; i < (int)columnMapping.size() && i < fileColumnNames.size(); i++) {
+						if(columnMapping[i].property.type() == ParticlesObject::RadiusProperty && fileColumnNames[i] == "diameter") {
+							if(PropertyAccess<FloatType> radiusProperty = frameData->findStandardParticleProperty(ParticlesObject::RadiusProperty)) {
+								for(FloatType& r : radiusProperty)
+									r /= 2;
+							}
+							break;
+						}
 					}
 				}
 
@@ -393,7 +414,7 @@ InputColumnMapping LAMMPSTextDumpImporter::generateAutomaticColumnMapping(const 
 		else if(name == "id") columnMapping.mapStandardColumn(i, ParticlesObject::IdentifierProperty);
 		else if(name == "type" || name == "element" || name == "atom_types") columnMapping.mapStandardColumn(i, ParticlesObject::TypeProperty);
 		else if(name == "mass") columnMapping.mapStandardColumn(i, ParticlesObject::MassProperty);
-		else if(name == "radius") columnMapping.mapStandardColumn(i, ParticlesObject::RadiusProperty);
+		else if(name == "radius" || name == "diameter") columnMapping.mapStandardColumn(i, ParticlesObject::RadiusProperty);
 		else if(name == "mol") columnMapping.mapStandardColumn(i, ParticlesObject::MoleculeProperty);
 		else if(name == "q") columnMapping.mapStandardColumn(i, ParticlesObject::ChargeProperty);
 		else if(name == "ix") columnMapping.mapStandardColumn(i, ParticlesObject::PeriodicImageProperty, 0);

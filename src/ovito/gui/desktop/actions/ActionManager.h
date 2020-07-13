@@ -141,6 +141,8 @@ namespace Ovito {
 
 /// This actions lets the user select a script file to run.
 #define ACTION_SCRIPTING_RUN_FILE			"ScriptingRunFile"
+/// This actions lets the user generate script code from the selected data pipeline.
+#define ACTION_SCRIPTING_GENERATE_CODE		"ScriptingGenerateCode"
 
 /**
  * \brief Manages all available user interface actions.

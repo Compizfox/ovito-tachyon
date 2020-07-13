@@ -49,9 +49,9 @@ ActionManager::ActionManager(MainWindow* mainWindow) : QObject(mainWindow)
 
 	createCommandAction(ACTION_QUIT, tr("Exit"), ":/gui/actions/file/file_quit.bw.svg", tr("Quit the application."), QKeySequence::Quit);
 	createCommandAction(ACTION_FILE_NEW, tr("Reset State"), ":/gui/actions/file/file_new.bw.svg", tr("Resets the program to its initial state."), QKeySequence::New);
-	createCommandAction(ACTION_FILE_OPEN, tr("Load Program State"), ":/gui/actions/file/file_open.bw.svg", tr("Load a saved state from a file."), QKeySequence::Open);
-	createCommandAction(ACTION_FILE_SAVE, tr("Save Program State"), ":/gui/actions/file/file_save.bw.svg", tr("Save the current program state to a file."), QKeySequence::Save);
-	createCommandAction(ACTION_FILE_SAVEAS, tr("Save Program State As"), ":/gui/actions/file/file_save_as.bw.svg", tr("Save the current program state to a new file."), QKeySequence::SaveAs);
+	createCommandAction(ACTION_FILE_OPEN, tr("Load Session State"), ":/gui/actions/file/file_open.bw.svg", tr("Load a previously saved session from a file."), QKeySequence::Open);
+	createCommandAction(ACTION_FILE_SAVE, tr("Save Session State"), ":/gui/actions/file/file_save.bw.svg", tr("Save the current program session to a file."), QKeySequence::Save);
+	createCommandAction(ACTION_FILE_SAVEAS, tr("Save Session State As"), ":/gui/actions/file/file_save_as.bw.svg", tr("Save the current program session to a new file."), QKeySequence::SaveAs);
 	createCommandAction(ACTION_FILE_IMPORT, tr("Load File"), ":/gui/actions/file/file_import.bw.svg", tr("Import data from a file on this computer."), Qt::CTRL + Qt::Key_I);
 	createCommandAction(ACTION_FILE_REMOTE_IMPORT, tr("Load Remote File"), ":/gui/actions/file/file_import_remote.bw.svg", tr("Import a file from a remote location."), Qt::CTRL + Qt::SHIFT + Qt::Key_I);
 	createCommandAction(ACTION_FILE_EXPORT, tr("Export File"), ":/gui/actions/file/file_export.bw.svg", tr("Export data to a file."), Qt::CTRL + Qt::Key_E);

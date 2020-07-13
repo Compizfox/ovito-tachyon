@@ -43,12 +43,16 @@ DEFINE_PROPERTY_FIELD(FileSource, playbackSpeedNumerator);
 DEFINE_PROPERTY_FIELD(FileSource, playbackSpeedDenominator);
 DEFINE_PROPERTY_FIELD(FileSource, playbackStartTime);
 DEFINE_REFERENCE_FIELD(FileSource, dataCollection);
+DEFINE_PROPERTY_FIELD(FileSource, autoGenerateFilePattern);
+DEFINE_PROPERTY_FIELD(FileSource, restrictToFrame);
 SET_PROPERTY_FIELD_LABEL(FileSource, importer, "File Importer");
 SET_PROPERTY_FIELD_LABEL(FileSource, sourceUrls, "Source location");
 SET_PROPERTY_FIELD_LABEL(FileSource, playbackSpeedNumerator, "Playback rate numerator");
 SET_PROPERTY_FIELD_LABEL(FileSource, playbackSpeedDenominator, "Playback rate denominator");
 SET_PROPERTY_FIELD_LABEL(FileSource, playbackStartTime, "Playback start time");
 SET_PROPERTY_FIELD_LABEL(FileSource, dataCollection, "Data");
+SET_PROPERTY_FIELD_LABEL(FileSource, autoGenerateFilePattern, "Auto-generate pattern");
+SET_PROPERTY_FIELD_LABEL(FileSource, restrictToFrame, "Restrict to frame");
 SET_PROPERTY_FIELD_UNITS_AND_MINIMUM(FileSource, playbackSpeedNumerator, IntegerParameterUnit, 1);
 SET_PROPERTY_FIELD_UNITS_AND_MINIMUM(FileSource, playbackSpeedDenominator, IntegerParameterUnit, 1);
 SET_PROPERTY_FIELD_CHANGE_EVENT(FileSource, sourceUrls, ReferenceEvent::TitleChanged);
@@ -76,7 +80,9 @@ static int countNumberOfFiles(const QVector<FileSourceImporter::Frame>& frames)
 FileSource::FileSource(DataSet* dataset) : CachingPipelineObject(dataset),
 	_playbackSpeedNumerator(1),
 	_playbackSpeedDenominator(1),
-	_playbackStartTime(0)
+	_playbackStartTime(0),
+	_autoGenerateFilePattern(true),
+	_restrictToFrame(-1)
 {
 }
 
@@ -100,24 +106,35 @@ bool FileSource::setSource(std::vector<QUrl> sourceUrls, FileSourceImporter* imp
 	if(!sourceUrls.empty()) {
 		QFileInfo fileInfo(sourceUrls.front().path());
 		_originallySelectedFilename = fileInfo.fileName();
+		if(_originallySelectedFilename.contains('*')) {
+			if(dataCollectionFrame() >= 0 && dataCollectionFrame() < frames().size())
+				_originallySelectedFilename = QFileInfo(frames()[dataCollectionFrame()].sourceFile.path()).fileName();
+		}
 	}
 	else _originallySelectedFilename.clear();
 
+	bool turnOffPatternGeneration = false;
 	if(importer) {
+
 		// If single URL is not already a wildcard pattern, generate a default pattern by
-		// replacing last sequence of numbers in the filename with a wildcard character.
-		if(autodetectFileSequences && sourceUrls.size() == 1 && importer->autoGenerateWildcardPattern() && !_originallySelectedFilename.contains('*')) {
-			int startIndex, endIndex;
-			for(endIndex = _originallySelectedFilename.length() - 1; endIndex >= 0; endIndex--)
-				if(_originallySelectedFilename.at(endIndex).isNumber()) break;
-			if(endIndex >= 0) {
-				for(startIndex = endIndex-1; startIndex >= 0; startIndex--)
-					if(!_originallySelectedFilename.at(startIndex).isNumber()) break;
-				QString wildcardPattern = _originallySelectedFilename.left(startIndex+1) + '*' + _originallySelectedFilename.mid(endIndex+1);
-				QFileInfo fileInfo(sourceUrls.front().path());
-				fileInfo.setFile(fileInfo.dir(), wildcardPattern);
-				sourceUrls.front().setPath(fileInfo.filePath());
-				OVITO_ASSERT(sourceUrls.front().isValid());
+		// replacing the last sequence of numbers in the filename with a wildcard character.
+		if(autoGenerateFilePattern() && sourceUrls.size() == 1 && importer->autoGenerateWildcardPattern() && !_originallySelectedFilename.contains('*')) {
+			if(autodetectFileSequences) {
+				int startIndex, endIndex;
+				for(endIndex = _originallySelectedFilename.length() - 1; endIndex >= 0; endIndex--)
+					if(_originallySelectedFilename.at(endIndex).isNumber()) break;
+				if(endIndex >= 0) {
+					for(startIndex = endIndex-1; startIndex >= 0; startIndex--)
+						if(!_originallySelectedFilename.at(startIndex).isNumber()) break;
+					QString wildcardPattern = _originallySelectedFilename.left(startIndex+1) + '*' + _originallySelectedFilename.mid(endIndex+1);
+					QFileInfo fileInfo(sourceUrls.front().path());
+					fileInfo.setFile(fileInfo.dir(), wildcardPattern);
+					sourceUrls.front().setPath(fileInfo.filePath());
+					OVITO_ASSERT(sourceUrls.front().isValid());
+				}
+			}
+			else if(!_originallySelectedFilename.contains('*')) {
+				turnOffPatternGeneration = true;
 			}
 		}
 
@@ -163,6 +180,9 @@ bool FileSource::setSource(std::vector<QUrl> sourceUrls, FileSourceImporter* imp
 	// Scan the input source for animation frames.
 	updateListOfFrames();
 
+	if(turnOffPatternGeneration)
+		setAutoGenerateFilePattern(false);
+
 	// Commit all performed actions recorded on the undo stack. 
 	transaction.commit();
 	return true;
@@ -207,7 +227,7 @@ void FileSource::setListOfFrames(QVector<FileSourceImporter::Frame> frames)
 	_framesListFuture.reset();
 
 	// If there are too many frames, time tick values may overflow. Warn the user in this case.
-	if(frames.size() >= animationTimeToSourceFrame(TimePositiveInfinity())) {
+	if(restrictToFrame() < 0 && frames.size() >= animationTimeToSourceFrame(TimePositiveInfinity())) {
 		qWarning() << "Warning: Number of frames in loaded trajectory exceeds the maximum supported by OVITO (" << (animationTimeToSourceFrame(TimePositiveInfinity())-1) << " frames). "
 			"Note: You can increase the limit by setting the animation frames-per-second parameter to a higher value.";
 	}
@@ -231,7 +251,12 @@ void FileSource::setListOfFrames(QVector<FileSourceImporter::Frame> frames)
 	}
 
 	// Count the number of source files the trajectory frames are coming from.
-	_numberOfFiles = countNumberOfFiles(this->frames());
+	_numberOfFiles = countNumberOfFiles(frames);
+
+	// Remember which trajectory frame the time slider is positioned at.
+	FileSourceImporter::Frame previouslySelectedFrame;
+	if(dataCollectionFrame() >= 0 && dataCollectionFrame() < _frames.size())
+		previouslySelectedFrame = _frames[dataCollectionFrame()];
 
 	// Replace our internal list of frames.
 	_frames = std::move(frames);
@@ -245,9 +270,9 @@ void FileSource::setListOfFrames(QVector<FileSourceImporter::Frame> frames)
 	// Adjust the global animation length to match the new number of source frames.
 	notifyDependents(ReferenceEvent::AnimationFramesChanged);
 
-	// Position time slider to the frame that corresponds to the file initially picked by the user
-	// in the file selection dialog.
-	if(_isNewFile) {
+	if(_isNewFile && !_originallySelectedFilename.contains(QChar('*'))) {
+		// Position time slider to the frame that corresponds to the file initially picked by the user
+		// in the file selection dialog.
 		for(int frameIndex = 0; frameIndex < _frames.size(); frameIndex++) {
 			if(_frames[frameIndex].sourceFile.fileName() == _originallySelectedFilename) {
 				TimePoint jumpToTime = sourceFrameToAnimationTime(frameIndex);
@@ -258,9 +283,39 @@ void FileSource::setListOfFrames(QVector<FileSourceImporter::Frame> frames)
 			}
 		}
 	}
+	else {
+		// If trajectory frames have been inserted, reposition time slider to remain at the previously selected frame.
+		if(!previouslySelectedFrame.sourceFile.isEmpty()) {
+			int currentFrameIndex = animationTimeToSourceFrame(dataset()->animationSettings()->time());
+			if(currentFrameIndex >= 0 && currentFrameIndex < _frames.size()) {
+				if(_frames[currentFrameIndex].sourceFile != previouslySelectedFrame.sourceFile) {
+					for(int frameIndex = 0; frameIndex < _frames.size(); frameIndex++) {
+						if(_frames[frameIndex].sourceFile == previouslySelectedFrame.sourceFile) {
+							TimePoint jumpToTime = sourceFrameToAnimationTime(frameIndex);
+							AnimationSettings* animSettings = dataset()->animationSettings();
+							if(animSettings->animationInterval().contains(jumpToTime))
+								animSettings->setTime(jumpToTime);
+							break;
+						}
+					}
+				}
+			}
+		}
+	}
 
 	// Notify UI that the list of source frames has changed.
 	Q_EMIT framesListChanged();
+}
+
+/******************************************************************************
+* Returns the number of animation frames this pipeline object can provide.
+******************************************************************************/
+int FileSource::numberOfSourceFrames() const 
+{ 
+	if(restrictToFrame() >= 0)
+		return 1;
+
+	return _frames.size(); 
 }
 
 /******************************************************************************
@@ -268,6 +323,9 @@ void FileSource::setListOfFrames(QVector<FileSourceImporter::Frame> frames)
 ******************************************************************************/
 int FileSource::animationTimeToSourceFrame(TimePoint time) const
 {
+	if(restrictToFrame() >= 0)
+		return restrictToFrame();
+
 	const AnimationSettings* anim = dataset()->animationSettings();
 	return (time - anim->frameToTime(playbackStartTime())) *
 			std::max(1, playbackSpeedNumerator()) /
@@ -279,6 +337,9 @@ int FileSource::animationTimeToSourceFrame(TimePoint time) const
 ******************************************************************************/
 TimePoint FileSource::sourceFrameToAnimationTime(int frame) const
 {
+	if(restrictToFrame() >= 0)
+		return 0;
+
 	const AnimationSettings* anim = dataset()->animationSettings();
 	return frame *
 			std::max(1, playbackSpeedDenominator() * anim->ticksPerFrame()) /
@@ -293,7 +354,7 @@ QMap<int, QString> FileSource::animationFrameLabels() const
 {
 	// Check if the cached list of frame labels is still available.
 	// If not, rebuild the list here.
-	if(_frameLabels.empty()) {
+	if(_frameLabels.empty() && restrictToFrame() < 0) {
 		AnimationSettings* animSettings = dataset()->animationSettings();
 		int frameIndex = 0;
 		for(const FileSourceImporter::Frame& frame : _frames) {
@@ -314,11 +375,13 @@ TimeInterval FileSource::validityInterval(const PipelineEvaluationRequest& reque
 	TimeInterval iv = CachingPipelineObject::validityInterval(request);
 
 	// Restrict the validity interval to the duration of the requested source frame.
-	int frame = animationTimeToSourceFrame(request.time());
-	if(frame > 0)
-		iv.intersect(TimeInterval(sourceFrameToAnimationTime(frame), TimePositiveInfinity()));
-	if(frame < numberOfSourceFrames() - 1)
-		iv.intersect(TimeInterval(TimeNegativeInfinity(), std::max(sourceFrameToAnimationTime(frame + 1) - 1, sourceFrameToAnimationTime(frame))));
+	if(restrictToFrame() < 0) {
+		int frame = animationTimeToSourceFrame(request.time());
+		if(frame > 0)
+			iv.intersect(TimeInterval(sourceFrameToAnimationTime(frame), TimePositiveInfinity()));
+		if(frame < frames().size() - 1)
+			iv.intersect(TimeInterval(TimeNegativeInfinity(), std::max(sourceFrameToAnimationTime(frame + 1) - 1, sourceFrameToAnimationTime(frame))));
+	}
 
 	return iv;
 }
@@ -330,7 +393,7 @@ Future<PipelineFlowState> FileSource::evaluateInternal(const PipelineEvaluationR
 {
 	// Convert the animation time to a frame number.
 	int frame = animationTimeToSourceFrame(request.time());
-	int frameCount = numberOfSourceFrames();
+	int frameCount = frames().size();
 
 	// Clamp to frame range.
 	if(frame < 0) frame = 0;
@@ -393,10 +456,12 @@ TimeInterval FileSource::frameTimeInterval(int frame) const
 {
 	OVITO_ASSERT(frame >= 0);
 	TimeInterval interval = TimeInterval::infinite();
-	if(frame > 0)
-		interval.setStart(sourceFrameToAnimationTime(frame));
-	if(frame < frames().size() - 1)
-		interval.setEnd(std::max(sourceFrameToAnimationTime(frame + 1) - 1, sourceFrameToAnimationTime(frame)));
+	if(restrictToFrame() < 0) {
+		if(frame > 0)
+			interval.setStart(sourceFrameToAnimationTime(frame));
+		if(frame < frames().size() - 1)
+			interval.setEnd(std::max(sourceFrameToAnimationTime(frame + 1) - 1, sourceFrameToAnimationTime(frame)));
+	}
 	OVITO_ASSERT(!interval.isEmpty());
 	OVITO_ASSERT(interval.contains(sourceFrameToAnimationTime(frame)));
 	return interval;
@@ -519,7 +584,7 @@ void FileSource::reloadFrame(bool refetchFiles, int frameIndex)
 	// Determine the animation time interval for which the pipeline needs to be updated.
 	// When updating a single frame, we can preserve all frames up to the invalidated one.
 	TimeInterval unchangedInterval = TimeInterval::empty();
-	if(frameIndex > 0)
+	if(frameIndex > 0 && restrictToFrame() < 0)
 		unchangedInterval = TimeInterval(TimeNegativeInfinity(), frameTimeInterval(frameIndex-1).end());
 	
 	// Throw away cached frame data and notify pipeline that an update is in order.
@@ -625,6 +690,21 @@ void FileSource::propertyChanged(const PropertyFieldDescriptor& field)
 		// Inform animation system that global time line length probably changed.
 		notifyDependents(ReferenceEvent::AnimationFramesChanged);
 	}
+	else if(field == PROPERTY_FIELD(autoGenerateFilePattern)) {
+		if(!isBeingLoaded()) {
+			if(!autoGenerateFilePattern())
+				removeWildcardFilePattern();
+			else
+				generateWildcardFilePattern();
+		}
+	}
+	else if(field == PROPERTY_FIELD(restrictToFrame)) {
+		// Invalidate cached frames, because their validity intervals have changed.
+		pipelineCache().invalidate();
+
+		// Inform animation system that global time line length probably changed.
+		notifyDependents(ReferenceEvent::AnimationFramesChanged);
+	}
 	CachingPipelineObject::propertyChanged(field);
 }
 
@@ -649,6 +729,56 @@ bool FileSource::referenceEvent(RefTarget* source, const ReferenceEvent& event)
 	}
 
 	return CachingPipelineObject::referenceEvent(source, event);
+}
+
+/******************************************************************************
+* If the file source currently uses a wildcard search pattern, replaces it
+* with a single concrete filename. 
+******************************************************************************/
+void FileSource::removeWildcardFilePattern()
+{
+	for(const QUrl& url : sourceUrls()) {
+		if(FileSourceImporter::isWildcardPattern(url)) {
+			if(dataCollectionFrame() >= 0 && dataCollectionFrame() < frames().size()) {
+				QUrl currentUrl = frames()[dataCollectionFrame()].sourceFile;
+				if(currentUrl != url) {
+					setSource({currentUrl}, importer(), false);
+					return;
+				}
+			}
+		}
+	}
+}
+
+/******************************************************************************
+* Generates a wildcard file seach pattern unless the file source already uses a pattern. 
+******************************************************************************/
+void FileSource::generateWildcardFilePattern()
+{
+	if(sourceUrls().size() == 1) {
+		const QUrl& url = sourceUrls().front();
+		if(!FileSourceImporter::isWildcardPattern(url)) {
+			
+			QString filename = url.fileName();
+			int startIndex, endIndex;
+			for(endIndex = filename.length() - 1; endIndex >= 0; endIndex--)
+				if(filename.at(endIndex).isNumber()) break;
+
+			if(endIndex >= 0) {
+				for(startIndex = endIndex-1; startIndex >= 0; startIndex--)
+					if(!filename.at(startIndex).isNumber()) break;
+
+				QString wildcardPattern = filename.left(startIndex + 1) + '*' + filename.mid(endIndex + 1);
+				QFileInfo fileInfo(url.path());
+				fileInfo.setFile(fileInfo.dir(), wildcardPattern);
+				QUrl newUrl = url;
+				newUrl.setPath(fileInfo.filePath());
+				OVITO_ASSERT(newUrl.isValid());
+
+				setSource({newUrl}, importer(), true);
+			}	
+		}
+	}
 }
 
 }	// End of namespace

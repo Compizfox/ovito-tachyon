@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Copyright 2013 Alexander Stukowski
+//  Copyright 2020 Alexander Stukowski
 //
 //  This file is part of OVITO (Open Visualization Tool).
 //
@@ -130,6 +130,9 @@ public:
 	/// Returns the child widget that is contained in the rollout.
 	QWidget* content() const { return _content; }
 
+	/// Returns the rollout container widget this rollout belongs to.
+	RolloutContainer* container() const;
+
 	/// Returns how much of rollout contents is visible.
 	int visiblePercentage() const { return _visiblePercentage; }
 
@@ -217,7 +220,7 @@ class OVITO_GUI_EXPORT RolloutContainer : public QScrollArea
 public:
 
 	/// Constructs the rollout container.
-	RolloutContainer(QWidget* parent = 0);
+	RolloutContainer(QWidget* parent = nullptr, MainWindow* mainWindow = nullptr);
 
 	/// Adds a new rollout to the container.
 	Rollout* addRollout(QWidget* content, const QString& title, const RolloutInsertionParameters& param = RolloutInsertionParameters(), const char* helpPage = nullptr);
@@ -228,6 +231,9 @@ public:
 
 	/// Returns the Rollout that hosts the given widget.
 	Rollout* findRolloutFromWidget(QWidget* content) const;
+
+	/// The main window that provides the context for this UI element.
+	MainWindow* mainWindow() const { return _mainWindow; }
 
 protected:
 
@@ -247,6 +253,10 @@ public Q_SLOTS:
 		QTimer::singleShot(0, this, &RolloutContainer::updateRollouts);
 	}
 
+private:
+
+	/// The main window that provides the context for this UI element.
+	MainWindow* _mainWindow = nullptr;
 };
 
 }	// End of namespace

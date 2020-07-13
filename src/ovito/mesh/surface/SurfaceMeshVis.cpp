@@ -747,7 +747,7 @@ void SurfaceMeshVis::PrepareSurfaceEngine::buildCapTriangleMesh()
 
 	int isBoxCornerInside3DRegion = -1;
 
-	// Create caps for each periodic boundary.
+	// Create caps on each side of the simulation with periodic boundary conditions.
 	for(size_t dim = 0; dim < 3; dim++) {
 		if(cell().hasPbc(dim) == false) continue;
 
@@ -783,6 +783,17 @@ void SurfaceMeshVis::PrepareSurfaceEngine::buildCapTriangleMesh()
 					if((bool)isFilledProperty[region] == _reverseOrientation) {
 						// Skip faces that are adjacent to an empty volumetric region.
 						continue;
+					}
+
+					// Also skip any two-sided faces that are part of an interior interface.
+					SurfaceMeshData::face_index oppositeFace = _inputMesh.oppositeFace(face);
+					if(oppositeFace != HalfEdgeMesh::InvalidIndex) {						
+						SurfaceMeshData::region_index oppositeRegion = _inputMesh.faceRegion(oppositeFace);
+						if(oppositeRegion >= 0 && oppositeRegion < isFilledProperty.size()) {
+							if((bool)isFilledProperty[oppositeRegion] != _reverseOrientation) {
+								continue;
+							}
+						}
 					}
 				}
 			}

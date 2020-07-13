@@ -208,7 +208,7 @@ void ActionManager::on_FileOpen_triggered()
 		else
 			defaultPath = dataSet->filePath();
 
-		QString filename = QFileDialog::getOpenFileName(mainWindow(), tr("Load Program State"),
+		QString filename = QFileDialog::getOpenFileName(mainWindow(), tr("Load Session State"),
 				defaultPath, tr("OVITO State Files (*.ovito);;All Files (*)"));
 		if(filename.isEmpty())
 			return;

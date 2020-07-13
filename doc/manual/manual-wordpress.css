@@ -25,7 +25,7 @@ td, th {
 	padding: 5px;
 }
 
-a {
+div.content a {
 	color: rgb(0,0,120);
 	font-weight: bolder;
 }

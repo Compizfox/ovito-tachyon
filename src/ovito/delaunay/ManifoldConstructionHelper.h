@@ -267,7 +267,6 @@ public:
 				SurfaceMeshData::face_index oppositeFace = _mesh.oppositeFace(adjacentMeshFace);
 
 				OVITO_ASSERT(oppositeFace != HalfEdgeMesh::InvalidIndex);
-				OVITO_ASSERT(emptyRegion == HalfEdgeMesh::InvalidIndex || emptyRegion == _mesh.faceRegion(oppositeFace));
 				// The surface mesh face should be bordering an empty and not a filled region.
 				if(_mesh.faceRegion(oppositeFace) >= _filledRegionCount)
 					emptyRegion = _mesh.faceRegion(oppositeFace);
@@ -775,6 +774,7 @@ private:
 		OVITO_ASSERT(_tessellation.getUserField(mirrorFacet.first) == region);
 
 		SurfaceMeshData::face_index adjacentFace = findCellFace(mirrorFacet);
+		OVITO_ASSERT(adjacentFace != HalfEdgeMesh::InvalidIndex);
 		if(adjacentFace == HalfEdgeMesh::InvalidIndex)
 			throw Exception("Cannot construct mesh for this input dataset. Adjacent cell face not found.");
 		return adjacentFace;

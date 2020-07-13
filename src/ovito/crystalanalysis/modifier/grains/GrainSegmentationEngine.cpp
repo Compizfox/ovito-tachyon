@@ -213,7 +213,7 @@ bool GrainSegmentationEngine1::identifyAtomicStructures()
 
 			int numNeighbors = env.num - 1;
 			if (structureType == PTMAlgorithm::OTHER) {
-				numNeighbors = std::min(numNeighbors, MAX_DISORDERED_NEIGHBORS);
+				numNeighbors = std::min(numNeighbors, (int)MAX_DISORDERED_NEIGHBORS);
 			}
 
 			for(int j = 0; j < numNeighbors; j++) {

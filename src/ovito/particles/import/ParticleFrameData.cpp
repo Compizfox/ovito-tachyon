@@ -146,7 +146,8 @@ OORef<DataCollection> ParticleFrameData::handOver(const DataCollection* existing
 					simulationCell().matrix().column(0) +
 					simulationCell().matrix().column(1) +
 					simulationCell().matrix().column(2)).length();
-			cellVis->setCellLineWidth(std::max(cellDiameter * FloatType(1.4e-3), FloatType(1e-8)));
+			cellVis->setDefaultCellLineWidth(std::max(cellDiameter * FloatType(1.4e-3), FloatType(1e-8)));
+			cellVis->setCellLineWidth(cellVis->defaultCellLineWidth());
 		}
 	}
 	else {
@@ -556,12 +557,11 @@ void ParticleFrameData::insertTypes(PropertyObject* typeProperty, TypeList* type
 			}
 			if(ParticleType* particleType = dynamic_object_cast<ParticleType>(elementType)) {
 				if(item.shapeMesh) {
-					TriMeshObject* shapeObject = particleType->shapeMesh();
-					if(!shapeObject) {
-						shapeObject = new TriMeshObject(typeProperty->dataset());
-						particleType->setShapeMesh(shapeObject);
-					}
+					TriMeshObject* shapeObject = new TriMeshObject(typeProperty->dataset());
 					shapeObject->setMesh(item.shapeMesh);
+					
+					particleType = typeProperty->makeMutable(particleType);
+					particleType->setShapeMesh(shapeObject);
 				}
 				else {
 					// Note: Do not automatically reset shape, because we don't want to loose

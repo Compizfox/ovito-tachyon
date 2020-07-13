@@ -81,6 +81,7 @@
 #include <QImage>
 #include <QFont>
 #include <QPainter>
+#include <QPainterPath> 
 #include <QPen>
 #include <QBrush>
 #include <QCommandLineParser>

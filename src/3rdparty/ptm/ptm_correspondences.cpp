@@ -73,6 +73,7 @@ static bool is_single_shell(int type)
     }
     else {
         assert(0);
+        return false;
     }
 }
 
@@ -140,13 +141,13 @@ uint64_t encode_correspondences(int type, int8_t* correspondences)
 
 void decode_correspondences(int type, uint64_t encoded, int8_t* correspondences)
 {
-    int8_t decoded[PTM_MAX_POINTS];
+    int8_t decoded[PTM_MAX_INPUT_POINTS];
 
     if (is_single_shell(type)) {
         index_to_permutation(PTM_MAX_INPUT_POINTS - 1, encoded, decoded);
 
         correspondences[0] = 0;
-        for (int i=0;i<PTM_MAX_POINTS - 1;i++)
+        for (int i=0;i<PTM_MAX_INPUT_POINTS - 1;i++)
             correspondences[i + 1] = decoded[i] + 1;
     }
     else {

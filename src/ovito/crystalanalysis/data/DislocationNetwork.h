@@ -154,6 +154,9 @@ struct DislocationSegment
 	/// The segment that replaces this discarded segment if the two have been merged into one segment.
 	DislocationSegment* replacedWith = nullptr;
 
+	/// A user-defined color assigned to the dislocation segment.
+	Color customColor = Color(-1, -1, -1);
+
 	/// Constructs a new dislocation segment with the given Burgers vector
 	/// and connecting the two dislocation nodes.
 	DislocationSegment(const ClusterVector& b, DislocationNode* forwardNode, DislocationNode* backwardNode) : burgersVector(b) {

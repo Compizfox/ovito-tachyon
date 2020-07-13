@@ -238,6 +238,9 @@ public:
 	/// Creates an asynchronous frame discovery object that scans a file for contained animation frames.
 	virtual FrameFinderPtr createFrameFinder(const FileHandle& file) { return {}; }
 
+	/// Determines whether the URL contains a wildcard pattern.
+	static bool isWildcardPattern(const QUrl& sourceUrl);
+
 Q_SIGNALS:
 
 	/// This signal is emitted by the importer when the value of its isMultiTimestepFile property field changes.
@@ -259,9 +262,6 @@ protected:
 	/// Determines whether the input file should be scanned to discover all contained frames.
 	/// The default implementation returns the value of isMultiTimestepFile().
 	virtual bool shouldScanFileForFrames(const QUrl& sourceUrl) const { return isMultiTimestepFile(); }
-
-	/// Determines whether the URL contains a wildcard pattern.
-	static bool isWildcardPattern(const QUrl& sourceUrl);
 
 private:
 
