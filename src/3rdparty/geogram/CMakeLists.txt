@@ -1,6 +1,6 @@
 #######################################################################################
 #
-#  Copyright 2019 Alexander Stukowski and Technische Universität Darmstadt
+#  Copyright 2020 Alexander Stukowski and Technische Universität Darmstadt
 #
 #  This file is part of OVITO (Open Visualization Tool).
 #

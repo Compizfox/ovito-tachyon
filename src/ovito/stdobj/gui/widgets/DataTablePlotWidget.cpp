@@ -116,7 +116,7 @@ void DataTablePlotWidget::updateDataPlot()
 	// Determine if a legend should be displayed.
 	bool showLegend = false;
 	if(y && !y->componentNames().empty()) {
-		if(plotMode == DataTable::Line)
+		if(plotMode == DataTable::Line || plotMode == DataTable::Histogram)
 			showLegend = true;
 	}
 

@@ -58,6 +58,7 @@ OVITO_STANDARD_PLUGIN(Gui
 		dialogs/FileExporterSettingsDialog.cpp
 		dialogs/ClonePipelineDialog.cpp
 		dialogs/FontSelectionDialog.cpp
+		dialogs/ModalPropertiesEditorDialog.cpp
 		actions/ActionManager.cpp
 		actions/FileActions.cpp
 		actions/ViewportActions.cpp
@@ -66,6 +67,7 @@ OVITO_STANDARD_PLUGIN(Gui
 		actions/ViewportModeAction.cpp
 		dataset/GuiDataSetContainer.cpp
 		dataset/io/FileSourceEditor.cpp
+		dataset/io/FileSourcePlaybackRateEditor.cpp
 		dataset/io/FileImporterEditor.cpp
 		dataset/io/AttributeFileExporterEditor.cpp
 		dataset/animation/controller/TCBInterpolationControllerEditor.cpp

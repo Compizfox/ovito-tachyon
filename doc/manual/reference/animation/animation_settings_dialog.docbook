@@ -71,7 +71,7 @@
            to the length of the loaded simulation sequence(s).
            Setting a custom animation length is useful, for example, if the simulation
            dataset consists of just a static frame (not a trajectory) but you would like to create a
-           <link linkend="usage.animation">camera animation</link> flying around the dataset.
+           <link linkend="usage.animation">camera animation</link> moving around the dataset.
 		      </para></listitem>
       </varlistentry>
 

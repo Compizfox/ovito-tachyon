@@ -50,7 +50,7 @@
     <para>
       In order to make use of this mode, you should reduce the playback rate of the loaded simulation sequence
       such that OVITO will render <emphasis>N</emphasis> output animation frames per input simulation snapshot.
-      See the <link linkend="usage.animation">animation</link> section for instructions how to do this.
+      See <link linkend="scene_objects.file_source.configure_playback">this section</link> on how to do this.
       The <emphasis>Smooth trajectory</emphasis> modifier can then be applied to dynamically compute the particle positions at 
       intermediate sub-frames of the animation.
     </para>

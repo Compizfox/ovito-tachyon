@@ -185,7 +185,7 @@ void Task::unregisterWatcher(TaskWatcher* watcher)
 
 void Task::addContinuationImpl(fu2::unique_function<void(bool)>&& cont, bool defer)
 {
-	if(!isFinished()) {
+	if(!isFinished() && !isCanceled()) {
 		_continuations.push_back(std::move(cont));
 	}
 	else {

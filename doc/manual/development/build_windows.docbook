@@ -7,7 +7,7 @@
          xmlns:xlink="http://www.w3.org/1999/xlink"
          xmlns:xi="http://www.w3.org/2001/XInclude"
          xmlns:ns="http://docbook.org/ns/docbook">
-  <title>Building OVITO on Windows</title>
+  <title>Building OVITO Basic on Windows</title>
 
   <para>
     The required steps are quite involved, in particular those for building/installing the prerequisites, 

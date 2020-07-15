@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Copyright 2013 Alexander Stukowski
+//  Copyright 2020 Alexander Stukowski
 //
 //  This file is part of OVITO (Open Visualization Tool).
 //
@@ -131,6 +131,9 @@ protected:
 	/// The type of unit conversion service, which is used to format the parameter value as a text string.
 	const QMetaObject* _parameterUnitType;
 
+	/// Indicates that the user is currently dragging the spinner using the mouse.
+	bool _isDraggingSpinner = false;
+
 private:
 
 	/// Creates the widgets for this property UI.
@@ -141,5 +144,3 @@ private:
 };
 
 }	// End of namespace
-
-

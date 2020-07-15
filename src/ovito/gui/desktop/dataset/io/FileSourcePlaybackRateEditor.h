@@ -24,43 +24,45 @@
 
 
 #include <ovito/gui/desktop/GUI.h>
-#include <ovito/core/oo/RefTarget.h>
 #include <ovito/gui/desktop/properties/PropertiesEditor.h>
-#include <ovito/gui/desktop/widgets/general/RolloutContainer.h>
 
 namespace Ovito {
 
-/******************************************************************************
-* This panel lets the user edit the properties of some RefTarget derived object.
-******************************************************************************/
-class OVITO_GUI_EXPORT PropertiesPanel : public RolloutContainer
+/**
+ * A properties editor for the FileSource object.
+ */
+class FileSourcePlaybackRateEditor : public PropertiesEditor
 {
 	Q_OBJECT
+	OVITO_CLASS(FileSourcePlaybackRateEditor)
 
 public:
 
-	/// Constructs the panel.
-	PropertiesPanel(QWidget* parent, MainWindow* mainWindow);
-
-	/// Destructs the panel.
-	virtual ~PropertiesPanel();
-
-	/// Returns the target object being edited in the panel.
-	RefTarget* editObject() const;
-
-	/// Sets the target object being edited in the panel.
-	void setEditObject(RefTarget* editObject, OORef<PropertiesEditor> newEditor = {});
-
-	/// Returns the editor that is responsible for the object being edited.
-	PropertiesEditor* editor() const { return _editor; }
+	/// Default constructor.
+	Q_INVOKABLE FileSourcePlaybackRateEditor() {}
 
 protected:
 
-	/// The editor for the current object.
-	OORef<PropertiesEditor> _editor;
+	/// Creates the user interface controls for the editor.
+	virtual void createUI(const RolloutInsertionParameters& rolloutParams) override;
 
-	/// The main window this properties panel is associated with.
-	MainWindow* _mainWindow;
+private Q_SLOTS:
+
+	/// Updates the displayed information.
+	void updateInformation();
+
+	/// Updates the list of trajectory frames displayed in the UI.
+	void updateFramesList();
+
+private:
+
+	QComboBox* _framesListBox;
+	QStringListModel* _framesListModel;
+	QLabel* _numTrajectoryFramesDisplay;
+	QLabel* _numAnimationFramesDisplay;
+	QRadioButton* _trajectoryModeBtn;
+	QRadioButton* _staticFrameModeBtn;
+	IntegerParameterUI* _staticFrameNumberUI;
 };
 
 }	// End of namespace
