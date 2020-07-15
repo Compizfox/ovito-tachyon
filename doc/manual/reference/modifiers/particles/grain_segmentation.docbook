@@ -146,7 +146,7 @@
         <term>Minimum grain size</term>
         <listitem>
           <para>
-            Grains below this size are dissolved. The atoms contained within are set as 'orphan' atoms (see 'Adopt orphan atoms').
+            Grains below this size are dissolved. The atoms contained within are set as 'orphan' atoms (see option <emphasis>Adopt orphan atoms</emphasis>).
           </para>
         </listitem>
       </varlistentry>
@@ -162,22 +162,22 @@
       </varlistentry>
 
       <varlistentry>
-        <term>Color particles by grain</term>
+        <term>Handle coherent interfaces/stacking faults</term>
         <listitem>
           <para>
-            This option assigns each grain a unique color for easier visualization of the grain structure.
+            This option lets the algorithm merge atoms having hexagonal crystal structures (e.g. HCP) with atoms having cubic  
+            structures (e.g. FCC) at stacking faults or other types of coherent crystal interfaces. 
+            Thus, stacking faults will become part of the surrounding grain if this option is enabled. 
+            Furthermore, atoms belonging to the cores of coherent twin boundaries will be attributed to one of the two adjacent grains. 
           </para>
         </listitem>
       </varlistentry>
 
       <varlistentry>
-        <term>Handle stacking faults</term>
+        <term>Color particles by grain</term>
         <listitem>
           <para>
-            This option lets the algorithm merge atoms having hexagonal crystal structures (e.g. HCP) with atoms having cubic  
-            structures (e.g. FCC) at coherent crystal interfaces. Thus, statcking faults will become part of 
-            the surrounding grain. Furthermore, atoms of coherent twin boundaries will be attributed to one of the two adjacent 
-            grains. 
+            This option assigns each grain a unique color for easier visualization of the grain structure.
           </para>
         </listitem>
       </varlistentry>

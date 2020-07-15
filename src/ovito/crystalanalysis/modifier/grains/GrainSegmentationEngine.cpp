@@ -178,7 +178,7 @@ bool GrainSegmentationEngine1::identifyAtomicStructures()
 
 	setProgressValue(0);
 	setProgressMaximum(_numParticles);
-	setProgressText(GrainSegmentationModifier::tr("Getting neighbors"));
+	setProgressText(GrainSegmentationModifier::tr("Grain segmentation - building neighbor lists"));
 
 	ConstPropertyAccess<qlonglong> correspondenceArray(correspondences());
 	ConstPropertyAccess<int> structuresArray(structureTypes());
