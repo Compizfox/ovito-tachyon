@@ -166,15 +166,15 @@ void quat_rot(double* r, double* a, double* b)
 static void rotate_and_flip(double* q, double* r)
 {
 	double temp[4];
-        quat_rot(q, r, temp);
+    quat_rot(q, r, temp);
 	memcpy(q, temp, 4 * sizeof(double));
-        if (q[0] < 0)
-        {
+    if (q[0] < 0)
+    {
 		q[0] = -q[0];
 		q[1] = -q[1];
 		q[2] = -q[2];
 		q[3] = -q[3];
-        }
+    }
 }
 
 static int rotate_quaternion_into_fundamental_zone(int num_generators, const double (*generator)[4], double* q)
@@ -424,11 +424,11 @@ double quat_disorientation_hcp_conventional(double* q0, double* q1)
 	return acos(quat_quick_disorientation_hcp_conventional(q0, q1));
 }
 
-double quat_disorientation_fcc_hcp(double* qfcc, double* qhcp)
+double quat_disorientation_hexagonal_to_cubic(double* qfcc, double* qhcp)
 {
 #if 0
-	double map_hcp_to_fcc[2][4] = {{0.11591690,  0.3647052, 0.27984814,  0.88047624},
-                                   {0.45576804, -0.5406251, 0.70455634, -0.06000300}};
+	double map_hcp_to_fcc[2][4] = {{-0.11591690,  0.3647052, 0.27984814,  0.88047624},
+                                   {-0.45576804, -0.5406251, 0.70455634, -0.06000300}};
 #endif
 
     double map_hcp_to_fcc[2][4] = {{+sqrt(-sqrt(6)/3 - sqrt(2)/2 + sqrt(3)/3 + 1)/2,
@@ -455,6 +455,40 @@ double quat_disorientation_fcc_hcp(double* qfcc, double* qhcp)
 
     memcpy(qhcp, closest, 4 * sizeof(double));
 	rotate_quaternion_into_cubic_fundamental_zone(qhcp);
+    return min_disorientation;
+}
+
+double quat_disorientation_cubic_to_hexagonal(double* qhcp, double* qfcc)
+{
+    double map_fcc_to_hcp[2][4] = {{-sqrt(-sqrt(6)/3 - sqrt(2)/2 + sqrt(3)/3 + 1)/2,
+                                    +sqrt(-sqrt(2)/2 - sqrt(3)/3 + sqrt(6)/3 + 1)/2,
+                                    +sqrt(-sqrt(6)/3 - sqrt(3)/3 + sqrt(2)/2 + 1)/2,
+                                    +sqrt(+sqrt(3)/3 + sqrt(2)/2 + sqrt(6)/3 + 1)/2  },
+
+                                   {-sqrt(-sqrt(3)/3 + sqrt(6)/6 + 1)/2,
+                                    -sqrt(-sqrt(6)/6 + sqrt(3)/3 + 1)/2,
+                                    +sqrt(+sqrt(6)/6 + sqrt(3)/3 + 1)/2,
+                                    -sqrt(-sqrt(3)/3 - sqrt(6)/6 + 1)/2}   };
+    double closest[4];
+
+    double min_disorientation = INFINITY;
+    for (int j=0;j<24;j++) {
+	    double adjusted[4];
+	    ptm::quat_rot(qfcc, (double*)generator_cubic[j], adjusted);
+
+	    for (int i=0;i<2;i++) {
+		    double rotated[4];
+		    ptm::quat_rot(adjusted, map_fcc_to_hcp[i], rotated);
+		    double disorientation = ptm::quat_disorientation_hcp_conventional(qhcp, rotated);
+            if (disorientation < min_disorientation) {
+                memcpy(closest, rotated, 4 * sizeof(double));
+        		min_disorientation = disorientation;
+            }
+	    }
+    }
+
+    memcpy(qfcc, closest, 4 * sizeof(double));
+	rotate_quaternion_into_hcp_conventional_fundamental_zone(qfcc);
     return min_disorientation;
 }
 }

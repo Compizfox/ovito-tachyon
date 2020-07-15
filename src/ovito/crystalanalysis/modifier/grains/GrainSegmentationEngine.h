@@ -213,6 +213,7 @@ public:
 		FloatType distance = std::numeric_limits<FloatType>::lowest();
 		FloatType disorientation = std::numeric_limits<FloatType>::lowest();
 		size_t size = 0;
+        FloatType gm_size = 0;
 		Quaternion orientation;
 	};
 
@@ -322,10 +323,15 @@ private:
 		if (a == b) return true;
 		if (!_handleBoundaries) return false;
 
-		return (a == PTMAlgorithm::FCC && b == PTMAlgorithm::HCP) || (a == PTMAlgorithm::HCP && b == PTMAlgorithm::FCC);
+        if (a == PTMAlgorithm::FCC && b == PTMAlgorithm::HCP) return true;
+        if (a == PTMAlgorithm::HCP && b == PTMAlgorithm::FCC) return true;
+        if (a == PTMAlgorithm::CUBIC_DIAMOND && b == PTMAlgorithm::HEX_DIAMOND) return true;
+        if (a == PTMAlgorithm::HEX_DIAMOND && b == PTMAlgorithm::CUBIC_DIAMOND) return true;
+        return false;
 	}
 
-	bool interface_cubic_hex(NeighborBond& bond, FloatType& disorientation, Quaternion& output, size_t& index);
+	bool interface_cubic_hex(NeighborBond& bond, bool parent_fcc, bool parent_dcub,
+								FloatType& disorientation, Quaternion& output, size_t& index);
 
 	// Converts a disorientation to an edge weight for Node Pair Sampling algorithm
 	static FloatType calculateGraphWeight(FloatType disorientation) {

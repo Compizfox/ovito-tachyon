@@ -41,49 +41,62 @@ FloatType calculate_median(std::vector< FloatType >& data)
 	return median;
 }
 
-std::vector< FloatType > theil_sen_estimator(size_t num_samples,
-                                             std::vector< FloatType >& xs, std::vector< FloatType >& ys,
-											 FloatType& gradient, FloatType& intercept)
+void weighted_linear_regression(std::vector< FloatType >& weights, std::vector< FloatType >& xs, std::vector< FloatType >& ys,
+								FloatType& gradient, FloatType& intercept)
 {
-	std::random_device rd;
-	std::mt19937 gen(rd());
-	std::uniform_int_distribution<> dis(0, xs.size() - 1);
-
-	// Fit gradient (median of random gradient samples)
-	std::vector< FloatType > gradients;
-	for (size_t it=0;it<num_samples;it++) {
-		size_t i = dis(gen);
-		size_t j = i;
-		while (i == j) {
-			j = dis(gen);
-		}
-
-		if (xs[j] < xs[i]) {
-			std::swap(i, j);
-		}
-
-		FloatType dx = xs[j] - xs[i];
-		FloatType dy = ys[j] - ys[i];
-		gradients.push_back(dy / dx);
+	// Normalize weights
+	FloatType wsum = 0;
+	for (auto w: weights) {
+		wsum += w;
 	}
 
-	gradient = calculate_median(gradients);
-
-	// Fit intercept (median of residuals)
-	std::vector< FloatType > residuals;
-    for (size_t i=0;i<xs.size();i++) {
-		residuals.push_back(ys[i] - gradient * xs[i]);
+	for (size_t i=0;i<weights.size();i++) {
+		weights[i] /= wsum;
 	}
 
-	intercept = calculate_median(residuals);
-	for (size_t i=0;i<residuals.size();i++) {
-		residuals[i] -= intercept;
+	// Calculate means
+	FloatType xmean = 0, ymean = 0;
+	for (size_t i=0;i<weights.size();i++) {
+		xmean += weights[i] * xs[i];
+		ymean += weights[i] * ys[i];
+	}
+
+	// Calculate relevant covariance elements
+	FloatType sum_xx = 0, sum_xy = 0;
+	for (size_t i=0;i<weights.size();i++) {
+		sum_xx += weights[i] * (xs[i] - xmean) * (xs[i] - xmean);
+		sum_xy += weights[i] * (xs[i] - xmean) * (ys[i] - ymean);
+	}
+
+	// Calculate gradient and intercept
+	gradient = sum_xy / sum_xx;
+	intercept = ymean - gradient * xmean;
+}
+
+std::vector< FloatType > least_absolute_deviations(std::vector< FloatType >& weights, std::vector< FloatType >& xs, std::vector< FloatType >& ys,
+													 FloatType& gradient, FloatType& intercept)
+{
+	std::vector< FloatType > residuals(weights.size());
+	std::vector< FloatType > w(weights);
+
+	// Iteratively-reweighted least squares
+	for (int it=0;it<100;it++) {
+		weighted_linear_regression(w, xs, ys, gradient, intercept);
+
+		// Update residuals and weights
+		for (size_t i=0;i<xs.size();i++) {
+			FloatType prediction = gradient * xs[i] + intercept;
+			FloatType r = std::abs(ys[i] - prediction);
+			residuals[i] = r;
+			w[i] = weights[i] / std::max(1E-4, r);
+		}
 	}
 
 	return residuals;
 }
 
 } // End of anonymous namespace
+
 
 /******************************************************************************
 * Calculate a threshold suggestion
@@ -94,72 +107,45 @@ class Regressor
 {
 public:
 
-    FloatType gradient = 0, intercept = 0;
-    FloatType mean_absolute_deviation = 0;
-    std::vector< FloatType > residuals;
-    std::vector< FloatType > dsize;
-    std::vector< FloatType > medianDistance;     // median of y values for each dsize
+	FloatType gradient = 0, intercept = 0;
+	FloatType mean_absolute_deviation = 0;
+	std::vector< FloatType > residuals;
+	std::vector< FloatType > xs;
+	std::vector< FloatType > ys;
+	std::vector< FloatType > weights;
 
-    Regressor(std::vector<GrainSegmentationEngine1::DendrogramNode>& dendrogram) {
-        if (dendrogram.size() == 0)
-            return;
+	Regressor(std::vector<GrainSegmentationEngine1::DendrogramNode>& dendrogram)
+	{
+		if (dendrogram.size() == 0)
+			return;
 
-	    // Transform the data into x = log size, y = log median distance
-	    size_t start = 0, currentSize = dendrogram[0].size;
-	    for(size_t i=0;i<dendrogram.size();i++) {
-		    auto node = dendrogram[i];
+		for (auto node: dendrogram) {
+			weights.push_back(node.gm_size);
+			xs.push_back(log(node.gm_size));
+			ys.push_back(log(node.distance));
+		}
 
-		    if (node.size != currentSize) {
-			    size_t count = i - start;
-			    FloatType median = dendrogram[start + count / 2].distance;
-			    if (count % 2 == 0) {
-				    median += dendrogram[start + count / 2 - 1].distance;
-				    median /= 2;
-			    }
-			    dsize.push_back(log(currentSize));
-                medianDistance.push_back(log(median));
+		residuals = least_absolute_deviations(weights, xs, ys, gradient, intercept);
+		mean_absolute_deviation = calculate_median(residuals);
+	}
 
-			    currentSize = node.size;
-			    start = i;
-		    }
-	    }
+	FloatType calculate_threshold(std::vector<GrainSegmentationEngine1::DendrogramNode>& dendrogram, FloatType cutoff)
+	{
+		// Select the threshold as the inlier with the largest distance.
+		FloatType threshold = 0;
+		for(auto node : dendrogram) {
+			FloatType x = log(node.gm_size);
+			FloatType y = log(node.distance);
 
-	    size_t count = dendrogram.size() - start;
-	    FloatType median = dendrogram[start + count / 2].distance;
-	    if (count % 2 == 0) {
-		    median += dendrogram[start + count / 2 - 1].distance;
-		    median /= 2;
-	    }
-	    dsize.push_back(log(currentSize));
-        medianDistance.push_back(log(median));
+			FloatType prediction = x * gradient + intercept;
+			FloatType residual = y - prediction;
+			if (residual < cutoff * mean_absolute_deviation) {
+				threshold = std::max(threshold, y);
+			}
+		}
 
-	    // Use Theil-Sen estimator to perform a robust linear regression
-	    residuals = theil_sen_estimator(100000, dsize, medianDistance, gradient, intercept);
-	    for (size_t i=0;i<residuals.size();i++) {
-		    residuals[i] = fabs(residuals[i]);
-	    }
-
-	    mean_absolute_deviation = calculate_median(residuals);
-    }
-
-    FloatType calculate_threshold(std::vector<GrainSegmentationEngine1::DendrogramNode>& dendrogram, FloatType cutoff) {
-
-        // Select the threshold as the inlier with the largest distance.
-	    FloatType threshold = 0;
-	    for(auto node : dendrogram) {
-		    FloatType x = log(node.size);
-		    FloatType y = log(node.distance);
-
-		    FloatType prediction = x * gradient + intercept;
-		    FloatType residual = y - prediction;
-
-		    if (residual < cutoff * mean_absolute_deviation) {
-			    threshold = std::max(threshold, y);
-		    }
-	    }
-
-	    return threshold;
-    }
+		return threshold;
+	}
 };
 
 }	// End of namespace

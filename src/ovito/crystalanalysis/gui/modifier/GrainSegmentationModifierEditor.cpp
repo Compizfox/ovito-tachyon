@@ -89,13 +89,13 @@ void GrainSegmentationModifierEditor::createUI(const RolloutInsertionParameters&
 	BooleanParameterUI* orphanAdoptionUI = new BooleanParameterUI(this, PROPERTY_FIELD(GrainSegmentationModifier::orphanAdoption));
 	sublayout2->addWidget(orphanAdoptionUI->checkBox(), 0, 0, 1, 2);
 
-	// Grain coloring
-	BooleanParameterUI* colorParticlesByGrainUI = new BooleanParameterUI(this, PROPERTY_FIELD(GrainSegmentationModifier::colorParticlesByGrain));
-	sublayout2->addWidget(colorParticlesByGrainUI->checkBox(), 1, 0, 1, 2);
-
 	// Stacking fault handling
 	BooleanParameterUI* handleCoherentInterfacesUI = new BooleanParameterUI(this, PROPERTY_FIELD(GrainSegmentationModifier::handleCoherentInterfaces));
-	sublayout2->addWidget(handleCoherentInterfacesUI->checkBox(), 2, 0, 1, 2);
+	sublayout2->addWidget(handleCoherentInterfacesUI->checkBox(), 1, 0, 1, 2);
+
+	// Grain coloring
+	BooleanParameterUI* colorParticlesByGrainUI = new BooleanParameterUI(this, PROPERTY_FIELD(GrainSegmentationModifier::colorParticlesByGrain));
+	sublayout2->addWidget(colorParticlesByGrainUI->checkBox(), 2, 0, 1, 2);
 
 	// Output bonds
 	BooleanParameterUI* outputBondsUI = new BooleanParameterUI(this, PROPERTY_FIELD(GrainSegmentationModifier::outputBonds));
