@@ -30,9 +30,7 @@
     <para>
       This modifier and the underlying algorithm are still considered experimental. Please use this 
       early preview version with caution and help us improve the algorithm by reporting any issues you may observe when applying it to your simulations.
-      This documentation page is only preliminary and will be further expanded in a future version of OVITO. 
-      Peter Mahler Larsen is the lead author of the grain segmentation algorithm and can be contacted 
-      either directly or through the official OVITO tech support channels if needed.
+      This documentation page is only preliminary and will be further expanded in a future version of OVITO.
     </para>
   </note>
 
