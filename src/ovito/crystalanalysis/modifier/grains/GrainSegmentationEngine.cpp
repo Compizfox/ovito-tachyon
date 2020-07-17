@@ -616,23 +616,26 @@ fclose(fout);
 			}
 		}
 
-		// Sort dendrogram entries by distance.
-		boost::sort(_dendrogram, [](const DendrogramNode& a, const DendrogramNode& b) { return a.distance < b.distance; });
-
 		auto regressor = ThresholdSelection::Regressor(_dendrogram);
 		_suggestedMergingThreshold = regressor.calculate_threshold(_dendrogram, 1.5);
 
 		// Create PropertyStorage objects for the output plot.
-		auto size = regressor.residuals.size();
-		PropertyAccess<FloatType> logMergeSizeArray = _logMergeSize = std::make_shared<PropertyStorage>(size, PropertyStorage::Float, 1, 0, GrainSegmentationModifier::tr("Log geometric merge size"), false, DataTable::XProperty);
-		PropertyAccess<FloatType> logMergeDistanceArray = _logMergeDistance = std::make_shared<PropertyStorage>(size, PropertyStorage::Float, 1, 0, GrainSegmentationModifier::tr("Log merge distance"), false, DataTable::YProperty);
+		numPlot = 0;
+		for (auto y: regressor.ys) {
+			numPlot += (y > 0) ? 1 : 0; // plot positive distances only, for clarity
+		}
+
+		PropertyAccess<FloatType> logMergeSizeArray = _logMergeSize = std::make_shared<PropertyStorage>(numPlot, PropertyStorage::Float, 1, 0, GrainSegmentationModifier::tr("Log geometric merge size"), false, DataTable::XProperty);
+		PropertyAccess<FloatType> logMergeDistanceArray = _logMergeDistance = std::make_shared<PropertyStorage>(numPlot, PropertyStorage::Float, 1, 0, GrainSegmentationModifier::tr("Log merge distance"), false, DataTable::YProperty);
 
 		// Generate output data plot points from dendrogram data.
 		FloatType* logMergeDistanceIter = logMergeDistanceArray.begin();
 		FloatType* logMergeSizeIter = logMergeSizeArray.begin();
-		for (size_t i=0;i<size;i++) {
-			*logMergeSizeIter++ = regressor.xs[i];
-			*logMergeDistanceIter++ = regressor.ys[i];
+		for (size_t i=0;i<regressor.residuals.size();i++) {
+			if (regressor.ys[i] > 0) {
+				*logMergeSizeIter++ = regressor.xs[i];
+				*logMergeDistanceIter++ = regressor.ys[i];
+			}
 		}
 
 	}
