@@ -20,20 +20,20 @@
 //
 ////////////////////////////////////////////////////////////////////////////////////////
 
-#include <ovito/gui/GUI.h>
-#include <ovito/gui/properties/BooleanParameterUI.h>
-#include <ovito/gui/properties/BooleanGroupBoxParameterUI.h>
-#include <ovito/gui/properties/IntegerParameterUI.h>
-#include <ovito/gui/properties/FloatParameterUI.h>
-#include <ovito/gui/viewport/input/ViewportInputManager.h>
-#include <ovito/gui/viewport/input/ViewportInputMode.h>
-#include <ovito/gui/viewport/ViewportWindow.h>
-#include <ovito/gui/actions/ViewportModeAction.h>
-#include <ovito/gui/mainwin/MainWindow.h>
+#include <ovito/gui/base/GUIBase.h>
+#include <ovito/gui/desktop/properties/BooleanParameterUI.h>
+#include <ovito/gui/desktop/properties/BooleanGroupBoxParameterUI.h>
+#include <ovito/gui/desktop/properties/IntegerParameterUI.h>
+#include <ovito/gui/desktop/properties/FloatParameterUI.h>
+#include <ovito/gui/base/viewport/ViewportInputManager.h>
+#include <ovito/gui/base/viewport/ViewportInputMode.h>
+#include <ovito/gui/desktop/viewport/ViewportWindow.h>
+#include <ovito/gui/desktop/actions/ViewportModeAction.h>
+#include <ovito/gui/desktop/mainwin/MainWindow.h>
 #include <ovito/tachyon/renderer/TachyonRenderer.h>
 #include "TachyonRendererEditor.h"
 
-namespace Ovito { namespace Tachyon { OVITO_BEGIN_INLINE_NAMESPACE(Internal)
+namespace Ovito { namespace Tachyon {
 
 IMPLEMENT_OVITO_CLASS(TachyonRendererEditor);
 SET_OVITO_OBJECT_EDITOR(TachyonRenderer, TachyonRendererEditor);
@@ -49,7 +49,7 @@ public:
 	PickFocalLengthInputMode(TachyonRendererEditor* editor) : ViewportInputMode(editor), _editor(editor) {}
 
 	/// Handles the mouse move events for a Viewport.
-	virtual void mouseMoveEvent(ViewportWindow* vpwin, QMouseEvent* event) override {
+	virtual void mouseMoveEvent(ViewportWindowInterface* vpwin, QMouseEvent* event) override {
 
 		// Change mouse cursor while hovering over an object.
 		setCursor(vpwin->pick(event->localPos()).isValid() ? SelectionMode::selectionCursor() : QCursor());
@@ -58,7 +58,7 @@ public:
 	}
 
 	/// Handles the mouse up events for a Viewport.
-	virtual void mouseReleaseEvent(ViewportWindow* vpwin, QMouseEvent* event) override {
+	virtual void mouseReleaseEvent(ViewportWindowInterface* vpwin, QMouseEvent* event) override {
 		if(event->button() == Qt::LeftButton) {
 			ViewportPickResult pickResult = vpwin->pick(event->localPos());
 			if(pickResult.isValid() && vpwin->viewport()->isPerspectiveProjection()) {
@@ -80,13 +80,13 @@ protected:
 	/// This is called by the system when the input handler has become active.
 	virtual void activated(bool temporary) override {
 		ViewportInputMode::activated(temporary);
-		inputManager()->mainWindow()->statusBar()->showMessage(
+		inputManager()->mainWindow()->showStatusBarMessage(
 				tr("Click on an object in the viewport to set the camera's focal length."));
 	}
 
 	/// This is called by the system after the input handler is no longer the active handler.
 	virtual void deactivated(bool temporary) override {
-		inputManager()->mainWindow()->statusBar()->clearMessage();
+		inputManager()->mainWindow()->clearStatusBarMessage();
 		ViewportInputMode::deactivated(temporary);
 	}
 
@@ -197,6 +197,5 @@ void TachyonRendererEditor::createUI(const RolloutInsertionParameters& rolloutPa
 	mainLayout->addWidget(label);
 }
 
-OVITO_END_INLINE_NAMESPACE
 }	// End of namespace
 }	// End of namespace

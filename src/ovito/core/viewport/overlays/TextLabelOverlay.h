@@ -29,6 +29,7 @@
 #include <ovito/core/dataset/pipeline/PipelineEvaluation.h>
 #include <ovito/core/rendering/FrameBuffer.h>
 #include "ViewportOverlay.h"
+#include <QPainterPath>
 
 namespace Ovito {
 

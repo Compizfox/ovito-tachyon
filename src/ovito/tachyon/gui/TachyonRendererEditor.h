@@ -23,11 +23,11 @@
 #pragma once
 
 
-#include <ovito/gui/GUI.h>
-#include <ovito/gui/properties/PropertiesEditor.h>
+#include <ovito/gui/base/GUIBase.h>
+#include <ovito/gui/desktop/properties/PropertiesEditor.h>
 #include <ovito/core/oo/RefTarget.h>
 
-namespace Ovito { namespace Tachyon { OVITO_BEGIN_INLINE_NAMESPACE(Internal)
+namespace Ovito { namespace Tachyon {
 
 /*
  * \brief The UI component for the TachyonRenderer class.
@@ -48,7 +48,6 @@ protected:
 	virtual void createUI(const RolloutInsertionParameters& rolloutParams) override;
 };
 
-OVITO_END_INLINE_NAMESPACE
 }	// End of namespace
 }	// End of namespace
 

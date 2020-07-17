@@ -26,6 +26,7 @@
 #include <ovito/core/Core.h>
 #include <ovito/core/rendering/FrameBuffer.h>
 #include "ViewportOverlay.h"
+#include <QPainterPath>
 
 namespace Ovito {
 

@@ -27,6 +27,7 @@
 #include <ovito/stdmod/modifiers/ColorCodingModifier.h>
 #include <ovito/core/viewport/overlays/ViewportOverlay.h>
 #include <ovito/core/rendering/FrameBuffer.h>
+#include <QPainterPath>
 
 namespace Ovito { namespace StdMod {
 

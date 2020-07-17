@@ -20,14 +20,13 @@
 //
 ////////////////////////////////////////////////////////////////////////////////////////
 
-#include <ovito/core/Core.h>
+#include <ovito/gui/base/GUIBase.h>
 #include <ovito/core/rendering/FrameBuffer.h>
 #include <ovito/core/rendering/RenderSettings.h>
 #include <ovito/core/oo/CloneHelper.h>
 #include <ovito/core/app/Application.h>
 #include <ovito/core/dataset/scene/PipelineSceneNode.h>
 #include <ovito/core/utilities/concurrent/Task.h>
-#include <ovito/core/utilities/concurrent/AsyncOperation.h>
 #include <ovito/core/utilities/units/UnitsManager.h>
 #include "TachyonRenderer.h"
 
@@ -122,7 +121,7 @@ bool TachyonRenderer::startRender(DataSet* dataset, RenderSettings* settings)
 /******************************************************************************
 * Renders a single animation frame into the given frame buffer.
 ******************************************************************************/
-bool TachyonRenderer::renderFrame(FrameBuffer* frameBuffer, StereoRenderingTask stereoTask, AsyncOperation& operation)
+bool TachyonRenderer::renderFrame(FrameBuffer* frameBuffer, StereoRenderingTask stereoTask, SynchronousOperation operation)
 {
 	operation.setProgressText(tr("Handing scene data to Tachyon renderer"));
 
@@ -222,7 +221,7 @@ bool TachyonRenderer::renderFrame(FrameBuffer* frameBuffer, StereoRenderingTask 
 	rt_camera_raydepth(_rtscene, 50);
 
 	// Export Ovito data objects to Tachyon scene.
-	if(!renderScene(operation))
+	if(!renderScene(operation.subOperation()))
 		return false;
 
 	// Render scene.
