@@ -76,17 +76,21 @@ void ClusterAnalysisModifierEditor::createUI(const RolloutInsertionParameters& r
 	BooleanParameterUI* computeCentersOfMassUI = new BooleanParameterUI(this, PROPERTY_FIELD(ClusterAnalysisModifier::computeCentersOfMass));
 	gridlayout->addWidget(computeCentersOfMassUI->checkBox(), 5, 0, 1, 3);
 
+	// Compute centers of mass.
+	BooleanParameterUI* computeRadiusOfGyrationUI = new BooleanParameterUI(this, PROPERTY_FIELD(ClusterAnalysisModifier::computeRadiusOfGyration));
+	gridlayout->addWidget(computeRadiusOfGyrationUI->checkBox(), 6, 0, 1, 3);
+
 	// Unwrap particle coordinates.
 	BooleanParameterUI* unwrapParticleCoordinatesUI = new BooleanParameterUI(this, PROPERTY_FIELD(ClusterAnalysisModifier::unwrapParticleCoordinates));
-	gridlayout->addWidget(unwrapParticleCoordinatesUI->checkBox(), 6, 0, 1, 3);
+	gridlayout->addWidget(unwrapParticleCoordinatesUI->checkBox(), 7, 0, 1, 3);
 
 	// Color particles by cluster.
 	BooleanParameterUI* colorParticlesByClusterUI = new BooleanParameterUI(this, PROPERTY_FIELD(ClusterAnalysisModifier::colorParticlesByCluster));
-	gridlayout->addWidget(colorParticlesByClusterUI->checkBox(), 7, 0, 1, 3);
+	gridlayout->addWidget(colorParticlesByClusterUI->checkBox(), 8, 0, 1, 3);
 
 	// Use only selected particles.
 	BooleanParameterUI* onlySelectedParticlesUI = new BooleanParameterUI(this, PROPERTY_FIELD(ClusterAnalysisModifier::onlySelectedParticles));
-	gridlayout->addWidget(onlySelectedParticlesUI->checkBox(), 8, 0, 1, 3);
+	gridlayout->addWidget(onlySelectedParticlesUI->checkBox(), 9, 0, 1, 3);
 
 	layout->addLayout(gridlayout);
 
@@ -94,7 +98,7 @@ void ClusterAnalysisModifierEditor::createUI(const RolloutInsertionParameters& r
 	layout->addSpacing(6);
 	layout->addWidget(statusLabel());
 
-	OpenDataInspectorButton* openDataInspectorBtn = new OpenDataInspectorButton(this, tr("Show list of clusters"), {}, 1); // Note: Mode hint "1" is used to switch to the data table view.
+	OpenDataInspectorButton* openDataInspectorBtn = new OpenDataInspectorButton(this, tr("Show list of clusters"), QStringLiteral("clusters"), 1); // Note: Mode hint "1" is used to switch to the data table view.
 	layout->addWidget(openDataInspectorBtn);
 }
 

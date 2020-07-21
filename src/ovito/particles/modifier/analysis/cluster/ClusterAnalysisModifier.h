@@ -80,18 +80,21 @@ private:
 	public:
 
 		/// Constructor.
-		ClusterAnalysisEngine(ParticleOrderingFingerprint fingerprint, ConstPropertyPtr positions, const SimulationCell& simCell, bool sortBySize, bool unwrapParticleCoordinates, bool computeCentersOfMass, ConstPropertyPtr selection, const ConstPropertyPtr& periodicImageBondProperty, ConstPropertyPtr bondTopology) :
+		ClusterAnalysisEngine(ParticleOrderingFingerprint fingerprint, ConstPropertyPtr positions, ConstPropertyPtr masses, const SimulationCell& simCell, bool sortBySize, bool unwrapParticleCoordinates, bool computeCentersOfMass, bool computeRadiusOfGyration, ConstPropertyPtr selection, PropertyPtr periodicImageBondProperty, ConstPropertyPtr bondTopology) :
 			_positions(positions),
+			_masses(std::move(masses)),
 			_simCell(simCell),
 			_sortBySize(sortBySize),
 			_unwrapParticleCoordinates(unwrapParticleCoordinates),
-			_computeCentersOfMass(computeCentersOfMass),
-			_unwrappedPositions((unwrapParticleCoordinates || computeCentersOfMass) ? std::make_shared<PropertyStorage>(*positions) : nullptr),
+			_unwrappedPositions((unwrapParticleCoordinates || computeCentersOfMass || computeRadiusOfGyration) ? std::make_shared<PropertyStorage>(*positions) : nullptr),
 			_centersOfMass(computeCentersOfMass ? std::make_shared<PropertyStorage>(0, PropertyStorage::Float, 3, 0, QStringLiteral("Center of Mass"), true, 
 				0, QStringList() << QStringLiteral("X") << QStringLiteral("Y") << QStringLiteral("Z")) : nullptr),
+			_radiiOfGyration(computeRadiusOfGyration ? std::make_shared<PropertyStorage>(0, PropertyStorage::Float, 1, 0, QStringLiteral("Radius of Gyration"), true) : nullptr),
+			_gyrationTensors(computeRadiusOfGyration ? std::make_shared<PropertyStorage>(0, PropertyStorage::Float, 6, 0, QStringLiteral("Gyration Tensor"), true,
+				0, QStringList() << QStringLiteral("XX") << QStringLiteral("YY") << QStringLiteral("ZZ") << QStringLiteral("XY") << QStringLiteral("XZ") << QStringLiteral("YZ")) : nullptr),
 			_selection(std::move(selection)),
-			_periodicImageBondProperty(periodicImageBondProperty ? std::make_shared<PropertyStorage>(*periodicImageBondProperty) : nullptr),
-			_bondTopology(bondTopology),
+			_periodicImageBondProperty(std::move(periodicImageBondProperty)),
+			_bondTopology(std::move(bondTopology)),
 			_particleClusters(ParticlesObject::OOClass().createStandardStorage(fingerprint.particleCount(), ParticlesObject::ClusterProperty, false)),
 			_inputFingerprint(std::move(fingerprint)) {}
 
@@ -117,7 +120,7 @@ private:
 		void setLargestClusterSize(size_t size) { _largestClusterSize = size; }
 
 		/// Performs the actual clustering algorithm.
-		virtual void doClustering() = 0;
+		virtual void doClustering(std::vector<Point3>& centersOfMass) = 0;
 
 		/// Returns the property storage that contains the input particle positions.
 		const ConstPropertyPtr& positions() const { return _positions; }
@@ -136,10 +139,10 @@ private:
 		const SimulationCell _simCell;
 		const bool _sortBySize;
 		const bool _unwrapParticleCoordinates;
-		const bool _computeCentersOfMass;
 		ConstPropertyPtr _positions;
 		ConstPropertyPtr _selection;
 		ConstPropertyPtr _bondTopology;
+		ConstPropertyPtr _masses;
 		size_t _numClusters = 0;
 		size_t _largestClusterSize = 0;
 		const PropertyPtr _particleClusters;
@@ -148,6 +151,8 @@ private:
 		PropertyPtr _unwrappedPositions;
 		PropertyPtr _periodicImageBondProperty;
 		PropertyPtr _centersOfMass;
+		PropertyPtr _radiiOfGyration;
+		PropertyPtr _gyrationTensors;
 		ParticleOrderingFingerprint _inputFingerprint;
 	};
 
@@ -157,12 +162,12 @@ private:
 	public:
 
 		/// Constructor.
-		CutoffClusterAnalysisEngine(ParticleOrderingFingerprint fingerprint, ConstPropertyPtr positions, const SimulationCell& simCell, bool sortBySize, bool unwrapParticleCoordinates, bool computeCentersOfMass, ConstPropertyPtr selection, const ConstPropertyPtr& periodicImageBondProperty, ConstPropertyPtr bondTopology, FloatType cutoff) :
-			ClusterAnalysisEngine(std::move(fingerprint), std::move(positions), simCell, sortBySize, unwrapParticleCoordinates, computeCentersOfMass, std::move(selection), periodicImageBondProperty, std::move(bondTopology)),
+		CutoffClusterAnalysisEngine(ParticleOrderingFingerprint fingerprint, ConstPropertyPtr positions, ConstPropertyPtr masses, const SimulationCell& simCell, bool sortBySize, bool unwrapParticleCoordinates, bool computeCentersOfMass, bool computeRadiusOfGyration, ConstPropertyPtr selection, PropertyPtr periodicImageBondProperty, ConstPropertyPtr bondTopology, FloatType cutoff) :
+			ClusterAnalysisEngine(std::move(fingerprint), std::move(positions), std::move(masses), simCell, sortBySize, unwrapParticleCoordinates, computeCentersOfMass, computeRadiusOfGyration, std::move(selection), std::move(periodicImageBondProperty), std::move(bondTopology)),
 			_cutoff(cutoff) {}
 
 		/// Performs the actual clustering algorithm.
-		virtual void doClustering() override;
+		virtual void doClustering(std::vector<Point3>& centersOfMass) override;
 
 		/// Returns the cutoff radius.
 		FloatType cutoff() const { return _cutoff; }
@@ -178,11 +183,11 @@ private:
 	public:
 
 		/// Constructor.
-		BondClusterAnalysisEngine(ParticleOrderingFingerprint fingerprint, ConstPropertyPtr positions, const SimulationCell& simCell, bool sortBySize, bool unwrapParticleCoordinates, bool computeCentersOfMass, ConstPropertyPtr selection, const ConstPropertyPtr& periodicImageBondProperty, ConstPropertyPtr bondTopology) :
-			ClusterAnalysisEngine(std::move(fingerprint), std::move(positions), simCell, sortBySize, unwrapParticleCoordinates, computeCentersOfMass, std::move(selection), periodicImageBondProperty, std::move(bondTopology)) {}
+		BondClusterAnalysisEngine(ParticleOrderingFingerprint fingerprint, ConstPropertyPtr positions, ConstPropertyPtr masses, const SimulationCell& simCell, bool sortBySize, bool unwrapParticleCoordinates, bool computeCentersOfMass, bool computeRadiusOfGyration, ConstPropertyPtr selection, PropertyPtr periodicImageBondProperty, ConstPropertyPtr bondTopology) :
+			ClusterAnalysisEngine(std::move(fingerprint), std::move(positions), std::move(masses), simCell, sortBySize, unwrapParticleCoordinates, computeCentersOfMass, computeRadiusOfGyration, std::move(selection), std::move(periodicImageBondProperty), std::move(bondTopology)) {}
 
 		/// Performs the actual clustering algorithm.
-		virtual void doClustering() override;
+		virtual void doClustering(std::vector<Point3>& centersOfMass) override;
 	};
 
 	/// The neighbor mode.
@@ -202,6 +207,9 @@ private:
 
 	/// Controls the computation of cluster centers of mass.
 	DECLARE_MODIFIABLE_PROPERTY_FIELD_FLAGS(bool, computeCentersOfMass, setComputeCentersOfMass, PROPERTY_FIELD_MEMORIZE);
+
+	/// Controls the computation of cluster radius of gyration.
+	DECLARE_MODIFIABLE_PROPERTY_FIELD_FLAGS(bool, computeRadiusOfGyration, setComputeRadiusOfGyration, PROPERTY_FIELD_MEMORIZE);
 
 	/// Controls the coloring of particles by cluster ID.
 	DECLARE_MODIFIABLE_PROPERTY_FIELD_FLAGS(bool, colorParticlesByCluster, setColorParticlesByCluster, PROPERTY_FIELD_MEMORIZE);

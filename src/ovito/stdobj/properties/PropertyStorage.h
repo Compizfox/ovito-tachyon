@@ -79,6 +79,12 @@ public:
 		return propertyPtr;
 	}
 
+	/// Helper method for implementing copy-on-write semantics.
+	/// This method accepts a pointer to a read-only property and will always make a copy which is safe to modify. 
+	static std::shared_ptr<PropertyStorage> makeMutable(const std::shared_ptr<const PropertyStorage>& propertyPtr) {
+		return propertyPtr ? std::make_shared<PropertyStorage>(*propertyPtr) : std::shared_ptr<PropertyStorage>{};
+	}
+
 public:
 
 	/// \brief Default constructor that creates an empty, uninitialized storage.

@@ -23,6 +23,7 @@
 #include <ovito/particles/Particles.h>
 #include <ovito/particles/objects/ParticlesVis.h>
 #include <ovito/particles/objects/BondType.h>
+#include <ovito/particles/objects/ParticleType.h>
 #include <ovito/stdobj/properties/PropertyAccess.h>
 #include <ovito/core/app/Application.h>
 #include <ovito/core/dataset/DataSet.h>
@@ -679,6 +680,21 @@ PropertyPtr ParticlesObject::OOMetaClass::createStandardStorage(size_t particleC
 				OVITO_ASSERT(radii.size() == property->size());
 				boost::copy(radii, PropertyAccess<FloatType>(property).begin());
 				initializeMemory = false;
+			}
+		}
+		else if(type == MassProperty) {
+			if(const ParticlesObject* particles = dynamic_object_cast<ParticlesObject>(containerPath.back())) {
+				if(const PropertyObject* typeProperty = particles->getProperty(ParticlesObject::TypeProperty)) {
+					// Use per-type mass information and initialize the per-particle mass array from it.
+					std::map<int,FloatType> massMap = ParticleType::typeMassMap(typeProperty);
+					if(!massMap.empty()) {
+						boost::transform(ConstPropertyAccess<int>(typeProperty), PropertyAccess<FloatType>(property).begin(), [&](int t) {
+							auto iter = massMap.find(t);
+							return iter != massMap.end() ? iter->second : FloatType(0);
+						});
+						initializeMemory = false;
+					}
+				}				
 			}
 		}
 		else if(type == VectorColorProperty) {

@@ -195,7 +195,7 @@ Color ParticleType::getDefaultParticleColor(ParticlesObject::Type typeClass, con
 		}
 
 		// Sometimes atom type names have additional letters/numbers appended.
-		if(particleTypeName.length() > 1 && particleTypeName.length() <= 3) {
+		if(particleTypeName.length() > 1 && particleTypeName.length() <= 5) {
 			return getDefaultParticleColor(typeClass, particleTypeName.left(particleTypeName.length() - 1), particleTypeId, userDefaults);
 		}
 	}
@@ -239,7 +239,7 @@ FloatType ParticleType::getDefaultParticleRadius(ParticlesObject::Type typeClass
 		}
 
 		// Sometimes atom type names have additional letters/numbers appended.
-		if(particleTypeName.length() > 1 && particleTypeName.length() <= 3) {
+		if(particleTypeName.length() > 1 && particleTypeName.length() <= 5) {
 			return getDefaultParticleRadius(typeClass, particleTypeName.left(particleTypeName.length() - 1), particleTypeId, userDefaults);
 		}
 	}
