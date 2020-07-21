@@ -73,6 +73,11 @@ public:
 	/// Creates a new instace of the property object type.
 	OORef<PropertyObject> createFromStorage(DataSet* dataset, PropertyPtr storage) const;
 
+	/// Creates a new instace of the property object type.
+	OORef<PropertyObject> createFromStorage(DataSet* dataset, ConstPropertyPtr storage) const {
+		return createFromStorage(dataset, const_pointer_cast<PropertyStorage>(std::move(storage)));
+	}
+
 	/// Determines whether a standard property ID is defined for this property class.
 	bool isValidStandardPropertyId(int id) const {
 		return _standardPropertyNames.find(id) != _standardPropertyNames.end();

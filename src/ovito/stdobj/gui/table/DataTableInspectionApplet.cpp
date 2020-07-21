@@ -97,6 +97,20 @@ QWidget* DataTableInspectionApplet::createWidget(MainWindow* mainWindow)
 }
 
 /******************************************************************************
+* Creates an optional ad-hoc property that serves as header column for the table.
+******************************************************************************/
+OORef<PropertyObject> DataTableInspectionApplet::createHeaderColumnProperty(const PropertyContainer* container)
+{
+	const DataTable* table = static_object_cast<DataTable>(container);
+	if(!table->getX()) {
+		if(ConstPropertyPtr x = table->getXStorage()) {
+			return DataTable::OOClass().createFromStorage(container->dataset(), std::move(x));
+		}
+	}
+	return {};
+}
+
+/******************************************************************************
 * Is called when the user selects a different container object from the list.
 ******************************************************************************/
 void DataTableInspectionApplet::onCurrentContainerChanged(const DataObject* dataObject)

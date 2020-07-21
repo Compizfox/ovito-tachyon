@@ -87,6 +87,9 @@ protected:
 		return property->type() == PropertyStorage::GenericColorProperty;
 	}
 
+	/// Creates an optional ad-hoc property that serves as header column for the table.
+	virtual OORef<PropertyObject> createHeaderColumnProperty(const PropertyContainer* container) { return {}; }
+
 Q_SIGNALS:
 
 	/// This signal is emitted whenever the filter expression has changed.
