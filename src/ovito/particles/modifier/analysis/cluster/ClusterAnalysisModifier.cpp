@@ -220,12 +220,12 @@ void ClusterAnalysisModifier::ClusterAnalysisEngine::perform()
 
 			Vector3 delta = unwrappedCoordinates[particleIndex] - centersOfMass[clusterIndex];
 			radiiOfGyration[clusterIndex] += mass * delta.squaredLength();
-			gyrationTensors.value(clusterIndex, 0) += delta.x() * delta.x();
-			gyrationTensors.value(clusterIndex, 1) += delta.y() * delta.y();
-			gyrationTensors.value(clusterIndex, 2) += delta.z() * delta.z();
-			gyrationTensors.value(clusterIndex, 3) += delta.x() * delta.y();
-			gyrationTensors.value(clusterIndex, 4) += delta.x() * delta.z();
-			gyrationTensors.value(clusterIndex, 5) += delta.y() * delta.z();
+			gyrationTensors.value(clusterIndex, 0) += mass * delta.x() * delta.x();
+			gyrationTensors.value(clusterIndex, 1) += mass * delta.y() * delta.y();
+			gyrationTensors.value(clusterIndex, 2) += mass * delta.z() * delta.z();
+			gyrationTensors.value(clusterIndex, 3) += mass * delta.x() * delta.y();
+			gyrationTensors.value(clusterIndex, 4) += mass * delta.x() * delta.z();
+			gyrationTensors.value(clusterIndex, 5) += mass * delta.y() * delta.z();
 		}
 
 		auto rg = radiiOfGyration.begin();
@@ -239,6 +239,8 @@ void ClusterAnalysisModifier::ClusterAnalysisEngine::perform()
 			for(size_t cmpnt = 0; cmpnt < 6; cmpnt++)
 				*gtensor++ /= M;
 		}
+		OVITO_ASSERT(rg == radiiOfGyration.end());
+		OVITO_ASSERT(gtensor == gyrationTensors.end());
 	}
 	
 	// Wrap bonds at periodic cell boundaries after particle coordinates have been unwrapped. 
