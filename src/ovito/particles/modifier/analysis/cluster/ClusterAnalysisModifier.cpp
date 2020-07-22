@@ -397,7 +397,7 @@ void ClusterAnalysisModifier::CutoffClusterAnalysisEngine::doClustering(std::vec
 					toProcess.push_back(neighborIndex);
 					if(unwrappedCoordinates) {
 						unwrappedCoordinates[neighborIndex] = unwrappedCoordinates[currentParticle] + neighQuery.delta();
-						FloatType weight = particleMassesData ? particleMassesData[currentParticle] : FloatType(1);
+						FloatType weight = particleMassesData ? particleMassesData[neighborIndex] : FloatType(1);
 						centerOfMass += weight * (unwrappedCoordinates[neighborIndex] - Point3::Origin());
 						totalWeight += weight;
 					}
@@ -489,7 +489,7 @@ void ClusterAnalysisModifier::BondClusterAnalysisEngine::doClustering(std::vecto
 				if(unwrappedCoordinates) {
 					Vector3 delta = cell().wrapVector(unwrappedCoordinates[neighborIndex] - unwrappedCoordinates[currentParticle]);
 					unwrappedCoordinates[neighborIndex] = unwrappedCoordinates[currentParticle] + delta;
-					FloatType weight = particleMassesData ? particleMassesData[currentParticle] : FloatType(1);
+					FloatType weight = particleMassesData ? particleMassesData[neighborIndex] : FloatType(1);
 					centerOfMass += weight * (unwrappedCoordinates[neighborIndex] - Point3::Origin());
 					totalWeight += weight;
 				}
