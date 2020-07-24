@@ -243,20 +243,30 @@ protected:
 		updateRollouts();
 	}
 
+	/// Handles the timer events for the container widget.
+	virtual void timerEvent(QTimerEvent* event) override {
+		if(event->timerId() == _updateGeometryTimer) {
+			killTimer(_updateGeometryTimer);
+			_updateGeometryTimer = 0;
+			updateRollouts();
+		}
+		QScrollArea::timerEvent(event);
+	}
+
 public Q_SLOTS:
 
 	/// Updates the size of all rollouts.
 	void updateRollouts();
 
 	/// Updates the size of all rollouts soon.
-	void updateRolloutsLater() {
-		QTimer::singleShot(0, this, &RolloutContainer::updateRollouts);
-	}
+	void updateRolloutsLater();
 
 private:
 
 	/// The main window that provides the context for this UI element.
 	MainWindow* _mainWindow = nullptr;
+
+	int _updateGeometryTimer = 0;
 };
 
 }	// End of namespace
