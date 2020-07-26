@@ -138,9 +138,9 @@ void InputColumnMappingDialog::onOk()
 		// Close dialog box.
 		accept();
 	}
-	catch(const Exception& ex) {
-		ex.reportError();
-		return;
+	catch(Exception& ex) {
+		ex.setContext(this);
+		ex.reportError(true);
 	}
 }
 
@@ -218,7 +218,7 @@ void InputColumnMappingDialog::updateVectorComponentList(int columnIndex)
 
 	QString propertyName = _propertyBoxes[columnIndex]->currentText();
 	int standardProperty = ParticlesObject::OOClass().standardPropertyIds().value(propertyName);
-	if(standardProperty != ParticlesObject::UserProperty) {
+	if(!propertyName.isEmpty() && standardProperty != ParticlesObject::UserProperty) {
 		int oldIndex = vecBox->currentIndex();
 		_vectorComponentBoxes[columnIndex]->clear();
 		for(const QString& name : ParticlesObject::OOClass().standardPropertyComponentNames(standardProperty))
@@ -248,11 +248,9 @@ InputColumnMapping InputColumnMappingDialog::mapping() const
 			if(type != ParticlesObject::UserProperty) {
 				int vectorCompnt = std::max(0, _vectorComponentBoxes[index]->currentIndex());
 				mapping[index].mapStandardColumn(type, vectorCompnt);
-				continue;
 			}
 			else if(!propertyName.isEmpty()) {
 				mapping[index].mapCustomColumn(propertyName, _propertyDataTypes[index]);
-				continue;
 			}
 		}
 	}
@@ -270,6 +268,7 @@ void InputColumnMappingDialog::onSavePreset()
 	try {
 		// Get current mapping.
 		InputColumnMapping m = mapping();
+		m.validate();
 
 		// Load existing mappings.
 		QSettings settings;
@@ -286,7 +285,7 @@ void InputColumnMappingDialog::onSavePreset()
 
 		// Let the user give a name.
 		QString name = QInputDialog::getItem(this, tr("Save Column Mapping"),
-			tr("Please enter a name for the column mapping:"), presetNames, -1, true);
+			tr("Please enter a name for the column mapping preset:"), presetNames, -1, true);
 		if(name.isEmpty()) return;
 
 		// Serialize mapping and add it to the list.
@@ -311,8 +310,9 @@ void InputColumnMappingDialog::onSavePreset()
 		}
 		settings.endArray();
 	}
-	catch(const Exception& ex) {
-		ex.reportError();
+	catch(Exception& ex) {
+		ex.setContext(this);
+		ex.reportError(true);
 	}
 }
 
@@ -336,7 +336,7 @@ void InputColumnMappingDialog::onLoadPreset()
 		settings.endArray();
 
 		if(size == 0)
-			throw Exception(tr("There are no saved presets so far."));
+			throw Exception(tr("You have not saved any presets so far which can be loaded."));
 
 		// Let the user pick a preset.
 		QString name = QInputDialog::getItem(this, tr("Load Column Mapping"),
@@ -357,10 +357,14 @@ void InputColumnMappingDialog::onLoadPreset()
 		}
 		for(int index = mapping.size(); index < _tableWidget->rowCount(); index++) {
 			_fileColumnBoxes[index]->setChecked(false);
+			_propertyBoxes[index]->setCurrentText(QString());
+			_propertyBoxes[index]->setEnabled(false);
+			updateVectorComponentList(index);
 		}
 	}
-	catch(const Exception& ex) {
-		ex.reportError();
+	catch(Exception& ex) {
+		ex.setContext(this);
+		ex.reportError(true);
 	}
 }
 

@@ -106,7 +106,19 @@ void InputColumnMapping::validate() const
 {
 	// Make sure that at least the particle positions are read from the input file.
 	if(std::none_of(begin(), end(), [](const InputColumnInfo& column) { return column.property.type() == ParticlesObject::PositionProperty; }))
-		throw Exception(InputColumnReader::tr("No file column has been mapped to the particle position property."));
+		throw Exception(InputColumnReader::tr("Invalid file column mapping: At least one file column must be mapped to the '%1' particle property.").arg(ParticlesObject::OOClass().standardPropertyName(ParticlesObject::PositionProperty)));
+
+	// Check for conflicting mappings, i.e. several file columns being mapped to the same particle property.
+	for(auto m1 = begin(); m1 != end(); ++m1) {
+		if(!m1->isMapped()) continue;
+		for(auto m2 = std::next(m1); m2 != end(); ++m2) {
+			if(m1->property == m2->property)
+				throw Exception(InputColumnReader::tr("Invalid file column mapping: File columns %1 and %2 cannot both be mapped to the same particle property '%3'.")
+					.arg(std::distance(begin(), m1) + 1)
+					.arg(std::distance(begin(), m2) + 1)
+					.arg(m1->property.nameWithComponent()));
+		}
+	}
 }
 
 /******************************************************************************
