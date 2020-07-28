@@ -1,6 +1,6 @@
 #######################################################################################
 #
-#  Copyright 2019 Alexander Stukowski
+#  Copyright 2020 Alexander Stukowski
 #
 #  This file is part of OVITO (Open Visualization Tool).
 #
@@ -55,6 +55,7 @@ OVITO_STANDARD_PLUGIN(ParticlesGui
 		modifier/properties/SmoothTrajectoryModifierEditor.cpp
 		modifier/properties/GenerateTrajectoryLinesModifierEditor.cpp
 		modifier/properties/ParticlesComputePropertyModifierDelegateEditor.cpp
+		modifier/properties/InteractiveMolecularDynamicsModifierEditor.cpp
 		util/CutoffRadiusPresetsUI.cpp
 		util/ParticlePickingHelper.cpp
 		util/ParticleSettingsPage.cpp

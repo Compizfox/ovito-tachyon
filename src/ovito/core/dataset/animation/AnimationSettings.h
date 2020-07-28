@@ -188,6 +188,18 @@ public:
 	/// Returns whether the current animation interval consists of a one static frame only.
 	bool isSingleFrame() const { return animationInterval().duration() == 0; }
 
+	/// \brief Suspends updates of the viewports whenever preliminary data pipeline results are available.
+	void suspendPreliminaryViewportUpdates() { _preliminaryViewportUpdatesSuspendCount++; }
+
+	/// \brief Resumes updates of the viewports whenever preliminary data pipeline results are available.
+	void resumePreliminaryViewportUpdates() {
+		OVITO_ASSERT_MSG(_preliminaryViewportUpdatesSuspendCount > 0, "AnimationSettings::resumePreliminaryViewportUpdates()", "resumePreliminaryViewportUpdates() has been called more often than suspendPreliminaryViewportUpdates().");
+		_preliminaryViewportUpdatesSuspendCount--;
+	}
+
+	/// Returns whether viewports should be updated whenever preliminary pipeline results are available.  
+	bool arePreliminaryViewportUpdatesSuspended() const { return isPlaybackActive() || _preliminaryViewportUpdatesSuspendCount > 0; }
+
 public Q_SLOTS:
 
 	/// \brief Enables or disables animation mode (i.e. automatic creation of animation keys).
@@ -307,7 +319,7 @@ private:
     /// List of names assigned to animation frames.
     QMap<int,QString> _namedFrames;
 
-	/// Counts the number of times the animation modes has been suspended.
+	/// Counts the number of times the key-frame mode has been suspended.
 	int _animSuspendCount = 0;
 
 	/// Indicates whether animation recording mode is active.
@@ -315,6 +327,9 @@ private:
 
 	/// Indicates that the animation has been changed, and the scene is still being prepared for display of the new frame.
 	bool _isTimeChanging = false;
+
+	/// Counts the number of times preliminary viewport updates have been suspended.
+	int _preliminaryViewportUpdatesSuspendCount = 0;
 
 	/// Indicates that the animation is currently being played back in the viewports.
 	FloatType _activePlaybackRate = 0;
@@ -351,6 +366,31 @@ public:
 	/// Resumes the automatic generation of animation keys by calling AnimationSettings::resumeAnim().
 	~AnimationSuspender() {
 		if(_animSettings) _animSettings->resumeAnim();
+	}
+
+private:
+
+	QPointer<AnimationSettings> _animSettings;
+};
+
+/**
+ * \brief A helper class that suspends preliminary viewport updates while it exists.
+ *
+ * \sa AnimationSettings
+ */
+class OVITO_CORE_EXPORT PreliminaryViewportUpdatesSuspender
+{
+public:
+
+	/// Suspends the automatic generation of animation keys by calling AnimationSettings::suspendPreliminaryViewportUpdates().
+	/// \param animSettings The animation settings object.
+	PreliminaryViewportUpdatesSuspender(AnimationSettings* animSettings) : _animSettings(animSettings) {
+		animSettings->suspendPreliminaryViewportUpdates();
+	}
+
+	/// Resumes the automatic generation of animation keys by calling AnimationSettings::resumePreliminaryViewportUpdates().
+	~PreliminaryViewportUpdatesSuspender() {
+		if(_animSettings) _animSettings->resumePreliminaryViewportUpdates();
 	}
 
 private:

@@ -249,6 +249,10 @@
               <entry><link linkend="particles.modifiers.generate_trajectory_lines">Generate&#xA0;trajectory&#xA0;lines</link></entry>
               <entry>Generates trajectory lines from the time-dependent particle positions.</entry>
             </row>
+            <row>
+              <entry><link linkend="particles.modifiers.interactive_molecular_dynamics">Interactive&#xA0;molecular&#xA0;dynamics</link></entry>
+              <entry>Visualize live atomic trajectories from a running MD simulation as they are being calculated.</entry>
+            </row>
 
           </tbody>
         </tgroup>
@@ -316,6 +320,8 @@
   <xi:include href="particles/histogram.docbook"/>
 
   <xi:include href="particles/identify_diamond.docbook"/>
+
+  <xi:include href="particles/interactive_molecular_dynamics.docbook"/>
 
   <xi:include href="particles/invert_selection.docbook"/>
 

@@ -60,6 +60,7 @@ SET(SourceFiles
 	modifier/selection/ExpandSelectionModifier.cpp
 	modifier/properties/SmoothTrajectoryModifier.cpp
 	modifier/properties/GenerateTrajectoryLinesModifier.cpp
+	modifier/properties/InteractiveMolecularDynamicsModifier.cpp
 	import/ParticleImporter.cpp
 	import/ParticleFrameData.cpp
 	import/InputColumnMapping.cpp
