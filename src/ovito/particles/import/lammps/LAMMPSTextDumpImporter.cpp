@@ -55,8 +55,19 @@ bool LAMMPSTextDumpImporter::OOMetaClass::checkFileFormat(const FileHandle& file
 
 	// Read first line.
 	stream.readLine(15);
-	if(stream.lineStartsWith("ITEM: TIMESTEP"))
-		return true;
+
+	// Dump files written by LAMMPS start with one of the following keywords: TIMESTEP, UNITS or TIME.  
+	if(!stream.lineStartsWith("ITEM: TIMESTEP") && !stream.lineStartsWith("ITEM: UNITS") && !stream.lineStartsWith("ITEM: TIME"))
+		return false;
+
+	// Continue reading until "ITEM: NUMBER OF ATOMS" line is encountered.
+	for(int i = 0; i < 20; i++) {
+		if(stream.eof())
+			return false;
+		stream.readLine();
+		if(stream.lineStartsWith("ITEM: NUMBER OF ATOMS"))
+			return true;
+	}
 
 	return false;
 }
@@ -92,7 +103,7 @@ void LAMMPSTextDumpImporter::FrameFinder::discoverFramesInFile(QVector<FileSourc
 	// Regular expression for whitespace characters.
 	QRegularExpression ws_re(QStringLiteral("\\s+"));
 
-	int timestep = 0;
+	unsigned long long timestep = 0;
 	size_t numParticles = 0;
 	Frame frame(fileHandle());
 
@@ -105,13 +116,17 @@ void LAMMPSTextDumpImporter::FrameFinder::discoverFramesInFile(QVector<FileSourc
 
 		do {
 			if(stream.lineStartsWith("ITEM: TIMESTEP")) {
-				if(sscanf(stream.readLine(), "%i", &timestep) != 1)
-					throw Exception(tr("LAMMPS dump file parsing error. Invalid timestep number (line %1):\n%2").arg(stream.lineNumber()).arg(QString::fromLocal8Bit(stream.line())));
+				if(sscanf(stream.readLine(), "%llu", &timestep) != 1)
+					throw Exception(tr("LAMMPS dump file parsing error. Invalid timestep number (line %1):\n%2").arg(stream.lineNumber()).arg(stream.lineString()));
 				frame.byteOffset = byteOffset;
 				frame.lineNumber = lineNumber;
 				frame.label = QString("Timestep %1").arg(timestep);
 				frames.push_back(frame);
 				break;
+			}
+			else if(stream.lineStartsWithToken("ITEM: TIME")) {
+				stream.readLine();
+				stream.readLine();
 			}
 			else if(stream.lineStartsWith("ITEM: NUMBER OF ATOMS")) {
 				// Parse number of atoms.
@@ -167,7 +182,7 @@ FileSourceImporter::FrameDataPtr LAMMPSTextDumpImporter::FrameLoader::loadFile()
 	// Regular expression for whitespace characters.
 	QRegularExpression ws_re(QStringLiteral("\\s+"));
 
-	int timestep;
+	unsigned long long timestep;
 	size_t numParticles = 0;
 
 	while(!stream.eof()) {
@@ -177,9 +192,16 @@ FileSourceImporter::FrameDataPtr LAMMPSTextDumpImporter::FrameLoader::loadFile()
 
 		do {
 			if(stream.lineStartsWith("ITEM: TIMESTEP")) {
-				if(sscanf(stream.readLine(), "%i", &timestep) != 1)
+				if(sscanf(stream.readLine(), "%llu", &timestep) != 1)
 					throw Exception(tr("LAMMPS dump file parsing error. Invalid timestep number (line %1):\n%2").arg(stream.lineNumber()).arg(stream.lineString()));
 				frameData->attributes().insert(QStringLiteral("Timestep"), QVariant::fromValue(timestep));
+				break;
+			}
+			else if(stream.lineStartsWithToken("ITEM: TIME")) {
+				FloatType simulationTime;
+				if(sscanf(stream.readLine(), FLOATTYPE_SCANF_STRING, &simulationTime) != 1)
+					throw Exception(tr("LAMMPS dump file parsing error. Invalid time value (line %1):\n%2").arg(stream.lineNumber()).arg(stream.lineString()));
+				frameData->attributes().insert(QStringLiteral("Time"), QVariant::fromValue(simulationTime));
 				break;
 			}
 			else if(stream.lineStartsWith("ITEM: NUMBER OF ATOMS")) {
@@ -362,7 +384,7 @@ FileSourceImporter::FrameDataPtr LAMMPSTextDumpImporter::FrameLoader::loadFile()
 				// Detect if there are more simulation frames following in the file.
 				if(!stream.eof()) {
 					stream.readLine();
-					if(stream.lineStartsWith("ITEM: TIMESTEP"))
+					if(stream.lineStartsWith("ITEM: TIMESTEP") || stream.lineStartsWith("ITEM: TIME"))
 						frameData->signalAdditionalFrames();
 				}
 
