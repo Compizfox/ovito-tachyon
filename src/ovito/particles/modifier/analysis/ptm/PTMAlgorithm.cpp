@@ -156,7 +156,7 @@ PTMAlgorithm::StructureType PTMAlgorithm::Kernel::identifyStructure(size_t parti
 			&_env);
 
 	int32_t type = result.structure_type;
-	_orderingType = result.structure_type;
+	_orderingType = result.ordering_type;
 	_scale = result.scale;
 	_rmsd = result.rmsd;
 	_interatomicDistance = result.interatomic_distance;
