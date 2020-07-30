@@ -44,7 +44,7 @@ bool PDBImporter::OOMetaClass::checkFileFormat(const FileHandle& file) const
 			return false;
 		if(qstrlen(stream.line()) >= 7 && stream.line()[6] != ' ')
 			return false;
-		if(stream.lineStartsWithToken("HEADER") || stream.lineStartsWithToken("ATOM") || stream.lineStartsWithToken("HETATM"))
+		if(stream.lineStartsWithToken("HEADER") || stream.lineStartsWithToken("ATOM") || QString::compare(stream.lineString().left(6),"HETATM",Qt::CaseInsensitive) ==0)
 			return true;
 	}
 	return false;
@@ -91,6 +91,7 @@ void PDBImporter::FrameFinder::discoverFramesInFile(QVector<FileSourceImporter::
 /******************************************************************************
 * Parses the given input file.
 ******************************************************************************/
+
 FileSourceImporter::FrameDataPtr PDBImporter::FrameLoader::loadFile()
 {
 	// Open file for reading.
@@ -151,7 +152,7 @@ FileSourceImporter::FrameDataPtr PDBImporter::FrameLoader::loadFile()
 			frameData->simulationCell().setMatrix(cell);
 			hasSimulationCell = true;
 		}
-		else if(stream.lineStartsWithToken("ATOM") || stream.lineStartsWithToken("HETATM")) {
+		else if(stream.lineStartsWithToken("ATOM") ||  QString::compare(stream.lineString().left(6),"HETATM",Qt::CaseInsensitive) ==0) {
 			// Count atoms.
 			numAtoms++;
 		}
@@ -189,7 +190,7 @@ FileSourceImporter::FrameDataPtr PDBImporter::FrameLoader::loadFile()
 			throw Exception(tr("Invalid line length detected in Protein Data Bank (PDB) file at line %1").arg(stream.lineNumber()));
 
 		// Parse atom definition.
-		if(stream.lineStartsWithToken("ATOM") || stream.lineStartsWithToken("HETATM")) {
+		if(stream.lineStartsWithToken("ATOM") ||  QString::compare(stream.lineString().left(6),"HETATM",Qt::CaseInsensitive) ==0) {
 			char atomType[4];
 			int atomTypeLength = 0;
 			for(const char* c = stream.line() + 76; c <= stream.line() + std::min(77, lineLength); ++c)
@@ -262,34 +263,68 @@ FileSourceImporter::FrameDataPtr PDBImporter::FrameLoader::loadFile()
 			throw Exception(tr("Invalid line length detected in Protein Data Bank (PDB) file at line %1").arg(stream.lineNumber()));
 
 		// Parse bonds.
-		if(stream.lineStartsWithToken("CONECT")) {
-			// Parse first atom index.
-			qlonglong atomSerialNumber1;
-			if(lineLength <= 11 || sscanf(stream.line() + 6, "%5llu", &atomSerialNumber1) != 1 || !particleIdentifierProperty)
-				throw Exception(tr("Invalid CONECT record (line %1): %2").arg(stream.lineNumber()).arg(stream.lineString()));
-			size_t atomIndex1 = boost::find(particleIdentifierProperty, atomSerialNumber1) - particleIdentifierProperty.cbegin();
-			for(int i = 0; i < 10; i++) {
-				qlonglong atomSerialNumber2;
-				if(lineLength >= 16+5*i && sscanf(stream.line() + 11+5*i, "%5llu", &atomSerialNumber2) == 1) {
-					size_t atomIndex2 = boost::find(particleIdentifierProperty, atomSerialNumber2) - particleIdentifierProperty.cbegin();
-					if(atomIndex1 >= particleIdentifierProperty.size() || atomIndex2 >= particleIdentifierProperty.size())
-						throw Exception(tr("Nonexistent atom ID encountered in line %1 of PDB file.").arg(stream.lineNumber()));
-					if(!bondTopologyProperty) {
-						bondTopologyProperty = frameData->addBondProperty(BondsObject::OOClass().createStandardStorage(1, BondsObject::TopologyProperty, false));
+		// linestartsWithToken assumes a space follows after the to be compared string. In the PDB file format other character are allowed to occur directly after the keyword and this function therefore does not work. 
+		if(QString::compare(stream.lineString().left(6),"CONECT",Qt::CaseInsensitive) ==0) {
+
+			qlonglong atomSerialNumber;
+			if(lineLength <= 8 || !particleIdentifierProperty) throw Exception(tr("Invalid CONECT record (line %1): %2").arg(stream.lineNumber()).arg(stream.lineString()));
+			QString atomidstring = stream.lineString().mid(6); // skip the first 6 char as they hold CONECT
+			bool startfound = false;
+			bool firstnumber = true;
+			int startnumber;
+			int ndigits;
+			int start;
+			size_t atomIndex1;
+			size_t atomIndex2;
+			bool strtointOK;
+			int i = 0;
+			while (i < atomidstring.size()){ // loop over all characters in the string
+				if (atomidstring[i] == " " || i+1 == atomidstring.size() ){  
+					if (startfound){ // we have found the end of a number
+						start = startnumber;
+						ndigits = i-startnumber;
+						if (ndigits<=5 || numAtoms > 99999){ // case normal space separated number
+							startfound = false;
+						} else { // Most likely we have a classic pdb file where the atomID fields are stuck together 
+							ndigits = ndigits-(5*floor((ndigits-1.0)/5.0));
+							startnumber = startnumber+ndigits;
+							i=i-1; // repeat cycle so the next number of the concatenated numbers is read.
+						}
+						atomSerialNumber = atomidstring.mid(start,ndigits).toLongLong(&strtointOK,10);
+						if (!strtointOK){
+							throw Exception(tr("Invalid CONECT record (line %1): %2").arg(ndigits).arg(stream.lineNumber()).arg(stream.lineString()));
+						}
+						if (firstnumber){
+							firstnumber = false;
+							atomIndex1 = boost::find(particleIdentifierProperty, atomSerialNumber) - particleIdentifierProperty.cbegin();
+							if(atomIndex1 >= particleIdentifierProperty.size())
+								throw Exception(tr("Nonexistent atom ID:%1 encountered in line %2 of PDB file.").arg(atomIndex1).arg(stream.lineNumber()));
+						} else {
+					        atomIndex2 = boost::find(particleIdentifierProperty, atomSerialNumber) - particleIdentifierProperty.cbegin();
+							if(atomIndex1 >= particleIdentifierProperty.size() || atomIndex2 >= particleIdentifierProperty.size())
+								throw Exception(tr("Nonexistent atom ID:%1 encountered in line %2 of PDB file.").arg(atomIndex2).arg(stream.lineNumber()));
+							if(!bondTopologyProperty) {
+								bondTopologyProperty = frameData->addBondProperty(BondsObject::OOClass().createStandardStorage(1, BondsObject::TopologyProperty, false));
+					        }else {
+					        	bondTopologyProperty.storage()->resize(bondTopologyProperty.size() + 1, true);
+					        }
+					        bondTopologyProperty[bondTopologyProperty.size() - 1][0] = atomIndex1;
+				            bondTopologyProperty[bondTopologyProperty.size() - 1][1] = atomIndex2;
+						}
 					}
-					else {
-						bondTopologyProperty.storage()->resize(bondTopologyProperty.size() + 1, true);
+				}else { 
+					if (startfound ==false) { // We have found the start of a number
+						startnumber = i;
+						startfound = true;
 					}
-					bondTopologyProperty[bondTopologyProperty.size() - 1][0] = atomIndex1;
-					bondTopologyProperty[bondTopologyProperty.size() - 1][1] = atomIndex2;
 				}
-			}
+				i++;
+			}	
 		}
 		else if(stream.lineStartsWithToken("END") || stream.lineStartsWithToken("TER") || stream.lineStartsWithToken("ENDMDL")) {
 			break;
 		}
 	}
-
 	// Detect if there are more simulation frames following in the file.
 	for(int i = 0; i < 18; i++) {
 		if(stream.eof()) break;
@@ -319,6 +354,7 @@ FileSourceImporter::FrameDataPtr PDBImporter::FrameLoader::loadFile()
 	frameData->setStatus(tr("Number of atoms: %1").arg(numAtoms));
 	return frameData;
 }
+
 
 }	// End of namespace
 }	// End of namespace
