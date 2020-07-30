@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Copyright 2019 Alexander Stukowski
+//  Copyright 2020 Alexander Stukowski
 //
 //  This file is part of OVITO (Open Visualization Tool).
 //
@@ -23,6 +23,7 @@
 #include <ovito/particles/Particles.h>
 #include <ovito/particles/import/ParticleFrameData.h>
 #include <ovito/core/utilities/io/CompressedTextReader.h>
+#include <ovito/core/utilities/io/NumberParsing.h>
 #include "PDBImporter.h"
 
 namespace Ovito { namespace Particles {
@@ -42,9 +43,9 @@ bool PDBImporter::OOMetaClass::checkFileFormat(const FileHandle& file) const
 		stream.readLine(86);
 		if(qstrlen(stream.line()) > 83 && !stream.lineStartsWithToken("TITLE"))
 			return false;
-		if(qstrlen(stream.line()) >= 7 && stream.line()[6] != ' ')
+		if(qstrlen(stream.line()) >= 7 && stream.line()[6] != ' ' && std::find(stream.line(), stream.line()+6, ' ') != stream.line()+6)
 			return false;
-		if(stream.lineStartsWithToken("HEADER") || stream.lineStartsWithToken("ATOM") || QString::compare(stream.lineString().left(6),"HETATM",Qt::CaseInsensitive) ==0)
+		if(stream.lineStartsWithToken("HEADER") || stream.lineStartsWithToken("ATOM") || stream.lineStartsWith("HETATM"))
 			return true;
 	}
 	return false;
@@ -152,11 +153,11 @@ FileSourceImporter::FrameDataPtr PDBImporter::FrameLoader::loadFile()
 			frameData->simulationCell().setMatrix(cell);
 			hasSimulationCell = true;
 		}
-		else if(stream.lineStartsWithToken("ATOM") ||  QString::compare(stream.lineString().left(6),"HETATM",Qt::CaseInsensitive) ==0) {
+		else if(stream.lineStartsWithToken("ATOM") || stream.lineStartsWith("HETATM")) {
 			// Count atoms.
 			numAtoms++;
 		}
-		else if(stream.lineStartsWithToken("TER") || stream.lineStartsWithToken("END") || stream.lineStartsWithToken("ENDMDL")) {
+		else if(stream.lineStartsWithToken("END") || stream.lineStartsWithToken("ENDMDL")) {
 			// Stop
 			break;
 		}
@@ -190,7 +191,7 @@ FileSourceImporter::FrameDataPtr PDBImporter::FrameLoader::loadFile()
 			throw Exception(tr("Invalid line length detected in Protein Data Bank (PDB) file at line %1").arg(stream.lineNumber()));
 
 		// Parse atom definition.
-		if(stream.lineStartsWithToken("ATOM") ||  QString::compare(stream.lineString().left(6),"HETATM",Qt::CaseInsensitive) ==0) {
+		if(stream.lineStartsWithToken("ATOM") || stream.lineStartsWith("HETATM")) {
 			char atomType[4];
 			int atomTypeLength = 0;
 			for(const char* c = stream.line() + 76; c <= stream.line() + std::min(77, lineLength); ++c)
@@ -263,65 +264,67 @@ FileSourceImporter::FrameDataPtr PDBImporter::FrameLoader::loadFile()
 			throw Exception(tr("Invalid line length detected in Protein Data Bank (PDB) file at line %1").arg(stream.lineNumber()));
 
 		// Parse bonds.
-		// linestartsWithToken assumes a space follows after the to be compared string. In the PDB file format other character are allowed to occur directly after the keyword and this function therefore does not work. 
-		if(QString::compare(stream.lineString().left(6),"CONECT",Qt::CaseInsensitive) ==0) {
+		if(stream.lineStartsWith("CONECT")) {
 
 			qlonglong atomSerialNumber;
-			if(lineLength <= 8 || !particleIdentifierProperty) throw Exception(tr("Invalid CONECT record (line %1): %2").arg(stream.lineNumber()).arg(stream.lineString()));
-			QString atomidstring = stream.lineString().mid(6); // skip the first 6 char as they hold CONECT
+			if(lineLength <= 8 || !particleIdentifierProperty) 
+				throw Exception(tr("Invalid CONECT record (line %1): %2").arg(stream.lineNumber()).arg(stream.lineString()));
+			const char* atomidstring = stream.line() + 6; // Skip the CONECT keyword.
 			bool startfound = false;
 			bool firstnumber = true;
 			int startnumber;
 			int ndigits;
 			int start;
-			size_t atomIndex1;
-			size_t atomIndex2;
-			bool strtointOK;
+			qlonglong atomIndex1;
+			qlonglong atomIndex2;
 			int i = 0;
-			while (i < atomidstring.size()){ // loop over all characters in the string
-				if (atomidstring[i] == " " || i+1 == atomidstring.size() ){  
-					if (startfound){ // we have found the end of a number
+			while(atomidstring[i] >= ' ' && i < 67) { // Loop over all characters in the string.
+				if(atomidstring[i] == ' ' || atomidstring[i+1] < ' ') {
+					if(atomidstring[i] != ' ') i++;
+					if(startfound) { // We have found the end of a number
 						start = startnumber;
-						ndigits = i-startnumber;
-						if (ndigits<=5 || numAtoms > 99999){ // case normal space separated number
+						ndigits = i - startnumber;
+						if(ndigits <= 5 || numAtoms > 99999) { // Normal case: space-separated numbers
 							startfound = false;
-						} else { // Most likely we have a classic pdb file where the atomID fields are stuck together 
-							ndigits = ndigits-(5*floor((ndigits-1.0)/5.0));
-							startnumber = startnumber+ndigits;
-							i=i-1; // repeat cycle so the next number of the concatenated numbers is read.
 						}
-						atomSerialNumber = atomidstring.mid(start,ndigits).toLongLong(&strtointOK,10);
-						if (!strtointOK){
+						else { // Most likely we have a classic pdb file where the atomID fields are stuck together 
+							ndigits -= 5 * ((ndigits-1)/5);
+							startnumber += ndigits;
+							// Repeat cycle so the next number of the concatenated numbers is read.
+							if(atomidstring[i] == ' ') i -= 1;
+							else i -= 2;
+						}
+						if(!parseInt64(atomidstring + start, atomidstring + start + ndigits, atomSerialNumber))
 							throw Exception(tr("Invalid CONECT record (line %1): %2").arg(ndigits).arg(stream.lineNumber()).arg(stream.lineString()));
-						}
-						if (firstnumber){
+						if(firstnumber) {
 							firstnumber = false;
-							atomIndex1 = boost::find(particleIdentifierProperty, atomSerialNumber) - particleIdentifierProperty.cbegin();
+							atomIndex1 = std::distance(particleIdentifierProperty.cbegin(), std::find(particleIdentifierProperty.cbegin(), particleIdentifierProperty.cend(), atomSerialNumber));
 							if(atomIndex1 >= particleIdentifierProperty.size())
-								throw Exception(tr("Nonexistent atom ID:%1 encountered in line %2 of PDB file.").arg(atomIndex1).arg(stream.lineNumber()));
-						} else {
-					        atomIndex2 = boost::find(particleIdentifierProperty, atomSerialNumber) - particleIdentifierProperty.cbegin();
-							if(atomIndex1 >= particleIdentifierProperty.size() || atomIndex2 >= particleIdentifierProperty.size())
-								throw Exception(tr("Nonexistent atom ID:%1 encountered in line %2 of PDB file.").arg(atomIndex2).arg(stream.lineNumber()));
-							if(!bondTopologyProperty) {
+								throw Exception(tr("Nonexistent atom ID %1 encountered in line %2 of PDB file.").arg(atomSerialNumber).arg(stream.lineNumber()));
+						} 
+						else {
+					        atomIndex2 = std::distance(particleIdentifierProperty.cbegin(), std::find(particleIdentifierProperty.cbegin(), particleIdentifierProperty.cend(), atomSerialNumber));
+							if(atomIndex2 >= particleIdentifierProperty.size())
+								throw Exception(tr("Nonexistent atom ID %1 encountered in line %2 of PDB file.").arg(atomSerialNumber).arg(stream.lineNumber()));
+							if(!bondTopologyProperty)
 								bondTopologyProperty = frameData->addBondProperty(BondsObject::OOClass().createStandardStorage(1, BondsObject::TopologyProperty, false));
-					        }else {
+							else
 					        	bondTopologyProperty.storage()->resize(bondTopologyProperty.size() + 1, true);
-					        }
-					        bondTopologyProperty[bondTopologyProperty.size() - 1][0] = atomIndex1;
-				            bondTopologyProperty[bondTopologyProperty.size() - 1][1] = atomIndex2;
+					        bondTopologyProperty[bondTopologyProperty.size() - 1] = ParticleIndexPair{{atomIndex1, atomIndex2}};
 						}
-					}
-				}else { 
-					if (startfound ==false) { // We have found the start of a number
-						startnumber = i;
-						startfound = true;
 					}
 				}
+				else if(!startfound) { // We have found the start of a number
+					startnumber = i;
+					startfound = true;
+				}
+				else if(atomidstring[i] < ' ') {
+					break;
+				}
 				i++;
-			}	
+			}
 		}
-		else if(stream.lineStartsWithToken("END") || stream.lineStartsWithToken("TER") || stream.lineStartsWithToken("ENDMDL")) {
+		else if(stream.lineStartsWithToken("END") || stream.lineStartsWithToken("ENDMDL")) {
 			break;
 		}
 	}
@@ -335,7 +338,7 @@ FileSourceImporter::FrameDataPtr PDBImporter::FrameLoader::loadFile()
 		}
 	}
 
-	// If file does not contains simulation cell info,
+	// If file does not contain any simulation cell info,
 	// compute bounding box of atoms and use it as an adhoc simulation cell.
 	if(!hasSimulationCell && numAtoms > 0) {
 		Box3 boundingBox;
