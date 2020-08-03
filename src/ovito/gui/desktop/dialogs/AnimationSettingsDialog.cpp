@@ -112,6 +112,7 @@ AnimationSettingsDialog::AnimationSettingsDialog(AnimationSettings* animSettings
 	contentLayout->addWidget(loopPlaybackBox, 2, 2, 1, 2);
 	connect(loopPlaybackBox, &QCheckBox::clicked, this, [this](bool checked) {
 		_animSettings->setLoopPlayback(checked);
+		loopPlaybackModified = true;
 	});
 
 	animIntervalBox = new QGroupBox(tr("Custom animation interval"));
@@ -164,6 +165,13 @@ AnimationSettingsDialog::AnimationSettingsDialog(AnimationSettings* animSettings
 ******************************************************************************/
 void AnimationSettingsDialog::onOk()
 {
+	if(ticksPerFrameModified)
+		PROPERTY_FIELD(AnimationSettings::ticksPerFrame).memorizeDefaultValue(_animSettings);
+	if(playbackSpeedModified)
+		PROPERTY_FIELD(AnimationSettings::playbackSpeed).memorizeDefaultValue(_animSettings);
+	if(loopPlaybackModified)
+		PROPERTY_FIELD(AnimationSettings::loopPlayback).memorizeDefaultValue(_animSettings);
+
 	commit();
 	accept();
 }
@@ -197,6 +205,7 @@ void AnimationSettingsDialog::onFramesPerSecondChanged(int index)
 	// Change the animation speed.
 	qint64 oldTicksPerFrame = _animSettings->ticksPerFrame();
 	_animSettings->setTicksPerFrame((int)newTicksPerFrame);
+	ticksPerFrameModified = true;
 
 	// Rescale animation interval and animation keys.
 	TimeInterval oldInterval = _animSettings->animationInterval();
@@ -224,6 +233,7 @@ void AnimationSettingsDialog::onPlaybackSpeedChanged(int index)
 
 	// Change the animation speed.
 	_animSettings->setPlaybackSpeed(newPlaybackSpeed);
+	playbackSpeedModified = true;
 
 	// Update dialog controls to reflect new values.
 	updateUI();
