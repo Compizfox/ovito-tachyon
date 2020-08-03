@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Copyright 2019 Alexander Stukowski
+//  Copyright 2020 Alexander Stukowski
 //
 //  This file is part of OVITO (Open Visualization Tool).
 //
@@ -21,8 +21,9 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 
 #include <ovito/particles/Particles.h>
-#include <ovito/particles/import/InputColumnMapping.h>
 #include <ovito/particles/import/ParticleFrameData.h>
+#include <ovito/particles/objects/ParticlesObject.h>
+#include <ovito/stdobj/properties/InputColumnMapping.h>
 #include <ovito/core/utilities/io/CompressedTextReader.h>
 #include "IMDImporter.h"
 
@@ -74,7 +75,7 @@ FileSourceImporter::FrameDataPtr IMDImporter::FrameLoader::loadFile()
 	if(tokens.size() < 2 || tokens[1] != "A")
 		throw Exception(tr("Not an IMD atom file in ASCII format."));
 
-	InputColumnMapping columnMapping;
+	ParticleInputColumnMapping columnMapping;
 	AffineTransformation cell = AffineTransformation::Identity();
 
 	// Read remaining header lines
@@ -165,11 +166,11 @@ FileSourceImporter::FrameDataPtr IMDImporter::FrameLoader::loadFile()
 	stream.seek(headerOffset, headerLineNumber);
 
 	// Parse data columns.
-	InputColumnReader columnParser(columnMapping, *frameData, numAtoms);
+	InputColumnReader columnParser(columnMapping, frameData->particles(), numAtoms);
 	for(size_t i = 0; i < numAtoms; i++) {
 		if(!setProgressValueIntermittent(i)) return {};
 		try {
-			columnParser.readParticle(i, stream.readLine());
+			columnParser.readElement(i, stream.readLine());
 		}
 		catch(Exception& ex) {
 			throw ex.prependGeneralMessage(tr("Parsing error in line %1 of IMD file.").arg(headerLineNumber + i));

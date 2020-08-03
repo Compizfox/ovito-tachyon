@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Copyright 2019 Alexander Stukowski
+//  Copyright 2020 Alexander Stukowski
 //
 //  This file is part of OVITO (Open Visualization Tool).
 //
@@ -22,7 +22,9 @@
 
 #include <ovito/particles/Particles.h>
 #include <ovito/particles/import/ParticleFrameData.h>
-#include <ovito/particles/import/InputColumnMapping.h>
+#include <ovito/particles/objects/ParticlesObject.h>
+#include <ovito/particles/objects/ParticleType.h>
+#include <ovito/stdobj/properties/InputColumnMapping.h>
 #include <ovito/core/utilities/io/NumberParsing.h>
 #include <ovito/core/utilities/io/CompressedTextReader.h>
 #include "XSFImporter.h"
@@ -144,7 +146,7 @@ FileSourceImporter::FrameDataPtr XSFImporter::FrameLoader::loadFile()
 			if(sscanf(line, "ATOMS %i", &anim) == 1 && anim != frameNumber)
 				continue;
 
-			std::unique_ptr<ParticleFrameData::TypeList> typeList = std::make_unique<ParticleFrameData::TypeList>();
+			std::unique_ptr<PropertyContainerImportData::TypeList> typeList = std::make_unique<PropertyContainerImportData::TypeList>(ParticleType::OOClass());
 			std::vector<Point3> coords;
 			std::vector<int> types;
 			std::vector<Vector3> forces;
@@ -176,15 +178,15 @@ FileSourceImporter::FrameDataPtr XSFImporter::FrameLoader::loadFile()
 			// Will continue parsing subsequent lines from the file.
 			line = stream.line();
 
-			PropertyAccess<Point3> posProperty = frameData->addParticleProperty(ParticlesObject::OOClass().createStandardStorage(coords.size(), ParticlesObject::PositionProperty, false));
+			PropertyAccess<Point3> posProperty = frameData->particles().createStandardProperty<ParticlesObject>(coords.size(), ParticlesObject::PositionProperty, false);
 			boost::copy(coords, posProperty.begin());
 
-			PropertyAccess<int> typeProperty = frameData->addParticleProperty(ParticlesObject::OOClass().createStandardStorage(types.size(), ParticlesObject::TypeProperty, false));
+			PropertyAccess<int> typeProperty = frameData->particles().createStandardProperty<ParticlesObject>(types.size(), ParticlesObject::TypeProperty, false);
 			boost::copy(types, typeProperty.begin());
-			frameData->setPropertyTypesList(typeProperty, std::move(typeList));
+			frameData->particles().setPropertyTypesList(typeProperty, std::move(typeList));
 
 			if(forces.size() != 0) {
-				PropertyAccess<Vector3> forceProperty = frameData->addParticleProperty(ParticlesObject::OOClass().createStandardStorage(coords.size(), ParticlesObject::ForceProperty, false));
+				PropertyAccess<Vector3> forceProperty = frameData->particles().createStandardProperty<ParticlesObject>(coords.size(), ParticlesObject::ForceProperty, false);
 				boost::copy(forces, forceProperty.begin());
 			}
 
@@ -250,28 +252,28 @@ FileSourceImporter::FrameDataPtr XSFImporter::FrameLoader::loadFile()
 				throw Exception(tr("XSF file parsing error. Invalid number of data columns in line %1.").arg(stream.lineNumber()));
 
 			// Prepare the file column to particle property mapping.
-			InputColumnMapping columnMapping;
+			ParticleInputColumnMapping columnMapping;
 			columnMapping.resize(nfields + 1);
-			columnMapping[0].mapStandardColumn(ParticlesObject::TypeProperty);
-			columnMapping[1].mapStandardColumn(ParticlesObject::PositionProperty, 0);
-			columnMapping[2].mapStandardColumn(ParticlesObject::PositionProperty, 1);
-			columnMapping[3].mapStandardColumn(ParticlesObject::PositionProperty, 2);
+			columnMapping.mapStandardColumn(0, ParticlesObject::TypeProperty);
+			columnMapping.mapStandardColumn(1, ParticlesObject::PositionProperty, 0);
+			columnMapping.mapStandardColumn(2, ParticlesObject::PositionProperty, 1);
+			columnMapping.mapStandardColumn(3, ParticlesObject::PositionProperty, 2);
 			if(nfields == 6) {
-				columnMapping[4].mapStandardColumn(ParticlesObject::ForceProperty, 0);
-				columnMapping[5].mapStandardColumn(ParticlesObject::ForceProperty, 1);
-				columnMapping[6].mapStandardColumn(ParticlesObject::ForceProperty, 2);
+				columnMapping.mapStandardColumn(4, ParticlesObject::ForceProperty, 0);
+				columnMapping.mapStandardColumn(5, ParticlesObject::ForceProperty, 1);
+				columnMapping.mapStandardColumn(6, ParticlesObject::ForceProperty, 2);
 			}
 
 			// Jump back to start of atoms list.
 			stream.seek(atomsListOffset, atomsLineNumber);
 
 			// Parse atoms data.
-			InputColumnReader columnParser(columnMapping, *frameData, natoms);
+			InputColumnReader columnParser(columnMapping, frameData->particles(), natoms);
 			setProgressMaximum(natoms);
 			for(size_t i = 0; i < natoms; i++) {
 				if(!setProgressValueIntermittent(i)) return {};
 				try {
-					columnParser.readParticle(i, stream.readLine());
+					columnParser.readElement(i, stream.readLine());
 				}
 				catch(Exception& ex) {
 					throw ex.prependGeneralMessage(tr("Parsing error in line %1 of XSF file.").arg(atomsLineNumber + i));
@@ -288,7 +290,7 @@ FileSourceImporter::FrameDataPtr XSFImporter::FrameLoader::loadFile()
 		}
 		else if(boost::algorithm::starts_with(line, "BEGIN_DATAGRID_3D_") || boost::algorithm::starts_with(line, "DATAGRID_3D_")) {
 			QString name = QString::fromLatin1(line + (boost::algorithm::starts_with(line, "BEGIN_DATAGRID_3D_") ? 18 : 12)).trimmed();
-			for(const PropertyPtr& p : frameData->voxelProperties()) {
+			for(const PropertyPtr& p : frameData->voxels().properties()) {
 				if(p->name() == name)
 					throw Exception(tr("XSF file parsing error. Duplicate data grid identifier in line %1: %2").arg(stream.lineNumber()).arg(name));
 			}
@@ -312,7 +314,7 @@ FileSourceImporter::FrameDataPtr XSFImporter::FrameLoader::loadFile()
 			}
 			frameData->simulationCell().setMatrix(cell);
 
-			PropertyAccess<FloatType> fieldQuantity = frameData->addVoxelProperty(std::make_shared<PropertyStorage>(nx*ny*nz, PropertyStorage::Float, 1, 0, name, false));
+			PropertyAccess<FloatType> fieldQuantity = frameData->voxels().addProperty(std::make_shared<PropertyStorage>(nx*ny*nz, PropertyStorage::Float, 1, 0, name, false));
 			FloatType* data = fieldQuantity.begin();
 			setProgressMaximum(fieldQuantity.size());
 			const char* s = "";
@@ -336,8 +338,8 @@ FileSourceImporter::FrameDataPtr XSFImporter::FrameLoader::loadFile()
 	}
 
 	// Translate atomic numbers into element names.
-	if(PropertyPtr typeProperty = frameData->findStandardParticleProperty(ParticlesObject::TypeProperty)) {
-		if(ParticleFrameData::TypeList* typeList = frameData->propertyTypesList(typeProperty)) {
+	if(PropertyPtr typeProperty = frameData->particles().findStandardProperty(ParticlesObject::TypeProperty)) {
+		if(PropertyContainerImportData::TypeList* typeList = frameData->particles().propertyTypesList(typeProperty)) {
 			for(const auto& t : typeList->types()) {
 				if(t.name.isEmpty() && t.id >= 1 && t.id < sizeof(chemical_symbols)/sizeof(chemical_symbols[0])) {
 					typeList->setTypeName(t.id, chemical_symbols[t.id]);

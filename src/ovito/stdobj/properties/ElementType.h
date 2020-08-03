@@ -42,6 +42,9 @@ public:
 	/// \brief Constructs a new type.
 	Q_INVOKABLE ElementType(DataSet* dataset);
 
+	/// \brief Initializes the element type from a variable list of attributes delivered by a file importer.
+	virtual bool initialize(bool isNewlyCreated, const QVariantMap& attributes, int typePropertyId);
+
 	/// \brief Returns the name of this type, or a dynamically generated string representing the
 	///        numeric ID if the type has no assigned name.
 	QString nameOrNumericId() const {

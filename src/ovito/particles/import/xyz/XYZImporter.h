@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Copyright 2017 Alexander Stukowski
+//  Copyright 2020 Alexander Stukowski
 //
 //  This file is part of OVITO (Open Visualization Tool).
 //
@@ -24,9 +24,10 @@
 
 
 #include <ovito/particles/Particles.h>
-#include <ovito/particles/import/InputColumnMapping.h>
 #include <ovito/particles/import/ParticleImporter.h>
 #include <ovito/particles/import/ParticleFrameData.h>
+#include <ovito/particles/objects/ParticlesObject.h>
+#include <ovito/stdobj/properties/InputColumnMapping.h>
 #include <ovito/core/dataset/DataSetContainer.h>
 
 namespace Ovito { namespace Particles {
@@ -64,16 +65,8 @@ public:
 	/// Returns the title of this object.
 	virtual QString objectTitle() const override { return tr("XYZ File"); }
 
-	/// \brief Returns the user-defined mapping between data columns in the input file and
-	///        the internal particle properties.
-	const InputColumnMapping& columnMapping() const { return _columnMapping; }
-
-	/// \brief Sets the user-defined mapping between data columns in the input file and
-	///        the internal particle properties.
-	void setColumnMapping(const InputColumnMapping& mapping);
-
 	/// Guesses the mapping of input file columns to internal particle properties.
-	static bool mapVariableToProperty(InputColumnMapping &columnMapping, int column, QString name, int dataType, int vec);
+	static bool mapVariableToProperty(ParticleInputColumnMapping& columnMapping, int column, QString name, int dataType, int vec);
 
 	/// Creates an asynchronous loader object that loads the data for the given frame from the external file.
 	virtual std::shared_ptr<FileSourceImporter::FrameLoader> createFrameLoader(const Frame& frame, const FileHandle& file) override {
@@ -88,11 +81,7 @@ public:
 	}
 
 	/// Inspects the header of the given file and returns the number of file columns.
-	Future<InputColumnMapping> inspectFileHeader(const Frame& frame);
-
-public:
-
-	Q_PROPERTY(Ovito::Particles::InputColumnMapping columnMapping READ columnMapping WRITE setColumnMapping);
+	Future<ParticleInputColumnMapping> inspectFileHeader(const Frame& frame);
 
 private:
 
@@ -104,10 +93,10 @@ private:
 		using ParticleFrameData::ParticleFrameData;
 
 		/// Returns the file column mapping generated from the information in the file header.
-		InputColumnMapping& detectedColumnMapping() { return _detectedColumnMapping; }
+		ParticleInputColumnMapping& detectedColumnMapping() { return _detectedColumnMapping; }
 
 	private:
-		InputColumnMapping _detectedColumnMapping;
+		ParticleInputColumnMapping _detectedColumnMapping;
 	};
 
 	/// The format-specific task object that is responsible for reading an input file in the background.
@@ -116,7 +105,7 @@ private:
 	public:
 
 		/// Normal constructor.
-		FrameLoader(const FileSourceImporter::Frame& frame, const FileHandle& file, bool sortParticles, const InputColumnMapping& columnMapping, bool autoRescaleCoordinates)
+		FrameLoader(const FileSourceImporter::Frame& frame, const FileHandle& file, bool sortParticles, const ParticleInputColumnMapping& columnMapping, bool autoRescaleCoordinates)
 		  : FileSourceImporter::FrameLoader(frame, file),
 		  	_parseFileHeaderOnly(false),
 			_sortParticles(sortParticles),
@@ -137,7 +126,7 @@ private:
 		bool _sortParticles;
 		bool _parseFileHeaderOnly;
 		bool _autoRescaleCoordinates;
-		InputColumnMapping _columnMapping;
+		ParticleInputColumnMapping _columnMapping;
 	};
 
 	/// The format-specific task object that is responsible for scanning the input file for animation frames.
@@ -162,14 +151,10 @@ protected:
 	/// \brief Loads the class' contents from the given stream.
 	virtual void loadFromStream(ObjectLoadStream& stream) override;
 
-	/// \brief Creates a copy of this object.
-	virtual OORef<RefTarget> clone(bool deepCopy, CloneHelper& cloneHelper) const override;
-
 private:
 
-	/// Stores the user-defined mapping between data columns in the input file and
-	/// the internal particle properties.
-	InputColumnMapping _columnMapping;
+	/// The user-defined mapping of input file columns to OVITO's particle properties.
+	DECLARE_MODIFIABLE_PROPERTY_FIELD(ParticleInputColumnMapping, columnMapping, setColumnMapping);
 
 	/// Controls the automatic detection of reduced atom coordinates in the input file.
 	DECLARE_MODIFIABLE_PROPERTY_FIELD(bool, autoRescaleCoordinates, setAutoRescaleCoordinates);

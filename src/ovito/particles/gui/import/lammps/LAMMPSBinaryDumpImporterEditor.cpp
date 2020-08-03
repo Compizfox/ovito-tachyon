@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Copyright 2016 Alexander Stukowski
+//  Copyright 2020 Alexander Stukowski
 //
 //  This file is part of OVITO (Open Visualization Tool).
 //
@@ -22,7 +22,7 @@
 
 #include <ovito/particles/gui/ParticlesGui.h>
 #include <ovito/particles/import/lammps/LAMMPSBinaryDumpImporter.h>
-#include <ovito/particles/gui/import/InputColumnMappingDialog.h>
+#include <ovito/stdobj/gui/properties/InputColumnMappingDialog.h>
 #include <ovito/gui/desktop/properties/BooleanParameterUI.h>
 #include <ovito/gui/desktop/mainwin/MainWindow.h>
 #include <ovito/core/dataset/DataSetContainer.h>
@@ -41,10 +41,10 @@ bool LAMMPSBinaryDumpImporterEditor::inspectNewFile(FileImporter* importer, cons
 {
 	// Retrieve column information of input file.
 	LAMMPSBinaryDumpImporter* lammpsImporter = static_object_cast<LAMMPSBinaryDumpImporter>(importer);
-	Future<InputColumnMapping> inspectFuture = lammpsImporter->inspectFileHeader(FileSourceImporter::Frame(sourceFile));
+	Future<ParticleInputColumnMapping> inspectFuture = lammpsImporter->inspectFileHeader(FileSourceImporter::Frame(sourceFile));
 	if(!importer->dataset()->taskManager().waitForFuture(inspectFuture))
 		return false;
-	InputColumnMapping mapping = inspectFuture.result();
+	ParticleInputColumnMapping mapping = inspectFuture.result();
 
 	if(lammpsImporter->columnMapping().size() != mapping.size()) {
 		// If this is a newly created file importer, load old mapping from application settings store.
@@ -53,7 +53,7 @@ bool LAMMPSBinaryDumpImporterEditor::inspectNewFile(FileImporter* importer, cons
 			settings.beginGroup("viz/importer/lammps_binary_dump/");
 			if(settings.contains("colmapping")) {
 				try {
-					InputColumnMapping storedMapping;
+					ParticleInputColumnMapping storedMapping;
 					storedMapping.fromByteArray(settings.value("colmapping").toByteArray(), importer->dataset()->taskManager());
 					std::copy_n(storedMapping.begin(), std::min(storedMapping.size(), mapping.size()), mapping.begin());
 				}
@@ -74,7 +74,7 @@ bool LAMMPSBinaryDumpImporterEditor::inspectNewFile(FileImporter* importer, cons
 	}
 	else {
 		// If number of columns did not change since last time, only update the stored file excerpt.
-		InputColumnMapping newMapping = lammpsImporter->columnMapping();
+		ParticleInputColumnMapping newMapping = lammpsImporter->columnMapping();
 		newMapping.setFileExcerpt(mapping.fileExcerpt());
 		lammpsImporter->setColumnMapping(newMapping);
 		return true;

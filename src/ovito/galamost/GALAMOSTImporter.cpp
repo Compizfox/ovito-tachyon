@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Copyright 2018 Alexander Stukowski
+//  Copyright 2020 Alexander Stukowski
 //
 //  This file is part of OVITO (Open Visualization Tool).
 //
@@ -23,6 +23,8 @@
 #include <ovito/particles/Particles.h>
 #include <ovito/particles/import/ParticleFrameData.h>
 #include <ovito/particles/objects/BondType.h>
+#include <ovito/particles/objects/ParticleType.h>
+#include <ovito/particles/objects/ParticlesObject.h>
 #include <ovito/core/utilities/io/CompressedTextReader.h>
 #include "GALAMOSTImporter.h"
 
@@ -97,7 +99,7 @@ FileSourceImporter::FrameDataPtr GALAMOSTImporter::FrameLoader::loadFile()
 
 	// Report number of particles and bonds to the user.
 	QString statusString = tr("Number of particles: %1").arg(_natoms);
-	if(PropertyPtr topologyProperty = _frameData->findStandardBondProperty(BondsObject::TopologyProperty))
+	if(PropertyPtr topologyProperty = _frameData->bonds().findStandardProperty(BondsObject::TopologyProperty))
 		statusString += tr("\nNumber of bonds: %1").arg(topologyProperty->size());
 	_frameData->setStatus(statusString);
 
@@ -337,21 +339,21 @@ bool GALAMOSTImporter::FrameLoader::endElement(const QString& namespaceURI, cons
 		else if(localName == "type") {
 			OVITO_ASSERT(_currentProperty->type() == ParticlesObject::TypeProperty);
 			QString typeName;
-			std::unique_ptr<ParticleFrameData::TypeList> typeList = std::make_unique<ParticleFrameData::TypeList>();
+			std::unique_ptr<PropertyContainerImportData::TypeList> typeList = std::make_unique<PropertyContainerImportData::TypeList>(ParticleType::OOClass());
 			PropertyAccess<int> typeArray(_currentProperty);
 			for(int& type : typeArray) {
 				stream >> typeName;
 				type = typeList->addTypeName(typeName);
 			}
 			typeList->sortTypesByName(typeArray);
-			_frameData->setPropertyTypesList(typeArray, std::move(typeList));
+			_frameData->particles().setPropertyTypesList(typeArray, std::move(typeList));
 		}
 		else if(localName == "Aspheres") {
 			OVITO_ASSERT(_currentProperty->type() == ParticlesObject::AsphericalShapeProperty);
-			ConstPropertyAccess<int> typeProperty = _frameData->findStandardParticleProperty(ParticlesObject::TypeProperty);
+			ConstPropertyAccess<int> typeProperty = _frameData->particles().findStandardProperty(ParticlesObject::TypeProperty);
 			if(!typeProperty)
 				throw Exception(tr("GALAMOST file parsing error. <%1> element must appear after <type> element.").arg(qName));
-			ParticleFrameData::TypeList* typeList = _frameData->createPropertyTypesList(typeProperty.storage());
+			PropertyContainerImportData::TypeList* typeList = _frameData->particles().createPropertyTypesList(typeProperty.storage(), ParticleType::OOClass());
 			std::vector<Vector3> typesAsphericalShape;
 			while(!stream.atEnd()) {
 				QString typeName;
@@ -359,7 +361,7 @@ bool GALAMOSTImporter::FrameLoader::endElement(const QString& namespaceURI, cons
 				FloatType eps_a, eps_b, eps_c;
 				stream >> typeName >> a >> b >> c >> eps_a >> eps_b >> eps_c;
 				stream.skipWhiteSpace();
-				for(const ParticleFrameData::TypeDefinition& type : typeList->types()) {
+				for(const PropertyContainerImportData::TypeDefinition& type : typeList->types()) {
 					if(type.name == typeName) {
 						if(typesAsphericalShape.size() <= type.id) typesAsphericalShape.resize(type.id+1, Vector3::Zero());
 						typesAsphericalShape[type.id] = Vector3(a/2,b/2,c/2);
@@ -377,7 +379,7 @@ bool GALAMOSTImporter::FrameLoader::endElement(const QString& namespaceURI, cons
 		else if(localName == "bond") {
 			OVITO_ASSERT(_currentProperty->type() == BondsObject::TopologyProperty);
 			QString typeName;
-			std::unique_ptr<ParticleFrameData::TypeList> typeList = std::make_unique<ParticleFrameData::TypeList>(BondType::OOClass());
+			std::unique_ptr<PropertyContainerImportData::TypeList> typeList = std::make_unique<PropertyContainerImportData::TypeList>(BondType::OOClass());
 			std::vector<ParticleIndexPair> topology;
 			std::vector<int> bondTypes;
 			while(!stream.atEnd()) {
@@ -387,18 +389,18 @@ bool GALAMOSTImporter::FrameLoader::endElement(const QString& namespaceURI, cons
 				topology.push_back({a,b});
 				stream.skipWhiteSpace();
 			}
-			PropertyAccess<ParticleIndexPair> topologyProperty = _frameData->addBondProperty(BondsObject::OOClass().createStandardStorage(topology.size(), BondsObject::TopologyProperty, false));
+			PropertyAccess<ParticleIndexPair> topologyProperty = _frameData->bonds().createStandardProperty<BondsObject>(topology.size(), BondsObject::TopologyProperty, false);
 			boost::copy(topology, topologyProperty.begin());
-			PropertyAccess<int> bondTypeProperty = _frameData->addBondProperty(BondsObject::OOClass().createStandardStorage(bondTypes.size(), BondsObject::TypeProperty, false));
+			PropertyAccess<int> bondTypeProperty = _frameData->bonds().createStandardProperty<BondsObject>(bondTypes.size(), BondsObject::TypeProperty, false);
 			boost::copy(bondTypes, bondTypeProperty.begin());
 			typeList->sortTypesByName(bondTypeProperty);
-			_frameData->setPropertyTypesList(bondTypeProperty, std::move(typeList));
+			_frameData->bonds().setPropertyTypesList(bondTypeProperty, std::move(typeList));
 			_currentProperty.reset();
 		}
 		if(stream.status() == QTextStream::ReadPastEnd)
 			throw Exception(tr("GALAMOST file parsing error. Unexpected end of data in <%1> element").arg(qName));
 		if(_currentProperty) {
-			_frameData->addParticleProperty(std::move(_currentProperty));
+			_frameData->particles().addProperty(std::move(_currentProperty));
 			_currentProperty.reset();
 		}
 		_characterData.clear();

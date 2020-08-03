@@ -63,7 +63,6 @@ SET(SourceFiles
 	modifier/properties/InteractiveMolecularDynamicsModifier.cpp
 	import/ParticleImporter.cpp
 	import/ParticleFrameData.cpp
-	import/InputColumnMapping.cpp
 	import/lammps/LAMMPSTextDumpImporter.cpp
 	import/lammps/LAMMPSBinaryDumpImporter.cpp
 	import/lammps/LAMMPSDataImporter.cpp

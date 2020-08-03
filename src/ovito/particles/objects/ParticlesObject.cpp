@@ -740,21 +740,21 @@ void ParticlesObject::OOMetaClass::initialize()
 	const QStringList tensorList = QStringList() << "XX" << "YX" << "ZX" << "XY" << "YY" << "ZY" << "XZ" << "YZ" << "ZZ";
 	const QStringList quaternionList = QStringList() << "X" << "Y" << "Z" << "W";
 
-	registerStandardProperty(TypeProperty, tr("Particle Type"), PropertyStorage::Int, emptyList, tr("Particle types"));
+	registerStandardProperty(TypeProperty, tr("Particle Type"), PropertyStorage::Int, emptyList, &ParticleType::OOClass(), tr("Particle types"));
 	registerStandardProperty(SelectionProperty, tr("Selection"), PropertyStorage::Int, emptyList);
 	registerStandardProperty(ClusterProperty, tr("Cluster"), PropertyStorage::Int64, emptyList);
 	registerStandardProperty(CoordinationProperty, tr("Coordination"), PropertyStorage::Int, emptyList);
-	registerStandardProperty(PositionProperty, tr("Position"), PropertyStorage::Float, xyzList, tr("Particle positions"));
-	registerStandardProperty(ColorProperty, tr("Color"), PropertyStorage::Float, rgbList, tr("Particle colors"));
-	registerStandardProperty(DisplacementProperty, tr("Displacement"), PropertyStorage::Float, xyzList, tr("Displacements"));
+	registerStandardProperty(PositionProperty, tr("Position"), PropertyStorage::Float, xyzList, nullptr, tr("Particle positions"));
+	registerStandardProperty(ColorProperty, tr("Color"), PropertyStorage::Float, rgbList, nullptr, tr("Particle colors"));
+	registerStandardProperty(DisplacementProperty, tr("Displacement"), PropertyStorage::Float, xyzList, nullptr, tr("Displacements"));
 	registerStandardProperty(DisplacementMagnitudeProperty, tr("Displacement Magnitude"), PropertyStorage::Float, emptyList);
-	registerStandardProperty(VelocityProperty, tr("Velocity"), PropertyStorage::Float, xyzList, tr("Velocities"));
+	registerStandardProperty(VelocityProperty, tr("Velocity"), PropertyStorage::Float, xyzList, nullptr, tr("Velocities"));
 	registerStandardProperty(PotentialEnergyProperty, tr("Potential Energy"), PropertyStorage::Float, emptyList);
 	registerStandardProperty(KineticEnergyProperty, tr("Kinetic Energy"), PropertyStorage::Float, emptyList);
 	registerStandardProperty(TotalEnergyProperty, tr("Total Energy"), PropertyStorage::Float, emptyList);
-	registerStandardProperty(RadiusProperty, tr("Radius"), PropertyStorage::Float, emptyList, tr("Radii"));
-	registerStandardProperty(StructureTypeProperty, tr("Structure Type"), PropertyStorage::Int, emptyList, tr("Structure types"));
-	registerStandardProperty(IdentifierProperty, tr("Particle Identifier"), PropertyStorage::Int64, emptyList, tr("Particle identifiers"));
+	registerStandardProperty(RadiusProperty, tr("Radius"), PropertyStorage::Float, emptyList, nullptr, tr("Radii"));
+	registerStandardProperty(StructureTypeProperty, tr("Structure Type"), PropertyStorage::Int, emptyList, &ParticleType::OOClass(), tr("Structure types"));
+	registerStandardProperty(IdentifierProperty, tr("Particle Identifier"), PropertyStorage::Int64, emptyList, nullptr, tr("Particle identifiers"));
 	registerStandardProperty(StressTensorProperty, tr("Stress Tensor"), PropertyStorage::Float, symmetricTensorList);
 	registerStandardProperty(StrainTensorProperty, tr("Strain Tensor"), PropertyStorage::Float, symmetricTensorList);
 	registerStandardProperty(DeformationGradientProperty, tr("Deformation Gradient"), PropertyStorage::Float, tensorList);
@@ -774,14 +774,14 @@ void ParticlesObject::OOMetaClass::initialize()
 	registerStandardProperty(VelocityMagnitudeProperty, tr("Velocity Magnitude"), PropertyStorage::Float, emptyList);
 	registerStandardProperty(MoleculeProperty, tr("Molecule Identifier"), PropertyStorage::Int64, emptyList);
 	registerStandardProperty(AsphericalShapeProperty, tr("Aspherical Shape"), PropertyStorage::Float, xyzList);
-	registerStandardProperty(VectorColorProperty, tr("Vector Color"), PropertyStorage::Float, rgbList, tr("Vector colors"));
+	registerStandardProperty(VectorColorProperty, tr("Vector Color"), PropertyStorage::Float, rgbList, nullptr, tr("Vector colors"));
 	registerStandardProperty(ElasticStrainTensorProperty, tr("Elastic Strain"), PropertyStorage::Float, symmetricTensorList);
 	registerStandardProperty(ElasticDeformationGradientProperty, tr("Elastic Deformation Gradient"), PropertyStorage::Float, tensorList);
 	registerStandardProperty(RotationProperty, tr("Rotation"), PropertyStorage::Float, quaternionList);
 	registerStandardProperty(StretchTensorProperty, tr("Stretch Tensor"), PropertyStorage::Float, symmetricTensorList);
-	registerStandardProperty(MoleculeTypeProperty, tr("Molecule Type"), PropertyStorage::Float, emptyList, tr("Molecule types"));
-	registerStandardProperty(NucleobaseTypeProperty, tr("Nucleobase"), PropertyStorage::Int, emptyList, tr("Nucleobases"));
-	registerStandardProperty(DNAStrandProperty, tr("DNA Strand"), PropertyStorage::Int, emptyList, tr("DNA Strands"));
+	registerStandardProperty(MoleculeTypeProperty, tr("Molecule Type"), PropertyStorage::Float, emptyList, &ElementType::OOClass(), tr("Molecule types"));
+	registerStandardProperty(NucleobaseTypeProperty, tr("Nucleobase"), PropertyStorage::Int, emptyList, &ElementType::OOClass(), tr("Nucleobases"));
+	registerStandardProperty(DNAStrandProperty, tr("DNA Strand"), PropertyStorage::Int, emptyList, &ElementType::OOClass(), tr("DNA Strands"));
 	registerStandardProperty(NucleotideAxisProperty, tr("Nucleotide Axis"), PropertyStorage::Float, xyzList);
 	registerStandardProperty(NucleotideNormalProperty, tr("Nucleotide Normal"), PropertyStorage::Float, xyzList);
 }
@@ -887,6 +887,18 @@ boost::dynamic_bitset<> ParticlesObject::OOMetaClass::viewportFenceSelection(con
 
 	// Give up.
 	return PropertyContainerClass::viewportFenceSelection(fence, objectPath, node, projectionTM);
+}
+
+/******************************************************************************
+ * This method is called by InputColumnMapping::validate() to let the container 
+ * class perform custom checks on the mapping of the file data columns to 
+ * internal properties.
+ *****************************************************************************/
+void ParticlesObject::OOMetaClass::validateInputColumnMapping(const InputColumnMapping& mapping) const
+{
+	// Make sure that at least the particle positions are read from the input file.
+	if(std::none_of(mapping.begin(), mapping.end(), [](const InputColumnInfo& column) { return column.property.type() == ParticlesObject::PositionProperty; }))
+		throw Exception(ParticlesObject::tr("Invalid file column mapping: At least one file column must be mapped to the '%1' particle property.").arg(standardPropertyName(ParticlesObject::PositionProperty)));
 }
 
 }	// End of namespace

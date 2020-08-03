@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Copyright 2016 Alexander Stukowski
+//  Copyright 2020 Alexander Stukowski
 //
 //  This file is part of OVITO (Open Visualization Tool).
 //
@@ -22,7 +22,7 @@
 
 #include <ovito/particles/gui/ParticlesGui.h>
 #include <ovito/particles/import/lammps/LAMMPSTextDumpImporter.h>
-#include <ovito/particles/gui/import/InputColumnMappingDialog.h>
+#include <ovito/stdobj/gui/properties/InputColumnMappingDialog.h>
 #include <ovito/gui/desktop/properties/BooleanParameterUI.h>
 #include <ovito/gui/desktop/properties/BooleanRadioButtonParameterUI.h>
 #include <ovito/gui/desktop/mainwin/MainWindow.h>
@@ -38,15 +38,15 @@ SET_OVITO_OBJECT_EDITOR(LAMMPSTextDumpImporter, LAMMPSTextDumpImporterEditor);
  * Displays a dialog box that allows the user to edit the custom file column to particle
  * property mapping.
  *****************************************************************************/
-bool LAMMPSTextDumpImporterEditor::showEditColumnMappingDialog(LAMMPSTextDumpImporter* importer, const QUrl& sourceFile, MainWindow* mainWindow)
+bool LAMMPSTextDumpImporterEditor::showEditColumnMappingDialog(LAMMPSTextDumpImporter* importer, const FileSourceImporter::Frame& frame, MainWindow* mainWindow)
 {
-	Future<InputColumnMapping> inspectFuture = importer->inspectFileHeader(FileSourceImporter::Frame(sourceFile));
+	Future<ParticleInputColumnMapping> inspectFuture = importer->inspectFileHeader(frame);
 	if(!importer->dataset()->taskManager().waitForFuture(inspectFuture))
 		return false;
-	InputColumnMapping mapping = inspectFuture.result();
+	ParticleInputColumnMapping mapping = inspectFuture.result();
 
 	if(!importer->customColumnMapping().empty()) {
-		InputColumnMapping customMapping = importer->customColumnMapping();
+		ParticleInputColumnMapping customMapping = importer->customColumnMapping();
 		customMapping.resize(mapping.size());
 		for(size_t i = 0; i < customMapping.size(); i++)
 			customMapping[i].columnName = mapping[i].columnName;
@@ -122,23 +122,15 @@ void LAMMPSTextDumpImporterEditor::createUI(const RolloutInsertionParameters& ro
 void LAMMPSTextDumpImporterEditor::onEditColumnMapping()
 {
 	if(LAMMPSTextDumpImporter* importer = static_object_cast<LAMMPSTextDumpImporter>(editObject())) {
+		UndoableTransaction::handleExceptions(importer->dataset()->undoStack(), tr("Change file column mapping"), [this, importer]() {
 
-		// Determine URL of current input file.
-		FileSource* fileSource = nullptr;
-		for(RefMaker* refmaker : importer->dependents()) {
-			fileSource = dynamic_object_cast<FileSource>(refmaker);
-			if(fileSource) break;
-		}
-		if(!fileSource || fileSource->frames().empty()) return;
+			// Determine the currently loaded data file of the FileSource.
+			FileSource* fileSource = importer->fileSource();
+			if(!fileSource || fileSource->frames().empty()) return;
+			int frameIndex = qBound(0, fileSource->dataCollectionFrame(), fileSource->frames().size()-1);
 
-		QUrl sourceUrl;
-		if(fileSource->dataCollectionFrame() >= 0)
-			sourceUrl = fileSource->frames()[fileSource->dataCollectionFrame()].sourceFile;
-		else
-			sourceUrl = fileSource->frames().front().sourceFile;
-
-		UndoableTransaction::handleExceptions(importer->dataset()->undoStack(), tr("Change file column mapping"), [this, &sourceUrl, importer]() {
-			if(showEditColumnMappingDialog(importer, sourceUrl, mainWindow())) {
+			// Show the dialog box, which lets the user modify the file column mapping.
+			if(showEditColumnMappingDialog(importer, fileSource->frames()[frameIndex], mainWindow())) {
 				importer->requestReload();
 			}
 		});

@@ -22,6 +22,8 @@
 
 #include <ovito/particles/Particles.h>
 #include <ovito/particles/import/ParticleFrameData.h>
+#include <ovito/particles/objects/ParticlesObject.h>
+#include <ovito/particles/objects/ParticleType.h>
 #include <ovito/core/utilities/io/NumberParsing.h>
 #include <ovito/core/utilities/io/CompressedTextReader.h>
 #include "POSCARImporter.h"
@@ -252,9 +254,9 @@ FileSourceImporter::FrameDataPtr POSCARImporter::FrameLoader::loadFile()
 		isCartesian = true;
 
 	// Create the particle properties.
-	PropertyAccess<Point3> posProperty = frameData->addParticleProperty(ParticlesObject::OOClass().createStandardStorage(totalAtomCount, ParticlesObject::PositionProperty, false));
-	PropertyAccess<int> typeProperty = frameData->addParticleProperty(ParticlesObject::OOClass().createStandardStorage(totalAtomCount, ParticlesObject::TypeProperty, false));
-	ParticleFrameData::TypeList* typeList = frameData->createPropertyTypesList(typeProperty);
+	PropertyAccess<Point3> posProperty = frameData->particles().createStandardProperty<ParticlesObject>(totalAtomCount, ParticlesObject::PositionProperty, false);
+	PropertyAccess<int> typeProperty = frameData->particles().createStandardProperty<ParticlesObject>(totalAtomCount, ParticlesObject::TypeProperty, false);
+	PropertyContainerImportData::TypeList* typeList = frameData->particles().createPropertyTypesList(typeProperty, ParticleType::OOClass());
 
 	// Read atom coordinates.
 	Point3* p = posProperty.begin();
@@ -290,7 +292,7 @@ FileSourceImporter::FrameDataPtr POSCARImporter::FrameLoader::loadFile()
 				isCartesian = true;
 
 			// Read atomic velocities.
-			PropertyAccess<Vector3> velocityProperty = frameData->addParticleProperty(ParticlesObject::OOClass().createStandardStorage(totalAtomCount, ParticlesObject::VelocityProperty, false));
+			PropertyAccess<Vector3> velocityProperty = frameData->particles().createStandardProperty<ParticlesObject>(totalAtomCount, ParticlesObject::VelocityProperty, false);
 			Vector3* v = velocityProperty.begin();
 			for(int atype = 1; atype <= atomCounts.size(); atype++) {
 				for(int i = 0; i < atomCounts[atype-1]; i++, ++v) {
@@ -340,7 +342,7 @@ FileSourceImporter::FrameDataPtr POSCARImporter::FrameLoader::loadFile()
 				// Parse spin up + spin down denisty.
 				PropertyPtr chargeDensity = parseFieldData(nx, ny, nz, tr("Charge density"));
 				if(!chargeDensity) return {};
-				frameData->addVoxelProperty(chargeDensity);
+				frameData->voxels().addProperty(chargeDensity);
 				statusString += tr("\nCharge density grid: %1 x %2 x %3").arg(nx).arg(ny).arg(nz);
 
 				// Look for spin up - spin down density.
@@ -379,13 +381,13 @@ FileSourceImporter::FrameDataPtr POSCARImporter::FrameLoader::loadFile()
 				}
 
 				if(magnetizationDensity && magnetizationDensityY && magnetizationDensityZ) {
-					PropertyAccess<FloatType,true> vectorMagnetization = frameData->addVoxelProperty(std::make_shared<PropertyStorage>(nx*ny*nz, PropertyStorage::Float, 3, 0, tr("Magnetization density"), false, 0, QStringList() << "X" << "Y" << "Z"));
+					PropertyAccess<FloatType,true> vectorMagnetization = frameData->voxels().addProperty(std::make_shared<PropertyStorage>(nx*ny*nz, PropertyStorage::Float, 3, 0, tr("Magnetization density"), false, 0, QStringList() << "X" << "Y" << "Z"));
 					boost::copy(ConstPropertyAccess<FloatType>(magnetizationDensity), vectorMagnetization.componentRange(0).begin());
 					boost::copy(ConstPropertyAccess<FloatType>(magnetizationDensityY), vectorMagnetization.componentRange(1).begin());
 					boost::copy(ConstPropertyAccess<FloatType>(magnetizationDensityZ), vectorMagnetization.componentRange(2).begin());
 				}
 				else if(magnetizationDensity) {
-					frameData->addVoxelProperty(std::move(magnetizationDensity));
+					frameData->voxels().addProperty(std::move(magnetizationDensity));
 				}
 			}
 		}

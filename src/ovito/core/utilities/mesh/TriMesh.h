@@ -592,3 +592,5 @@ using ConstTriMeshPtr = std::shared_ptr<const TriMesh>;
 }	// End of namespace
 
 Q_DECLARE_TYPEINFO(Ovito::TriMeshFace, Q_MOVABLE_TYPE);
+Q_DECLARE_METATYPE(Ovito::TriMeshPtr);
+Q_DECLARE_TYPEINFO(Ovito::TriMeshPtr, Q_MOVABLE_TYPE);

@@ -49,7 +49,7 @@ void VoxelGrid::OOMetaClass::initialize()
 	const QStringList emptyList;
 	const QStringList rgbList = QStringList() << "R" << "G" << "B";
 
-	registerStandardProperty(ColorProperty, tr("Color"), PropertyStorage::Float, rgbList, tr("Voxel colors"));
+	registerStandardProperty(ColorProperty, tr("Color"), PropertyStorage::Float, rgbList, nullptr, tr("Voxel colors"));
 }
 
 /******************************************************************************

@@ -28,6 +28,7 @@
 #include <ovito/core/dataset/pipeline/PipelineFlowState.h>
 #include <ovito/core/utilities/concurrent/ParallelFor.h>
 #include "BondsObject.h"
+#include "BondType.h"
 #include "ParticlesObject.h"
 
 namespace Ovito { namespace Particles {
@@ -145,9 +146,9 @@ void BondsObject::OOMetaClass::initialize()
 	const QStringList xyzList = QStringList() << "X" << "Y" << "Z";
 	const QStringList rgbList = QStringList() << "R" << "G" << "B";
 
-	registerStandardProperty(TypeProperty, tr("Bond Type"), PropertyStorage::Int, emptyList, tr("Bond types"));
+	registerStandardProperty(TypeProperty, tr("Bond Type"), PropertyStorage::Int, emptyList, &BondType::OOClass(), tr("Bond types"));
 	registerStandardProperty(SelectionProperty, tr("Selection"), PropertyStorage::Int, emptyList);
-	registerStandardProperty(ColorProperty, tr("Color"), PropertyStorage::Float, rgbList, tr("Bond colors"));
+	registerStandardProperty(ColorProperty, tr("Color"), PropertyStorage::Float, rgbList, nullptr, tr("Bond colors"));
 	registerStandardProperty(LengthProperty, tr("Length"), PropertyStorage::Float, emptyList);
 	registerStandardProperty(TopologyProperty, tr("Topology"), PropertyStorage::Int64, abList);
 	registerStandardProperty(PeriodicImageProperty, tr("Periodic Image"), PropertyStorage::Int, xyzList);

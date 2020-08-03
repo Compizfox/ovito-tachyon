@@ -91,7 +91,7 @@ void DihedralsObject::OOMetaClass::initialize()
 	const QStringList emptyList;
 	const QStringList abcdList = QStringList() << "A" << "B" << "C" << "D";
 
-	registerStandardProperty(TypeProperty, tr("Dihedral Type"), PropertyStorage::Int, emptyList, tr("Dihedral types"));
+	registerStandardProperty(TypeProperty, tr("Dihedral Type"), PropertyStorage::Int, emptyList, &ElementType::OOClass(), tr("Dihedral types"));
 	registerStandardProperty(TopologyProperty, tr("Topology"), PropertyStorage::Int64, abcdList);
 }
 

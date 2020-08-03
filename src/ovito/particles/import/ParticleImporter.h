@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Copyright 2013 Alexander Stukowski
+//  Copyright 2020 Alexander Stukowski
 //
 //  This file is part of OVITO (Open Visualization Tool).
 //
@@ -29,7 +29,7 @@
 namespace Ovito { namespace Particles {
 
 /**
- * \brief Base class for file parsers that read particle-position data.
+ * \brief Base class for file parsers that read particle datasets.
  */
 class OVITO_PARTICLES_EXPORT ParticleImporter : public FileSourceImporter
 {

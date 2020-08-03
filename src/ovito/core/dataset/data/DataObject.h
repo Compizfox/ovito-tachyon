@@ -91,9 +91,9 @@ public:
 	/// \brief Attaches a visual element to this data object that will be responsible for rendering the
 	///        data. Any existing visual elements will be replaced.
 	void setVisElement(DataVis* vis) {
-		OVITO_ASSERT(vis != nullptr);
 		_visElements.clear(this, PROPERTY_FIELD(visElements));
-		_visElements.push_back(this, PROPERTY_FIELD(visElements), vis);
+		if(vis)
+			_visElements.push_back(this, PROPERTY_FIELD(visElements), vis);
 	}
 
 	/// \brief Returns the first visualization element attached to this data object or NULL if there is

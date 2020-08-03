@@ -33,17 +33,9 @@ namespace Ovito { namespace Particles {
 
 IMPLEMENT_OVITO_CLASS(LAMMPSTextDumpImporter);
 DEFINE_PROPERTY_FIELD(LAMMPSTextDumpImporter, useCustomColumnMapping);
+DEFINE_PROPERTY_FIELD(LAMMPSTextDumpImporter, customColumnMapping);
 SET_PROPERTY_FIELD_LABEL(LAMMPSTextDumpImporter, useCustomColumnMapping, "Custom file column mapping");
-
-/******************************************************************************
- * Sets the user-defined mapping between data columns in the input file and
- * the internal particle properties.
- *****************************************************************************/
-void LAMMPSTextDumpImporter::setCustomColumnMapping(const InputColumnMapping& mapping)
-{
-	_customColumnMapping = mapping;
-	notifyTargetChanged();
-}
+SET_PROPERTY_FIELD_LABEL(LAMMPSTextDumpImporter, customColumnMapping, "File column mapping");
 
 /******************************************************************************
 * Checks if the given file has format that can be read by this importer.
@@ -75,7 +67,7 @@ bool LAMMPSTextDumpImporter::OOMetaClass::checkFileFormat(const FileHandle& file
 /******************************************************************************
 * Inspects the header of the given file and returns the number of file columns.
 ******************************************************************************/
-Future<InputColumnMapping> LAMMPSTextDumpImporter::inspectFileHeader(const Frame& frame)
+Future<ParticleInputColumnMapping> LAMMPSTextDumpImporter::inspectFileHeader(const Frame& frame)
 {
 	// Retrieve file.
 	return Application::instance()->fileManager()->fetchUrl(dataset()->taskManager(), frame.sourceFile)
@@ -287,14 +279,14 @@ FileSourceImporter::FrameDataPtr LAMMPSTextDumpImporter::FrameLoader::loadFile()
 				}
 
 				// Set up column-to-property mapping.
-				InputColumnMapping columnMapping;
+				ParticleInputColumnMapping columnMapping;
 				if(_useCustomColumnMapping)
 					columnMapping = _customColumnMapping;
 				else
 					columnMapping = generateAutomaticColumnMapping(fileColumnNames);
 
 				// Parse data columns.
-				InputColumnReader columnParser(columnMapping, *frameData, numParticles);
+				InputColumnReader columnParser(columnMapping, frameData->particles(), numParticles);
 
 				// If possible, use memory-mapped file access for best performance.
 				const char* s_start;
@@ -306,9 +298,9 @@ FileSourceImporter::FrameDataPtr LAMMPSTextDumpImporter::FrameLoader::loadFile()
 					for(size_t i = 0; i < numParticles; i++, lineNumber++) {
 						if(!setProgressValueIntermittent(i)) return {};
 						if(!s)
-							columnParser.readParticle(i, stream.readLine());
+							columnParser.readElement(i, stream.readLine());
 						else
-							s = columnParser.readParticle(i, s, s_end);
+							s = columnParser.readElement(i, s, s_end);
 					}
 				}
 				catch(Exception& ex) {
@@ -320,7 +312,7 @@ FileSourceImporter::FrameDataPtr LAMMPSTextDumpImporter::FrameLoader::loadFile()
 				}
 
 				// Sort the particle type list since we created particles on the go and their order depends on the occurrence of types in the file.
-				columnParser.sortParticleTypes();
+				columnParser.sortElementTypes();
 
 				// Determine if particle coordinates are given in reduced form and need to be rescaled to absolute form.
 				bool reducedCoordinates = false;
@@ -345,7 +337,7 @@ FileSourceImporter::FrameDataPtr LAMMPSTextDumpImporter::FrameLoader::loadFile()
 					// Assume reduced coordinates if all particle coordinates are within the [-0.02,1.02] interval.
 					// We allow coordinates to be slightly outside the [0,1] interval, because LAMMPS
 					// wraps around particles at the periodic boundaries only occasionally.
-					if(ConstPropertyAccess<Point3> posProperty = frameData->findStandardParticleProperty(ParticlesObject::PositionProperty)) {
+					if(ConstPropertyAccess<Point3> posProperty = frameData->particles().findStandardProperty(ParticlesObject::PositionProperty)) {
 						// Compute bound box of particle positions.
 						Box3 boundingBox;
 						boundingBox.addPoints(posProperty);
@@ -357,7 +349,7 @@ FileSourceImporter::FrameDataPtr LAMMPSTextDumpImporter::FrameLoader::loadFile()
 
 				if(reducedCoordinates) {
 					// Convert all atom coordinates from reduced to absolute (Cartesian) format.
-					if(PropertyAccess<Point3> posProperty = frameData->findStandardParticleProperty(ParticlesObject::PositionProperty)) {
+					if(PropertyAccess<Point3> posProperty = frameData->particles().findStandardProperty(ParticlesObject::PositionProperty)) {
 						const AffineTransformation simCell = frameData->simulationCell().matrix();
 						for(Point3& p : posProperty)
 							p = simCell * p;
@@ -369,7 +361,7 @@ FileSourceImporter::FrameDataPtr LAMMPSTextDumpImporter::FrameLoader::loadFile()
 				if(!fileColumnNames.empty()) {
 					for(int i = 0; i < (int)columnMapping.size() && i < fileColumnNames.size(); i++) {
 						if(columnMapping[i].property.type() == ParticlesObject::RadiusProperty && fileColumnNames[i] == "diameter") {
-							if(PropertyAccess<FloatType> radiusProperty = frameData->findStandardParticleProperty(ParticlesObject::RadiusProperty)) {
+							if(PropertyAccess<FloatType> radiusProperty = frameData->particles().findStandardProperty(ParticlesObject::RadiusProperty)) {
 								for(FloatType& r : radiusProperty)
 									r /= 2;
 							}
@@ -378,8 +370,10 @@ FileSourceImporter::FrameDataPtr LAMMPSTextDumpImporter::FrameLoader::loadFile()
 					}
 				}
 
-				// Detect dimensionality of system.
-				frameData->simulationCell().set2D(!columnMapping.hasZCoordinates());
+				// Detect dimensionality of system. It's a 2D system if no file column has been mapped to the Position.Z particle property.
+				frameData->simulationCell().set2D(std::none_of(columnMapping.begin(), columnMapping.end(), [](const InputColumnInfo& column) {
+					return column.property.type() == ParticlesObject::PositionProperty && column.property.vectorComponent() == 2;
+				}));
 
 				// Detect if there are more simulation frames following in the file.
 				if(!stream.eof()) {
@@ -417,9 +411,9 @@ FileSourceImporter::FrameDataPtr LAMMPSTextDumpImporter::FrameLoader::loadFile()
 /******************************************************************************
  * Guesses the mapping of input file columns to internal particle properties.
  *****************************************************************************/
-InputColumnMapping LAMMPSTextDumpImporter::generateAutomaticColumnMapping(const QStringList& columnNames)
+ParticleInputColumnMapping LAMMPSTextDumpImporter::generateAutomaticColumnMapping(const QStringList& columnNames)
 {
-	InputColumnMapping columnMapping;
+	ParticleInputColumnMapping columnMapping;
 	columnMapping.resize(columnNames.size());
 	for(int i = 0; i < columnNames.size(); i++) {
 		QString name = columnNames[i].toLower();
@@ -490,8 +484,7 @@ void LAMMPSTextDumpImporter::saveToStream(ObjectSaveStream& stream, bool exclude
 {
 	ParticleImporter::saveToStream(stream, excludeRecomputableData);
 
-	stream.beginChunk(0x01);
-	_customColumnMapping.saveToStream(stream);
+	stream.beginChunk(0x02);
 	stream.endChunk();
 }
 
@@ -502,22 +495,12 @@ void LAMMPSTextDumpImporter::loadFromStream(ObjectLoadStream& stream)
 {
 	ParticleImporter::loadFromStream(stream);
 
-	stream.expectChunk(0x01);
-	_customColumnMapping.loadFromStream(stream);
+	// For backward compatibility with OVITO 3.1:
+	if(stream.expectChunkRange(0x00, 0x02) == 0x01) {
+		stream >> _customColumnMapping.mutableValue();
+	}
 	stream.closeChunk();
 }
-
-/******************************************************************************
- * Creates a copy of this object.
- *****************************************************************************/
-OORef<RefTarget> LAMMPSTextDumpImporter::clone(bool deepCopy, CloneHelper& cloneHelper) const
-{
-	// Let the base class create an instance of this class.
-	OORef<LAMMPSTextDumpImporter> clone = static_object_cast<LAMMPSTextDumpImporter>(ParticleImporter::clone(deepCopy, cloneHelper));
-	clone->_customColumnMapping = this->_customColumnMapping;
-	return clone;
-}
-
 
 }	// End of namespace
 }	// End of namespace

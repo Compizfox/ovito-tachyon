@@ -21,6 +21,8 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 
 #include <ovito/stdobj/StdObj.h>
+#include <ovito/stdobj/properties/PropertyStorage.h>
+#include <ovito/core/app/Application.h>
 #include "ElementType.h"
 
 namespace Ovito { namespace StdObj {
@@ -98,6 +100,34 @@ void ElementType::setDefaultColor(int typeClass, const QString& typeName, const 
 	else
 		settings.remove(typeName);
 }
+
+/******************************************************************************
+* Initializes the element type from a variable list of attributes delivered by a file importer.
+******************************************************************************/
+bool ElementType::initialize(bool isNewlyCreated, const QVariantMap& attributes, int typePropertyId)
+{
+	if(isNewlyCreated && Application::instance()->executionContext() == Application::ExecutionContext::Interactive)
+		loadUserDefaults();
+
+	// Initialize color value.
+	if(attributes.contains(QStringLiteral("color"))) {
+		Color c = attributes.value(QStringLiteral("color")).value<Color>();
+		if(isNewlyCreated) {
+			setColor(c);
+		}
+		else if(c != color()) {
+			if(!isSafeToModify())
+				return false;
+			setColor(c);
+		}
+	}
+	else if(isNewlyCreated) {
+		setColor(getDefaultColor(PropertyStorage::GenericTypeProperty, nameOrNumericId(), numericId()));
+	}
+	
+	return true;
+}
+
 
 }	// End of namespace
 }	// End of namespace

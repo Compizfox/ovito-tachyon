@@ -91,7 +91,7 @@ void ImpropersObject::OOMetaClass::initialize()
 	const QStringList emptyList;
 	const QStringList abcdList = QStringList() << "A" << "B" << "C" << "D";
 
-	registerStandardProperty(TypeProperty, tr("Improper Type"), PropertyStorage::Int, emptyList, tr("Improper types"));
+	registerStandardProperty(TypeProperty, tr("Improper Type"), PropertyStorage::Int, emptyList, &ElementType::OOClass(), tr("Improper types"));
 	registerStandardProperty(TopologyProperty, tr("Topology"), PropertyStorage::Int64, abcdList);
 }
 

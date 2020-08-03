@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Copyright 2017 Alexander Stukowski
+//  Copyright 2020 Alexander Stukowski
 //
 //  This file is part of OVITO (Open Visualization Tool).
 //
@@ -22,6 +22,8 @@
 
 #include <ovito/particles/Particles.h>
 #include <ovito/particles/import/ParticleFrameData.h>
+#include <ovito/particles/objects/ParticlesObject.h>
+#include <ovito/particles/objects/ParticleType.h>
 #include <ovito/core/utilities/io/CompressedTextReader.h>
 #include "CastepCellImporter.h"
 
@@ -168,7 +170,7 @@ FileSourceImporter::FrameDataPtr CastepCellImporter::FrameLoader::loadFile()
 			line = readNonCommentLine();
 			std::vector<Point3> coords;
 			std::vector<int> types;
-			std::unique_ptr<ParticleFrameData::TypeList> typeList = std::make_unique<ParticleFrameData::TypeList>();
+			std::unique_ptr<PropertyContainerImportData::TypeList> typeList = std::make_unique<PropertyContainerImportData::TypeList>(ParticleType::OOClass());
 			while(!boost::algorithm::istarts_with(line, "%ENDBLOCK") && !isCanceled() && !stream.eof()) {
 				Point3 pos;
 				int atomicNumber;
@@ -197,13 +199,13 @@ FileSourceImporter::FrameDataPtr CastepCellImporter::FrameLoader::loadFile()
 					p = cell * p;
 			}
 
-			PropertyAccess<Point3> posProperty = frameData->addParticleProperty(ParticlesObject::OOClass().createStandardStorage(coords.size(), ParticlesObject::PositionProperty, false));
+			PropertyAccess<Point3> posProperty = frameData->particles().createStandardProperty<ParticlesObject>(coords.size(), ParticlesObject::PositionProperty, false);
 			boost::copy(coords, posProperty.begin());
 
-			PropertyAccess<int> typeProperty = frameData->addParticleProperty(ParticlesObject::OOClass().createStandardStorage(types.size(), ParticlesObject::TypeProperty, false));
+			PropertyAccess<int> typeProperty = frameData->particles().createStandardProperty<ParticlesObject>(types.size(), ParticlesObject::TypeProperty, false);
 			boost::copy(types, typeProperty.begin());
 			typeList->sortTypesByName(typeProperty);
-			frameData->setPropertyTypesList(typeProperty, std::move(typeList));
+			frameData->particles().setPropertyTypesList(typeProperty, std::move(typeList));
 
 			frameData->setStatus(tr("%1 atoms").arg(coords.size()));
 		}
@@ -218,7 +220,7 @@ FileSourceImporter::FrameDataPtr CastepCellImporter::FrameLoader::loadFile()
 				line = readNonCommentLine();
 			}
 
-			PropertyAccess<Vector3> velocityProperty = frameData->addParticleProperty(ParticlesObject::OOClass().createStandardStorage(velocities.size(), ParticlesObject::VelocityProperty, false));
+			PropertyAccess<Vector3> velocityProperty = frameData->particles().createStandardProperty<ParticlesObject>(velocities.size(), ParticlesObject::VelocityProperty, false);
 			boost::copy(velocities, velocityProperty.begin());
 		}
 	}

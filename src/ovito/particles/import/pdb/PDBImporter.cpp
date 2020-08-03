@@ -22,6 +22,8 @@
 
 #include <ovito/particles/Particles.h>
 #include <ovito/particles/import/ParticleFrameData.h>
+#include <ovito/particles/objects/ParticlesObject.h>
+#include <ovito/particles/objects/ParticleType.h>
 #include <ovito/core/utilities/io/CompressedTextReader.h>
 #include <ovito/core/utilities/io/NumberParsing.h>
 #include "PDBImporter.h"
@@ -169,9 +171,9 @@ FileSourceImporter::FrameDataPtr PDBImporter::FrameLoader::loadFile()
 	stream.seek(frame().byteOffset, frame().lineNumber);
 
 	// Create the particle properties.
-	PropertyAccess<Point3> posProperty = frameData->addParticleProperty(ParticlesObject::OOClass().createStandardStorage(numAtoms, ParticlesObject::PositionProperty, false));
-	PropertyAccess<int> typeProperty = frameData->addParticleProperty(ParticlesObject::OOClass().createStandardStorage(numAtoms, ParticlesObject::TypeProperty, false));
-	ParticleFrameData::TypeList* typeList = frameData->createPropertyTypesList(typeProperty);
+	PropertyAccess<Point3> posProperty = frameData->particles().createStandardProperty<ParticlesObject>(numAtoms, ParticlesObject::PositionProperty, false);
+	PropertyAccess<int> typeProperty = frameData->particles().createStandardProperty<ParticlesObject>(numAtoms, ParticlesObject::TypeProperty, false);
+	PropertyContainerImportData::TypeList* typeList = frameData->particles().createPropertyTypesList(typeProperty, ParticleType::OOClass());
 
 	// Parse atoms.
 	size_t atomIndex = 0;
@@ -180,7 +182,7 @@ FileSourceImporter::FrameDataPtr PDBImporter::FrameLoader::loadFile()
 	PropertyAccess<qlonglong> particleIdentifierProperty;
 	PropertyAccess<qlonglong> moleculeIdentifierProperty;
 	PropertyAccess<int> moleculeTypeProperty;
-	ParticleFrameData::TypeList* moleculeTypeList = nullptr;
+	PropertyContainerImportData::TypeList* moleculeTypeList = nullptr;
 	while(!stream.eof() && atomIndex < numAtoms) {
 		if(!setProgressValueIntermittent(atomIndex))
 			return {};
@@ -212,7 +214,7 @@ FileSourceImporter::FrameDataPtr PDBImporter::FrameLoader::loadFile()
 			qlonglong atomSerialNumber;
 			if(sscanf(stream.line() + 6, "%5llu", &atomSerialNumber) == 1) {
 				if(!particleIdentifierProperty) {
-					particleIdentifierProperty = frameData->addParticleProperty(ParticlesObject::OOClass().createStandardStorage(numAtoms, ParticlesObject::IdentifierProperty, true));
+					particleIdentifierProperty = frameData->particles().createStandardProperty<ParticlesObject>(numAtoms, ParticlesObject::IdentifierProperty, true);
 				}
 				particleIdentifierProperty[atomIndex] = atomSerialNumber;
 			}
@@ -227,7 +229,7 @@ FileSourceImporter::FrameDataPtr PDBImporter::FrameLoader::loadFile()
 			qlonglong residueSequenceNumber;
 			if(sscanf(stream.line() + 22, "%4llu", &residueSequenceNumber) == 1) {
 				if(!moleculeIdentifierProperty) {
-					moleculeIdentifierProperty = frameData->addParticleProperty(ParticlesObject::OOClass().createStandardStorage(numAtoms, ParticlesObject::MoleculeProperty, true));
+					moleculeIdentifierProperty = frameData->particles().createStandardProperty<ParticlesObject>(numAtoms, ParticlesObject::MoleculeProperty, true);
 				}
 				moleculeIdentifierProperty[atomIndex] = residueSequenceNumber;
 			}
@@ -239,8 +241,8 @@ FileSourceImporter::FrameDataPtr PDBImporter::FrameLoader::loadFile()
 				if(*c != ' ') moleculeType[moleculeTypeLength++] = *c;
 			if(moleculeTypeLength != 0) {
 				if(!moleculeTypeProperty) {
-					moleculeTypeProperty = frameData->addParticleProperty(ParticlesObject::OOClass().createStandardStorage(numAtoms, ParticlesObject::MoleculeTypeProperty, true));
-					moleculeTypeList = frameData->createPropertyTypesList(moleculeTypeProperty);
+					moleculeTypeProperty = frameData->particles().createStandardProperty<ParticlesObject>(numAtoms, ParticlesObject::MoleculeTypeProperty, true);
+					moleculeTypeList = frameData->particles().createPropertyTypesList(moleculeTypeProperty, ElementType::OOClass());
 				}
 				moleculeTypeProperty[atomIndex] = moleculeTypeList->addTypeName(moleculeType, moleculeType + moleculeTypeLength);
 			}
@@ -307,7 +309,7 @@ FileSourceImporter::FrameDataPtr PDBImporter::FrameLoader::loadFile()
 							if(atomIndex2 >= particleIdentifierProperty.size())
 								throw Exception(tr("Nonexistent atom ID %1 encountered in line %2 of PDB file.").arg(atomSerialNumber).arg(stream.lineNumber()));
 							if(!bondTopologyProperty)
-								bondTopologyProperty = frameData->addBondProperty(BondsObject::OOClass().createStandardStorage(1, BondsObject::TopologyProperty, false));
+								bondTopologyProperty = frameData->bonds().createStandardProperty<BondsObject>(1, BondsObject::TopologyProperty, false);
 							else
 					        	bondTopologyProperty.storage()->resize(bondTopologyProperty.size() + 1, true);
 					        bondTopologyProperty[bondTopologyProperty.size() - 1] = ParticleIndexPair{{atomIndex1, atomIndex2}};

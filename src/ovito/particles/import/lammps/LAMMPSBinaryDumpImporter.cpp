@@ -22,6 +22,7 @@
 
 #include <ovito/particles/Particles.h>
 #include <ovito/particles/import/ParticleFrameData.h>
+#include <ovito/particles/objects/ParticlesObject.h>
 #include <ovito/core/app/Application.h>
 #include <ovito/core/utilities/io/FileManager.h>
 #include "LAMMPSBinaryDumpImporter.h"
@@ -31,6 +32,8 @@
 namespace Ovito { namespace Particles {
 
 IMPLEMENT_OVITO_CLASS(LAMMPSBinaryDumpImporter);
+DEFINE_PROPERTY_FIELD(LAMMPSBinaryDumpImporter, columnMapping);
+SET_PROPERTY_FIELD_LABEL(LAMMPSBinaryDumpImporter, columnMapping, "File column mapping");
 
 // Helper functions for converting binary floating-point representations used by
 // different computing architectures. The Qt library provides similar conversion
@@ -130,25 +133,6 @@ struct LAMMPSBinaryDumpHeader
 };
 
 /******************************************************************************
- * Sets the user-defined mapping between data columns in the input file and
- * the internal particle properties.
- *****************************************************************************/
-void LAMMPSBinaryDumpImporter::setColumnMapping(const InputColumnMapping& mapping)
-{
-	_columnMapping = mapping;
-
-	if(Application::instance()->guiMode()) {
-		// Remember the mapping for the next time.
-		QSettings settings;
-		settings.beginGroup("viz/importer/lammps_binary_dump/");
-		settings.setValue("colmapping", mapping.toByteArray(dataset()->taskManager()));
-		settings.endGroup();
-	}
-
-	notifyTargetChanged();
-}
-
-/******************************************************************************
 * Checks if the given file has format that can be read by this importer.
 ******************************************************************************/
 bool LAMMPSBinaryDumpImporter::OOMetaClass::checkFileFormat(const FileHandle& file) const
@@ -165,7 +149,7 @@ bool LAMMPSBinaryDumpImporter::OOMetaClass::checkFileFormat(const FileHandle& fi
 /******************************************************************************
 * Inspects the header of the given file and returns the number of file columns.
 ******************************************************************************/
-Future<InputColumnMapping> LAMMPSBinaryDumpImporter::inspectFileHeader(const Frame& frame)
+Future<ParticleInputColumnMapping> LAMMPSBinaryDumpImporter::inspectFileHeader(const Frame& frame)
 {
 	// Retrieve file.
 	return Application::instance()->fileManager()->fetchUrl(dataset()->taskManager(), frame.sourceFile)
@@ -370,7 +354,7 @@ FileSourceImporter::FrameDataPtr LAMMPSBinaryDumpImporter::FrameLoader::loadFile
 	frameData->simulationCell().setPbcFlags(header.boundaryFlags[0][0] == 0, header.boundaryFlags[1][0] == 0, header.boundaryFlags[2][0] == 0);
 
 	// Parse particle data.
-	InputColumnReader columnParser(_columnMapping, *frameData, header.natoms);
+	InputColumnReader columnParser(_columnMapping, frameData->particles(), header.natoms);
 	try {
 		QVector<double> chunkData;
 		int i = 0;
@@ -406,7 +390,7 @@ FileSourceImporter::FrameDataPtr LAMMPSBinaryDumpImporter::FrameLoader::loadFile
 				if(!setProgressValueIntermittent(i)) return {};
 
 				try {
-					columnParser.readParticle(i, iter, header.size_one);
+					columnParser.readElement(i, iter, header.size_one);
 				}
 				catch(Exception& ex) {
 					throw ex.prependGeneralMessage(tr("Parsing error in LAMMPS binary dump file."));
@@ -419,9 +403,9 @@ FileSourceImporter::FrameDataPtr LAMMPSBinaryDumpImporter::FrameLoader::loadFile
 	}
 
 	// Sort the particle type list since we created particles on the go and their order depends on the occurrence of types in the file.
-	columnParser.sortParticleTypes();
+	columnParser.sortElementTypes();
 
-	if(PropertyAccess<Point3> posProperty = frameData->findStandardParticleProperty(ParticlesObject::PositionProperty)) {
+	if(PropertyAccess<Point3> posProperty = frameData->particles().findStandardProperty(ParticlesObject::PositionProperty)) {
 		Box3 boundingBox;
 		boundingBox.addPoints(posProperty);
 
@@ -456,8 +440,7 @@ void LAMMPSBinaryDumpImporter::saveToStream(ObjectSaveStream& stream, bool exclu
 {
 	ParticleImporter::saveToStream(stream, excludeRecomputableData);
 
-	stream.beginChunk(0x01);
-	_columnMapping.saveToStream(stream);
+	stream.beginChunk(0x02);
 	stream.endChunk();
 }
 
@@ -468,20 +451,11 @@ void LAMMPSBinaryDumpImporter::loadFromStream(ObjectLoadStream& stream)
 {
 	ParticleImporter::loadFromStream(stream);
 
-	stream.expectChunk(0x01);
-	_columnMapping.loadFromStream(stream);
+	// For backward compatibility with OVITO 3.1:
+	if(stream.expectChunkRange(0x00, 0x02) == 0x01) {
+		stream >> _columnMapping.mutableValue();
+	}
 	stream.closeChunk();
-}
-
-/******************************************************************************
- * Creates a copy of this object.
- *****************************************************************************/
-OORef<RefTarget> LAMMPSBinaryDumpImporter::clone(bool deepCopy, CloneHelper& cloneHelper) const
-{
-	// Let the base class create an instance of this class.
-	OORef<LAMMPSBinaryDumpImporter> clone = static_object_cast<LAMMPSBinaryDumpImporter>(ParticleImporter::clone(deepCopy, cloneHelper));
-	clone->_columnMapping = this->_columnMapping;
-	return clone;
 }
 
 }	// End of namespace

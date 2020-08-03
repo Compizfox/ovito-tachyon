@@ -23,15 +23,15 @@
 #pragma once
 
 
-#include <ovito/particles/gui/ParticlesGui.h>
-#include <ovito/particles/import/InputColumnMapping.h>
+#include <ovito/stdobj/gui/StdObjGui.h>
+#include <ovito/stdobj/properties/InputColumnMapping.h>
 
-namespace Ovito { namespace Particles {
+namespace Ovito { namespace StdObj {
 
 /**
  * \brief Dialog box that lets the user edit an InputColumnMapping.
  */
-class OVITO_PARTICLESGUI_EXPORT InputColumnMappingDialog : public QDialog
+class OVITO_STDOBJGUI_EXPORT InputColumnMappingDialog : public QDialog
 {
 	Q_OBJECT
 
@@ -64,6 +64,9 @@ protected:
 
 	/// \brief Returns the string representation of a property's data type.
 	static QString dataTypeToString(int dataType);
+
+	/// The property container type.
+	PropertyContainerClassPtr _containerClass = nullptr;
 
 	TaskManager& _taskManager;
 

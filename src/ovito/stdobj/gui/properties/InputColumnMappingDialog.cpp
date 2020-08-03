@@ -20,10 +20,10 @@
 //
 ////////////////////////////////////////////////////////////////////////////////////////
 
-#include <ovito/particles/gui/ParticlesGui.h>
+#include <ovito/stdobj/gui/StdObjGui.h>
 #include "InputColumnMappingDialog.h"
 
-namespace Ovito { namespace Particles {
+namespace Ovito { namespace StdObj {
 
 enum {
 	FILE_COLUMN_COLUMN = 0,
@@ -34,7 +34,9 @@ enum {
 /******************************************************************************
 * Constructor.
 ******************************************************************************/
-InputColumnMappingDialog::InputColumnMappingDialog(const InputColumnMapping& mapping, QWidget* parent, TaskManager& taskManager) : QDialog(parent), _taskManager(taskManager)
+InputColumnMappingDialog::InputColumnMappingDialog(const InputColumnMapping& mapping, QWidget* parent, TaskManager& taskManager) : QDialog(parent), 
+	_taskManager(taskManager),
+	_containerClass(mapping.containerClass())
 {
 	OVITO_CHECK_POINTER(parent);
 	setWindowTitle(tr("File column mapping"));
@@ -48,7 +50,7 @@ InputColumnMappingDialog::InputColumnMappingDialog(const InputColumnMapping& map
 
 	QLabel* captionLabel = new QLabel(
 			tr("Please specify how the data columns of the input file should be mapped "
-				"to OVITO's particle properties."));
+				"to OVITO properties."));
 	captionLabel->setWordWrap(true);
 	layout->addWidget(captionLabel);
 	layout->addSpacing(10);
@@ -65,7 +67,7 @@ InputColumnMappingDialog::InputColumnMappingDialog(const InputColumnMapping& map
 	_tableWidget->setColumnCount(3);
 	QStringList horizontalHeaders;
 	horizontalHeaders << tr("File column");
-	horizontalHeaders << tr("Particle property");
+	horizontalHeaders << tr("Property");
 	horizontalHeaders << tr("Component");
 	_tableWidget->setHorizontalHeaderLabels(horizontalHeaders);
 	_tableWidget->setEditTriggers(QAbstractItemView::AllEditTriggers);
@@ -149,6 +151,8 @@ void InputColumnMappingDialog::onOk()
  *****************************************************************************/
 void InputColumnMappingDialog::setMapping(const InputColumnMapping& mapping)
 {
+	OVITO_ASSERT(mapping.containerClass() == _containerClass);
+
 	_tableWidget->clearContents();
 	_fileColumnBoxes.clear();
 	_propertyBoxes.clear();
@@ -169,7 +173,7 @@ void InputColumnMappingDialog::setMapping(const InputColumnMapping& mapping)
 		QComboBox* nameItem = new QComboBox();
 		nameItem->setEditable(true);
 		nameItem->setDuplicatesEnabled(false);
-		QMapIterator<QString, int> propIter(ParticlesObject::OOClass().standardPropertyIds());
+		QMapIterator<QString, int> propIter(_containerClass->standardPropertyIds());
 		while(propIter.hasNext()) {
 			propIter.next();
 			nameItem->addItem(propIter.key(), propIter.value());
@@ -217,11 +221,11 @@ void InputColumnMappingDialog::updateVectorComponentList(int columnIndex)
 	QComboBox* vecBox = _vectorComponentBoxes[columnIndex];
 
 	QString propertyName = _propertyBoxes[columnIndex]->currentText();
-	int standardProperty = ParticlesObject::OOClass().standardPropertyIds().value(propertyName);
-	if(!propertyName.isEmpty() && standardProperty != ParticlesObject::UserProperty) {
+	int standardProperty = _containerClass->standardPropertyIds().value(propertyName);
+	if(!propertyName.isEmpty() && standardProperty != PropertyStorage::GenericUserProperty) {
 		int oldIndex = vecBox->currentIndex();
 		_vectorComponentBoxes[columnIndex]->clear();
-		for(const QString& name : ParticlesObject::OOClass().standardPropertyComponentNames(standardProperty))
+		for(const QString& name : _containerClass->standardPropertyComponentNames(standardProperty))
 			vecBox->addItem(name);
 		vecBox->setEnabled(_fileColumnBoxes[columnIndex]->isChecked() && vecBox->count() != 0);
 		if(oldIndex >= 0)
@@ -238,19 +242,19 @@ void InputColumnMappingDialog::updateVectorComponentList(int columnIndex)
  *****************************************************************************/
 InputColumnMapping InputColumnMappingDialog::mapping() const
 {
-	InputColumnMapping mapping;
+	InputColumnMapping mapping(_containerClass);
 	mapping.resize(_tableWidget->rowCount());
 	for(int index = 0; index < (int)mapping.size(); index++) {
 		mapping[index].columnName = _fileColumnBoxes[index]->text();
 		if(_fileColumnBoxes[index]->isChecked()) {
 			QString propertyName = _propertyBoxes[index]->currentText().trimmed();
-			ParticlesObject::Type type = (ParticlesObject::Type)ParticlesObject::OOClass().standardPropertyIds().value(propertyName);
-			if(type != ParticlesObject::UserProperty) {
+			int typeId = _containerClass->standardPropertyIds().value(propertyName);
+			if(typeId != PropertyStorage::GenericUserProperty) {
 				int vectorCompnt = std::max(0, _vectorComponentBoxes[index]->currentIndex());
-				mapping[index].mapStandardColumn(type, vectorCompnt);
+				mapping[index].mapStandardColumn(_containerClass, typeId, vectorCompnt);
 			}
 			else if(!propertyName.isEmpty()) {
-				mapping[index].mapCustomColumn(propertyName, _propertyDataTypes[index]);
+				mapping[index].mapCustomColumn(_containerClass, propertyName, _propertyDataTypes[index]);
 			}
 		}
 	}
@@ -344,8 +348,9 @@ void InputColumnMappingDialog::onLoadPreset()
 		if(name.isEmpty()) return;
 
 		// Load preset.
-		InputColumnMapping mapping;
+		InputColumnMapping mapping(_containerClass);
 		mapping.fromByteArray(presetData[presetNames.indexOf(name)], _taskManager);
+		OVITO_ASSERT(mapping.containerClass() == _containerClass);
 
 		for(int index = 0; index < (int)mapping.size() && index < _tableWidget->rowCount(); index++) {
 			_fileColumnBoxes[index]->setChecked(mapping[index].isMapped());

@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Copyright 2017 Alexander Stukowski
+//  Copyright 2020 Alexander Stukowski
 //
 //  This file is part of OVITO (Open Visualization Tool).
 //
@@ -32,20 +32,23 @@ namespace Ovito { namespace StdObj {
 * This helper method returns a standard property (if present) from the
 * given pipeline state.
 ******************************************************************************/
-void PropertyContainerClass::registerStandardProperty(int typeId, QString name, int dataType, QStringList componentNames, QString title)
+void PropertyContainerClass::registerStandardProperty(int typeId, QString name, int dataType, QStringList componentNames, OvitoClassPtr typedPropertyElementClass, QString title)
 {
 	OVITO_ASSERT_MSG(typeId > 0, "PropertyContainerClass::registerStandardProperty", "Invalid standard property type ID");
 	OVITO_ASSERT_MSG(!_standardPropertyIds.contains(name), "PropertyContainerClass::registerStandardProperty", "Duplicate standard property name");
 	OVITO_ASSERT_MSG(!_standardPropertyNames.contains(typeId), "PropertyContainerClass::registerStandardProperty", "Duplicate standard property type ID");
 	OVITO_ASSERT_MSG(dataType == PropertyStorage::Int || dataType == PropertyStorage::Int64 || dataType == PropertyStorage::Float, "PropertyContainerClass::registerStandardProperty", "Invalid standard property data type");
+	OVITO_ASSERT_MSG(!typedPropertyElementClass || typedPropertyElementClass->isDerivedFrom(ElementType::OOClass()), "PropertyContainerClass::registerStandardProperty", "Element type class is not derived from ElementType base");
 
 	_standardPropertyList.push_back(typeId);
 	if(!name.isEmpty())
 		_standardPropertyIds.insert(name, typeId);
-	_standardPropertyNames.insert(typeId, std::move(name));
-	_standardPropertyTitles.insert(typeId, std::move(title));
-	_standardPropertyComponents.insert(typeId, std::move(componentNames));
-	_standardPropertyDataTypes.insert(typeId, dataType);
+	_standardPropertyNames.emplace(typeId, std::move(name));
+	_standardPropertyTitles.emplace(typeId, std::move(title));
+	_standardPropertyComponents.emplace(typeId, std::move(componentNames));
+	_standardPropertyDataTypes.emplace(typeId, dataType);
+	if(typedPropertyElementClass)
+		_standardPropertyElementTypes.emplace(typeId, typedPropertyElementClass);
 }
 
 /******************************************************************************

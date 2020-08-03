@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Copyright 2019 Alexander Stukowski
+//  Copyright 2020 Alexander Stukowski
 //
 //  This file is part of OVITO (Open Visualization Tool).
 //
@@ -22,6 +22,8 @@
 
 #include <ovito/particles/Particles.h>
 #include <ovito/particles/import/ParticleFrameData.h>
+#include <ovito/particles/objects/ParticlesObject.h>
+#include <ovito/particles/objects/ParticleType.h>
 #include "ParcasFileImporter.h"
 
 namespace Ovito { namespace Particles {
@@ -220,7 +222,7 @@ FileSourceImporter::FrameDataPtr ParcasFileImporter::FrameLoader::loadFile()
 			property = ParticlesObject::OOClass().createStandardStorage(natoms, propertyType, true);
 		else
 			property = std::make_shared<PropertyStorage>(natoms, PropertyStorage::Float, 1, 0, propertyName, true);
-		frameData->addParticleProperty(property);
+		frameData->particles().addProperty(property);
 		extraProperties.push_back(PropertyAccess<FloatType>(property));
     }
 
@@ -237,12 +239,12 @@ FileSourceImporter::FrameDataPtr ParcasFileImporter::FrameLoader::loadFile()
 
 	// Create the required standard properties.
     size_t numAtoms = (size_t)natoms;
-	PropertyAccess<Point3> posProperty = frameData->addParticleProperty(ParticlesObject::OOClass().createStandardStorage(natoms, ParticlesObject::PositionProperty, false));
-	PropertyAccess<int> typeProperty = frameData->addParticleProperty(ParticlesObject::OOClass().createStandardStorage(natoms, ParticlesObject::TypeProperty, false));
-	PropertyAccess<qlonglong> identifierProperty = frameData->addParticleProperty(ParticlesObject::OOClass().createStandardStorage(natoms, ParticlesObject::IdentifierProperty, false));
+	PropertyAccess<Point3> posProperty = frameData->particles().createStandardProperty<ParticlesObject>(natoms, ParticlesObject::PositionProperty, false);
+	PropertyAccess<int> typeProperty = frameData->particles().createStandardProperty<ParticlesObject>(natoms, ParticlesObject::TypeProperty, false);
+	PropertyAccess<qlonglong> identifierProperty = frameData->particles().createStandardProperty<ParticlesObject>(natoms, ParticlesObject::IdentifierProperty, false);
 
 	// Create particle types list.
-	ParticleFrameData::TypeList* typeList = frameData->createPropertyTypesList(typeProperty);
+	PropertyContainerImportData::TypeList* typeList = frameData->particles().createPropertyTypesList(typeProperty, ParticleType::OOClass());
     std::vector<std::array<char,5>> types(maxtype - mintype + 1);
     for(int i = mintype; i <= maxtype; i++) {
     	stream.read(types[i - mintype].data(), 4);

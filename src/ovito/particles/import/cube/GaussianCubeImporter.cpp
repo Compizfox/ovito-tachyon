@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Copyright 2019 Alexander Stukowski
+//  Copyright 2020 Alexander Stukowski
 //
 //  This file is part of OVITO (Open Visualization Tool).
 //
@@ -22,6 +22,8 @@
 
 #include <ovito/particles/Particles.h>
 #include <ovito/particles/import/ParticleFrameData.h>
+#include <ovito/particles/objects/ParticlesObject.h>
+#include <ovito/particles/objects/ParticleType.h>
 #include <ovito/core/utilities/io/NumberParsing.h>
 #include <ovito/core/utilities/io/CompressedTextReader.h>
 #include "GaussianCubeImporter.h"
@@ -148,8 +150,8 @@ FileSourceImporter::FrameDataPtr GaussianCubeImporter::FrameLoader::loadFile()
 	frameData->simulationCell().setMatrix(cellMatrix);
 
 	// Create the particle properties.
-	PropertyAccess<Point3> posProperty = frameData->addParticleProperty(ParticlesObject::OOClass().createStandardStorage(numAtoms, ParticlesObject::PositionProperty, false));
-	PropertyAccess<int> typeProperty = frameData->addParticleProperty(ParticlesObject::OOClass().createStandardStorage(numAtoms, ParticlesObject::TypeProperty, false));
+	PropertyAccess<Point3> posProperty = frameData->particles().createStandardProperty<ParticlesObject>(numAtoms, ParticlesObject::PositionProperty, false);
+	PropertyAccess<int> typeProperty = frameData->particles().createStandardProperty<ParticlesObject>(numAtoms, ParticlesObject::TypeProperty, false);
 
 	// Read atomic coordinates.
 	Point3* p = posProperty.begin();
@@ -167,7 +169,7 @@ FileSourceImporter::FrameDataPtr GaussianCubeImporter::FrameLoader::loadFile()
 	}
 
 	// Translate atomic numbers into element names.
-	ParticleFrameData::TypeList* typeList = frameData->createPropertyTypesList(typeProperty);
+	PropertyContainerImportData::TypeList* typeList = frameData->particles().createPropertyTypesList(typeProperty, ParticleType::OOClass());
 	for(int a : typeProperty) {
 		if(a >= 0 && a < sizeof(chemical_symbols)/sizeof(chemical_symbols[0]))
 			typeList->addTypeId(a, chemical_symbols[a]);
@@ -210,7 +212,7 @@ FileSourceImporter::FrameDataPtr GaussianCubeImporter::FrameLoader::loadFile()
 		// No field table present. Assume file contains a single field property.
 		nfields = 1;
 	}
-	PropertyAccess<FloatType, true> fieldQuantity = frameData->addVoxelProperty(std::make_shared<PropertyStorage>(gridSize[0]*gridSize[1]*gridSize[2], PropertyStorage::Float, nfields, 0, QStringLiteral("Property"), false, 0, std::move(componentNames)));
+	PropertyAccess<FloatType, true> fieldQuantity = frameData->voxels().addProperty(std::make_shared<PropertyStorage>(gridSize[0]*gridSize[1]*gridSize[2], PropertyStorage::Float, nfields, 0, QStringLiteral("Property"), false, 0, std::move(componentNames)));
 
 	// Parse voxel data.
 	frameData->setVoxelGridShape({gridSize[0], gridSize[1], gridSize[2]});

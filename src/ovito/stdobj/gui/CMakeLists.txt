@@ -1,6 +1,6 @@
 #######################################################################################
 #
-#  Copyright 2019 Alexander Stukowski
+#  Copyright 2020 Alexander Stukowski
 #
 #  This file is part of OVITO (Open Visualization Tool).
 #
@@ -33,6 +33,7 @@ OVITO_STANDARD_PLUGIN(StdObjGui
 		properties/PropertyInspectionApplet.cpp
 		properties/PropertyObjectEditor.cpp
 		properties/ElementTypeEditor.cpp
+		properties/InputColumnMappingDialog.cpp
 		simcell/SimulationCellObjectEditor.cpp
 		simcell/SimulationCellVisEditor.cpp
 		table/DataTableInspectionApplet.cpp

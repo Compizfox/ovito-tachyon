@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Copyright 2019 Alexander Stukowski
+//  Copyright 2020 Alexander Stukowski
 //
 //  This file is part of OVITO (Open Visualization Tool).
 //
@@ -116,8 +116,8 @@ void SurfaceMeshRegions::OOMetaClass::initialize()
 	const QStringList tensorList = QStringList() << "XX" << "YX" << "ZX" << "XY" << "YY" << "ZY" << "XZ" << "YZ" << "ZZ";
 
 	registerStandardProperty(SelectionProperty, tr("Selection"), PropertyStorage::Int, emptyList);
-	registerStandardProperty(ColorProperty, tr("Color"), PropertyStorage::Float, rgbList, tr("Region colors"));
-	registerStandardProperty(PhaseProperty, tr("Phase"), PropertyStorage::Int, emptyList, tr("Phases"));
+	registerStandardProperty(ColorProperty, tr("Color"), PropertyStorage::Float, rgbList, nullptr, tr("Region colors"));
+	registerStandardProperty(PhaseProperty, tr("Phase"), PropertyStorage::Int, emptyList, nullptr, tr("Phases"));
 	registerStandardProperty(VolumeProperty, tr("Volume"), PropertyStorage::Float, emptyList);
 	registerStandardProperty(SurfaceAreaProperty, tr("Surface Area"), PropertyStorage::Float, emptyList);
 	registerStandardProperty(IsFilledProperty, tr("Filled"), PropertyStorage::Int, emptyList);

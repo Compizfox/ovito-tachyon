@@ -95,6 +95,18 @@ void FileSourceImporter::requestFramesUpdate(bool refetchCurrentFile)
 }
 
 /******************************************************************************
+* Returns the FileSource that manages this importer object (if any).
+******************************************************************************/
+FileSource* FileSourceImporter::fileSource() const
+{
+	for(RefMaker* refmaker : dependents()) {
+		if(FileSource* fileSource = dynamic_object_cast<FileSource>(refmaker))
+			return fileSource;
+	}
+	return nullptr;
+}
+
+/******************************************************************************
 * Determines if the option to replace the currently selected object
 * with the new file is available.
 ******************************************************************************/

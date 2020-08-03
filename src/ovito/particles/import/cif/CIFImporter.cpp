@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Copyright 2019 Alexander Stukowski
+//  Copyright 2020 Alexander Stukowski
 //
 //  This file is part of OVITO (Open Visualization Tool).
 //
@@ -22,6 +22,8 @@
 
 #include <ovito/particles/Particles.h>
 #include <ovito/particles/import/ParticleFrameData.h>
+#include <ovito/particles/objects/ParticlesObject.h>
+#include <ovito/particles/objects/ParticleType.h>
 #include <ovito/core/utilities/io/CompressedTextReader.h>
 #include "CIFImporter.h"
 
@@ -103,9 +105,9 @@ FileSourceImporter::FrameDataPtr CIFImporter::FrameLoader::loadFile()
 
 		// Parse list of atomic sites.
 		std::vector<gemmi::AtomicStructure::Site> sites = structure.get_all_unit_cell_sites();
-		PropertyAccess<Point3> posProperty = frameData->addParticleProperty(ParticlesObject::OOClass().createStandardStorage(sites.size(), ParticlesObject::PositionProperty, false));
-		PropertyAccess<int> typeProperty = frameData->addParticleProperty(ParticlesObject::OOClass().createStandardStorage(sites.size(), ParticlesObject::TypeProperty, false));
-		ParticleFrameData::TypeList* typeList = frameData->createPropertyTypesList(typeProperty);
+		PropertyAccess<Point3> posProperty = frameData->particles().createStandardProperty<ParticlesObject>(sites.size(), ParticlesObject::PositionProperty, false);
+		PropertyAccess<int> typeProperty = frameData->particles().createStandardProperty<ParticlesObject>(sites.size(), ParticlesObject::TypeProperty, false);
+		PropertyContainerImportData::TypeList* typeList = frameData->particles().createPropertyTypesList(typeProperty, ParticleType::OOClass());
 		Point3* posIter = posProperty.begin();
 		int* typeIter = typeProperty.begin();
 		bool hasOccupancy = false;
@@ -122,7 +124,7 @@ FileSourceImporter::FrameDataPtr CIFImporter::FrameLoader::loadFile()
 
 		// Parse the optional site occupancy information.
 		if(hasOccupancy) {
-			PropertyAccess<FloatType> occupancyProperty = frameData->addParticleProperty(std::make_shared<PropertyStorage>(sites.size(), PropertyStorage::Float, 1, 0, QStringLiteral("Occupancy"), false));
+			PropertyAccess<FloatType> occupancyProperty = frameData->particles().addProperty(std::make_shared<PropertyStorage>(sites.size(), PropertyStorage::Float, 1, 0, QStringLiteral("Occupancy"), false));
 			FloatType* occupancyIter = occupancyProperty.begin();
 			for(const gemmi::AtomicStructure::Site& site : sites) {
 				*occupancyIter++ = site.occ;

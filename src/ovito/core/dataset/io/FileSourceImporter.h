@@ -238,6 +238,9 @@ public:
 	/// Creates an asynchronous frame discovery object that scans a file for contained animation frames.
 	virtual FrameFinderPtr createFrameFinder(const FileHandle& file) { return {}; }
 
+	/// Returns the FileSource that manages this importer object (if any).
+	FileSource* fileSource() const;
+
 	/// Determines whether the URL contains a wildcard pattern.
 	static bool isWildcardPattern(const QUrl& sourceUrl);
 

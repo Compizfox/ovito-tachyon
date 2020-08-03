@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Copyright 2017 Alexander Stukowski
+//  Copyright 2020 Alexander Stukowski
 //
 //  This file is part of OVITO (Open Visualization Tool).
 //
@@ -40,6 +40,8 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #include <ovito/particles/Particles.h>
+#include <ovito/particles/objects/ParticleType.h>
+#include <ovito/particles/objects/ParticlesObject.h>
 #include <ovito/core/app/Application.h>
 #include <ovito/core/utilities/io/FileManager.h>
 #include <ovito/core/utilities/concurrent/Future.h>
@@ -55,7 +57,9 @@ namespace Ovito { namespace Particles {
 
 IMPLEMENT_OVITO_CLASS(AMBERNetCDFImporter);
 DEFINE_PROPERTY_FIELD(AMBERNetCDFImporter, useCustomColumnMapping);
+DEFINE_PROPERTY_FIELD(AMBERNetCDFImporter, customColumnMapping);
 SET_PROPERTY_FIELD_LABEL(AMBERNetCDFImporter, useCustomColumnMapping, "Custom file column mapping");
+SET_PROPERTY_FIELD_LABEL(AMBERNetCDFImporter, customColumnMapping, "File column mapping");
 
 // Convert full tensor to Voigt tensor
 template<typename T>
@@ -68,16 +72,6 @@ void fullToVoigt(size_t particleCount, T *full, T *voigt) {
 		voigt[6*i+4] = (full[9*i+2]+full[9*i+6])/2;
 		voigt[6*i+5] = (full[9*i+1]+full[9*i+3])/2;
     }
-}
-
-/******************************************************************************
- * Sets the user-defined mapping between data columns in the input file and
- * the internal particle properties.
- *****************************************************************************/
-void AMBERNetCDFImporter::setCustomColumnMapping(const InputColumnMapping& mapping)
-{
-	_customColumnMapping = mapping;
-	notifyTargetChanged();
 }
 
 /******************************************************************************
@@ -125,7 +119,7 @@ bool AMBERNetCDFImporter::OOMetaClass::checkFileFormat(const FileHandle& file) c
 /******************************************************************************
 * Inspects the header of the given file and returns the number of file columns.
 ******************************************************************************/
-Future<InputColumnMapping> AMBERNetCDFImporter::inspectFileHeader(const Frame& frame)
+Future<ParticleInputColumnMapping> AMBERNetCDFImporter::inspectFileHeader(const Frame& frame)
 {
 	// Retrieve file.
 	return Application::instance()->fileManager()->fetchUrl(dataset()->taskManager(), frame.sourceFile)
@@ -331,7 +325,7 @@ FileSourceImporter::FrameDataPtr AMBERNetCDFImporter::FrameLoader::loadFile()
 		openNetCDF(filename, frameData.get());
 
 		// Scan NetCDF and iterate supported column names.
-		InputColumnMapping columnMapping;
+		ParticleInputColumnMapping columnMapping;
 
 		// Now iterate over all variables and see whether they start with either atom or frame dimensions.
 		int nVars;
@@ -520,25 +514,25 @@ FileSourceImporter::FrameDataPtr AMBERNetCDFImporter::FrameLoader::loadFile()
 			ParticlesObject::Type propertyType = (ParticlesObject::Type)column.property.type();
 			if(propertyType != ParticlesObject::UserProperty) {
 				// Look for existing standard property.
-				property = frameData->findStandardParticleProperty(propertyType);
+				property = frameData->particles().findStandardProperty(propertyType);
 				if(!property) {
 					// Create standard property.
 					property = ParticlesObject::OOClass().createStandardStorage(particleCount, propertyType, true);
-					frameData->addParticleProperty(property);
+					frameData->particles().addProperty(property);
 				}
 			}
 			else {
 				// Look for existing user-defined property with the same name.
-				property = frameData->findParticleProperty(propertyName);
+				property = frameData->particles().findProperty(propertyName);
 				// Discard existing property storage if is has the wrong data type or component count.
 				if(property && (property->dataType() != dataType || property->componentCount() != componentCount)) {
-					frameData->removeParticleProperty(property);
+					frameData->particles().removeProperty(property);
 					property.reset();
 				}
 				if(!property) {
 					// Create a new user-defined property for the column.
 					property = std::make_shared<PropertyStorage>(particleCount, dataType, componentCount, 0, propertyName, true);
-					frameData->addParticleProperty(property);
+					frameData->particles().addProperty(property);
 				}
 			}
 			OVITO_ASSERT(property != nullptr);
@@ -578,10 +572,10 @@ FileSourceImporter::FrameDataPtr AMBERNetCDFImporter::FrameLoader::loadFile()
 				}
 				OVITO_ASSERT(remaining == 0);
 
-				// Create particles types if this is the particle type property.
-				if(propertyType == ParticlesObject::TypeProperty || propertyType == ParticlesObject::StructureTypeProperty) {
+				// Create particles types if this is the typed property.
+				if(OvitoClassPtr elementTypeClass = ParticlesObject::OOClass().typedPropertyElementClass(property->type())) {
 
-					ParticleFrameData::TypeList* typeList = frameData->createPropertyTypesList(property);
+					PropertyContainerImportData::TypeList* typeList = frameData->particles().createPropertyTypesList(property, *elementTypeClass);
 
 					// Create particle types.
 					for(int ptype : ConstPropertyAccess<int>(property)) {
@@ -660,7 +654,7 @@ FileSourceImporter::FrameDataPtr AMBERNetCDFImporter::FrameLoader::loadFile()
 		// If the input file does not contain simulation cell size, use bounding box of particles as simulation cell.
 		if(!pbc[0] || !pbc[1] || !pbc[2]) {
 
-			ConstPropertyAccess<Point3> posProperty = frameData->findStandardParticleProperty(ParticlesObject::PositionProperty);
+			ConstPropertyAccess<Point3> posProperty = frameData->particles().findStandardProperty(ParticlesObject::PositionProperty);
 			if(posProperty && posProperty.size() != 0) {
 				Box3 boundingBox;
 				boundingBox.addPoints(posProperty);
@@ -724,12 +718,12 @@ InputColumnInfo AMBERNetCDFImporter::mapVariableToColumn(const QString& name, in
 	// Only map to standard property if data layout matches.
 	if(standardType != ParticlesObject::UserProperty) {
 		if(componentCount == ParticlesObject::OOClass().standardPropertyComponentCount(standardType)) {
-			column.mapStandardColumn(standardType);
+			column.mapStandardColumn(&ParticlesObject::OOClass(), standardType);
 			return column;
 		}
 	}
 
-	column.mapCustomColumn(name, dataType);
+	column.mapCustomColumn(&ParticlesObject::OOClass(), name, dataType);
 	return column;
 }
 
@@ -740,8 +734,7 @@ void AMBERNetCDFImporter::saveToStream(ObjectSaveStream& stream, bool excludeRec
 {
 	ParticleImporter::saveToStream(stream, excludeRecomputableData);
 
-	stream.beginChunk(0x01);
-	_customColumnMapping.saveToStream(stream);
+	stream.beginChunk(0x02);
 	stream.endChunk();
 }
 
@@ -752,20 +745,11 @@ void AMBERNetCDFImporter::loadFromStream(ObjectLoadStream& stream)
 {
 	ParticleImporter::loadFromStream(stream);
 
-	stream.expectChunk(0x01);
-	_customColumnMapping.loadFromStream(stream);
+	// For backward compatibility with OVITO 3.1:
+	if(stream.expectChunkRange(0x00, 0x02) == 0x01) {
+		stream >> _customColumnMapping.mutableValue();
+	}
 	stream.closeChunk();
-}
-
-/******************************************************************************
- * Creates a copy of this object.
- *****************************************************************************/
-OORef<RefTarget> AMBERNetCDFImporter::clone(bool deepCopy, CloneHelper& cloneHelper) const
-{
-	// Let the base class create an instance of this class.
-	OORef<AMBERNetCDFImporter> clone = static_object_cast<AMBERNetCDFImporter>(ParticleImporter::clone(deepCopy, cloneHelper));
-	clone->_customColumnMapping = this->_customColumnMapping;
-	return clone;
 }
 
 }	// End of namespace

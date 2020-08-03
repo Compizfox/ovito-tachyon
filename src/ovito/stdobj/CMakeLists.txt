@@ -1,6 +1,6 @@
 #######################################################################################
 #
-#  Copyright 2019 Alexander Stukowski
+#  Copyright 2020 Alexander Stukowski
 #
 #  This file is part of OVITO (Open Visualization Tool).
 #
@@ -37,6 +37,8 @@ OVITO_STANDARD_PLUGIN(StdObj
 		properties/ElementType.cpp
 		properties/GenericPropertyModifier.cpp
 		properties/PropertyExpressionEvaluator.cpp
+		properties/PropertyContainerImportData.cpp
+		properties/InputColumnMapping.cpp
 		table/DataTable.cpp
 		io/DataTableExporter.cpp
 		io/PropertyOutputWriter.cpp
