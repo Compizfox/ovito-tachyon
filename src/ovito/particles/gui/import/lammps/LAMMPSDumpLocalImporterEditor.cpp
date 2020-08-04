@@ -21,56 +21,96 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 
 #include <ovito/particles/gui/ParticlesGui.h>
-#include <ovito/particles/import/lammps/LAMMPSTextDumpImporter.h>
+#include <ovito/particles/import/lammps/LAMMPSDumpLocalImporter.h>
 #include <ovito/stdobj/gui/properties/InputColumnMappingDialog.h>
 #include <ovito/gui/desktop/properties/BooleanParameterUI.h>
-#include <ovito/gui/desktop/properties/BooleanRadioButtonParameterUI.h>
 #include <ovito/gui/desktop/mainwin/MainWindow.h>
+#include <ovito/core/dataset/DataSetContainer.h>
 #include <ovito/core/dataset/io/FileSource.h>
-#include "LAMMPSTextDumpImporterEditor.h"
+#include <ovito/core/utilities/concurrent/TaskManager.h>
+#include "LAMMPSDumpLocalImporterEditor.h"
 
 namespace Ovito { namespace Particles {
 
-IMPLEMENT_OVITO_CLASS(LAMMPSTextDumpImporterEditor);
-SET_OVITO_OBJECT_EDITOR(LAMMPSTextDumpImporter, LAMMPSTextDumpImporterEditor);
+IMPLEMENT_OVITO_CLASS(LAMMPSDumpLocalImporterEditor);
+SET_OVITO_OBJECT_EDITOR(LAMMPSDumpLocalImporter, LAMMPSDumpLocalImporterEditor);
 
 /******************************************************************************
- * Displays a dialog box that allows the user to edit the custom file column to particle
- * property mapping.
- *****************************************************************************/
-bool LAMMPSTextDumpImporterEditor::showEditColumnMappingDialog(LAMMPSTextDumpImporter* importer, const FileSourceImporter::Frame& frame, MainWindow* mainWindow)
+* This is called by the system when the user has selected a new file to import.
+******************************************************************************/
+bool LAMMPSDumpLocalImporterEditor::inspectNewFile(FileImporter* importer, const QUrl& sourceFile, QWidget* parent)
 {
-	Future<ParticleInputColumnMapping> inspectFuture = importer->inspectFileHeader(frame);
+	// Retrieve column information of input file.
+	LAMMPSDumpLocalImporter* lammpsImporter = static_object_cast<LAMMPSDumpLocalImporter>(importer);
+	Future<InputColumnMapping> inspectFuture = lammpsImporter->inspectFileHeader(FileSourceImporter::Frame(sourceFile));
 	if(!importer->dataset()->taskManager().waitForFuture(inspectFuture))
 		return false;
-	ParticleInputColumnMapping mapping = inspectFuture.result();
+	InputColumnMapping mapping = inspectFuture.result();
 
-	if(!importer->customColumnMapping().empty()) {
-		ParticleInputColumnMapping customMapping = importer->customColumnMapping();
-		customMapping.resize(mapping.size());
-		for(size_t i = 0; i < customMapping.size(); i++)
-			customMapping[i].columnName = mapping[i].columnName;
-		mapping = std::move(customMapping);
+	// If this is a newly created file importer, load old mapping from application settings store.
+	if(lammpsImporter->columnMapping().empty()) {
+		QSettings settings;
+		settings.beginGroup("viz/importer/lammps_dump_local/");
+		if(settings.contains("colmapping")) {
+			try {
+				InputColumnMapping storedMapping;
+				storedMapping.fromByteArray(settings.value("colmapping").toByteArray(), importer->dataset()->taskManager());
+				std::copy_n(storedMapping.begin(), std::min(storedMapping.size(), mapping.size()), mapping.begin());
+			}
+			catch(Exception& ex) {
+				ex.prependGeneralMessage(tr("Failed to load last used column-to-property mapping from application settings store."));
+				ex.logError();
+			}
+		}
+	}
+
+	InputColumnMappingDialog dialog(mapping, parent, importer->dataset()->taskManager());
+	if(dialog.exec() == QDialog::Accepted) {
+		lammpsImporter->setColumnMapping(dialog.mapping());
+		return true;
+	}
+
+	return false;
+}
+
+/******************************************************************************
+ * Displays a dialog box that allows the user to edit the file column to property mapping.
+ *****************************************************************************/
+bool LAMMPSDumpLocalImporterEditor::showEditColumnMappingDialog(LAMMPSDumpLocalImporter* importer, const FileSourceImporter::Frame& frame, MainWindow* mainWindow)
+{
+	Future<InputColumnMapping> inspectFuture = importer->inspectFileHeader(frame);
+	if(!importer->dataset()->taskManager().waitForFuture(inspectFuture))
+		return false;
+	InputColumnMapping mapping = inspectFuture.result();
+
+	if(!importer->columnMapping().empty()) {
+		InputColumnMapping newMapping = importer->columnMapping();
+		newMapping.resize(mapping.size());
+		for(size_t i = 0; i < newMapping.size(); i++)
+			newMapping[i].columnName = mapping[i].columnName;
+		mapping = std::move(newMapping);
 	}
 
 	InputColumnMappingDialog dialog(mapping, mainWindow, importer->dataset()->taskManager());
 	if(dialog.exec() == QDialog::Accepted) {
-		importer->setCustomColumnMapping(dialog.mapping());
-		importer->setUseCustomColumnMapping(true);
+		importer->setColumnMapping(dialog.mapping());
+		// Remember the user-defined mapping for the next time.
+		QSettings settings;
+		settings.beginGroup("viz/importer/lammps_dump_local/");
+		settings.setValue("colmapping", dialog.mapping().toByteArray(importer->dataset()->taskManager()));
+		settings.endGroup();
 		return true;
 	}
-	else {
-		return false;
-	}
+	return false;
 }
 
 /******************************************************************************
 * Sets up the UI widgets of the editor.
 ******************************************************************************/
-void LAMMPSTextDumpImporterEditor::createUI(const RolloutInsertionParameters& rolloutParams)
+void LAMMPSDumpLocalImporterEditor::createUI(const RolloutInsertionParameters& rolloutParams)
 {
 	// Create a rollout.
-	QWidget* rollout = createRollout(tr("LAMMPS dump reader"), rolloutParams);
+	QWidget* rollout = createRollout(tr("LAMMPS dump local reader"), rolloutParams);
 
     // Create the rollout contents.
 	QVBoxLayout* layout = new QVBoxLayout(rollout);
@@ -92,36 +132,22 @@ void LAMMPSTextDumpImporterEditor::createUI(const RolloutInsertionParameters& ro
 	});
 	sublayout->addWidget(multitimestepUI->checkBox());
 
-	// Sort particles
-	BooleanParameterUI* sortParticlesUI = new BooleanParameterUI(this, PROPERTY_FIELD(ParticleImporter::sortParticles));
-	sublayout->addWidget(sortParticlesUI->checkBox());
-
 	QGroupBox* columnMappingBox = new QGroupBox(tr("File columns"), rollout);
 	sublayout = new QVBoxLayout(columnMappingBox);
 	sublayout->setContentsMargins(4,4,4,4);
 	layout->addWidget(columnMappingBox);
 
-	BooleanRadioButtonParameterUI* useCustomMappingUI = new BooleanRadioButtonParameterUI(this, PROPERTY_FIELD(LAMMPSTextDumpImporter::useCustomColumnMapping));
-	useCustomMappingUI->buttonFalse()->setText(tr("Automatic mapping"));
-	sublayout->addWidget(useCustomMappingUI->buttonFalse());
-	useCustomMappingUI->buttonTrue()->setText(tr("User-defined mapping to particle properties"));
-	sublayout->addWidget(useCustomMappingUI->buttonTrue());
-	connect(useCustomMappingUI->buttonFalse(), &QRadioButton::clicked, this, [this]() {
-		if(LAMMPSTextDumpImporter* importer = static_object_cast<LAMMPSTextDumpImporter>(editObject()))
-			importer->requestReload();
-	}, Qt::QueuedConnection);
-
 	QPushButton* editMappingButton = new QPushButton(tr("Edit column mapping..."));
 	sublayout->addWidget(editMappingButton);
-	connect(editMappingButton, &QPushButton::clicked, this, &LAMMPSTextDumpImporterEditor::onEditColumnMapping);
+	connect(editMappingButton, &QPushButton::clicked, this, &LAMMPSDumpLocalImporterEditor::onEditColumnMapping);
 }
 
 /******************************************************************************
 * Is called when the user pressed the "Edit column mapping" button.
 ******************************************************************************/
-void LAMMPSTextDumpImporterEditor::onEditColumnMapping()
+void LAMMPSDumpLocalImporterEditor::onEditColumnMapping()
 {
-	if(LAMMPSTextDumpImporter* importer = static_object_cast<LAMMPSTextDumpImporter>(editObject())) {
+	if(LAMMPSDumpLocalImporter* importer = static_object_cast<LAMMPSDumpLocalImporter>(editObject())) {
 		UndoableTransaction::handleExceptions(importer->dataset()->undoStack(), tr("Change file column mapping"), [this, importer]() {
 
 			// Determine the currently loaded data file of the FileSource.

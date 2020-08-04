@@ -84,57 +84,54 @@ void PropertyContainerImportData::TypeList::sortTypesById()
 ******************************************************************************/
 void PropertyContainerImportData::transferToContainer(const PropertyContainer* existingContainer, PropertyContainer* targetContainer, bool isNewFile, CloneHelper& cloneHelper) const
 {
-	if(!_properties.empty()) {
+	if(!existingContainer) {
+		// Create the vis element requested by the file importer.
+		if(_visElementClass && (!targetContainer->visElement() || _visElementClass != &targetContainer->visElement()->getOOMetaClass()))
+			targetContainer->setVisElement(static_object_cast<DataVis>(_visElementClass->createInstance(targetContainer->dataset())));
+		else if(!_visElementClass)
+			targetContainer->setVisElement(nullptr);
 
-		if(!existingContainer) {
-			// Create the vis element requested by the file importer.
-			if(_visElementClass && (!targetContainer->visElement() || _visElementClass != &targetContainer->visElement()->getOOMetaClass()))
-				targetContainer->setVisElement(static_object_cast<DataVis>(_visElementClass->createInstance(targetContainer->dataset())));
-			else if(!_visElementClass)
-				targetContainer->setVisElement(nullptr);
-
-			// Initialize the property container and its vis element to default values.
+		// Initialize the property container and its vis element to default values.
+		if(Application::instance()->executionContext() == Application::ExecutionContext::Interactive)
+			targetContainer->loadUserDefaults();
+	}
+	else {
+		// Adopt the existing vis element, or create the right vis element requested by the file importer.
+		if(_visElementClass && (!existingContainer->visElement() || _visElementClass != &existingContainer->visElement()->getOOMetaClass())) {
+			targetContainer->setVisElement(static_object_cast<DataVis>(_visElementClass->createInstance(targetContainer->dataset())));
 			if(Application::instance()->executionContext() == Application::ExecutionContext::Interactive)
-				targetContainer->loadUserDefaults();
+				targetContainer->visElement()->loadUserDefaults();
+		}
+		else if(!_visElementClass)
+			targetContainer->setVisElement(nullptr);
+		else
+			targetContainer->setVisElement(existingContainer->visElement());
+	}
+
+	// Transfer properties.
+	for(auto& property : _properties) {
+
+		// Look up existing property object.
+		const PropertyObject* existingPropertyObj = existingContainer ? 
+			((property->type() != PropertyStorage::GenericUserProperty) ? existingContainer->getProperty(property->type()) : existingContainer->getProperty(property->name())) 
+			: nullptr;
+
+		OORef<PropertyObject> propertyObj;
+		if(existingPropertyObj) {
+			propertyObj = cloneHelper.cloneObject(existingPropertyObj, false);
+			propertyObj->setStorage(std::move(property));
+			targetContainer->addProperty(propertyObj);
 		}
 		else {
-			// Adopt the existing vis element, or create the right vis element requested by the file importer.
-			if(_visElementClass && (!existingContainer->visElement() || _visElementClass != &existingContainer->visElement()->getOOMetaClass())) {
-				targetContainer->setVisElement(static_object_cast<DataVis>(_visElementClass->createInstance(targetContainer->dataset())));
-				if(Application::instance()->executionContext() == Application::ExecutionContext::Interactive)
-					targetContainer->visElement()->loadUserDefaults();
-			}
-			else if(!_visElementClass)
-				targetContainer->setVisElement(nullptr);
-			else
-				targetContainer->setVisElement(existingContainer->visElement());
+			propertyObj = targetContainer->createProperty(std::move(property));
 		}
 
-		// Transfer properties.
-		for(auto& property : _properties) {
-
-			// Look up existing property object.
-			const PropertyObject* existingPropertyObj = existingContainer ? 
-				((property->type() != PropertyStorage::GenericUserProperty) ? existingContainer->getProperty(property->type()) : existingContainer->getProperty(property->name())) 
-				: nullptr;
-
-			OORef<PropertyObject> propertyObj;
-			if(existingPropertyObj) {
-				propertyObj = cloneHelper.cloneObject(existingPropertyObj, false);
-				propertyObj->setStorage(std::move(property));
-				targetContainer->addProperty(propertyObj);
-			}
-			else {
-				propertyObj = targetContainer->createProperty(std::move(property));
-			}
-
-			// Transfer element types.
-			auto typeList = _typeLists.find(propertyObj->storage().get());
-			insertTypes(propertyObj, (typeList != _typeLists.end()) ? typeList->second.get() : nullptr, isNewFile);
-		}
-
-		targetContainer->verifyIntegrity();
+		// Transfer element types.
+		auto typeList = _typeLists.find(propertyObj->storage().get());
+		insertTypes(propertyObj, (typeList != _typeLists.end()) ? typeList->second.get() : nullptr, isNewFile);
 	}
+
+	targetContainer->verifyIntegrity();
 }
 
 /******************************************************************************

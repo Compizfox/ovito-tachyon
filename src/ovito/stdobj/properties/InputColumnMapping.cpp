@@ -166,8 +166,10 @@ void InputColumnMapping::validate() const
 	containerClass()->validateInputColumnMapping(*this);
 
 	// Check for conflicting mappings, i.e. several file columns being mapped to the same particle property.
+	int numMapped = 0;
 	for(auto m1 = begin(); m1 != end(); ++m1) {
 		if(!m1->isMapped()) continue;
+		numMapped++;
 		OVITO_ASSERT(m1->property.containerClass() == containerClass());
 		for(auto m2 = std::next(m1); m2 != end(); ++m2) {
 			if(m1->property == m2->property)
@@ -177,6 +179,9 @@ void InputColumnMapping::validate() const
 					.arg(m1->property.nameWithComponent()));
 		}
 	}
+
+	if(numMapped == 0)
+		throw Exception(InputColumnReader::tr("File column mapping is empty. Please specify how data columns of the input file should be mapped to the properties of %1.").arg(containerClass()->elementDescriptionName()));
 }
 
 /******************************************************************************

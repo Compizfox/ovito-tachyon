@@ -68,15 +68,16 @@ void ParticleFrameData::generateBondPeriodicImageProperty()
 
 	if(!simulationCell().hasPbc())
 		return;
+	const AffineTransformation inverseCellMatrix = simulationCell().inverseMatrix();
 
 	for(size_t bondIndex = 0; bondIndex < bondTopologyProperty.size(); bondIndex++) {
 		size_t index1 = bondTopologyProperty[bondIndex][0];
 		size_t index2 = bondTopologyProperty[bondIndex][1];
 		OVITO_ASSERT(index1 < posProperty.size() && index2 < posProperty.size());
-		Vector3 delta = simulationCell().absoluteToReduced(posProperty[index2] - posProperty[index1]);
+		Vector3 delta = posProperty[index1] - posProperty[index2];
 		for(size_t dim = 0; dim < 3; dim++) {
 			if(simulationCell().hasPbc(dim))
-				bondPeriodicImageProperty[bondIndex][dim] = -(int)std::floor(delta[dim] + FloatType(0.5));
+				bondPeriodicImageProperty[bondIndex][dim] = std::lround(inverseCellMatrix.prodrow(delta, dim));
 		}
 	}
 }
@@ -122,7 +123,7 @@ OORef<DataCollection> ParticleFrameData::handOver(const DataCollection* existing
 		cell->setData(simulationCell(), isNewFile);
 	}
 
-	if(!particles().properties().empty()) {
+	if(!particles().properties().empty() || !bonds().properties().empty() || !angles().properties().empty() || !dihedrals().properties().empty() || !impropers().properties().empty()) {
 
 		// Hand over particles.
 		const ParticlesObject* existingParticles = existing ? existing->getObject<ParticlesObject>() : nullptr;

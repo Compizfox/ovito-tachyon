@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Copyright 2018 Alexander Stukowski
+//  Copyright 2020 Alexander Stukowski
 //
 //  This file is part of OVITO (Open Visualization Tool).
 //
@@ -22,6 +22,8 @@
 
 #include <ovito/particles/Particles.h>
 #include <ovito/particles/objects/BondsVis.h>
+#include <ovito/particles/objects/ParticlesObject.h>
+#include <ovito/stdobj/simcell/SimulationCellObject.h>
 #include <ovito/stdobj/properties/PropertyAccess.h>
 #include <ovito/core/app/Application.h>
 #include <ovito/core/dataset/DataSet.h>
@@ -45,6 +47,43 @@ BondsObject::BondsObject(DataSet* dataset) : PropertyContainer(dataset)
 	
 	// Attach a visualization element for rendering the bonds.
 	addVisElement(new BondsVis(dataset));
+}
+
+/******************************************************************************
+* Determines the PBC shift vectors for bonds using the minimum image convention.
+******************************************************************************/
+void BondsObject::generatePeriodicImageProperty(const ParticlesObject* particles, const SimulationCellObject* simulationCellObject)
+{
+	ConstPropertyAccess<Point3> posProperty = particles->getProperty(ParticlesObject::PositionProperty);
+	if(!posProperty) return;
+
+	ConstPropertyAccess<ParticleIndexPair> bondTopologyProperty = getProperty(BondsObject::TopologyProperty);
+	if(!bondTopologyProperty) return;
+
+	if(!simulationCellObject)
+		return;
+	std::array<bool,3> pbcFlags = simulationCellObject->pbcFlags();
+	if(!pbcFlags[0] && !pbcFlags[1] && !pbcFlags[2])
+		return;
+	const AffineTransformation inverseCellMatrix = simulationCellObject->reciprocalCellMatrix();
+
+	auto topoIter = bondTopologyProperty.begin();
+	PropertyAccess<Vector3I> bondPeriodicImageProperty = createProperty(BondsObject::PeriodicImageProperty, false);
+	for(Vector3I& pbcVec : bondPeriodicImageProperty) {
+		size_t particleIndex1 = (*topoIter)[0];
+		size_t particleIndex2 = (*topoIter)[1];
+		pbcVec.setZero();
+		if(particleIndex1 < posProperty.size() && particleIndex2 < posProperty.size()) {
+			const Point3& p1 = posProperty[particleIndex1];
+			const Point3& p2 = posProperty[particleIndex2];
+			Vector3 delta = p1 - p2;
+			for(size_t dim = 0; dim < 3; dim++) {
+				if(pbcFlags[dim])
+					pbcVec[dim] = std::lround(inverseCellMatrix.prodrow(delta, dim));
+			}
+		}
+		++topoIter;
+	}
 }
 
 /******************************************************************************

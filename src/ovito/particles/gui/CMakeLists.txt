@@ -68,6 +68,7 @@ OVITO_STANDARD_PLUGIN(ParticlesGui
 		import/lammps/LAMMPSTextDumpImporterEditor.cpp
 		import/lammps/LAMMPSBinaryDumpImporterEditor.cpp
 		import/lammps/LAMMPSDataImporterEditor.cpp
+		import/lammps/LAMMPSDumpLocalImporterEditor.cpp
 		import/parcas/ParcasFileImporterEditor.cpp
 		import/imd/IMDImporterEditor.cpp
 		import/cfg/CFGImporterEditor.cpp

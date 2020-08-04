@@ -287,7 +287,8 @@ PropertyObject* PropertyContainer::createProperty(PropertyPtr storage)
 
 /******************************************************************************
 * Replaces the property arrays in this property container with a new set of
-* properties.
+* properties. Existing element types of typed properties will be preserved by 
+* the method. 
 ******************************************************************************/
 void PropertyContainer::setContent(size_t newElementCount, const std::vector<PropertyPtr>& newProperties)
 {
@@ -322,6 +323,47 @@ void PropertyContainer::setContent(size_t newElementCount, const std::vector<Pro
 		else {
 			OORef<PropertyObject> newProperty = getOOMetaClass().createFromStorage(dataset(), property);
 			addProperty(newProperty);
+		}
+	}
+}
+
+/******************************************************************************
+* Replaces the property arrays in this property container with a new set of
+* properties. Existing element types of typed properties will be preserved by 
+* the method. 
+******************************************************************************/
+void PropertyContainer::setContent(size_t newElementCount, const QVector<PropertyObject*>& newProperties)
+{
+	OVITO_ASSERT(!dataset()->undoStack().isRecording());
+
+	// Removal phase:
+	for(int i = properties().size() - 1; i >= 0; i--) {
+		PropertyObject* property = properties()[i];
+		if(boost::algorithm::none_of(newProperties, [property](const auto& newProperty) {
+				return (newProperty->type() == property->type() && newProperty->name() == property->name());
+			}))
+		{
+			removeProperty(property);
+		}
+	}
+
+	// Update internal element counter.
+	_elementCount.set(this, PROPERTY_FIELD(elementCount), newElementCount);
+
+	// Insertion phase:
+	for(const auto& property : newProperties) {
+		// Lengths of new property arrays must be consistent.
+		if(property->size() != newElementCount) {
+			OVITO_ASSERT(false);
+			throwException(tr("Cannot add new %1 property '%2': Array length does not match number of elements in the parent container.").arg(getOOMetaClass().propertyClassDisplayName()).arg(property->name()));
+		}
+
+		const PropertyObject* propertyObj = (property->type() != 0) ? getProperty(property->type()) : getProperty(property->name());
+		if(propertyObj) {
+			makeMutable(propertyObj)->setStorage(property->storage());
+		}
+		else {
+			addProperty(property);
 		}
 	}
 }

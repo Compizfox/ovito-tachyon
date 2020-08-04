@@ -38,6 +38,7 @@ InputColumnMappingDialog::InputColumnMappingDialog(const InputColumnMapping& map
 	_taskManager(taskManager),
 	_containerClass(mapping.containerClass())
 {
+	OVITO_ASSERT(_containerClass);
 	OVITO_CHECK_POINTER(parent);
 	setWindowTitle(tr("File column mapping"));
 
@@ -151,6 +152,7 @@ void InputColumnMappingDialog::onOk()
  *****************************************************************************/
 void InputColumnMappingDialog::setMapping(const InputColumnMapping& mapping)
 {
+	OVITO_ASSERT(_containerClass);
 	OVITO_ASSERT(mapping.containerClass() == _containerClass);
 
 	_tableWidget->clearContents();
@@ -277,6 +279,8 @@ void InputColumnMappingDialog::onSavePreset()
 		// Load existing mappings.
 		QSettings settings;
 		settings.beginGroup("inputcolumnmapping");
+		if(_containerClass->name() != QStringLiteral("ParticlesObject"))
+			settings.beginGroup(_containerClass->name());
 		int size = settings.beginReadArray("presets");
 		QStringList presetNames;
 		QList<QByteArray> presetData;
@@ -329,6 +333,8 @@ void InputColumnMappingDialog::onLoadPreset()
 		// Load list of presets.
 		QSettings settings;
 		settings.beginGroup("inputcolumnmapping");
+		if(_containerClass->name() != QStringLiteral("ParticlesObject"))
+			settings.beginGroup(_containerClass->name());
 		int size = settings.beginReadArray("presets");
 		QStringList presetNames;
 		QList<QByteArray> presetData;

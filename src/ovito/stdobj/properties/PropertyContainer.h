@@ -142,7 +142,12 @@ public:
 	virtual size_t deleteElements(const boost::dynamic_bitset<>& mask);
 
 	/// Replaces the property arrays in this property container with a new set of properties.
+	/// Existing element types of typed properties will be preserved by the method. 
 	void setContent(size_t newElementCount, const std::vector<PropertyPtr>& newProperties);
+
+	/// Replaces the property arrays in this property container with a new set of properties.
+	/// Existing element types of typed properties will be preserved by the method. 
+	void setContent(size_t newElementCount, const QVector<PropertyObject*>& newProperties);
 
 	/// Duplicates all data elements by extending the property arrays and replicating the existing data N times.
 	void replicate(size_t n, bool replicatePropertyValues = true);

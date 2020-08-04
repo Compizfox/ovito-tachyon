@@ -15,48 +15,148 @@
        <imagedata fileref="images/modifiers/load_trajectory_panel.png" format="PNG" scale="50" />
     </imageobject></mediaobject></screenshot></informalfigure>
     This modifier loads atomic trajectories and other time-dependent data from a separate trajectory file
-    and combines them with static topology data (e.g. bonds and atom type information) loaded from another file.
+    and merges them with static topology data (e.g. atom type and bond connectivity information) loaded 
+    from the primary data file.
   </para>
 
   <para>
-    Some molecular dynamics codes work with separate topology and trajectory files. The first kind of file serves as input
-    to the simulation code and contains the initial atomic positions and the definitions of static things like the atom types, bonds, etc.
-    which do not change throughout the simulation. The trajectories of the particles computed by the MD code are written
-    to a separate output file, which stores just the time-dependent
-    coordinates and perhaps other varying properties like atomic energies (but no constant information like the bond topology).
+    Some molecular dynamics codes use or write separate topology and trajectory files. The topology file typically serves as starting point
+    of the MD simulation and contains the initial atomic positions and the definitions of static structures like the atom types, bonds, etc.,
+    which do not change throughout the simulation. The trajectories of the particles computed by the MD code are then written
+    to an output file, which stores just the time-dependent coordinates and sometimes other varying information such as the atomic energies.
   </para>
 
   <para>
-    LAMMPS is a simulation code that uses the described topology/trajectory scheme. LAMMPS uses the <code>data</code> file format
-    for input files defining the atom types and bonds in the simulation whereas the <code>dump</code> format serves as output format to
-    store the computed atom trajectories.
+    LAMMPS is a simulation code that employes this topology+trajectory file scheme. LAMMPS uses the <code>data</code> file format
+    for input files, which define the atom types and bonds in the simulation, whereas the <code>dump</code> file format serves as output format 
+    storing the computed atom trajectories.
   </para>
 
   <para>
-    To load such a pair of topology/trajectory files in OVITO, first open the static topology file using the normal
+    <informalfigure><screenshot><mediaobject><imageobject>
+      <imagedata fileref="images/modifiers/load_trajectory_pipeline.svg" format="SVG" scale="45" />
+    </imageobject></mediaobject></screenshot></informalfigure>
+    To load such a pair of topology and trajectory files in OVITO, first open the topology file using the regular
     <menuchoice><guimenu>File</guimenu><guimenuitem>Load File</guimenuitem></menuchoice> menu function.
-    Then insert the <emphasis>Load Trajectory</emphasis> modifier and use the load button (highlighted in the screenshot)
-    to select the corresponding trajectory file. After loading the trajectory file, the modifier
-    will subsequently replace the initial particle positions with the time-dependent positions
-    read from the trajectory file. The same is done for the simulation cell geometry and also the values of any other particle property
-    stored in the trajectory file.
+    Then insert the <emphasis>Load Trajectory</emphasis> modifier into the data pipeline and use the button highlighted in this screenshot
+    to also load the corresponding trajectory file. Make sure you perform the last step in the user interface panel of the selected <emphasis>Load Trajectory</emphasis> 
+    modifier and not in the original <link linkend="scene_objects.file_source">"External file"</link> panel, which 
+    looks very similar and manages the initial topology file.
+  </para>
+
+  <para>
+    After loading the trajectory file in the <emphasis>Load Trajectory</emphasis> panel, the modifier will subsequently replace the initial particle positions 
+    with the time-dependent positions read from the trajectory file. The same is done for the simulation cell geometry as well as any 
+    other auxiliary particle properties found in the trajectory file. Furthermore, you see the timeline of OVITO now display the 
+    animation frames found in the trajectory file.
   </para>
 
   <simplesect>
-  <title>Technical notes</title>
-
+  <title>Particle ordering</title>
     <para>
-      The modifier tries to fix the bonds between particles whose trajectories cross a periodic simulation cell
-      boundary. If atomic coordinates are wrapped around by the MD code, then
-      the PBC shift vectors of bonds need to be readjusted. The method used by
-      the modifier to do this is based on the minimum image convention, which prevents bonds from spanning more than half
-      of the simulation box size.
+      The modifier needs to assign the coordinates read from in the trajectory file to the corresponding particles from
+      the topology dataset. In order to do this mapping correctly, the modifier uses the unique identifiers of particles (<literal>Particle Identifier</literal> property) 
+      if available. Otherwise, the modifier simply assumes that the storage orders of particles in the topology and the trajectory
+      file are the same.
     </para>
+  </simplesect>
 
+  <simplesect id="particles.modifiers.load_trajectory.varying_bonds">
+  <title>Varying bond connectivity</title>
     <para>
-      The modifier needs to map the trajectories stored in the trajectory file to the right particles loaded from
-      the topology file. To do this correctly, even in situations where the storage order of particles is dynamically changed by the MD code,
-      the modifier uses the unique identifiers of particles (<literal>Particle Identifier</literal> property) if available.
+      The LAMMPS code supports reactive molecular dynamics simulations, in which the bond topology
+      dynamically changes during the course of the simulation as <link xlink:href="https://lammps.sandia.gov/doc/fix_bond_break.html">bonds break</link> 
+      or <link xlink:href="https://lammps.sandia.gov/doc/fix_bond_react.html">newly form</link>. 
+      The changing bond topology of such a simulation can be dumped to an output file using the <link xlink:href="https://lammps.sandia.gov/doc/dump.html"><literal>dump local</literal></link>
+      command of LAMMPS in combination with the <link xlink:href="https://lammps.sandia.gov/doc/compute_property_local.html"><literal>compute property/local</literal></link> command,
+      see the example below.
+    </para>
+    <para>
+      OVITO's <emphasis>Load Trajectory</emphasis> modifier can read the varying bond topology from <literal>dump local</literal> files 
+      and overwrite any static connectivity from the initial LAMMPS data file with it. Typically, you will use two instances of the <emphasis>Load Trajectory</emphasis> modifier
+      in the same pipeline, as shown on the side, to load both the time-varying atomic coordinates and the time-varying bond information  
+      from such a reactive MD simulation.
+    </para>
+    <para>
+      <informalfigure><screenshot><mediaobject><imageobject>
+        <imagedata fileref="images/modifiers/load_trajectory_varying_bonds.svg" format="SVG" scale="55" />
+      </imageobject></mediaobject></screenshot></informalfigure>
+      LAMMPS is able to output the changing bond topology in regular time intervals and also additional per-bond quantities such 
+      as the bond lengths, bond forces or bond energies. Take for example the following LAMMPS commands, which dump 
+      the current bond list to an output file in regular timestep intervals:
+    <screen>   compute 1 all property/local btype batom1 batom2
+   compute 2 all bond/local dist engpot
+   dump 1 all local 100 bonds.dump index c_1[*] c_2[*]
+</screen>
+      The <literal>dump local</literal> command generates a file <filename>bonds.dump</filename> having six data columns:
+<screen>   ITEM: ENTRIES index c_1[1] c_1[2] c_1[3] c_2[1] c_2[2] 
+   1 10 24 33 1.02482 0.158356 
+   2 10 24 34 1.01407 0.0298494 
+   3  7 21 22 1.53167 0.000836934
+   ...</screen>
+      During import of the file into OVITO using the <emphasis>Load Trajectory</emphasis> modifier you need to map these data columns
+      to the correct <link linkend="scene_objects.bonds">bond properties</link> of OVITO so that the program can interpret the data
+      in the LAMMPS dump file correctly:
+      <informaltable>
+				<tgroup cols="4">
+					<colspec colnum="1" colname="index" />
+					<colspec colnum="2" colname="lammps_name" colwidth="1*" />
+					<colspec colnum="3" colname="file_column" colwidth="1*" />
+					<colspec colnum="4" colname="bond_property" colwidth="1*" />
+					<thead>
+						<row>
+							<entry></entry>
+							<entry>LAMMPS&#xA0;name</entry>
+							<entry>File&#xA0;column&#xA0;identifier</entry>
+							<entry>OVITO&#xA0;bond&#xA0;property</entry>
+						</row>
+					</thead>	
+					<tbody>
+						<row>
+							<entry>1</entry>
+							<entry><literal>index</literal></entry>
+							<entry><literal>index</literal></entry>
+							<entry>(<emphasis>ignore</emphasis>)</entry>
+						</row>
+						<row>
+							<entry>2</entry>
+							<entry><literal>btype</literal></entry>
+							<entry><literal>c_1[1]</literal></entry>
+							<entry>Bond&#xA0;Type</entry>
+						</row>
+						<row>
+							<entry>3</entry>
+							<entry><literal>batom1</literal></entry>
+							<entry><literal>c_1[2]</literal></entry>
+							<entry>Topology.A</entry>
+						</row>
+						<row>
+							<entry>4</entry>
+							<entry><literal>batom2</literal></entry>
+							<entry><literal>c_1[3]</literal></entry>
+							<entry>Topology.B</entry>
+						</row>
+						<row>
+							<entry>5</entry>
+							<entry><literal>dist</literal></entry>
+							<entry><literal>c_2[1]</literal></entry>
+							<entry>Length</entry>
+						</row>
+						<row>
+							<entry>6</entry>
+							<entry><literal>engpot</literal></entry>
+							<entry><literal>c_2[2]</literal></entry>
+							<entry>Energy</entry>
+						</row>
+					</tbody>
+				</tgroup>
+			</informaltable>
+      In this example, the third and the fourth file column were mapped to the <literal>Topology</literal> bond property,
+      which signals OVITO that the dump local file contains a complete new set of bonds, replacing the original (static) 
+      bond topology previously loaded from the LAMMPS <emphasis>data</emphasis> file. 
+      In contrast, if the dump local file doesn't contain the two topology columns, then OVITO assumes that 
+      the file stores auxiliary bond property values and simply adds them to the existing bonds. In this case, 
+      the number of entries in the dump local file must exactly match the number of existing bonds in OVITO.
     </para>
   </simplesect>
 
