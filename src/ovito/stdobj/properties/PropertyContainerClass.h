@@ -98,31 +98,31 @@ public:
 
 	/// Returns the name of a standard property type.
 	const QString& standardPropertyName(int typeId) const {
-		OVITO_ASSERT(_standardPropertyNames.contains(typeId));
+		OVITO_ASSERT(isValidStandardPropertyId(typeId));
 		return _standardPropertyNames.find(typeId)->second;
 	}
 
 	/// Returns the display title used for a standard property type.
 	const QString& standardPropertyTitle(int typeId) const {
-		OVITO_ASSERT(_standardPropertyTitles.contains(typeId));
+		OVITO_ASSERT(_standardPropertyTitles.find(typeId) != _standardPropertyTitles.end());
 		return _standardPropertyTitles.find(typeId)->second;
 	}
 
 	/// Returns the data type used by the given standard property type.
 	int standardPropertyDataType(int typeId) const {
-		OVITO_ASSERT(_standardPropertyDataTypes.contains(typeId));
+		OVITO_ASSERT(_standardPropertyDataTypes.find(typeId) != _standardPropertyDataTypes.end());
 		return _standardPropertyDataTypes.find(typeId)->second;
 	}
 
 	/// Returns the number of vector components per element used by the given standard property type.
 	size_t standardPropertyComponentCount(int typeId) const {
-		OVITO_ASSERT(_standardPropertyComponents.contains(typeId));
+		OVITO_ASSERT(_standardPropertyComponents.find(typeId) != _standardPropertyComponents.end());
 		return std::max(_standardPropertyComponents.find(typeId)->second.size(), 1);
 	}
 
 	/// Returns the list of component names for the given standard property type.
 	const QStringList& standardPropertyComponentNames(int typeId) const {
-		OVITO_ASSERT(_standardPropertyComponents.contains(typeId));
+		OVITO_ASSERT(_standardPropertyComponents.find(typeId) != _standardPropertyComponents.end());
 		return _standardPropertyComponents.find(typeId)->second;
 	}
 

@@ -35,8 +35,8 @@ namespace Ovito { namespace StdObj {
 void PropertyContainerClass::registerStandardProperty(int typeId, QString name, int dataType, QStringList componentNames, OvitoClassPtr typedPropertyElementClass, QString title)
 {
 	OVITO_ASSERT_MSG(typeId > 0, "PropertyContainerClass::registerStandardProperty", "Invalid standard property type ID");
-	OVITO_ASSERT_MSG(!_standardPropertyIds.contains(name), "PropertyContainerClass::registerStandardProperty", "Duplicate standard property name");
-	OVITO_ASSERT_MSG(!_standardPropertyNames.contains(typeId), "PropertyContainerClass::registerStandardProperty", "Duplicate standard property type ID");
+	OVITO_ASSERT_MSG(_standardPropertyIds.find(name) == _standardPropertyIds.end(), "PropertyContainerClass::registerStandardProperty", "Duplicate standard property name");
+	OVITO_ASSERT_MSG(_standardPropertyNames.find(typeId) == _standardPropertyNames.end(), "PropertyContainerClass::registerStandardProperty", "Duplicate standard property type ID");
 	OVITO_ASSERT_MSG(dataType == PropertyStorage::Int || dataType == PropertyStorage::Int64 || dataType == PropertyStorage::Float, "PropertyContainerClass::registerStandardProperty", "Invalid standard property data type");
 	OVITO_ASSERT_MSG(!typedPropertyElementClass || typedPropertyElementClass->isDerivedFrom(ElementType::OOClass()), "PropertyContainerClass::registerStandardProperty", "Element type class is not derived from ElementType base");
 
