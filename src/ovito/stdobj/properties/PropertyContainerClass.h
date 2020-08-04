@@ -138,7 +138,7 @@ public:
 
 	/// Returns whether the given standard property is a typed property.
 	bool isTypedProperty(int typeId) const {
-		return _standardPropertyElementTypes.contains(typeId);
+		return _standardPropertyElementTypes.find(typeId) != _standardPropertyElementTypes.end();
 	}
 
 	/// Returns the ElementType class that is used by the given typed property.
