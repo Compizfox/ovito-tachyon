@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Copyright 2016 Alexander Stukowski
+//  Copyright 2020 Alexander Stukowski
 //
 //  This file is part of OVITO (Open Visualization Tool).
 //
@@ -25,7 +25,9 @@
 #include <ovito/gui/desktop/properties/FloatParameterUI.h>
 #include <ovito/gui/desktop/properties/VariantComboBoxParameterUI.h>
 #include <ovito/gui/desktop/properties/ColorParameterUI.h>
+#include <ovito/gui/desktop/properties/FloatParameterUI.h>
 #include <ovito/gui/desktop/properties/BooleanParameterUI.h>
+#include <ovito/gui/desktop/properties/Vector3ParameterUI.h>
 #include "VectorVisEditor.h"
 
 namespace Ovito { namespace Particles {
@@ -72,12 +74,28 @@ void VectorVisEditor::createUI(const RolloutInsertionParameters& rolloutParams)
 	layout->addWidget(new QLabel(tr("Alignment:")), row, 0);
 	layout->addWidget(arrowPositionUI->comboBox(), row++, 1);
 
+	BooleanParameterUI* reverseArrowDirectionUI = new BooleanParameterUI(this, PROPERTY_FIELD(VectorVis::reverseArrowDirection));
+	layout->addWidget(reverseArrowDirectionUI->checkBox(), row++, 1, 1, 1);
+
 	ColorParameterUI* arrowColorUI = new ColorParameterUI(this, PROPERTY_FIELD(VectorVis::arrowColor));
 	layout->addWidget(arrowColorUI->label(), row, 0);
 	layout->addWidget(arrowColorUI->colorPicker(), row++, 1);
 
-	BooleanParameterUI* reverseArrowDirectionUI = new BooleanParameterUI(this, PROPERTY_FIELD(VectorVis::reverseArrowDirection));
-	layout->addWidget(reverseArrowDirectionUI->checkBox(), row++, 1, 1, 1);
+	FloatParameterUI* transparencyUI = new FloatParameterUI(this, PROPERTY_FIELD(VectorVis::transparencyController));
+	layout->addWidget(transparencyUI->label(), row, 0);
+	layout->addLayout(transparencyUI->createFieldLayout(), row++, 1);
+
+	layout->addWidget(new QLabel(tr("Offset:")), row++, 0, 1, 2);
+	Vector3ParameterUI* offsetXUI = new Vector3ParameterUI(this, PROPERTY_FIELD(VectorVis::offset), 0);
+	Vector3ParameterUI* offsetYUI = new Vector3ParameterUI(this, PROPERTY_FIELD(VectorVis::offset), 1);
+	Vector3ParameterUI* offsetZUI = new Vector3ParameterUI(this, PROPERTY_FIELD(VectorVis::offset), 2);
+	QHBoxLayout* sublayout = new QHBoxLayout();
+	sublayout->setContentsMargins(0,0,0,0);
+	sublayout->setSpacing(4);
+	layout->addLayout(sublayout, row++, 0, 1, 2);
+	sublayout->addLayout(offsetXUI->createFieldLayout(), 1);
+	sublayout->addLayout(offsetYUI->createFieldLayout(), 1);
+	sublayout->addLayout(offsetZUI->createFieldLayout(), 1);
 }
 
 }	// End of namespace

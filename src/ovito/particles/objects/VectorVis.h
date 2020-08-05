@@ -26,6 +26,8 @@
 #include <ovito/particles/Particles.h>
 #include <ovito/stdobj/properties/PropertyObject.h>
 #include <ovito/core/dataset/data/DataVis.h>
+#include <ovito/core/dataset/animation/controller/Controller.h>
+#include <ovito/core/dataset/animation/AnimationSettings.h>
 #include <ovito/core/rendering/ArrowPrimitive.h>
 #include <ovito/core/rendering/SceneRenderer.h>
 
@@ -68,6 +70,12 @@ public:
 	/// \brief Computes the bounding box of the object.
 	virtual Box3 boundingBox(TimePoint time, const std::vector<const DataObject*>& objectStack, const PipelineSceneNode* contextNode, const PipelineFlowState& flowState, TimeInterval& validityInterval) override;
 
+	/// Returns the transparency parameter.
+	FloatType transparency() const { return transparencyController()->currentFloatValue(); }
+
+	/// Sets the transparency parameter.
+	void setTransparency(FloatType t) { transparencyController()->setCurrentFloatValue(t); }
+
 public:
 
     Q_PROPERTY(Ovito::Particles::VectorVis::ShadingMode shadingMode READ shadingMode WRITE setShadingMode);
@@ -100,6 +108,12 @@ protected:
 
 	/// Controls the rendering quality mode for arrows.
 	DECLARE_MODIFIABLE_PROPERTY_FIELD(ArrowPrimitive::RenderingQuality, renderingQuality, setRenderingQuality);
+
+	/// Controls the transparency of the arrows.
+	DECLARE_MODIFIABLE_REFERENCE_FIELD(Controller, transparencyController, setTransparencyController);
+
+	/// Controls the displacement offset to be applied to all arrows.
+	DECLARE_MODIFIABLE_PROPERTY_FIELD(Vector3, offset, setOffset);
 };
 
 /**

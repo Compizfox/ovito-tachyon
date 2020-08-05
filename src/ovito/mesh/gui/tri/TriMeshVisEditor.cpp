@@ -51,7 +51,7 @@ void TriMeshVisEditor::createUI(const RolloutInsertionParameters& rolloutParams)
 	layout->addWidget(colorUI->colorPicker(), 0, 1);
 
 	FloatParameterUI* transparencyUI = new FloatParameterUI(this, PROPERTY_FIELD(TriMeshVis::transparencyController));
-	layout->addWidget(new QLabel(tr("Transparency:")), 1, 0);
+	layout->addWidget(transparencyUI->label(), 1, 0);
 	layout->addLayout(transparencyUI->createFieldLayout(), 1, 1);
 
 	BooleanParameterUI* highlightEdgesUI = new BooleanParameterUI(this, PROPERTY_FIELD(TriMeshVis::highlightEdges));

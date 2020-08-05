@@ -66,6 +66,13 @@
       </varlistentry>
 
       <varlistentry>
+        <term>Reverse direction</term>
+        <listitem>
+          <para>Flips the direction of each arrow, swapping its head and tail.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term>Arrow color</term>
         <listitem>
           <para>The display color of arrows. This uniform color is used when the <literal>Vector Color</literal>
@@ -75,9 +82,17 @@
       </varlistentry>
 
       <varlistentry>
-        <term>Reverse direction</term>
+        <term>Transparency</term>
         <listitem>
-          <para>Flips the directions of arrows.</para>
+          <para>The degree of semi-transparency of the arrows.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term>Offset</term>
+        <listitem>
+          <para>Offset vector by which all arrows should be displaced. The offset parameter can be used to move the 
+                arrows fully in front of or behind the particles.</para>
         </listitem>
       </varlistentry>
 
