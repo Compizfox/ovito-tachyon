@@ -61,7 +61,7 @@
     Note that OVITO uses a red color to highlight selected particles in the interactive viewports.
     Since this accentuation would mask the actual particle color assigned by this modifier, the modifier clears the current selection
     by default (by deleting the <literal>Selection</literal> property). If you would like to preserve the particle selection
-    so that is remains available to subsequent modifiers in the data pipeline, you can request the modifier to not
+    so that it remains available to subsequent modifiers in the data pipeline, you can request the modifier to not
     delete the <literal>Selection</literal> property by activating the <guilabel>Keep selection</guilabel> option.
   </para>
 

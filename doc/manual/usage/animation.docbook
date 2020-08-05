@@ -170,7 +170,7 @@
          <imagedata fileref="images/usage/animation/create_camera_function.png" format="PNG" scale="50" />
        </imageobject></mediaobject></screenshot></informalfigure>
        To animate the camera, you first have to create a <emphasis>camera object</emphasis>. This is done
-       from a viewport's <link linkend="usage.viewports.menu">context menu</link> as shown in screenshot on the right. The new camera object will be
+       from a viewport's <link linkend="usage.viewports.menu">context menu</link> as shown by the screenshot on the right. The new camera object will be
        placed in the three-dimensional scene at the current viewpoint.
        Furthermore, the active viewport will be linked to the new camera object so that when the camera is moved,
        the viewport will be updated to show the scene as seen through the new camera position. Conversely, if you use

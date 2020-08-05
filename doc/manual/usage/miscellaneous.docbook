@@ -88,7 +88,7 @@
     </para>
     <para>
       OVITO's scripting interface is documented in a separate
-      <pydoc-link href="index">Scripting Reference</pydoc-link> manual. You can accessed it directly from OVITO's help menu.
+      <pydoc-link href="index">Scripting Reference</pydoc-link> manual. You can access it directly from OVITO's help menu.
     </para>
     <para>
       In addition to automating tasks, the scripting interface allows you to extend OVITO.
