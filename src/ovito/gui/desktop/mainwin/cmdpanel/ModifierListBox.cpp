@@ -156,7 +156,11 @@ ModifierListBox::ModifierListBox(QWidget* parent, PipelineListModel* pipelineLis
 	_model->appendRow(categoryItem);
 
 	// Create category for user-defined modifier scripts.
+#ifndef OVITO_BUILD_BASIC
 	categoryItem = new QStandardItem(tr("Python modifiers"));
+#else
+	categoryItem = new QStandardItem(tr("Python modifiers (Pro)"));
+#endif
 	categoryItem->setFont(categoryFont);
 	categoryItem->setBackground(categoryBackgroundBrush);
 	categoryItem->setForeground(categoryForegroundBrush);
