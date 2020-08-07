@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Copyright 2019 Alexander Stukowski
+//  Copyright 2020 Alexander Stukowski
 //
 //  This file is part of OVITO (Open Visualization Tool).
 //
@@ -87,6 +87,9 @@ public:
 
 	/// Returns the square of the cutoff radius set via prepare().
 	FloatType cutoffRadiusSquared() const { return _cutoffRadiusSquared; }
+
+	/// Returns the number of input particles.
+	size_t particleCount() const { return particles.size(); }
 
 	/// \brief An iterator class that returns all neighbors of a central particle.
 	class OVITO_PARTICLES_EXPORT Query
