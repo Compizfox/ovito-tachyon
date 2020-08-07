@@ -34,7 +34,7 @@
 
   <para>
     <informalfigure><screenshot><mediaobject><imageobject>
-      <imagedata fileref="images/modifiers/load_trajectory_pipeline.svg" format="SVG" scale="45" />
+      <imagedata fileref="images/modifiers/load_trajectory_pipeline.png" format="PNG" scale="50" />
     </imageobject></mediaobject></screenshot></informalfigure>
     To load such a pair of topology and trajectory files in OVITO, first open the topology file using the regular
     <menuchoice><guimenu>File</guimenu><guimenuitem>Load File</guimenuitem></menuchoice> menu function.
@@ -79,7 +79,7 @@
     </para>
     <para>
       <informalfigure><screenshot><mediaobject><imageobject>
-        <imagedata fileref="images/modifiers/load_trajectory_varying_bonds.svg" format="SVG" scale="55" />
+        <imagedata fileref="images/modifiers/load_trajectory_varying_bonds.png" format="PNG" scale="60" />
       </imageobject></mediaobject></screenshot></informalfigure>
       LAMMPS is able to output the changing bond topology in regular time intervals and also additional per-bond quantities such 
       as the bond lengths, bond forces or bond energies. Take for example the following LAMMPS commands, which dump 

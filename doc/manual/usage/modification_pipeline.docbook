@@ -38,7 +38,7 @@
     <title>Pipeline editor</title>
     <para>
       <informalfigure><screenshot><mediaobject><imageobject>
-        <imagedata fileref="images/usage/pipeline/pipeline_editor.svg" format="SVG" scale="55" />
+        <imagedata fileref="images/usage/pipeline/pipeline_editor.png" format="PNG" scale="55" />
       </imageobject></mediaobject></screenshot></informalfigure>
       The pipeline editor, shown in the screenshot on the right, is the central place in OVITO's user interface where you perform
       most operations. It displays the current data pipeline and lets you insert new modifiers into the pipeline,

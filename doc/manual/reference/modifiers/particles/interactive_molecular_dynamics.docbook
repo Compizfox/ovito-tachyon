@@ -22,7 +22,7 @@
     This modifier merges the static topology information (e.g. atom types and bonds) loaded from an input file on the local computer with the
     live trajectory data received from the running molecular dynamics program, which is transmitted through a network connection:
     <screenshot><mediaobject><imageobject>
-      <imagedata fileref="images/modifiers/interactive_molecular_dynamics_schematic.svg" format="SVG" scale="90" />
+      <imagedata fileref="images/modifiers/interactive_molecular_dynamics_schematic.png" format="PNG" scale="90" />
     </imageobject></mediaobject></screenshot>
   </para>
 

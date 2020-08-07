@@ -93,7 +93,7 @@
           </thead>
           <tbody>
             <row>
-              <entry>Deformation gradient <mathphrase>F</mathphrase></entry>
+              <entry valign="middle">Deformation gradient <mathphrase>F</mathphrase>:</entry>
               <entry><screen>
                 <mathphrase>F<subscript>xx</subscript></mathphrase> <mathphrase>F<subscript>xy</subscript></mathphrase> <mathphrase>F<subscript>xz</subscript></mathphrase>
                 <mathphrase>F<subscript>yx</subscript></mathphrase> <mathphrase>F<subscript>yy</subscript></mathphrase> <mathphrase>F<subscript>yz</subscript></mathphrase>
