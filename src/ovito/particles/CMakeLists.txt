@@ -84,6 +84,7 @@ SET(SourceFiles
 	import/dl_poly/DLPOLYImporter.cpp
 	import/quantumespresso/QuantumEspressoImporter.cpp
 	import/cif/CIFImporter.cpp
+	import/cif/mmCIFImporter.cpp
 	export/ParticleExporter.cpp
 	export/FileColumnParticleExporter.cpp
 	export/vasp/POSCARExporter.cpp

@@ -44,26 +44,45 @@ bool CIFImporter::OOMetaClass::checkFileFormat(const FileHandle& file) const
 	// Open input file.
 	CompressedTextReader stream(file);
 
+	// First, determine if it is a CIF file.
 	// Read the first N lines of the file which are not comments.
 	int maxLines = 12;
-	bool foundData = false;
+	bool foundBlockHeader = false;
+	bool foundItem = false;
 	for(int i = 0; i < maxLines && !stream.eof(); i++) {
 		// Note: Maximum line length of CIF files is 2048 characters.
-		const char* line = stream.readLine(2048);
+		stream.readLine(2048);
 
 		if(stream.lineStartsWith("#", true)) {
 			maxLines++;
 			continue;
 		}
 		else if(stream.lineStartsWith("data_", false)) {
-			// Make sure the "data_XXX" block appears.
-			foundData = true;
+			// Make sure the "data_XXX" block header appears.
+			if(foundBlockHeader) return false;
+			foundBlockHeader = true;
 		}
 		else if(stream.lineStartsWith("_", false)) {
-			// Make sure at least one "_XXX" block appears.
-			return foundData;
+			// Make sure at least one "_XXX" item appears.
+			foundItem = true;
+			break;
 		}
 	}
+
+	// Make sure it is a CIF file.
+	if(!foundBlockHeader || !foundItem)
+		return false;
+
+	// Continue reading the entire file until at least one "_atom_site_XXX" entry is found.
+	// These entries are specific to the CIF format and do not occur in mmCIF files (macromolecular files).
+	for(;;) {
+		if(stream.lineStartsWith("_atom_site_", false))
+			return true;
+		if(stream.eof())
+			return false;
+		stream.readLine();
+	}
+
 	return false;
 }
 
@@ -86,32 +105,38 @@ FileSourceImporter::FrameDataPtr CIFImporter::FrameLoader::loadFile()
 	// Map the whole file into memory for parsing.
 	const char* buffer_start;
 	const char* buffer_end;
+	QByteArray fileContents;
 	std::tie(buffer_start, buffer_end) = stream.mmap();
-	if(!buffer_start)
-		throw Exception(tr("Could not map CIF file into memory."));
+	if(!buffer_start) {
+		// Could not map CIF file into memory. Read it into a in-memory buffer instead.
+		fileContents = stream.readAll();
+		buffer_start = fileContents.constData();
+		buffer_end = buffer_start + fileContents.size();
+	}
 
 	try {
 		// Parse the CIF file's contents.
 		cif::Document doc = cif::read_memory(buffer_start, buffer_end - buffer_start, qPrintable(frame().sourceFile.path()));
 
 		// Unmap the input file from memory.
-		stream.munmap();
+		if(fileContents.isEmpty())
+			stream.munmap();
 		if(isCanceled()) return {};
 
 		// Parse the CIF data into an atomic structure representation.
 		const cif::Block& block = doc.sole_block();
-		gemmi::AtomicStructure structure = gemmi::make_atomic_structure_from_block(block);
+		gemmi::SmallStructure structure = gemmi::make_small_structure_from_block(block);
 		if(isCanceled()) return {};
 
 		// Parse list of atomic sites.
-		std::vector<gemmi::AtomicStructure::Site> sites = structure.get_all_unit_cell_sites();
+		std::vector<gemmi::SmallStructure::Site> sites = structure.get_all_unit_cell_sites();
 		PropertyAccess<Point3> posProperty = frameData->particles().createStandardProperty<ParticlesObject>(sites.size(), ParticlesObject::PositionProperty, false);
 		PropertyAccess<int> typeProperty = frameData->particles().createStandardProperty<ParticlesObject>(sites.size(), ParticlesObject::TypeProperty, false);
 		PropertyContainerImportData::TypeList* typeList = frameData->particles().createPropertyTypesList(typeProperty, ParticleType::OOClass());
 		Point3* posIter = posProperty.begin();
 		int* typeIter = typeProperty.begin();
 		bool hasOccupancy = false;
-		for(const gemmi::AtomicStructure::Site& site : sites) {
+		for(const gemmi::SmallStructure::Site& site : sites) {
 			gemmi::Position pos = structure.cell.orthogonalize(site.fract.wrap_to_unit());
 			posIter->x() = pos.x;
 			posIter->y() = pos.y;
@@ -126,7 +151,7 @@ FileSourceImporter::FrameDataPtr CIFImporter::FrameLoader::loadFile()
 		if(hasOccupancy) {
 			PropertyAccess<FloatType> occupancyProperty = frameData->particles().addProperty(std::make_shared<PropertyStorage>(sites.size(), PropertyStorage::Float, 1, 0, QStringLiteral("Occupancy"), false));
 			FloatType* occupancyIter = occupancyProperty.begin();
-			for(const gemmi::AtomicStructure::Site& site : sites) {
+			for(const gemmi::SmallStructure::Site& site : sites) {
 				*occupancyIter++ = site.occ;
 			}
 		}

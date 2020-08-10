@@ -46,7 +46,7 @@ class OVITO_CRYSTALANALYSIS_EXPORT DislocImporter : public ParticleImporter
 		virtual QString fileFilter() const override { return QStringLiteral("*"); }
 
 		/// Returns the filter description that is displayed in the drop-down box of the file dialog.
-		virtual QString fileFilterDescription() const override { return tr("Fix disloc files"); }
+		virtual QString fileFilterDescription() const override { return tr("Fix Disloc Files"); }
 
 		/// Checks if the given file has format that can be read by this importer.
 		virtual bool checkFileFormat(const FileHandle& file) const override;

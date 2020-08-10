@@ -32,38 +32,10 @@ enum class GridSetup {
   FullCheck     // additionally consistency of redundant data
 };
 
-struct GridStats {
-  double dmin = NAN;
-  double dmax = NAN;
-  double dmean = NAN;
-  double rms = NAN;
-};
-
-template<typename T>
-GridStats calculate_grid_statistics(const std::vector<T>& data) {
-  GridStats st;
-  if (data.empty())
-    return st;
-  double sum = 0;
-  double sq_sum = 0;
-  st.dmin = st.dmax = data[0];
-  for (double d : data) {
-    sum += d;
-    sq_sum += d * d;
-    if (d < st.dmin)
-      st.dmin = d;
-    if (d > st.dmax)
-      st.dmax = d;
-  }
-  st.dmean = sum / data.size();
-  st.rms = std::sqrt(sq_sum / data.size() - st.dmean * st.dmean);
-  return st;
-}
-
 template<typename T=float>
 struct Ccp4 {
   Grid<T> grid;
-  GridStats hstats;  // data statistics read from / written to ccp4 map
+  DataStats hstats;  // data statistics read from / written to ccp4 map
   // stores raw headers if the grid was read from ccp4 map
   std::vector<int32_t> ccp4_header;
   bool same_byte_order = true;
@@ -117,14 +89,20 @@ struct Ccp4 {
     ccp4_header.resize(256 + ops.order() * 20, 0);
     set_header_3i32(1, grid.nu, grid.nv, grid.nw); // NX, NY, NZ
     set_header_3i32(5, 0, 0, 0); // NXSTART, NYSTART, NZSTART
-    set_header_3i32(8, grid.nu, grid.nv, grid.nw);  // MX, MY, MZ
+    if (grid.axis_order == AxisOrder::XYZ)
+      set_header_3i32(8, grid.nu, grid.nv, grid.nw);  // MX, MY, MZ
+    else // grid.axis_order == AxisOrder::ZYX
+      set_header_3i32(8, grid.nw, grid.nv, grid.nu);
     set_header_float(11, (float) grid.unit_cell.a);
     set_header_float(12, (float) grid.unit_cell.b);
     set_header_float(13, (float) grid.unit_cell.c);
     set_header_float(14, (float) grid.unit_cell.alpha);
     set_header_float(15, (float) grid.unit_cell.beta);
     set_header_float(16, (float) grid.unit_cell.gamma);
-    set_header_3i32(17, 1, 2, 3); // MAPC, MAPR, MAPS
+    if (grid.axis_order == AxisOrder::XYZ)
+      set_header_3i32(17, 1, 2, 3); // MAPC, MAPR, MAPS
+    else // grid.axis_order == AxisOrder::ZYX
+      set_header_3i32(17, 3, 2, 1);
     set_header_i32(23, grid.spacegroup ? grid.spacegroup->ccp4 : 1); // ISPG
     set_header_i32(24, ops.order() * 80);  // NSYMBT
     set_header_str(27, "CCP4"); // EXTTYP
@@ -144,7 +122,7 @@ struct Ccp4 {
 
   void update_ccp4_header(int mode, bool update_stats=false) {
     if (update_stats)
-      hstats = calculate_grid_statistics(grid.data);
+      hstats = calculate_data_statistics(grid.data);
     if (mode != 0 && mode != 1 && mode != 2 && mode != 6)
       fail("Only modes 0, 1, 2 and 6 are supported.");
     if (ccp4_header.empty()) {
@@ -191,7 +169,7 @@ struct Ccp4 {
   }
 
   template<typename Stream>
-  void read_ccp4_header(Stream f, const std::string& path) {
+  void read_ccp4_header(Stream& f, const std::string& path) {
     const size_t hsize = 256;
     ccp4_header.resize(hsize);
     if (!f.read(ccp4_header.data(), 4 * hsize))
@@ -205,11 +183,13 @@ struct Ccp4 {
     grid.unit_cell.set(header_rfloat(11), header_rfloat(12), header_rfloat(13),
                        header_rfloat(14), header_rfloat(15), header_rfloat(16));
     size_t ext_w = header_i32(24) / 4;  // NSYMBT in words
-    if (ext_w > 1000000)
-      fail("Unexpectedly long extendended header: " + path);
-    ccp4_header.resize(hsize + ext_w);
-    if (!f.read(ccp4_header.data() + hsize, 4 * ext_w))
-      fail("Failed to read extended header: " + path);
+    if (ext_w != 0) {
+      if (ext_w > 1000000)
+        fail("Unexpectedly long extended header: " + path);
+      ccp4_header.resize(hsize + ext_w);
+      if (!f.read(ccp4_header.data() + hsize, 4 * ext_w))
+        fail("Failed to read extended header: " + path);
+    }
     grid.nu = header_i32(1);
     grid.nv = header_i32(2);
     grid.nw = header_i32(3);
@@ -225,8 +205,9 @@ struct Ccp4 {
     hstats.rms = header_float(55);
     grid.spacegroup = find_spacegroup_by_number(header_i32(23));
     auto pos = axis_positions();
-    grid.full_canonical = pos[0] == 0 && pos[1] == 1 && pos[2] == 2 &&
-                          full_cell();
+    grid.axis_order = AxisOrder::Unknown;
+    if (pos[0] == 0 && pos[1] == 1 && pos[2] == 2 && full_cell())
+      grid.axis_order = AxisOrder::XYZ;
   }
 
   double setup(GridSetup mode, T default_value);
@@ -304,7 +285,7 @@ void write_data(const std::vector<TMem>& content, FILE* f) {
 template<typename T> template<typename Stream>
 void Ccp4<T>::read_ccp4_stream(Stream f, const std::string& path) {
   read_ccp4_header(f, path);
-  grid.data.resize(grid.nu * grid.nv * grid.nw);
+  grid.data.resize(grid.point_count());
   int mode = header_i32(4);
   if (mode == 0)
     impl::read_data<Stream, std::int8_t>(f, grid.data);
@@ -344,7 +325,7 @@ template<> inline bool is_same(double a, double b) {
 template<typename T>
 double Ccp4<T>::setup(GridSetup mode, T default_value) {
   double max_error = 0.0;
-  if (grid.full_canonical || ccp4_header.empty())
+  if (grid.axis_order == AxisOrder::XYZ || ccp4_header.empty())
     return max_error;
   // cell sampling does not change
   int sampl[3] = { header_i32(8), header_i32(9), header_i32(10) };
@@ -372,24 +353,24 @@ double Ccp4<T>::setup(GridSetup mode, T default_value) {
   set_header_3i32(1, grid.nu, grid.nv, grid.nw); // NX, NY, NZ
   set_header_3i32(17, 1, 2, 3); // axes (MAPC, MAPR, MAPS)
   // now set the data
-  std::vector<T> full(grid.nu * grid.nv * grid.nw, default_value);
+  std::vector<T> full(grid.point_count(), default_value);
   int it[3];
   int idx = 0;
   for (it[2] = start[2]; it[2] < end[2]; it[2]++) // sections
     for (it[1] = start[1]; it[1] < end[1]; it[1]++) // rows
       for (it[0] = start[0]; it[0] < end[0]; it[0]++) { // cols
         T val = grid.data[idx++];
-        int new_index = grid.index_s(it[pos[0]], it[pos[1]], it[pos[2]]);
+        size_t new_index = grid.index_s(it[pos[0]], it[pos[1]], it[pos[2]]);
         full[new_index] = val;
       }
   grid.data = std::move(full);
   if (mode == GridSetup::Full) {
-    grid.full_canonical = true;
+    grid.axis_order = AxisOrder::XYZ;
     grid.symmetrize([&default_value](T a, T b) {
         return impl::is_same(a, default_value) ? b : a;
     });
   } else if (mode == GridSetup::FullCheck) {
-    grid.full_canonical = true;
+    grid.axis_order = AxisOrder::XYZ;
     grid.symmetrize([&max_error, &default_value](T a, T b) {
         if (impl::is_same(a, default_value)) {
           return b;
@@ -400,8 +381,9 @@ double Ccp4<T>::setup(GridSetup mode, T default_value) {
         }
     });
   } else {
-    grid.full_canonical = pos[0] == 0 && pos[1] == 1 && pos[2] == 2 &&
-                          full_cell();
+    grid.axis_order = AxisOrder::Unknown;
+    if (pos[0] == 0 && pos[1] == 1 && pos[2] == 2 && full_cell())
+      grid.axis_order = AxisOrder::XYZ;
   }
   return max_error;
 }

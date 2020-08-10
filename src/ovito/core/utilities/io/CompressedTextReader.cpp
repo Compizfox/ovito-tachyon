@@ -133,4 +133,13 @@ void CompressedTextReader::munmap()
 	_mmapPointer = nullptr;
 }
 
+/******************************************************************************
+* Reads the entire file contents into memory.
+******************************************************************************/
+QByteArray CompressedTextReader::readAll()
+{
+	QByteArray buffer = _stream->readAll();
+	return buffer;
+}
+
 }	// End of namespace

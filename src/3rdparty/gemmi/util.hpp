@@ -178,6 +178,28 @@ void string_append_sep(std::string& str, S sep, const T& item) {
   str += item;
 }
 
+inline void replace_all(std::string &s,
+                        const std::string &old, const std::string &new_) {
+  std::string::size_type pos = 0;
+  while ((pos = s.find(old, pos)) != std::string::npos) {
+    s.replace(pos, old.size(), new_);
+    pos += new_.size();
+  }
+}
+
+// list is a comma separated string
+inline bool is_in_list(const std::string& name, const std::string& list,
+                       char sep=',') {
+  if (name.length() >= list.length())
+    return name == list;
+  for (size_t start=0, end=0; end != std::string::npos; start=end+1) {
+    end = list.find(sep, start);
+    if (list.compare(start, end - start, name) == 0)
+      return true;
+  }
+  return false;
+}
+
 //   #####   vector helpers   #####
 
 template <class T>

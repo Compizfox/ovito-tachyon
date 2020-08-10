@@ -14,8 +14,9 @@
 namespace gemmi {
 namespace impl {
 
-inline void set_cell_from_mmcif(cif::Block& block, UnitCell& cell) {
-  cif::Table tab = block.find("_cell.",
+inline void set_cell_from_mmcif(cif::Block& block, UnitCell& cell,
+                                bool mmcif=true) {
+  cif::Table tab = block.find((mmcif ? "_cell." : "_cell_"),
                               {"length_a", "length_b", "length_c",
                                "angle_alpha", "angle_beta", "angle_gamma"});
   if (tab.ok()) {
@@ -30,12 +31,6 @@ inline void set_cell_from_mmcif(cif::Block& block, UnitCell& cell) {
 inline const std::string* find_spacegroup_hm_value(const cif::Block& block) {
   const char* hm_tag = "_symmetry.space_group_name_H-M";
   return block.find_value(hm_tag);
-}
-
-inline const SpaceGroup* read_spacegroup_from_block(const cif::Block& block) {
-  if (const std::string* hm = find_spacegroup_hm_value(block))
-    return find_spacegroup_by_name(cif::as_string(*hm));
-  return nullptr;
 }
 
 } // namespace impl

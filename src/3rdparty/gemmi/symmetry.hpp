@@ -113,17 +113,33 @@ struct Op {
     return r;
   }
 
-  std::array<int, 3> apply_to_hkl(const std::array<int, 3>& hkl) const {
-    std::array<int, 3> r;
+  std::array<double, 3> apply_to_xyz(const std::array<double, 3>& xyz) const {
+    std::array<double, 3> out;
     for (int i = 0; i != 3; ++i)
-      r[i] = (rot[0][i] * hkl[0] + rot[1][i] * hkl[1] + rot[2][i] * hkl[2])
-             / Op::DEN;
-    return r;
+      out[i] = (rot[i][0] * xyz[0] + rot[i][1] * xyz[1] + rot[i][2] * xyz[2] +
+                tran[i]) / Op::DEN;
+    return out;
   }
 
-  double phase_shift(int h, int k, int l) const {
+  // Miller is defined in the same way in namespace gemmi in unitcell.hpp
+  using Miller = std::array<int, 3>;
+
+  Miller apply_to_hkl_without_division(const Miller& hkl) const {
+    Miller r;
+    for (int i = 0; i != 3; ++i)
+      r[i] = (rot[0][i] * hkl[0] + rot[1][i] * hkl[1] + rot[2][i] * hkl[2]);
+    return r;
+  }
+  static Miller divide_hkl_by_DEN(const Miller& hkl) {
+    return {{ hkl[0] / DEN, hkl[1] / DEN, hkl[2] / DEN }};
+  }
+  Miller apply_to_hkl(const Miller& hkl) const {
+    return divide_hkl_by_DEN(apply_to_hkl_without_division(hkl));
+  }
+
+  double phase_shift(const Miller& hkl) const {
     constexpr double mult = -2 * 3.1415926535897932384626433832795 / Op::DEN;
-    return mult * (h * tran[0] + k * tran[1] + l * tran[2]);
+    return mult * (hkl[0] * tran[0] + hkl[1] * tran[1] + hkl[2] * tran[2]);
   }
 
   std::array<std::array<int, 4>, 4> int_seitz() const {
@@ -321,17 +337,18 @@ inline std::vector<Op::Tran> centring_vectors(char lattice_symbol) {
   constexpr int h = Op::DEN / 2;
   constexpr int t = Op::DEN / 3;
   constexpr int d = 2 * t;
+  // note: find_centering() depends on the order of operations in vector
   switch (lattice_symbol & ~0x20) {
     case 'P': return {{0, 0, 0}};
     case 'A': return {{0, 0, 0}, {0, h, h}};
     case 'B': return {{0, 0, 0}, {h, 0, h}};
     case 'C': return {{0, 0, 0}, {h, h, 0}};
     case 'I': return {{0, 0, 0}, {h, h, h}};
-    case 'R': return {{0, 0, 0}, {t, d, d}, {d, t, t}};
+    case 'R': return {{0, 0, 0}, {d, t, t}, {t, d, d}};
     // hall_symbols.html has no H, ITfC 2010 has no S and T
+    case 'H': return {{0, 0, 0}, {d, t, 0}, {t, d, 0}};
     case 'S': return {{0, 0, 0}, {t, t, d}, {d, t, d}};
     case 'T': return {{0, 0, 0}, {t, d, t}, {d, t, d}};
-    case 'H': return {{0, 0, 0}, {t, d, 0}, {d, t, 0}};
     case 'F': return {{0, 0, 0}, {0, h, h}, {h, 0, h}, {h, h, 0}};
     default: fail(std::string("not a lattice symbol: ") + lattice_symbol);
   }
@@ -351,9 +368,13 @@ struct GroupOps {
       return 'P';
     std::vector<Op::Tran> trans = cen_ops;
     std::sort(trans.begin(), trans.end());
-    for (char c : {'A', 'B', 'C', 'I', 'F', 'R', 'S', 'T', 'H'})
-      if (trans == centring_vectors(c))
+    for (char c : {'A', 'B', 'C', 'I', 'F', 'R', 'H', 'S', 'T'}) {
+      std::vector<Op::Tran> c_vectors = centring_vectors(c);
+      if (c == 'R' || c == 'H') // these two are returned not sorted
+        std::swap(c_vectors[1], c_vectors[2]);
+      if (trans == c_vectors)
         return c;
+    }
     return 0;
   }
 
@@ -370,6 +391,46 @@ struct GroupOps {
 
   bool is_centric() const {
     return find_by_rotation({-Op::DEN,0,0, 0,-Op::DEN,0, 0,0,-Op::DEN}) != nullptr;
+  }
+
+  bool is_reflection_centric(const Op::Miller& hkl) const {
+    Op::Miller mhkl = {{-Op::DEN * hkl[0], -Op::DEN * hkl[1], -Op::DEN * hkl[2]}};
+    for (const Op& op : sym_ops)
+      if (op.apply_to_hkl_without_division(hkl) == mhkl)
+        return true;
+    return false;
+  }
+
+  int epsilon_factor_without_centering(const Op::Miller& hkl) const {
+    Op::Miller denh = {{Op::DEN * hkl[0], Op::DEN * hkl[1], Op::DEN * hkl[2]}};
+    int epsilon = 0;
+    for (const Op& op : sym_ops)
+      if (op.apply_to_hkl_without_division(hkl) == denh)
+        ++epsilon;
+    return epsilon;
+  }
+  int epsilon_factor(const Op::Miller& hkl) const {
+    return epsilon_factor_without_centering(hkl) * (int) cen_ops.size();
+  }
+
+  static bool has_phase_shift(const Op::Tran& c, const Op::Miller& hkl) {
+    return (hkl[0] * c[0] + hkl[1] * c[1] + hkl[2] * c[2]) % Op::DEN != 0;
+  }
+
+  bool is_systematically_absent(const Op::Miller& hkl) const {
+    for (auto i = cen_ops.begin() + 1; i != cen_ops.end(); ++i)
+      if (has_phase_shift(*i, hkl))
+        return true;
+    Op::Miller denh = {{Op::DEN * hkl[0], Op::DEN * hkl[1], Op::DEN * hkl[2]}};
+    for (auto op = sym_ops.begin() + 1; op != sym_ops.end(); ++op)
+      if (op->apply_to_hkl_without_division(hkl) == denh) {
+        for (const Op::Tran& c : cen_ops)
+          if (has_phase_shift({{op->tran[0] + c[0],
+                                op->tran[1] + c[1],
+                                op->tran[2] + c[2]}}, hkl))
+            return true;
+      }
+    return false;
   }
 
   void change_basis(const Op& cob) {
@@ -663,8 +724,6 @@ inline GroupOps generators_from_hall(const char* hall) {
   GroupOps ops;
   ops.sym_ops.emplace_back(Op::identity());
   bool centrosym = (hall[0] == '-');
-  if (centrosym)
-    ops.sym_ops.emplace_back(Op::identity().negated());
   const char* lat = impl::skip_blank(centrosym ? hall + 1 : hall);
   if (!lat)
     fail("not a hall symbol: " + std::string(hall));
@@ -681,6 +740,8 @@ inline GroupOps generators_from_hall(const char* hall) {
     }
     part = impl::skip_blank(space);
   }
+  if (centrosym)
+    ops.sym_ops.emplace_back(Op::identity().negated());
   if (*part == '(') {
     const char* rb = std::strchr(part, ')');
     if (!rb)
@@ -783,34 +844,51 @@ inline CrystalSystem crystal_system(PointGroup pg) {
   return crystal_system(pointgroup_to_laue(pg));
 }
 
-inline PointGroup point_group(int space_group_number) {
-  static char indices[230] = {
-     0,  1,  2,  2,  2,  3,  3,  3,  3,  4,
-     4,  4,  4,  4,  4,  5,  5,  5,  5,  5,
-     5,  5,  5,  5,  6,  6,  6,  6,  6,  6,
-     6,  6,  6,  6,  6,  6,  6,  6,  6,  6,
-     6,  6,  6,  6,  6,  6,  7,  7,  7,  7,
-     7,  7,  7,  7,  7,  7,  7,  7,  7,  7,
-     7,  7,  7,  7,  7,  7,  7,  7,  7,  7,
-     7,  7,  7,  7,  8,  8,  8,  8,  8,  8,
-     9,  9, 10, 10, 10, 10, 10, 10, 11, 11,
-    11, 11, 11, 11, 11, 11, 11, 11, 12, 12,
-    12, 12, 12, 12, 12, 12, 12, 12, 12, 12,
-    13, 13, 13, 13, 13, 13, 13, 13, 13, 13,
-    13, 13, 14, 14, 14, 14, 14, 14, 14, 14,
-    14, 14, 14, 14, 14, 14, 14, 14, 14, 14,
-    14, 14, 15, 15, 15, 15, 16, 16, 17, 17,
-    17, 17, 17, 17, 17, 18, 18, 18, 18, 18,
-    18, 19, 19, 19, 19, 19, 19, 20, 20, 20,
-    20, 20, 20, 21, 22, 22, 23, 23, 23, 23,
-    23, 23, 24, 24, 24, 24, 25, 25, 25, 25,
-    26, 26, 26, 26, 27, 27, 27, 27, 27, 28,
-    28, 28, 28, 28, 28, 28, 29, 29, 29, 29,
-    29, 29, 29, 29, 30, 30, 30, 30, 30, 30,
-    31, 31, 31, 31, 31, 31, 31, 31, 31, 31
+inline unsigned char point_group_index_and_category(int space_group_number) {
+  enum : unsigned char { S=0x20, E=(0x20|0x40) };  // Sohncke, enantiomorphic
+  static unsigned char indices[230] = {
+     0|S,  1,    2|S,  2|S,  2|S,   3,   3,    3,    3,    4,    // 1-10
+     4,    4,    4,    4,    4,    5|S,  5|S,  5|S,  5|S,  5|S,  // 11-20
+     5|S,  5|S,  5|S,  5|S,  6,    6,    6,    6,    6,    6,    // 21-30
+     6,    6,    6,    6,    6,    6,    6,    6,    6,    6,    // 31-40
+     6,    6,    6,    6,    6,    6,    7,    7,    7,    7,    // 41-50
+     7,    7,    7,    7,    7,    7,    7,    7,    7,    7,    // 51-60
+     7,    7,    7,    7,    7,    7,    7,    7,    7,    7,    // 61-70
+     7,    7,    7,    7,    8|S,  8|E,  8|S,  8|E,  8|S,  8|S,  // 71-80
+     9,    9,   10,   10,   10,   10,   10,   10,   11|S, 11|S,  // 81-90
+    11|E, 11|E, 11|S, 11|S, 11|E, 11|E, 11|S, 11|S, 12,   12,    // 91-100
+    12,   12,   12,   12,   12,   12,   12,   12,   12,   12,    // 101-110
+    13,   13,   13,   13,   13,   13,   13,   13,   13,   13,    // 111-120
+    13,   13,   14,   14,   14,   14,   14,   14,   14,   14,    // 121-130
+    14,   14,   14,   14,   14,   14,   14,   14,   14,   14,    // 131-140
+    14,   14,   15|S, 15|E, 15|E, 15|S, 16,   16,   17|S, 17|S,  // 141-150
+    17|E, 17|E, 17|E, 17|E, 17|S, 18,   18,   18,   18,   18,    // 151-160
+    18,   19,   19,   19,   19,   19,   19,   20|S, 20|E, 20|E,  // 161-170
+    20|E, 20|E, 20|S, 21,   22,   22,   23|S, 23|E, 23|E, 23|E,  // 171-180
+    23|E, 23|S, 24,   24,   24,   24,   25,   25,   25,   25,    // 181-190
+    26,   26,   26,   26,   27|S, 27|S, 27|S, 27|S, 27|S, 28,    // 191-200
+    28,   28,   28,   28,   28,   28,   29|S, 29|S, 29|S, 29|S,  // 201-210
+    29|S, 29|E, 29|E, 29|S, 30,   30,   30,   30,   30,   30,    // 211-220
+    31,   31,   31,   31,   31,   31,   31,   31,   31,   31     // 221-230
   };
-  return static_cast<PointGroup>(indices[space_group_number-1]);
+  return indices[space_group_number-1];
 }
+
+inline PointGroup point_group(int space_group_number) {
+  auto n = point_group_index_and_category(space_group_number);
+  return static_cast<PointGroup>(n & 0x1f);
+}
+
+// true for 65 Sohncke (non-enantiogenic) space groups
+inline bool is_sohncke(int space_group_number) {
+  return (point_group_index_and_category(space_group_number) & 0x20) != 0;
+}
+
+// true for 22 space groups (11 enantiomorphic pairs)
+inline bool is_enantiomorphic(int space_group_number) {
+  return (point_group_index_and_category(space_group_number) & 0x40) != 0;
+}
+
 
 // Generated by tools/gen_sg_table.py.
 inline const char* get_basisop(int basisop_idx) {
@@ -874,14 +952,23 @@ inline const char* get_basisop(int basisop_idx) {
 struct SpaceGroup { // typically 44 bytes
   int number;
   int ccp4;
-  char hm[11];  // Hermann–Mauguin (international) notation
+  char hm[11];  // Hermann-Mauguin (international) notation
   char ext;
   char qualifier[5];
   char hall[15];
   int basisop_idx;
 
-  std::string colon_ext() const { return ext ? std::string(":") + ext : ""; }
-  std::string xhm() const { return hm + colon_ext(); }
+  std::string xhm() const {
+    std::string ret = hm;
+    if (ext) {
+      ret += ':';
+      ret += ext;
+    }
+    return ret;
+  }
+
+  // (old) CCP4 spacegroup names start with H for hexagonal setting
+  char ccp4_lattice_type() const { return ext == 'H' ? 'H' : hm[0]; }
 
   // P 1 2 1 -> P2, but P 1 1 2 -> P112. R 3:H -> H3.
   std::string short_name() const {
@@ -895,6 +982,8 @@ struct SpaceGroup { // typically 44 bytes
     return s;
   }
 
+  bool is_sohncke() const { return gemmi::is_sohncke(number); }
+  bool is_enantiomorphic() const { return gemmi::is_enantiomorphic(number); }
   PointGroup point_group() const { return gemmi::point_group(number); }
   const char* point_group_hm() const {
     return gemmi::point_group_hm(point_group());
@@ -928,13 +1017,13 @@ namespace impl {
 template<class Dummy>
 struct Tables_
 {
-  static const SpaceGroup main[554];
-  static const SpaceGroupAltName alt_names[27];
+  static const SpaceGroup main[555];
+  static const SpaceGroupAltName alt_names[28];
   static const char ccp4_hkl_asu[230];
 };
 
 template<class Dummy>
-const SpaceGroup Tables_<Dummy>::main[554] = {
+const SpaceGroup Tables_<Dummy>::main[555] = {
   // This table was generated by tools/gen_sg_table.py.
   // First 530 entries in the same order as in SgInfo, sgtbx and ITB.
   // Note: spacegroup 68 has three duplicates with different H-M names.
@@ -1497,11 +1586,12 @@ const SpaceGroup Tables_<Dummy>::main[554] = {
   { 64,    0, "A b a m"   ,   0,     "", "-A 2 2ab"      , 3 }, // 551
   // tetragonal - enlarged C- and F-centred unit cells
   {117,    0, "C -4 2 b"  ,   0,     "", "C -4 2ya"      , 48}, // 552
-  {139,    0, "F 4/m m m" ,   0,     "", "-F 4 2"        , 48}, // 553
+  { 97,    0, "F 4 2 2" ,     0,     "", "F 4 2"         , 48}, // 553
+  {139,    0, "F 4/m m m" ,   0,     "", "-F 4 2"        , 48}, // 554
 };
 
 template<class Dummy>
-const SpaceGroupAltName Tables_<Dummy>::alt_names[27] = {
+const SpaceGroupAltName Tables_<Dummy>::alt_names[28] = {
   // In 1990's ITfC vol.A changed some of the standard names, introducing
   // symbols 'e' and 'g'. sgtbx interprets these new symbols with
   // option ad_hoc_1992. spglib uses only the new symbols.
@@ -1532,6 +1622,8 @@ const SpaceGroupAltName Tables_<Dummy>::alt_names[27] = {
   {"A e a a", '2', 326}, // A b a a
   {"B b e b", '1', 329}, // B b c b
   {"B b e b", '2', 330}, // B b c b
+  // help with  parsing of unusual setting names that are present in the PDB
+  {"P 21 21 2a", 0, 532}, // P 21212(a)
 };
 
 
@@ -1576,7 +1668,10 @@ inline const SpaceGroup& get_spacegroup_reference_setting(int number) {
                               + std::to_string(number));
 }
 
-inline const SpaceGroup* find_spacegroup_by_name(std::string name) noexcept {
+// the angles alpha and gamma are optional. If provided they are only used
+// to distinguish hexagonal and rhombohedral settings (e.g. for "R 3").
+inline const SpaceGroup* find_spacegroup_by_name(std::string name,
+                                  double alpha=0., double gamma=0.) noexcept {
   if (name[0] == 'H')
     name[0] = 'R';
   const char* p = impl::skip_blank(name.c_str());
@@ -1589,28 +1684,53 @@ inline const SpaceGroup* find_spacegroup_by_name(std::string name) noexcept {
   if (first == '\0')
     return nullptr;
   p = impl::skip_blank(p+1);
+  // change letters to lower case, except the letter after :
+  for (size_t i = p - name.c_str(); i < name.size(); ++i) {
+    if (name[i] >= 'A' && name[i] <= 'Z')
+      name[i] |= 0x20;  // to lowercase
+    else if (name[i] == ':')
+      while (++i < name.size())
+        if (name[i] >= 'a' && name[i] <= 'z')
+          name[i] &= ~0x20;  // to uppercase
+  }
   for (const SpaceGroup& sg : spacegroup_tables::main)
-    if (sg.hm[0] == first && sg.hm[2] == *p) {
-      const char* a = impl::skip_blank(p + 1);
-      const char* b = impl::skip_blank(sg.hm + 3);
-      while (*a == *b && *b != '\0') {
-        a = impl::skip_blank(a+1);
-        b = impl::skip_blank(b+1);
+    if (sg.hm[0] == first) {
+      if (sg.hm[2] == *p) {
+        const char* a = impl::skip_blank(p + 1);
+        const char* b = impl::skip_blank(sg.hm + 3);
+        while (*a == *b && *b != '\0') {
+          a = impl::skip_blank(a+1);
+          b = impl::skip_blank(b+1);
+        }
+        if (*b == '\0' &&
+            (*a == '\0' || (*a == ':' && *impl::skip_blank(a+1) == sg.ext))) {
+          // Change hexagonal settings to rhombohedral if the unit cell angles
+          // are more consistent with the latter.
+          // We have possible ambiguity in the hexagonal crystal family.
+          // For instance, "R 3" may mean "R 3:H" (hexagonal setting) or
+          // "R 3:R" (rhombohedral setting). The :H symbols come first
+          // in the table and are used by default. The ratio gamma:alpha
+          // is 120:90 in the hexagonal system and 1:1 in rhombohedral.
+          // We assume that the 'R' entry follows directly the 'H' entry.
+          if (*a == '\0' && sg.ext == 'H' && gamma < 1.125 * alpha)
+            return &sg + 1;
+          return &sg;
+        }
+      } else if (sg.hm[2] == '1' && sg.hm[3] == ' ') {
+        // check monoclinic short names, matching P2 to "P 1 2 1";
+        // as an exception "B 2" == "B 1 1 2" (like in the PDB)
+        const char* b = sg.hm + 4;
+        if (*b != '1' || (first == 'B' && *++b == ' ' && *++b != '1')) {
+          char end = (b == sg.hm + 4 ? ' ' : '\0');
+          const char* a = impl::skip_blank(p);
+          while (*a == *b && *b != end) {
+            ++a;
+            ++b;
+          }
+          if (*impl::skip_blank(a) == '\0' && *b == end)
+            return &sg;
+        }
       }
-      if (*b == '\0' &&
-          (*a == '\0' || (*a == ':' && *impl::skip_blank(a+1) == sg.ext)))
-        return &sg;
-    } else if (sg.hm[0] == first && sg.hm[2] == '1' && sg.hm[3] == ' ' &&
-               sg.hm[4] != '1') {
-      // check monoclinic short names
-      const char* a = impl::skip_blank(p);
-      const char* b = sg.hm + 4;
-      while (*a == *b && *b != ' ') {
-        a = impl::skip_blank(a+1);
-        ++b;
-      }
-      if (*a == '\0' && *b == ' ')
-        return &sg;
     }
   for (const SpaceGroupAltName& sg : spacegroup_tables::alt_names)
     if (sg.hm[0] == first && sg.hm[2] == *p) {
@@ -1647,22 +1767,36 @@ inline const SpaceGroup* find_spacegroup_by_ops(const GroupOps& gops) {
   return nullptr;
 }
 
+inline
+const SpaceGroup* find_spacegroup_by_change_of_basis(const SpaceGroup* sg,
+                                                     const Op& cob) {
+  if (sg) {
+    GroupOps gops = sg->operations();
+    gops.change_basis(cob);
+    if (const SpaceGroup* new_sg = find_spacegroup_by_ops(gops))
+      return new_sg;
+  }
+  return nullptr;
+}
+
 // Reciprocal space asu (asymmetric unit).
 // The same 12 choices of ASU as in CCP4 symlib and cctbx.
-struct HklAsuChecker {
+struct ReciprocalAsu {
   int idx;
   Op::Rot rot;
 
-  HklAsuChecker(const SpaceGroup* sg) {
-    rot = sg->basisop().inverse().rot;
+  ReciprocalAsu(const SpaceGroup* sg) {
+    if (sg == nullptr)
+      fail("Missing space group");
+    rot = sg->basisop().rot;
     idx = spacegroup_tables::ccp4_hkl_asu[sg->number - 1];
   }
 
-  bool is_in(int h, int k, int l) const {
-    return is_in_reference_setting(
-        rot[0][0] * h + rot[0][1] * k + rot[0][2] * l,
-        rot[1][0] * h + rot[1][1] * k + rot[1][2] * l,
-        rot[2][0] * h + rot[2][1] * k + rot[2][2] * l);
+  bool is_in(const Op::Miller& hkl) const {
+    Op::Miller r;
+    for (int i = 0; i != 3; ++i)
+      r[i] = rot[0][i] * hkl[0] + rot[1][i] * hkl[1] + rot[2][i] * hkl[2];
+    return is_in_reference_setting(r[0], r[1], r[2]);
   }
 
   bool is_in_reference_setting(int h, int k, int l) const {
@@ -1695,6 +1829,18 @@ struct HklAsuChecker {
       case 9: return "k>=l and l>=h and h>=0";
     }
     unreachable();
+  }
+
+  Op::Miller to_asu(Op::Miller hkl, const GroupOps& gops) const {
+    for (const Op& op : gops.sym_ops) {
+      Op::Miller new_hkl = op.apply_to_hkl_without_division(hkl);
+      if (is_in(new_hkl))
+        return Op::divide_hkl_by_DEN(new_hkl);
+      Op::Miller negated_new_hkl{{-new_hkl[0], -new_hkl[1], -new_hkl[2]}};
+      if (is_in(negated_new_hkl))
+        return Op::divide_hkl_by_DEN(negated_new_hkl);
+    }
+    fail("Oops, maybe inconsistent GroupOps?");
   }
 };
 

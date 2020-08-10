@@ -10,7 +10,7 @@
 #include "fail.hpp"  // for fail
 #include "util.hpp"  // for starts_with, to_lower
 #include "tostr.hpp"  // for tostr
-#include <algorithm> // for move, find_if, all_of, min
+#include <algorithm> // for move, find_if, all_of, min, rotate
 #include <array>
 #include <cstring>   // for memchr
 #include <initializer_list>
@@ -298,6 +298,7 @@ struct Table {
   size_t width() const { return positions.size(); }
   size_t length() const;
   bool has_column(int n) const { return ok() && positions.at(n) >= 0; }
+  int first_of(int n1, int n2) const { return positions.at(n1) >= 0 ? n1 : n2; }
   Row tags() { return Row{*this, -1}; }
   Row operator[](int n) { return Row{*this, n}; }
 
@@ -375,6 +376,7 @@ struct Block {
   explicit Block(const std::string& name_) : name(name_) {}
   Block() {}
 
+  void swap(Block& o) { name.swap(o.name); items.swap(o.items); }
   // access functions
   const Item* find_pair_item(const std::string& tag) const;
   const Pair* find_pair(const std::string& tag) const;
@@ -408,12 +410,16 @@ struct Block {
   }
   Block* find_frame(std::string name);
 
+  size_t get_index(const std::string& tag) const;
+
   // modifying functions
   void set_pair(const std::string& tag, const std::string& value);
 
   Loop& init_loop(const std::string& prefix, std::vector<std::string> tags) {
     return setup_loop(find_any(prefix, tags), prefix, std::move(tags));
   }
+
+  void move_item(int old_pos, int new_pos);
 
   // mmCIF specific functions
   std::vector<std::string> get_mmcif_category_names() const;
@@ -697,6 +703,33 @@ inline Block* Block::find_frame(std::string frame_name) {
   return nullptr;
 }
 
+inline size_t Block::get_index(const std::string& tag) const {
+  for (size_t i = 0; i != items.size(); ++i) {
+    const Item& item = items[i];
+    if ((item.type == ItemType::Pair && item.pair[0] == tag) ||
+        (item.type == ItemType::Loop && item.loop.find_tag(tag) != -1))
+      return i;
+  }
+  fail(tag + "is not in block");
+}
+
+inline void Block::move_item(int old_pos, int new_pos) {
+  if (old_pos < 0)
+    old_pos += items.size();
+  if ((size_t) old_pos >= items.size())
+    fail("move_item: old_pos out of range");
+  if (new_pos < 0)
+    new_pos += items.size();
+  if ((size_t) new_pos >= items.size())
+    fail("move_item: new_pos out of range");
+  auto src = items.begin() + old_pos;
+  auto dst = items.begin() + new_pos;
+  if (src < dst)
+    std::rotate(src, src+1, dst+1);
+  else
+    std::rotate(dst, src, src+1);
+}
+
 inline std::vector<std::string> Block::get_mmcif_category_names() const {
   std::vector<std::string> cats;
   for (const Item& item : items) {
@@ -878,19 +911,37 @@ struct Document {
 
 
 [[noreturn]]
-inline void cif_fail(const Document& d, const Block& b, const Item& item,
-                     const std::string& s) {
-  fail(tostr(d.source, ':', item.line_number, " in data_", b.name, ": ", s));
+inline void cif_fail(const std::string& source, const Block& b,
+                     const Item& item, const std::string& s) {
+  fail(tostr(source, ':', item.line_number, " in data_", b.name, ": ", s));
+}
+
+inline void check_for_missing_values_in_block(const Block& block,
+                                              const std::string& source) {
+  for (const Item& item : block.items) {
+    if (item.type == ItemType::Pair) {
+      if (item.pair[1].empty())
+        cif_fail(source, block, item, item.pair[0] + " has no value");
+    } else if (item.type == ItemType::Frame) {
+      check_for_missing_values_in_block(item.frame, source);
+    }
+  }
+}
+
+// Throw an error if any item (pair) value is missing
+inline void check_for_missing_values(const Document& d) {
+  for (const Block& block : d.blocks)
+    check_for_missing_values_in_block(block, d.source);
 }
 
 // Throw an error if any block name, frame name or tag is duplicated.
-inline void check_duplicates(const Document& d) {
+inline void check_for_duplicates(const Document& d) {
   // check for duplicate block names (except empty "" which is global_)
   std::unordered_set<std::string> names;
   for (const Block& block : d.blocks) {
     bool ok = names.insert(gemmi::to_lower(block.name)).second;
     if (!ok && !block.name.empty())
-      fail("duplicate block name: " + block.name);
+      fail(d.source, ": duplicate block name: ", block.name);
   }
   // check for dups inside each block
   std::unordered_set<std::string> frame_names;
@@ -901,17 +952,17 @@ inline void check_duplicates(const Document& d) {
       if (item.type == ItemType::Pair) {
         bool ok = names.insert(gemmi::to_lower(item.pair[0])).second;
         if (!ok)
-          cif_fail(d, block, item, "duplicate tag " + item.pair[0]);
+          cif_fail(d.source, block, item, "duplicate tag " + item.pair[0]);
       } else if (item.type == ItemType::Loop) {
         for (const std::string& t : item.loop.tags) {
           bool ok = names.insert(gemmi::to_lower(t)).second;
           if (!ok)
-            cif_fail(d, block, item, "duplicate tag " + t);
+            cif_fail(d.source, block, item, "duplicate tag " + t);
         }
       } else if (item.type == ItemType::Frame) {
         bool ok = frame_names.insert(gemmi::to_lower(item.frame.name)).second;
         if (!ok)
-          cif_fail(d, block, item, "duplicate save_" + item.frame.name);
+          cif_fail(d.source, block, item, "duplicate save_" + item.frame.name);
       }
     }
   }
@@ -919,7 +970,7 @@ inline void check_duplicates(const Document& d) {
 
 inline bool is_text_field(const std::string& val) {
   size_t len = val.size();
-  return len > 3 && val[0] == ';' && (val[len-2] == '\n' || val[len-2] == '\r');
+  return len > 2 && val[0] == ';' && (val[len-2] == '\n' || val[len-2] == '\r');
 }
 
 inline std::string quote(std::string v) {

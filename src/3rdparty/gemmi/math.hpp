@@ -6,14 +6,19 @@
 #define GEMMI_MATH_HPP_
 
 #include <cmath>      // for fabs, cos, sqrt, round
+#include <cstdio>     // for snprintf
 #include <array>
 #include <stdexcept>  // for out_of_range
 #include <string>
-#include <cstdio>     // for snprintf
+#include <vector>
 
 namespace gemmi {
 
 constexpr double pi() { return 3.1415926535897932384626433832795029; }
+
+// The value used in converting between energy[eV] and wavelength[Angstrom].
+// $ units -d15 'h * c / eV / angstrom'
+constexpr double hc() { return 12398.4197386209; }
 
 constexpr double deg(double angle) { return 180.0 / pi() * angle; }
 constexpr double rad(double angle) { return pi() / 180.0 * angle; }
@@ -93,6 +98,11 @@ struct Mat33 {
             a[1][0] * p.x + a[1][1] * p.y + a[1][2] * p.z,
             a[2][0] * p.x + a[2][1] * p.y + a[2][2] * p.z};
   }
+  Vec3 left_multiply(const Vec3& p) const {
+    return {a[0][0] * p.x + a[1][0] * p.y + a[2][0] * p.z,
+            a[0][1] * p.x + a[1][1] * p.y + a[2][1] * p.z,
+            a[0][2] * p.x + a[1][2] * p.y + a[2][2] * p.z};
+  }
   Mat33 multiply(const Mat33& b) const {
     Mat33 r;
     for (int i = 0; i != 3; ++i)
@@ -137,18 +147,81 @@ struct Mat33 {
            a[1][0] == 0 && a[1][1] == 1 && a[1][2] == 0 &&
            a[2][0] == 0 && a[2][1] == 0 && a[2][2] == 1;
   }
-  // Calculate eigenvalues of **symmetric** matrix.
+};
+
+// Symmetric matrix 3x3. Used primarily for an ADP tensor.
+template<typename T> struct SMat33 {
+  T u11, u22, u33, u12, u13, u23;
+
+  std::array<T, 6> elements() const {
+    return {{u11, u22, u33, u12, u13, u23}};
+  }
+
+  Mat33 as_mat33() const {
+    return Mat33(u11, u12, u13, u12, u22, u23, u13, u23, u33);
+  }
+
+  T trace() const { return u11 + u22 + u33; }
+  bool nonzero() const { return trace() != 0; }
+
+  void scale(T s) const {
+    u11 *= s; u22 *= s; u33 *= s; u12 *= s; u13 *= s; u23 *= s;
+  };
+
+  template<typename Real>
+  SMat33<Real> scaled(Real s) const {
+    return SMat33<Real>{u11*s, u22*s, u33*s, u12*s, u13*s, u23*s};
+  }
+
+  // returns U + kI
+  SMat33<T> added_kI(T k) const {
+    return {u11+k, u22+k, u33+k, u12, u13, u23};
+  }
+
+  // returns squared norm r^T U r where U is this matrix and vector r is arg
+  double r_u_r(const Vec3& r) const {
+    return r.x * r.x * u11 + r.y * r.y * u22 + r.z * r.z * u33 +
+      2 * (r.x * r.y * u12 + r.x * r.z * u13 + r.y * r.z * u23);
+  }
+
+  // return M U M^T
+  SMat33<double> transformed_by(const Mat33& m) const {
+    // slightly faster than m.multiply(as_mat33()).multiply(m.transpose());
+    auto elem = [&](int i, int j) {
+      return m[i][0] * (m[j][0] * u11 + m[j][1] * u12 + m[j][2] * u13) +
+             m[i][1] * (m[j][0] * u12 + m[j][1] * u22 + m[j][2] * u23) +
+             m[i][2] * (m[j][0] * u13 + m[j][1] * u23 + m[j][2] * u33);
+    };
+    return SMat33<double>{elem(0, 0), elem(1, 1), elem(2, 2),
+                          elem(0, 1), elem(0, 2), elem(1, 2)};
+  }
+
+  T determinant() const {
+    return u11 * (u22*u33 - u23*u23) +
+           u12 * (u23*u13 - u33*u12) +
+           u13 * (u12*u23 - u13*u22);
+  }
+
+  SMat33 inverse() const {
+    SMat33 inv;
+    T inv_det = 1.0f / determinant();
+    inv.u11 = inv_det * (u22 * u33 - u23 * u23);
+    inv.u22 = inv_det * (u11 * u33 - u13 * u13);
+    inv.u33 = inv_det * (u11 * u22 - u12 * u12);
+    inv.u12 = inv_det * (u13 * u23 - u12 * u33);
+    inv.u13 = inv_det * (u12 * u23 - u13 * u22);
+    inv.u23 = inv_det * (u12 * u13 - u11 * u23);
+    return inv;
+  }
+
   // Based on https://en.wikipedia.org/wiki/Eigenvalue_algorithm
   std::array<double, 3> calculate_eigenvalues() const {
-    double p1 = a[0][1] * a[0][1] + a[0][2] * a[0][2] + a[1][2] * a[1][2];
+    double p1 = u12*u12 + u13*u13 + u23*u23;
     if (p1 == 0)
-      return {{a[0][0], a[1][1], a[2][2]}};
-    double q = (1./3.) * (a[0][0] + a[1][1] + a[2][2]);
-    Mat33 b(a[0][0] - q, a[0][1], a[0][2],
-            a[1][0], a[1][1] - q, a[1][2],
-            a[2][0], a[2][1], a[2][2] - q);
-    double p2 = b[0][0] * b[0][0] + b[1][1] * b[1][1] + b[2][2] * b[2][2]
-                + 2 * p1;
+      return {{u11, u22, u33}};
+    double q = (1./3.) * trace();
+    SMat33<double> b{u11 - q, u22 - q, u33 - q, u12, u13, u23};
+    double p2 = sq(b.u11) + sq(b.u22) + sq(b.u33) + 2 * p1;
     double p = std::sqrt((1./6.) * p2);
     double r = b.determinant() / ((1./3.) * p2 * p);
     double phi = 0;
@@ -161,12 +234,12 @@ struct Mat33 {
     return {{eig1, 3 * q - eig1 - eig3, eig3}};
   }
 
-  // Assumes symmetric matrix and one of the eigenvalue calculate above.
+  // Assumes one of the eigenvalue calculate above.
   // May not work if eigenvalues are not distinct.
   Vec3 calculate_eigenvector(double eigenvalue) const {
-    Vec3 r0(a[0][0] - eigenvalue, a[0][1], a[0][2]);
-    Vec3 r1(a[1][0], a[1][1] - eigenvalue, a[1][2]);
-    Vec3 r2(a[2][0], a[2][1], a[2][2] - eigenvalue);
+    Vec3 r0(u11 - eigenvalue, u12, u13);
+    Vec3 r1(u12, u22 - eigenvalue, u23);
+    Vec3 r2(u13, u23, u33 - eigenvalue);
     Vec3 cr[3] = {r0.cross(r1), r0.cross(r2), r1.cross(r2)};
     int idx = 0;
     double lensq = 0;
@@ -280,6 +353,35 @@ struct Correlation {
   double slope() const { return sum_xy / sum_xx; }
   double intercept() const { return mean_y - slope() * mean_x; }
 };
+
+
+struct DataStats {
+  double dmin = NAN;
+  double dmax = NAN;
+  double dmean = NAN;
+  double rms = NAN;
+};
+
+template<typename T>
+DataStats calculate_data_statistics(const std::vector<T>& data) {
+  DataStats stats;
+  if (data.empty())
+    return stats;
+  double sum = 0;
+  double sq_sum = 0;
+  stats.dmin = stats.dmax = data[0];
+  for (double d : data) {
+    sum += d;
+    sq_sum += d * d;
+    if (d < stats.dmin)
+      stats.dmin = d;
+    if (d > stats.dmax)
+      stats.dmax = d;
+  }
+  stats.dmean = sum / data.size();
+  stats.rms = std::sqrt(sq_sum / data.size() - stats.dmean * stats.dmean);
+  return stats;
+}
 
 } // namespace gemmi
 #endif

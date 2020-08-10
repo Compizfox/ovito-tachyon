@@ -17,11 +17,14 @@ struct PdbWriteOptions {
   bool cispep_records = true;
   bool ter_records = true;
   bool numbered_ter = true;
+  bool ter_ignores_type = false;
+  bool use_linkr = false;
 };
 
 void write_pdb(const Structure& st, std::ostream& os,
                PdbWriteOptions opt=PdbWriteOptions());
-void write_minimal_pdb(const Structure& st, std::ostream& os);
+void write_minimal_pdb(const Structure& st, std::ostream& os,
+                       PdbWriteOptions opt=PdbWriteOptions());
 std::string make_pdb_headers(const Structure& st);
 
 // Name as a string left-padded like in the PDB format:
@@ -39,8 +42,8 @@ inline std::string padded_atom_name(const Atom& atom) {
 #ifdef GEMMI_WRITE_IMPLEMENTATION
 
 #include <cassert>
-#include <cctype> // for isdigit
-#include <cstring>
+#include <cctype>         // for isdigit
+#include <cstring>        // for memset, memcpy
 #include <algorithm>
 #include <sstream>
 #include "fail.hpp"       // for fail
@@ -116,9 +119,9 @@ inline char* encode_seq_num_in_hybrid36(char* str, int seq_id) {
   return base36_encode(str, 4, seq_id - 10000 + 10 * 36 * 36 * 36);
 }
 
-inline char* write_seq_id(char* str, const ResidueId& res) {
-  encode_seq_num_in_hybrid36(str, *res.seqid.num);
-  str[4] = res.seqid.icode;
+inline char* write_seq_id(char* str, const SeqId& seqid) {
+  encode_seq_num_in_hybrid36(str, *seqid.num);
+  str[4] = seqid.icode;
   str[5] = '\0';
   return str;
 }
@@ -147,7 +150,7 @@ inline void write_multiline(std::ostream& os, const char* record_name,
   for (int n = 2; n < 1000 && *end != '\0'; ++n) {
     start = end;
     end = find_last_break(start, lastcol-11);
-    int len = end - start;
+    int len = int(end - start);
     WRITEU("%-6s %3d %-69.*s\n", record_name, n, len, start);
   }
 }
@@ -219,7 +222,7 @@ inline void write_remarks(const Structure& st, std::ostream& os) {
         } else {
           // subchains -> chains
           std::vector<std::string> chains;
-          for (const Chain& ch : st.models.at(0).chains)
+          for (const Chain& ch : st.first_model().chains)
             if (!ch.residues.empty() && !in_vector(ch.name, chains) &&
                 in_vector(ch.residues[0].subchain, gen.subchains))
               chains.push_back(ch.name);
@@ -291,7 +294,7 @@ inline void write_chain_atoms(const Chain& chain, std::ostream& os,
             a.altloc ? std::toupper(a.altloc) : ' ',
             res.name.c_str(),
             chain.name.c_str(),
-            impl::write_seq_id(buf8a, res),
+            impl::write_seq_id(buf8a, res.seqid),
             // We want to avoid negative zero and round them numbers up
             // if they originally had one digit more and that digit was 5.
             a.pos.x > -5e-4 && a.pos.x < 0 ? 0 : a.pos.x + 1e-10,
@@ -310,20 +313,23 @@ inline void write_chain_atoms(const Chain& chain, std::ostream& os,
             // Sometimes PDB files have explicit 0s (5M05); we ignore them.
             a.charge ? a.charge > 0 ? '0'+a.charge : '0'-a.charge : ' ',
             a.charge ? a.charge > 0 ? '+' : '-' : ' ');
-      if (a.u11 != 0.0f) {
+      if (a.aniso.nonzero()) {
         // re-using part of the buffer
         std::memcpy(buf, "ANISOU", 6);
         const double eps = 1e-6;
         gf_snprintf(buf+28, 43, "%7.0f%7.0f%7.0f%7.0f%7.0f%7.0f",
-                    a.u11*1e4 + eps, a.u22*1e4 + eps, a.u33*1e4 + eps,
-                    a.u12*1e4 + eps, a.u13*1e4 + eps, a.u23*1e4 + eps);
+                    a.aniso.u11*1e4 + eps, a.aniso.u22*1e4 + eps,
+                    a.aniso.u33*1e4 + eps, a.aniso.u12*1e4 + eps,
+                    a.aniso.u13*1e4 + eps, a.aniso.u23*1e4 + eps);
         buf[28+42] = ' ';
         os.write(buf, 81);
       }
     }
-    if (opt.ter_records && res.entity_type == EntityType::Polymer &&
-        (&res == &chain.residues.back() ||
-         (&res + 1)->entity_type != EntityType::Polymer)) {
+    if (opt.ter_records &&
+        (opt.ter_ignores_type ? &res == &chain.residues.back()
+                              : (res.entity_type == EntityType::Polymer &&
+                                (&res == &chain.residues.back() ||
+                                 (&res + 1)->entity_type != EntityType::Polymer)))) {
       if (opt.numbered_ter) {
         // re-using part of the buffer in the middle, e.g.:
         // TER    4153      LYS B 286
@@ -363,6 +369,7 @@ inline void write_atoms(const Structure& st, std::ostream& os,
 
 inline void write_header(const Structure& st, std::ostream& os,
                          PdbWriteOptions opt) {
+  const std::string& entry_id = st.get_info("_entry.id");
   char buf[88];
   { // header line
     const char* months = "JANFEBMARAPRMAYJUNJULAUGSEPOCTNOVDEC???";
@@ -376,10 +383,9 @@ inline void write_header(const Structure& st, std::ostream& os,
     }
     // "classification" in PDB == _struct_keywords.pdbx_keywords in mmCIF
     const std::string& keywords = st.get_info("_struct_keywords.pdbx_keywords");
-    const std::string& id = st.get_info("_entry.id");
-    if (!pdb_date.empty() || !keywords.empty() || !id.empty())
+    if (!pdb_date.empty() || !keywords.empty() || !entry_id.empty())
       WRITEU("HEADER    %-40s%-9s   %-18s\n",
-             keywords.c_str(), pdb_date.c_str(), id.c_str());
+             keywords.c_str(), pdb_date.c_str(), entry_id.c_str());
   }
   write_multiline(os, "TITLE", st.get_info("_struct.title"), 80);
   write_multiline(os, "KEYWDS", st.get_info("_struct_keywords.text"), 79);
@@ -401,8 +407,10 @@ inline void write_header(const Structure& st, std::ostream& os,
     write_remarks(st, os);
   }
 
-  // SEQRES
+  // DBREF[12], SEQRES
   if (!st.models.empty() && opt.seqres_records) {
+    std::vector<const Entity*> entity_list;
+    entity_list.reserve(st.models[0].chains.size());
     for (const Chain& ch : st.models[0].chains) {
       const Entity* entity = st.get_entity_of(ch.get_polymer());
       // If the input pdb file has no TER records the subchains and entities
@@ -416,8 +424,54 @@ inline void write_header(const Structure& st, std::ostream& os,
         if (entity && !entity->subchains.empty())
           entity = nullptr;
       }
-
-      if (entity) {
+      entity_list.push_back(entity);
+    }
+    // DBREF / DBREF1 / DBREF2
+    for (size_t i = 0; i != entity_list.size(); ++i)
+      if (const Entity* entity = entity_list[i]) {
+        const Chain& ch = st.models[0].chains[i];
+        for (const Entity::DbRef& dbref : entity->dbrefs) {
+          bool short_record = *dbref.db_end.num < 100000 &&
+                              dbref.accession_code.size() < 9 &&
+                              dbref.id_code.size() < 13;
+          SeqId begin = dbref.seq_begin;
+          SeqId end = dbref.seq_end;
+          if (!begin.num || !end.num)
+            if (ConstResidueGroup polymer = ch.get_polymer()) {
+              begin = polymer.label_seq_id_to_auth(dbref.label_seq_begin);
+              end = polymer.label_seq_id_to_auth(dbref.label_seq_end);
+            }
+          char buf8[8];
+          char buf8a[8];
+          gf_snprintf(buf, 82, "DBREF  %4s%2s %5s %5s %-6s  ",
+                      entry_id.c_str(), ch.name.c_str(),
+                      impl::write_seq_id(buf8, begin),
+                      impl::write_seq_id(buf8a, end),
+                      dbref.db_name.c_str());
+          if (!(dbref.db_name == "PDB" && dbref.id_code == entry_id)) {
+            begin = dbref.db_begin;
+            end = dbref.db_end;
+          }
+          if (short_record) {
+            gf_snprintf(buf+33, 82-33, "%-8s %-12s %5d%c %5d%c            \n",
+                        dbref.accession_code.c_str(), dbref.id_code.c_str(),
+                        *begin.num, begin.icode, *end.num, end.icode);
+          } else {
+            buf[5] = '1';
+            gf_snprintf(buf+33, 82-33, "              %-33s\n",
+                        dbref.id_code.c_str());
+          }
+          os.write(buf, 81);
+          if (!short_record)
+            WRITE("DBREF2 %4s%2s     %-22s     %10d  %10d             \n",
+                  entry_id.c_str(), ch.name.c_str(),
+                  dbref.accession_code.c_str(), *begin.num, *end.num);
+        }
+      }
+    // SEQRES
+    for (size_t i = 0; i != entity_list.size(); ++i)
+      if (const Entity* entity = entity_list[i]) {
+        const Chain& ch = st.models[0].chains[i];
         int row = 0;
         int col = 0;
         for (const std::string& monomers : entity->full_sequence) {
@@ -437,7 +491,6 @@ inline void write_header(const Structure& st, std::ostream& os,
         if (col != 0)
           os.write(buf, 81);
       }
-    }
   }
 
   if (!st.helices.empty()) {
@@ -445,16 +498,20 @@ inline void write_header(const Structure& st, std::ostream& os,
     char buf8a[8];
     int counter = 0;
     for (const Helix& helix : st.helices) {
-      ++counter;
+      if (++counter == 10000)
+        counter = 0;
       // According to the PDB spec serial number can be from 1 to 999.
       // Here, we allow for up to 9999 helices by using columns 7 and 11.
-      WRITE("HELIX %4d%4d %3s%2s %5s %3s%2s %5s%2d %35d    \n",
+      gf_snprintf(buf, 82, "HELIX %4d%4d %3s%2s %5s %3s%2s %5s%2d %35d    \n",
             counter, counter,
             helix.start.res_id.name.c_str(), helix.start.chain_name.c_str(),
-            write_seq_id(buf8, helix.start.res_id),
+            write_seq_id(buf8, helix.start.res_id.seqid),
             helix.end.res_id.name.c_str(), helix.end.chain_name.c_str(),
-            write_seq_id(buf8a, helix.end.res_id),
+            write_seq_id(buf8a, helix.end.res_id.seqid),
             (int) helix.pdb_helix_class, helix.length);
+      if (helix.length < 0) // make 72-76 blank if the length is not given
+        std::memset(buf+71, ' ', 5);
+      os.write(buf, 81);
     }
   }
 
@@ -466,19 +523,19 @@ inline void write_header(const Structure& st, std::ostream& os,
         const AtomAddress& a2 = strand.hbond_atom2;
         const AtomAddress& a1 = strand.hbond_atom1;
         // H-bond atom names are expected to be O and N
-        WRITE("SHEET %4d %3.3s%2zu %3s%2s%5s %3s%2s%5s%2d  %-3s%3s%2s%5s "
+        WRITE("SHEET%5d %3.3s%2zu %3s%2s%5s %3s%2s%5s%2d  %-3s%3s%2s%5s "
               " %-3s%3s%2s%5s          \n",
               ++strand_counter, sheet.name.c_str(), sheet.strands.size(),
               strand.start.res_id.name.c_str(), strand.start.chain_name.c_str(),
-              write_seq_id(buf8a, strand.start.res_id),
+              write_seq_id(buf8a, strand.start.res_id.seqid),
               strand.end.res_id.name.c_str(), strand.end.chain_name.c_str(),
-              write_seq_id(buf8b, strand.end.res_id), strand.sense,
+              write_seq_id(buf8b, strand.end.res_id.seqid), strand.sense,
               a2.atom_name.c_str(), a2.res_id.name.c_str(),
               a2.chain_name.c_str(),
-              a2.res_id.seqid.num ? write_seq_id(buf8c, a2.res_id) : "",
+              a2.res_id.seqid.num ? write_seq_id(buf8c, a2.res_id.seqid) : "",
               a1.atom_name.c_str(), a1.res_id.name.c_str(),
               a1.chain_name.c_str(),
-              a1.res_id.seqid.num ? write_seq_id(buf8d, a1.res_id) : "");
+              a1.res_id.seqid.num ? write_seq_id(buf8d, a1.res_id.seqid) : "");
       }
     }
   }
@@ -489,49 +546,65 @@ inline void write_header(const Structure& st, std::ostream& os,
     // SSBOND  (note: uses only the first model and primary conformation)
     if (opt.ssbond_records) {
       int counter = 0;
-      for (const Connection& con : st.models[0].connections)
+      for (const Connection& con : st.connections)
         if (con.type == Connection::Disulf) {
-          const_CRA cra1 = st.models[0].find_cra(con.atom[0]);
-          const_CRA cra2 = st.models[0].find_cra(con.atom[1]);
+          const_CRA cra1 = st.models[0].find_cra(con.partner1);
+          const_CRA cra2 = st.models[0].find_cra(con.partner2);
           if (!cra1.atom || !cra2.atom)
             continue;
           SymImage im = st.cell.find_nearest_image(cra1.atom->pos,
                                                    cra2.atom->pos, con.asu);
+          if (++counter == 10000)
+            counter = 0;
           WRITE("SSBOND%4d %3s%2s %5s %5s%2s %5s %28s %6s %5.2f  \n",
-             ++counter,
+             counter,
              cra1.residue->name.c_str(), cra1.chain->name.c_str(),
-             write_seq_id(buf8, *cra1.residue),
+             write_seq_id(buf8, cra1.residue->seqid),
              cra2.residue->name.c_str(), cra2.chain->name.c_str(),
-             write_seq_id(buf8a, *cra2.residue),
+             write_seq_id(buf8a, cra2.residue->seqid),
              "1555", im.pdb_symbol(false).c_str(), im.dist());
         }
     }
 
     // LINK  (note: uses only the first model and primary conformation)
     if (!st.models.empty() && opt.link_records) {
-      for (const Connection& con : st.models[0].connections)
+      for (const Connection& con : st.connections)
         if (con.type == Connection::Covale || con.type == Connection::MetalC ||
-            con.type == Connection::None) {
-          const_CRA cra1 = st.models[0].find_cra(con.atom[0]);
-          const_CRA cra2 = st.models[0].find_cra(con.atom[1]);
+            con.type == Connection::Unknown) {
+          const_CRA cra1 = st.models[0].find_cra(con.partner1);
+          const_CRA cra2 = st.models[0].find_cra(con.partner2);
           if (!cra1.atom || !cra2.atom)
             continue;
           SymImage im = st.cell.find_nearest_image(cra1.atom->pos,
                                                    cra2.atom->pos, con.asu);
-          WRITE("LINK        %-4s%c%3s%2s%5s   "
+          // Pdb spec: "sym1 and sym2 are right justified and are given as
+          // blank when the identity operator (and no cell translation) is
+          // to be applied to the atom." But all files from wwPDB have
+          // 1555 not blank, so here we also write 1555,
+          // except for LINKR (Refmac variant of LINK).
+          gf_snprintf(buf, 82, "LINK        %-4s%c%3s%2s%5s   "
                 "            %-4s%c%3s%2s%5s  %6s %6s %5.2f  \n",
                 padded_atom_name(*cra1.atom).c_str(),
                 cra1.atom->altloc ? std::toupper(cra1.atom->altloc) : ' ',
                 cra1.residue->name.c_str(),
                 cra1.chain->name.c_str(),
-                write_seq_id(buf8, *cra1.residue),
+                write_seq_id(buf8, cra1.residue->seqid),
                 padded_atom_name(*cra2.atom).c_str(),
                 cra2.atom->altloc ? std::toupper(cra2.atom->altloc) : ' ',
                 cra2.residue->name.c_str(),
                 cra2.chain->name.c_str(),
-                write_seq_id(buf8a, *cra2.residue),
+                write_seq_id(buf8a, cra2.residue->seqid),
                 "1555", im.pdb_symbol(false).c_str(), im.dist());
+          if (opt.use_linkr && !con.link_id.empty()) {
+            buf[4] = 'R';  // LINK -> LINKR
+            if (im.same_asu())
+              std::memset(buf+58, ' ', 14); // erase symmetry
+            // overwrite distance with link_id
+            gf_snprintf(buf+72, 82-72, "%-8s\n", con.link_id.c_str());
+          }
+          os.write(buf, 81);
         }
+
     }
 
     // CISPEP (note: uses only the first conformation)
@@ -542,12 +615,14 @@ inline void write_header(const Structure& st, std::ostream& os,
           for (const Residue& res : chain.residues)
             if (res.is_cis)
               if (const Residue* next = chain.next_bonded_aa(res)) {
+                if (++counter == 10000)
+                  counter = 0;
                 WRITE("CISPEP%4d %3s%2s %5s   %3s%2s %5s %9s %12.2f %20s\n",
-                      ++counter,
+                      counter,
                       res.name.c_str(), chain.name.c_str(),
-                      write_seq_id(buf8, res),
+                      write_seq_id(buf8, res.seqid),
                       next->name.c_str(), chain.name.c_str(),
-                      write_seq_id(buf8a, *next),
+                      write_seq_id(buf8a, next->seqid),
                       st.models.size() > 1 ? model.name.c_str() : "0",
                       deg(calculate_omega(res, *next)),
                       "");
@@ -556,11 +631,13 @@ inline void write_header(const Structure& st, std::ostream& os,
   }
 
   write_cryst1(st, os);
-  if (st.has_origx || st.cell.explicit_matrices) {
+  if (st.has_origx && !st.origx.is_identity()) {
     for (int i = 0; i < 3; ++i)
       WRITE("ORIGX%d %13.6f%10.6f%10.6f %14.5f %24s\n", i+1,
             st.origx.mat[i][0], st.origx.mat[i][1], st.origx.mat[i][2],
             st.origx.vec.at(i), "");
+  }
+  if (st.cell.explicit_matrices) {
     for (int i = 0; i < 3; ++i)
       // We add a small number to avoid negative 0.
       WRITE("SCALE%d %13.6f%10.6f%10.6f %14.5f %24s\n", i+1,
@@ -570,25 +647,36 @@ inline void write_header(const Structure& st, std::ostream& os,
   write_ncs(st, os);
 }
 
+inline void check_if_structure_can_be_written_as_pdb(const Structure& st) {
+  for (const gemmi::Model& model : st.models)
+    for (const gemmi::Chain& chain : model.chains)
+      if (chain.name.size() > 2)
+        gemmi::fail("chain name too long for the PDB format: " + chain.name);
+}
+
 } // namespace impl
 
 std::string make_pdb_headers(const Structure& st) {
+  impl::check_if_structure_can_be_written_as_pdb(st);
   std::ostringstream os;
   impl::write_header(st, os, PdbWriteOptions());
   return os.str();
 }
 
 void write_pdb(const Structure& st, std::ostream& os, PdbWriteOptions opt) {
+  impl::check_if_structure_can_be_written_as_pdb(st);
   impl::write_header(st, os, opt);
   impl::write_atoms(st, os, opt);
   char buf[88];
   WRITE("%-80s\n", "END");
 }
 
-void write_minimal_pdb(const Structure& st, std::ostream& os) {
+void write_minimal_pdb(const Structure& st, std::ostream& os,
+                       PdbWriteOptions opt) {
+  impl::check_if_structure_can_be_written_as_pdb(st);
   impl::write_cryst1(st, os);
   impl::write_ncs(st, os);
-  impl::write_atoms(st, os, PdbWriteOptions());
+  impl::write_atoms(st, os, opt);
 }
 
 #undef WRITE

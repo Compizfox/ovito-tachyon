@@ -42,7 +42,7 @@ class OVITO_PARTICLES_EXPORT PDBImporter : public ParticleImporter
 		using ParticleImporter::OOMetaClass ::OOMetaClass;
 
 		/// Returns the file filter that specifies the files that can be imported by this service.
-		virtual QString fileFilter() const override { return QStringLiteral("*.pdb"); }
+		virtual QString fileFilter() const override { return QStringLiteral("*.pdb *.pdb.gz"); }
 
 		/// Returns the filter description that is displayed in the drop-down box of the file dialog.
 		virtual QString fileFilterDescription() const override { return tr("PDB Files"); }

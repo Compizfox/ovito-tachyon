@@ -19,10 +19,15 @@ template<int N> struct OptionalInt {
   OptionalInt() = default;
   OptionalInt(int n) : value(n) {}
   bool has_value() const { return value != None; }
-  std::string str() const { return has_value() ? std::to_string(value) : "?"; }
+  std::string str(char null='?') const {
+    return has_value() ? std::to_string(value) : std::string(1, null);
+  }
   OptionalInt& operator=(int n) { value = n; return *this; }
   bool operator==(const OptionalInt& o) const { return value == o.value; }
   bool operator!=(const OptionalInt& o) const { return value != o.value; }
+  bool operator<(const OptionalInt& o) const {
+    return has_value() && o.has_value() && value < o.value;
+  }
   bool operator==(int n) const { return value == n; }
   bool operator!=(int n) const { return value != n; }
   OptionalInt operator+(OptionalInt o) const {
@@ -50,6 +55,7 @@ struct SeqId {
 
   SeqId() = default;
   SeqId(int num_, char icode_) { num = num_; icode = icode_; }
+  SeqId(OptionalNum num_, char icode_) { num = num_; icode = icode_; }
   explicit SeqId(const std::string& str) {
     char* endptr;
     num = std::strtol(str.c_str(), &endptr, 10);
@@ -62,6 +68,9 @@ struct SeqId {
     return num == o.num && (icode | 0x20) == (o.icode | 0x20);
   }
   bool operator!=(const SeqId& o) const { return !operator==(o); }
+  bool operator<(const SeqId& o) const {
+    return (*num * 256 + icode) < (*o.num * 256 + o.icode);
+  }
 
   char has_icode() const { return icode != ' '; }
 

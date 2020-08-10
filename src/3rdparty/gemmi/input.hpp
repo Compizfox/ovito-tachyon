@@ -7,6 +7,7 @@
 #define GEMMI_INPUT_HPP_
 
 #include <cassert>
+#include <cstring> // for memchr
 #include <memory>  // for unique_ptr
 #include <string>
 #include "fail.hpp"  // for unreachable
@@ -32,7 +33,7 @@ struct MemoryStream {
     if (cur >= end)
       return nullptr;
     if (size > end - cur)
-      size = end - cur;
+      size = int(end - cur);
     const char* nl = (const char*) std::memchr(cur, '\n', size);
     size_t len = nl ? nl - cur + 1 : size;
     std::memcpy(line, cur, len);

@@ -55,25 +55,28 @@ public:
 		/// Returns the class of element types defined in this list.
 		const OvitoClass& elementClass() const { return _elementClass; }
 
-		/// Defines a new element type with the given id.
+		/// Defines a new element type with the given numeric id and no name.
 		void addTypeId(int id) {
-			for(const auto& type : _types) {
-				if(type.id == id)
-					return;
-			}
+			if(hasTypeId(id)) return;
 			_types.push_back({ id, QString(), std::string() });
 		}
 
-		/// Defines a new type with the given id.
+		/// Defines a new type with the given numeric id and name.
 		void addTypeId(int id, const QString& name, const Color& color = Color(0,0,0), FloatType radius = 0, FloatType mass = 0) {
-			for(const auto& type : _types) {
-				if(type.id == id)
-					return;
-			}
+			if(hasTypeId(id)) return;
 			_types.push_back({ id, name, name.toStdString() });
 			if(color != Color(0,0,0)) _types.back().attributes.insert(QStringLiteral("color"), QVariant::fromValue(color));
 			if(radius) _types.back().attributes.insert(QStringLiteral("radius"), QVariant::fromValue(radius));
 			if(mass) _types.back().attributes.insert(QStringLiteral("mass"), QVariant::fromValue(mass));
+		}
+
+		/// Checks if a type with the given numeric id already exists.
+		bool hasTypeId(int id) const {
+			for(const auto& type : _types) {
+				if(type.id == id)
+					return true;
+			}
+			return false;
 		}
 
 		/// Changes the name of an existing type.

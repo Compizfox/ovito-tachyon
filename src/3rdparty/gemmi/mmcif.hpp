@@ -20,20 +20,33 @@ namespace gemmi {
 
 namespace impl {
 
-inline std::unordered_map<std::string, std::array<float,6>>
+inline void copy_int(const cif::Table::Row& row, int n, int& dest) {
+  if (row.has2(n))
+    dest = cif::as_int(row[n]);
+}
+inline void copy_double(const cif::Table::Row& row, int n, double& dest) {
+  if (row.has2(n))
+    dest = cif::as_number(row[n]);
+}
+inline void copy_string(const cif::Table::Row& row, int n, std::string& dest) {
+  if (row.has2(n))
+    dest = cif::as_string(row[n]);
+}
+
+inline std::unordered_map<std::string, SMat33<float>>
 get_anisotropic_u(cif::Block& block) {
   cif::Table aniso_tab = block.find("_atom_site_anisotrop.",
                                     {"id", "U[1][1]", "U[2][2]", "U[3][3]",
                                      "U[1][2]", "U[1][3]", "U[2][3]"});
-  std::unordered_map<std::string, std::array<float,6>> aniso_map;
+  std::unordered_map<std::string, SMat33<float>> aniso_map;
   for (auto ani : aniso_tab)
-    aniso_map.emplace(ani[0], std::array<float,6>{{
+    aniso_map.emplace(ani[0], SMat33<float>{
                                 (float) cif::as_number(ani[1]),
                                 (float) cif::as_number(ani[2]),
                                 (float) cif::as_number(ani[3]),
                                 (float) cif::as_number(ani[4]),
                                 (float) cif::as_number(ani[5]),
-                                (float) cif::as_number(ani[6])}});
+                                (float) cif::as_number(ani[6])});
   return aniso_map;
 }
 
@@ -155,43 +168,78 @@ inline std::vector<Sheet> read_sheets(cif::Block& block) {
   return sheets;
 }
 
+inline
+void set_part_of_address_from_label(AtomAddress& a, const Model& model,
+                                    const std::string& label_asym,
+                                    const std::string& label_seq_id_raw) {
+  int seq = cif::as_int(label_seq_id_raw, SeqId::OptionalNum::None);
+  for (const Chain& chain : model.chains)
+    if (ConstResidueSpan sub = chain.get_subchain(label_asym)) {
+      a.chain_name = chain.name;
+      for (const Residue& res : sub)
+        if (res.label_seq == seq) {
+          a.res_id.seqid = res.seqid;
+          return;
+        }
+    }
+}
+
 inline void read_connectivity(cif::Block& block, Structure& st) {
+  enum {
+    kId=0, kConnTypeId=1,
+    kAuthAsymId=2/*-3*/,  kLabelAsymId=4/*-5*/, kLabelCompId=6/*-7*/,
+    kLabelAtomId=8/*-9*/, kLabelAltId=10/*-11*/,
+    kAuthSeqId=12/*-13*/, kLabelSeqId=14/*-15*/, kInsCode=16/*-17*/,
+    kSym1=18, kSym2=19, kDistValue=20, kLinkId=21
+  };
   // label_ identifiers are not sufficient for HOH:
   // waters have null label_seq_id so we need auth_seq_id+icode.
   // And since we need auth_seq_id, we also use auth_asym_id for consistency.
+  // Unless only label_*_id are available.
   for (const auto row : block.find("_struct_conn.", {
-        "id", "conn_type_id", // 0-1
-        "ptnr1_auth_asym_id", "ptnr2_auth_asym_id", // 2-3
-        "ptnr1_label_comp_id", "ptnr2_label_comp_id", // 4-5
-        "ptnr1_label_atom_id", "ptnr2_label_atom_id", // 6-7
-        "?pdbx_ptnr1_label_alt_id", "?pdbx_ptnr2_label_alt_id", // 8-9
-        "ptnr1_auth_seq_id", "ptnr2_auth_seq_id", // 10-11
-        "?pdbx_ptnr1_PDB_ins_code", "?pdbx_ptnr2_PDB_ins_code", // 12-13
-        "?ptnr1_symmetry", "?ptnr2_symmetry", "?pdbx_dist_value"/*14-16*/})) {
+        "id", "conn_type_id",                                   // 0-1
+        "?ptnr1_auth_asym_id", "?ptnr2_auth_asym_id",           // 2-3
+        "?ptnr1_label_asym_id", "?ptnr2_label_asym_id",         // 4-5
+        "ptnr1_label_comp_id", "ptnr2_label_comp_id",           // 6-7
+        "ptnr1_label_atom_id", "ptnr2_label_atom_id",           // 8-9
+        "?pdbx_ptnr1_label_alt_id", "?pdbx_ptnr2_label_alt_id", // 10-11
+        "?ptnr1_auth_seq_id", "?ptnr2_auth_seq_id",             // 12-13
+        "?ptnr1_label_seq_id", "?ptnr2_label_seq_id",           // 14-15
+        "?pdbx_ptnr1_PDB_ins_code", "?pdbx_ptnr2_PDB_ins_code", // 16-17
+        "?ptnr1_symmetry", "?ptnr2_symmetry",                   // 18-19
+        "?pdbx_dist_value", "?ccp4_link_id"})) {                // 20-21
     Connection c;
-    c.name = row.str(0);
-    std::string type = row.str(1);
-    for (int i = 0; i != Connection::None; ++i)
+    c.name = row.str(kId);
+    copy_string(row, kLinkId, c.link_id);
+    std::string type = row.str(kConnTypeId);
+    for (int i = 0; i != Connection::Unknown; ++i)
       if (get_mmcif_connection_type_id(Connection::Type(i)) == type) {
         c.type = Connection::Type(i);
         break;
       }
-    if (row.has2(14) && row.has2(15)) {
-      c.asu = (row.str(14) == row.str(15) ? Asu::Same : Asu::Different);
+    if (row.has2(kSym1) && row.has2(kSym2)) {
+      c.asu = (row.str(kSym1) == row.str(kSym2) ? Asu::Same : Asu::Different);
     }
-    if (row.has2(16))
-      c.reported_distance = cif::as_number(row[16]);
+    copy_double(row, 16, c.reported_distance);
     for (int i = 0; i < 2; ++i) {
-      AtomAddress& a = c.atom[i];
-      a.chain_name = row.str(2+i);
-      if (row.has2(12+i))
-        a.res_id.seqid.icode = cif::as_char(row[12+i], ' ');
-      a.res_id = make_resid(row.str(4+i), row.str(10+i), row.ptr_at(12+i));
-      a.atom_name = row.str(6+i);
-      a.altloc = row.has2(8+i) ? cif::as_char(row[8+i], '\0') : '\0';
+      AtomAddress& a = (i == 0 ? c.partner1 : c.partner2);
+      if (row.has(kAuthAsymId+i) && row.has(kAuthSeqId+i)) {
+        a.chain_name = row.str(kAuthAsymId+i);
+        a.res_id = make_resid(row.str(kLabelCompId+i),
+                              row.str(kAuthSeqId+i), row.ptr_at(kInsCode+i));
+      } else if (row.has(kLabelAsymId+i) && row.has(kLabelSeqId+i)) {
+        set_part_of_address_from_label(a, st.first_model(),
+                                       row.str(kLabelAsymId+i),
+                                       row[kLabelSeqId+i]);
+        a.res_id.name = row.str(kLabelCompId+i);
+      } else {
+        fail("_struct_conn without either _auth_ or _label_ asym_id+seq_id");
+      }
+      a.atom_name = row.str(kLabelAtomId+i);
+      if (row.has2(kLabelAltId+i))
+        a.altloc = cif::as_char(row[kLabelAltId+i], '\0');
     }
-    for (Model& mdl : st.models)
-      mdl.connections.emplace_back(c);
+    st.connections.emplace_back(c);
   }
 }
 
@@ -312,6 +360,15 @@ inline void fill_residue_entity_type(Structure& st) {
       }
 }
 
+inline
+DiffractionInfo* find_diffrn(Metadata& meta, const std::string& diffrn_id) {
+  for (CrystalInfo& crystal_info : meta.crystals)
+    for (DiffractionInfo& diffr_info : crystal_info.diffractions)
+      if (diffr_info.id == diffrn_id)
+        return &diffr_info;
+  return nullptr;
+}
+
 inline Structure make_structure_from_block(const cif::Block& block_) {
   using cif::as_number;
   using cif::as_string;
@@ -361,28 +418,97 @@ inline Structure make_structure_from_block(const cif::Block& block_) {
       ref.resolution_high = cif::as_number(row[1]);
       if (ref.resolution_high > 0 &&
           (st.resolution == 0 || ref.resolution_high < st.resolution))
-      st.resolution = ref.resolution_high;
+        st.resolution = ref.resolution_high;
     }
-    if (row.has(2))
-      ref.resolution_low = cif::as_number(row[2]);
-    if (row.has(3))
-      ref.completeness = cif::as_number(row[3]);
-    if (row.has2(4))
-      ref.reflection_count = cif::as_int(row[4]);
+    copy_double(row, 2, ref.resolution_low);
+    copy_double(row, 3, ref.completeness);
+    copy_int(row, 4, ref.reflection_count);
   }
 
   for (auto row : block.find("_exptl.", {"method", "?crystals_number"})) {
     st.meta.experiments.emplace_back();
     st.meta.experiments.back().method = row.str(0);
-    if (row.has2(1))
-      st.meta.experiments.back().number_of_crystals = cif::as_int(row[1]);
+    copy_int(row, 1, st.meta.experiments.back().number_of_crystals);
   }
 
   for (auto row : block.find("_exptl_crystal.", {"id", "?description"})) {
     st.meta.crystals.emplace_back();
     st.meta.crystals.back().id = row.str(0);
-    if (row.has2(1))
-      st.meta.crystals.back().description = row.str(1);
+    copy_string(row, 1, st.meta.crystals.back().description);
+  }
+
+  for (auto row : block.find("_diffrn.",
+                             {"id", "crystal_id", "?ambient_temp"})) {
+    std::string id = row.str(1);
+    auto cryst = std::find_if(st.meta.crystals.begin(), st.meta.crystals.end(),
+                              [&](const CrystalInfo& c) { return c.id == id; });
+    if (cryst != st.meta.crystals.end()) {
+      cryst->diffractions.emplace_back();
+      cryst->diffractions.back().id = row.str(0);
+      copy_double(row, 2, cryst->diffractions.back().temperature);
+    }
+  }
+  for (auto row : block.find("_diffrn_detector.", {"diffrn_id",
+                                                   "?pdbx_collection_date",
+                                                   "?detector",
+                                                   "?type",
+                                                   "?details"}))
+    if (DiffractionInfo* di = find_diffrn(st.meta, row.str(0))) {
+      copy_string(row, 1, di->collection_date);
+      copy_string(row, 2, di->detector);
+      copy_string(row, 3, di->detector_make);
+      copy_string(row, 4, di->optics);
+    }
+  for (auto row : block.find("_diffrn_radiation.",
+                             {"diffrn_id",
+                              "?pdbx_scattering_type",
+                              "?pdbx_monochromatic_or_laue_m_l",
+                              "?monochromator"}))
+    if (DiffractionInfo* di = find_diffrn(st.meta, row.str(0))) {
+      copy_string(row, 1, di->scattering_type);
+      if (row.has2(2))
+        di->mono_or_laue = row.str(2)[0];
+      copy_string(row, 3, di->monochromator);
+    }
+  for (auto row : block.find("_diffrn_source.", {"diffrn_id",
+                                                 "?source",
+                                                 "?type",
+                                                 "?pdbx_synchrotron_site",
+                                                 "?pdbx_synchrotron_beamline",
+                                                 "?pdbx_wavelength_list"}))
+    if (DiffractionInfo* di = find_diffrn(st.meta, row.str(0))) {
+      copy_string(row, 1, di->source);
+      copy_string(row, 2, di->source_type);
+      copy_string(row, 3, di->synchrotron);
+      copy_string(row, 4, di->beamline);
+      copy_string(row, 5, di->wavelengths);
+    }
+
+  size_t n = 0;
+  for (auto row : block.find("_reflns.", {"pdbx_diffrn_id",        // 0
+                                          "?number_obs",           // 1
+                                          "?d_resolution_high",    // 2
+                                          "?d_resolution_low",     // 3
+                                          "?percent_possible_obs", // 4
+                                          "?pdbx_redundancy",      // 5
+                                          "?pdbx_Rmerge_I_obs",    // 6
+                                          "?pdbx_Rsym_value",      // 7
+                                          "?pdbx_netI_over_sigmaI"})) {
+    // In the case of multiple experiments (_exptl), which is rare,
+    // it is not explicit to which experiment which data statistics
+    // (_reflns) corresponds to. We assume they are in the same order.
+    if (n >= st.meta.experiments.size())
+      break;
+    ExperimentInfo& exper = st.meta.experiments[n++];
+    split_str_into(row.str(0), ',', exper.diffraction_ids);
+    copy_int(row, 1, exper.unique_reflections);
+    copy_double(row, 2, exper.reflections.resolution_high);
+    copy_double(row, 3, exper.reflections.resolution_low);
+    copy_double(row, 4, exper.reflections.completeness);
+    copy_double(row, 5, exper.reflections.redundancy);
+    copy_double(row, 6, exper.reflections.r_merge);
+    copy_double(row, 7, exper.reflections.r_sym);
+    copy_double(row, 8, exper.reflections.mean_I_over_sigma);
   }
 
   for (auto row : block.find("_software.", {"name",
@@ -395,12 +521,9 @@ inline Structure make_structure_from_block(const cif::Block& block_) {
     item.name = row.str(0);
     if (row.has2(1))
       item.classification = software_classification_from_string(row.str(1));
-    if (row.has2(2))
-      item.version = row.str(2);
-    if (row.has2(3))
-      item.date = row.str(3);
-    if (row.has2(4))
-      item.pdbx_ordinal = cif::as_int(row[4]);
+    copy_string(row, 2, item.version);
+    copy_string(row, 3, item.date);
+    copy_int(row, 4, item.pdbx_ordinal);
   }
 
   std::vector<std::string> ncs_oper_tags = transform_tags("matrix", "vector");
@@ -442,9 +565,9 @@ inline Structure make_structure_from_block(const cif::Block& block_) {
                                      {"id",
                                       "?group_PDB",
                                       "type_symbol",
-                                      "label_atom_id",
+                                      "?label_atom_id",
                                       "label_alt_id",
-                                      "label_comp_id",
+                                      "?label_comp_id",
                                       "label_asym_id",
                                       "?label_seq_id",
                                       "?pdbx_PDB_ins_code",
@@ -459,79 +582,76 @@ inline Structure make_structure_from_block(const cif::Block& block_) {
                                       "?auth_asym_id",
                                       "?auth_atom_id",
                                       "?pdbx_PDB_model_num"});
-  const int kCompId = atom_table.has_column(kAuthCompId) ? kAuthCompId
-                                                         : kLabelCompId;
-  const int kAsymId = atom_table.has_column(kAuthAsymId) ? kAuthAsymId
-                                                         : kLabelAsymId;
-  const int kAtomId = atom_table.has_column(kAuthAtomId) ? kAuthAtomId
-                                                         : kLabelAtomId;
-  Model *model = nullptr;
-  Chain *chain = nullptr;
-  Residue *resi = nullptr;
   if (atom_table.length() != 0) {
+    const int kAsymId = atom_table.first_of(kAuthAsymId, kLabelAsymId);
+    // we use only one comp (residue) and one atom name
+    const int kCompId = atom_table.first_of(kAuthCompId, kLabelCompId);
+    const int kAtomId = atom_table.first_of(kAuthAtomId, kLabelAtomId);
+    if (!atom_table.has_column(kCompId))
+      fail("Neither _atom_site.label_comp_id nor auth_comp_id found");
+    if (!atom_table.has_column(kAtomId))
+      fail("Neither _atom_site.label_atom_id nor auth_atom_id found");
+
+    Model *model = nullptr;
+    Chain *chain = nullptr;
+    Residue *resi = nullptr;
     if (atom_table.has_column(kModelNum))
       model = &st.find_or_add_model(atom_table[0].str(kModelNum));
     else
       model = &st.find_or_add_model("1");
-  }
-  for (auto row : atom_table) {
-    if (row.has(kModelNum) && row[kModelNum] != model->name) {
-      model = &st.find_or_add_model(row.str(kModelNum));
-      chain = nullptr;
-    }
-    if (!chain || as_string(row[kAsymId]) != chain->name) {
-      model->chains.emplace_back(as_string(row[kAsymId]));
-      chain = &model->chains.back();
-      resi = nullptr;
-    }
-    ResidueId rid = make_resid(as_string(row[kCompId]),
-                               as_string(row[kAuthSeqId]),
-                               row.has(kInsCode) ? &row[kInsCode] : nullptr);
-    if (!resi || !resi->matches(rid)) {
-      resi = chain->find_or_add_residue(rid);
-      if (resi->atoms.empty()) {
-        if (row.has2(kLabelSeqId))
-          resi->label_seq = cif::as_int(row[kLabelSeqId]);
-        resi->subchain = row.str(kLabelAsymId);
-        // don't check if group_PDB is consistent, it's not that important
-        if (row.has2(kGroupPdb))
-          for (int i = 0; i < 2; ++i) { // first character could be " or '
-            const char c = alpha_up(row[kGroupPdb][i]);
-            if (c == 'A' || c == 'H' || c == '\0')
-              resi->het_flag = c;
-          }
+    for (auto row : atom_table) {
+      if (row.has(kModelNum) && row[kModelNum] != model->name) {
+        model = &st.find_or_add_model(row.str(kModelNum));
+        chain = nullptr;
       }
-    } else if (resi->seqid != rid.seqid) {
-      fail("Inconsistent sequence ID: " + resi->str() + " / " + rid.str());
-    }
-    Atom atom;
-    atom.name = as_string(row[kAtomId]);
-    // altloc is always a single letter (not guaranteed by the mmCIF spec)
-    atom.altloc = cif::as_char(row[kAltId], '\0');
-    atom.charge = row.has2(kCharge) ? cif::as_int(row[kCharge]) : 0;
-    atom.element = gemmi::Element(as_string(row[kSymbol]));
-    // According to the PDBx/mmCIF spec _atom_site.id can be a string,
-    // but in all the files it is a serial number; its value is not essential,
-    // so we just ignore non-integer ids.
-    atom.serial = string_to_int(row[kId], false);
-    atom.pos.x = cif::as_number(row[kX]);
-    atom.pos.y = cif::as_number(row[kY]);
-    atom.pos.z = cif::as_number(row[kZ]);
-    atom.occ = (float) cif::as_number(row[kOcc], 1.0);
-    atom.b_iso = (float) cif::as_number(row[kBiso], 50.0);
+      if (!chain || as_string(row[kAsymId]) != chain->name) {
+        model->chains.emplace_back(as_string(row[kAsymId]));
+        chain = &model->chains.back();
+        resi = nullptr;
+      }
+      ResidueId rid = make_resid(as_string(row[kCompId]),
+                                 as_string(row[kAuthSeqId]),
+                                 row.has(kInsCode) ? &row[kInsCode] : nullptr);
+      if (!resi || !resi->matches(rid)) {
+        resi = chain->find_or_add_residue(rid);
+        if (resi->atoms.empty()) {
+          if (row.has2(kLabelSeqId))
+            resi->label_seq = cif::as_int(row[kLabelSeqId]);
+          resi->subchain = row.str(kLabelAsymId);
+          // don't check if group_PDB is consistent, it's not that important
+          if (row.has2(kGroupPdb))
+            for (int i = 0; i < 2; ++i) { // first character could be " or '
+              const char c = alpha_up(row[kGroupPdb][i]);
+              if (c == 'A' || c == 'H' || c == '\0')
+                resi->het_flag = c;
+            }
+        }
+      } else if (resi->seqid != rid.seqid) {
+        fail("Inconsistent sequence ID: " + resi->str() + " / " + rid.str());
+      }
+      Atom atom;
+      atom.name = as_string(row[kAtomId]);
+      // altloc is always a single letter (not guaranteed by the mmCIF spec)
+      atom.altloc = cif::as_char(row[kAltId], '\0');
+      atom.charge = row.has2(kCharge) ? cif::as_int(row[kCharge]) : 0;
+      atom.element = gemmi::Element(as_string(row[kSymbol]));
+      // According to the PDBx/mmCIF spec _atom_site.id can be a string,
+      // but in all the files it is a serial number; its value is not essential,
+      // so we just ignore non-integer ids.
+      atom.serial = string_to_int(row[kId], false);
+      atom.pos.x = cif::as_number(row[kX]);
+      atom.pos.y = cif::as_number(row[kY]);
+      atom.pos.z = cif::as_number(row[kZ]);
+      atom.occ = (float) cif::as_number(row[kOcc], 1.0);
+      atom.b_iso = (float) cif::as_number(row[kBiso], 50.0);
 
-    if (!aniso_map.empty()) {
-      auto ani = aniso_map.find(row[kId]);
-      if (ani != aniso_map.end()) {
-        atom.u11 = ani->second[0];
-        atom.u22 = ani->second[1];
-        atom.u33 = ani->second[2];
-        atom.u12 = ani->second[3];
-        atom.u13 = ani->second[4];
-        atom.u23 = ani->second[5];
+      if (!aniso_map.empty()) {
+        auto ani = aniso_map.find(row[kId]);
+        if (ani != aniso_map.end())
+          atom.aniso = ani->second;
       }
+      resi->atoms.emplace_back(atom);
     }
-    resi->atoms.emplace_back(atom);
   }
 
   cif::Table polymer_types = block.find("_entity_poly.", {"entity_id", "type"});
@@ -558,6 +678,32 @@ inline Structure make_structure_from_block(const cif::Block& block_) {
       else if (pos >= 0 && pos < (int) ent->full_sequence.size())
         ent->full_sequence[pos] += "," + row.str(2);
     }
+
+  cif::Table struct_ref_seq = block.find("_struct_ref_seq.",
+                                {"ref_id", "seq_align_beg", "seq_align_end",
+                                 "db_align_beg", "db_align_end"});
+  for (auto row : block.find("_struct_ref.",
+                             {"id", "entity_id", "db_name", "db_code",
+                              "?pdbx_db_accession", "?pdbx_db_isoform"}))
+    if (Entity* ent = st.get_entity(row.str(1))) {
+      ent->dbrefs.emplace_back();
+      Entity::DbRef& dbref = ent->dbrefs.back();
+      dbref.db_name = row.str(2);
+      dbref.id_code = row.str(3);
+      if (row.has(4))
+        dbref.accession_code = row.str(4);
+      if (row.has(5))
+        dbref.isoform = row.str(5);
+      try { // find_row() throws if row is not found
+        cif::Table::Row seq = struct_ref_seq.find_row(row.str(0));
+        constexpr int None = SeqId::OptionalNum::None;
+        dbref.label_seq_begin = cif::as_int(seq[1], None);
+        dbref.label_seq_end = cif::as_int(seq[2], None);
+        dbref.db_begin.num = cif::as_int(seq[3], None);
+        dbref.db_end.num = cif::as_int(seq[4], None);
+      } catch (const std::runtime_error&) {}
+    }
+
   for (auto row : block.find("_struct_asym.", {"id", "entity_id"}))
     if (Entity* ent = st.get_entity(row.str(1)))
       ent->subchains.push_back(row.str(0));

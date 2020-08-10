@@ -31,6 +31,16 @@ template<> inline double count_occupancies(const Atom& atom) {
   return atom.occ;
 }
 
+template<class T> double calculate_mass(const T& obj) {
+  double sum = 0;
+  for (const auto& child : obj.children())
+    sum += calculate_mass(child);
+  return sum;
+}
+template<> inline double calculate_mass(const Atom& atom) {
+  return atom.occ * atom.element.weight();
+}
+
 struct CenterOfMass {
   Position weighted_sum;
   double mass;
@@ -48,6 +58,15 @@ template<class T> CenterOfMass calculate_center_of_mass(const T& obj) {
 template<> inline CenterOfMass calculate_center_of_mass(const Atom& atom) {
   double w_mass = atom.element.weight() * atom.occ;
   return CenterOfMass{Position(atom.pos * w_mass), w_mass};
+}
+
+// Calculate B_est from E. Merritt, Some B_eq are more equivalent than others,
+// Acta Cryst. A67, 512 (2011)
+// http://skuld.bmsc.washington.edu/parvati/ActaA_67_512.pdf
+inline double calculate_b_est(const Atom& atom) {
+  auto eig = atom.aniso.calculate_eigenvalues();
+  return 8 * pi() * pi() * std::sqrt((eig[0] + eig[1] + eig[2]) /
+                                     (1/eig[0] + 1/eig[1] + 1/eig[2]));
 }
 
 inline double calculate_angle_v(const Vec3& a, const Vec3& b) {
@@ -110,19 +129,16 @@ inline std::array<double, 4> find_best_plane(const std::vector<Atom*>& atoms) {
   for (const Atom* atom : atoms)
     mean += atom->pos;
   mean /= (double) atoms.size();
-  Mat33 m(0, 0, 0, 0, 0, 0, 0, 0, 0);
+  SMat33<double> m{0, 0, 0, 0, 0, 0};
   for (const Atom* atom : atoms) {
     Vec3 p = Vec3(atom->pos) - mean;
-    m[0][0] += p.x * p.x;
-    m[0][1] += p.x * p.y;
-    m[0][2] += p.x * p.z;
-    m[1][1] += p.y * p.y;
-    m[1][2] += p.y * p.z;
-    m[2][2] += p.z * p.z;
+    m.u11 += p.x * p.x;
+    m.u22 += p.y * p.y;
+    m.u33 += p.z * p.z;
+    m.u12 += p.x * p.y;
+    m.u13 += p.x * p.z;
+    m.u23 += p.y * p.z;
   }
-  m[1][0] = m[0][1];
-  m[2][0] = m[0][2];
-  m[2][1] = m[1][2];
   auto eig = m.calculate_eigenvalues();
   double smallest = eig[0];
   for (double d : {eig[1], eig[2]})

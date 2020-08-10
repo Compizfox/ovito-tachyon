@@ -101,7 +101,8 @@ inline void add_restraint_count_weight(RefinementInfo& ref_info,
     restr.function = read_string(sep+1, 50);
 }
 
-inline void read_remark3_line(const char* line, Metadata& meta) {
+inline void read_remark3_line(const char* line, Metadata& meta,
+                              std::string*& possibly_unfinished_remark3) {
   // Based on:
   // www.wwpdb.org/documentation/file-format-content/format23/remark3.html
   // and analysis of PDB files.
@@ -114,6 +115,17 @@ inline void read_remark3_line(const char* line, Metadata& meta) {
   const char* colon = std::strchr(key_start, ':');
   const char* key_end = rtrim_cstr(key_start, colon);
   std::string key(key_start, key_end);
+
+  // multi-line continuation requires special handling
+  if (possibly_unfinished_remark3) {
+    if (key_start > line + 17) {
+      *possibly_unfinished_remark3 += ' ';
+      possibly_unfinished_remark3->append(key);
+      return;
+    }
+    possibly_unfinished_remark3 = nullptr;
+  }
+
   if (colon) {
     const char* value = skip_blank(colon + 1);
     const char* end = rtrim_cstr(value);
@@ -244,11 +256,15 @@ inline void read_remark3_line(const char* line, Metadata& meta) {
     } else if (same_str(key, "TLS GROUP")) {
       ref_info.tls_groups.emplace_back();
       ref_info.tls_groups.back().id = std::string(value, end);
-    } else if (same_str(key, "SET")) {
+    } else if (same_str(key, "SET") ||
+               // "REMARK   3    SELECTION:"            -> TLS
+               // "REMARK   3     SELECTION          :" -> NCS
+               (same_str(key, "SELECTION") && colon == line + 23)) {
       if (!ref_info.tls_groups.empty()) {
         TlsGroup& group = ref_info.tls_groups.back();
         group.selections.emplace_back();
         group.selections.back().details = std::string(value, end);
+        possibly_unfinished_remark3 = &group.selections.back().details;
       }
     } else if (same_str(key, "RESIDUE RANGE")) {
       if (!ref_info.tls_groups.empty() && end > colon+21) {
@@ -440,29 +456,54 @@ inline void read_remark_200_230_240(const char* line, Metadata& meta,
 
 } // namespace pdb_impl
 
-void read_metadata_from_remarks(Structure& st) {
+inline int remark_number(const std::string& remark) {
+  if (remark.size() > 11)
+    return pdb_impl::read_int(remark.c_str() + 7, 3);
+  return 0;
+}
+
+inline void read_metadata_from_remarks(Structure& st) {
+  std::string* possibly_unfinished_remark3 = nullptr;
   std::string* cr_desc = nullptr;
   for (const std::string& remark : st.raw_remarks)
-    if (remark.size() > 11) {
-      switch (pdb_impl::read_int(remark.c_str() + 7, 3)) {
-        case 3:
-          pdb_impl::read_remark3_line(remark.c_str(), st.meta);
-          break;
-        case 200:
-        case 230:
-        case 240:
-          pdb_impl::read_remark_200_230_240(remark.c_str(), st.meta, cr_desc);
-          break;
-        case 300:
-          if (!st.meta.remark_300_detail.empty()) {
-            st.meta.remark_300_detail += '\n';
-            st.meta.remark_300_detail += rtrim_str(remark.substr(11));
-          } else if (remark.compare(11, 7, "REMARK:") == 0) {
-            st.meta.remark_300_detail = trim_str(remark.substr(18));
-          }
-          break;
-      }
+    switch (remark_number(remark)) {
+      case 3:
+        pdb_impl::read_remark3_line(remark.c_str(), st.meta,
+                                    possibly_unfinished_remark3);
+        break;
+      case 200:
+      case 230:
+      case 240:
+        pdb_impl::read_remark_200_230_240(remark.c_str(), st.meta, cr_desc);
+        break;
+      case 300:
+        if (!st.meta.remark_300_detail.empty()) {
+          st.meta.remark_300_detail += '\n';
+          st.meta.remark_300_detail += rtrim_str(remark.substr(11));
+        } else if (remark.compare(11, 7, "REMARK:") == 0) {
+          st.meta.remark_300_detail = trim_str(remark.substr(18));
+        }
+        break;
     }
+}
+
+// Returns operations corresponding to 1555, 2555, ... N555
+inline
+std::vector<Op> read_remark_290(const std::vector<std::string>& raw_remarks) {
+  std::vector<Op> ops;
+  // we only check triplet notation:
+  // REMARK 290     NNNMMM   OPERATOR
+  // REMARK 290       1555   X,Y,Z
+  for (const std::string& remark : raw_remarks)
+    if (remark_number(remark) == 290 && remark.size() > 25 &&
+        std::memcmp(&remark[10], "     ", 5) == 0 &&
+        std::memcmp(&remark[18], "555   ", 6) == 0) {
+      if (pdb_impl::read_int(remark.c_str() + 15, 3) != (int)ops.size() + 1)
+        fail("Symmetry operators not in order?: " + remark);
+      Op op = parse_triplet(pdb_impl::read_string(remark.c_str() + 24, 56));
+      ops.push_back(op);
+    }
+  return ops;
 }
 
 } // namespace gemmi
