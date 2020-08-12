@@ -341,10 +341,9 @@ private:
 	}
 
 	// TODO: remove this and replace with a lambda function if possible
-	// TODO: should comparison function be reversed??
 	struct PriorityQueueCompare
 	{
-		bool operator()(const NeighborBond &a, const NeighborBond &b) const {return a.disorientation < b.disorientation;}
+		bool operator()(const NeighborBond &a, const NeighborBond &b) const {return a.disorientation > b.disorientation;}
 	};
 
 private:
