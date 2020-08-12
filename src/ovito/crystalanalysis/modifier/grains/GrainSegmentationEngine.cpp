@@ -866,7 +866,7 @@ bool GrainSegmentationEngine2::mergeOrphanAtoms()
 	setProgressValue(0);
 
 	PropertyAccess<qlonglong> atomClustersArray(atomClusters());
-	PropertyAccess<qlonglong> grainSizeArray(_grainSizes);  //TODO: does this need updating?
+	PropertyAccess<qlonglong> grainSizeArray(_grainSizes);
 
 	/// The bonds connecting neighboring non-crystalline atoms.
 	std::vector<GrainSegmentationEngine1::NeighborBond> noncrystallineBonds;
