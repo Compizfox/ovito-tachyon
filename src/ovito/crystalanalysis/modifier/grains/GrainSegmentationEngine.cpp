@@ -909,6 +909,7 @@ bool GrainSegmentationEngine2::mergeOrphanAtoms()
             continue;
 
         atomClustersArray[node.particleIndex] = node.cluster;
+        grainSizeArray[node.cluster - 1]++;
 
 		// Get the range of bonds adjacent to the current atom.
 		auto bondsRange = boost::range::equal_range(noncrystallineBonds, GrainSegmentationEngine1::NeighborBond{node.particleIndex, 0, 0, 0},
