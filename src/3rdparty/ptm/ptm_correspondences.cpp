@@ -157,7 +157,7 @@ void decode_correspondences(int type, uint64_t encoded, int8_t* correspondences)
             num_outer = 2;
         }
 
-        int num_nbrs = ptm_num_nbrs[type] + 1;
+        int num_nbrs = ptm_num_nbrs[type];
         for (int i=0;i<num_nbrs;i++) {
             decoded[i] = encoded & 0xF;
             encoded >>= 4;
@@ -171,7 +171,7 @@ void decode_correspondences(int type, uint64_t encoded, int8_t* correspondences)
                        &correspondences[1 + num_inner + i * num_outer], +1);
         }
 
-        complete_correspondences(num_nbrs, correspondences);
+        complete_correspondences(num_nbrs + 1, correspondences);
     }
 }
 

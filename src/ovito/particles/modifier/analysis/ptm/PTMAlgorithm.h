@@ -250,7 +250,7 @@ public:
 			return n;
 		}
 
-		int correspondence() {
+		uint64_t correspondence() {
             int type = ovito_to_ptm_structure_type(structureType());
             return ptm_encode_correspondences(type, _env.correspondences);
 		}
