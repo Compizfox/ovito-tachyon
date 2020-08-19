@@ -1,6 +1,6 @@
 #######################################################################################
 #
-#  Copyright 2019 Alexander Stukowski
+#  Copyright 2020 Alexander Stukowski
 #
 #  This file is part of OVITO (Open Visualization Tool).
 #
@@ -36,4 +36,5 @@ OVITO_STANDARD_PLUGIN(CrystalAnalysisGui
 		util/DislocationInspectionApplet.cpp
 	PLUGIN_DEPENDENCIES CrystalAnalysis ParticlesGui
 	GUI_PLUGIN
+	HAS_NO_EXPORTS
 )

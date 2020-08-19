@@ -28,11 +28,12 @@ CMAKE_POLICY(VERSION 3.2.0)
 CMAKE_POLICY(SET CMP0020 NEW) 	# Automatically link to qtmain.lib on Windows.
 CMAKE_POLICY(SET CMP0042 NEW) 	# Set MACOSX_RPATH target property to TRUE by default.
 CMAKE_POLICY(SET CMP0007 NEW)   # Let LIST command not ignore empty elements.
+CMAKE_POLICY(SET CMP0100 NEW)   # Let AUTOMOC and AUTOUIC process .hh files.
 IF(NOT CMAKE_VERSION VERSION_LESS "3.3")
 	CMAKE_POLICY(SET CMP0063 NEW)   # Honor visibility properties for all target types.
 ENDIF()
 IF(NOT CMAKE_VERSION VERSION_LESS "3.9")
-	CMAKE_POLICY(SET CMP0068 OLD)   # Use the 'RPATH' settings for 'install_name' on macOS.
+	CMAKE_POLICY(SET CMP0068 NEW)   # RPATH settings on macOS do not affect install_name.
 ENDIF()
 IF(NOT CMAKE_VERSION VERSION_LESS "3.13")
 	CMAKE_POLICY(SET CMP0079 NEW)   # Allows use of target_link_libraries() with targets defined in other directories.
@@ -65,7 +66,6 @@ SET(OVITO_SOURCE_BASE_DIR "${CMAKE_CURRENT_LIST_DIR}")
 LIST(APPEND CMAKE_MODULE_PATH "${OVITO_SOURCE_BASE_DIR}/cmake")
 INCLUDE(cmake/Version.cmake)
 INCLUDE(cmake/Plugins.cmake)
-INCLUDE(cmake/PrecompiledHeader.cmake)
 
 # Define build options.
 OPTION(OVITO_DOUBLE_PRECISION_FP "Use double-precision floating-point numbers." "ON")
@@ -75,7 +75,7 @@ OPTION(OVITO_BUILD_MONOLITHIC "Build a monolithic executable, statically linking
 OPTION(OVITO_REDISTRIBUTABLE_PACKAGE "Create a redistributable program package that includes third-party libraries." "OFF")
 OPTION(OVITO_BUILD_APPSTORE_VERSION "Build binaries for the Apple App Store and Windows Store." "OFF")
 OPTION(OVITO_RUN_CLANG_TIDY "Run the clang-tidy tool to check code." "OFF")
-OPTION(OVITO_USE_PRECOMPILED_HEADERS "Use precompiled C++ headers to speed up build." "ON")
+OPTION(OVITO_USE_PRECOMPILED_HEADERS "Use precompiled C++ headers to speed up build (requires CMake 3.16)." "ON")
 OPTION(OVITO_DISABLE_THREADING "Disable multi-threading code (meant only for development purposes)." "OFF")
 OPTION(OVITO_USE_GIT_REVISION_NUMBER "Include git revision number in OVITO version string." "OFF")
 
@@ -193,9 +193,9 @@ IF(NOT OVITO_BUILD_PYTHON_PACKAGE)
 			# The directory where the auxiliary files go to.
 			SET(OVITO_RELATIVE_SHARE_DIRECTORY ".")
 			# The directory where the compiled plugins go to.
-			SET(OVITO_RELATIVE_PLUGINS_DIRECTORY "${OVITO_RELATIVE_LIBRARY_DIRECTORY}/plugins")
+			SET(OVITO_RELATIVE_PLUGINS_DIRECTORY "${OVITO_RELATIVE_LIBRARY_DIRECTORY}")
 			# The directory where the Python source modules go to.
-			SET(OVITO_RELATIVE_PYTHON_DIRECTORY "${OVITO_RELATIVE_PLUGINS_DIRECTORY}/python")
+			SET(OVITO_RELATIVE_PYTHON_DIRECTORY "./plugins/python")
 		ELSE()
 			# For Conda package builds:
 

@@ -143,7 +143,7 @@ ELSE()
 ENDIF()
 
 # Include optional SSH client code.
-IF(LIBSSH_FOUND)
+IF(Libssh_FOUND)
 	LIST(APPEND SourceFiles
 		utilities/io/ssh/SshConnection.cpp
 		utilities/io/ssh/SshChannel.cpp
@@ -178,8 +178,9 @@ QT5_ADD_RESOURCES(ResourceFiles resources/core.qrc)
 
 # Define library target.
 OVITO_STANDARD_PLUGIN(Core
-	SOURCES Core.cpp ${SourceFiles} ${ResourceFiles}
+	SOURCES ${SourceFiles} ${ResourceFiles}
 	LIB_DEPENDENCIES Boost::boost
+	PRECOMPILED_HEADERS Core.h
 )
 
 IF(NOT EMSCRIPTEN)
@@ -194,7 +195,7 @@ IF(ZLIB_FOUND)
 ENDIF()
 
 # Link to Libssh.
-IF(LIBSSH_FOUND)
+IF(Libssh_FOUND)
 	TARGET_COMPILE_DEFINITIONS(Core PUBLIC OVITO_SSH_CLIENT)
 	TARGET_LINK_LIBRARIES(Core PRIVATE Libssh::Libssh)
 ENDIF()
@@ -273,11 +274,6 @@ IF(OVITO_CLANG_TIDY_CMD)
 	SET_TARGET_PROPERTIES(Core PROPERTIES CXX_CLANG_TIDY "${OVITO_CLANG_TIDY_CMD}")
 ENDIF()
 
-# Speed up compilation by using precompiled headers.
-IF(OVITO_USE_PRECOMPILED_HEADERS)
-	ADD_PRECOMPILED_HEADER(Core ovito/core/Core.h)
-ENDIF()
-
 # Install ffmpeg video encoding libraries.
 IF(FFMPEG_FOUND)
 	FOREACH(lib ${FFMPEG_LIBRARIES})
@@ -310,7 +306,7 @@ IF(ZLIB_FOUND)
 ENDIF()
 
 # Deploy the libssh library and its dependencies.
-IF(LIBSSH_FOUND)
+IF(Libssh_FOUND)
 	IF(WIN32 AND NOT OVITO_BUILD_CONDA)
 		LIST(GET LIBSSH_LIBRARIES 0 LIBSSH_FIRST_LIBRARY)
 		GET_FILENAME_COMPONENT(LIBSSH_LIBRARY_DIR "${LIBSSH_FIRST_LIBRARY}" PATH)
@@ -324,7 +320,7 @@ IF(LIBSSH_FOUND)
 		ENDIF()
 		FILE(GLOB openssl_dlls "${OPENSSL_ROOT_DIR}/bin/*.dll")
 		IF(NOT openssl_dlls)
-			MESSAGE(FATAL_ERROR "Couldn't not find any OpenSSL DLLs in \"${OPENSSL_ROOT_DIR}/bin/\". Please check value of OPENSSL_ROOT_DIR path variable.")
+			MESSAGE(FATAL_ERROR "Could not find any OpenSSL DLLs in \"${OPENSSL_ROOT_DIR}/bin/\". Please check value of OPENSSL_ROOT_DIR path variable.")
 		ENDIF()
 		FOREACH(openssl_dll ${openssl_dlls})
 			OVITO_INSTALL_SHARED_LIB("${openssl_dll}" ".")

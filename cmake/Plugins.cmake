@@ -24,22 +24,35 @@
 MACRO(OVITO_STANDARD_PLUGIN target_name)
 
     # Parse macro parameters
-    SET(options GUI_PLUGIN)
+    SET(options GUI_PLUGIN HAS_NO_EXPORTS)
     SET(oneValueArgs)
-    SET(multiValueArgs SOURCES LIB_DEPENDENCIES PRIVATE_LIB_DEPENDENCIES PLUGIN_DEPENDENCIES OPTIONAL_PLUGIN_DEPENDENCIES)
+    SET(multiValueArgs SOURCES LIB_DEPENDENCIES PRIVATE_LIB_DEPENDENCIES PLUGIN_DEPENDENCIES OPTIONAL_PLUGIN_DEPENDENCIES PRECOMPILED_HEADERS)
     CMAKE_PARSE_ARGUMENTS(ARG "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
 	SET(plugin_sources ${ARG_SOURCES})
 	SET(lib_dependencies ${ARG_LIB_DEPENDENCIES})
 	SET(private_lib_dependencies ${ARG_PRIVATE_LIB_DEPENDENCIES})
 	SET(plugin_dependencies ${ARG_PLUGIN_DEPENDENCIES})
 	SET(optional_plugin_dependencies ${ARG_OPTIONAL_PLUGIN_DEPENDENCIES})
+	SET(precompiled_headers ${ARG_PRECOMPILED_HEADERS})
 
 	# Create the library target for the plugin.
-	ADD_LIBRARY(${target_name} ${plugin_sources})
+	IF(BUILD_SHARED_LIBS AND ${ARG_HAS_NO_EXPORTS})
+		# Define the library as a module if it doesn't export any symbols.
+		ADD_LIBRARY(${target_name} MODULE ${plugin_sources})
+	ELSE()
+		ADD_LIBRARY(${target_name} ${plugin_sources})
+	ENDIF()
 
     # Set default include directory.
     TARGET_INCLUDE_DIRECTORIES(${target_name} PUBLIC
         "$<BUILD_INTERFACE:${OVITO_SOURCE_BASE_DIR}/src>")
+
+	# Speed up compilation by using precompiled headers.
+	IF(OVITO_USE_PRECOMPILED_HEADERS AND CMAKE_VERSION VERSION_GREATER_EQUAL 3.16)
+		FOREACH(precompiled_header ${precompiled_headers})
+			TARGET_PRECOMPILE_HEADERS(${target_name} PUBLIC "$<$<COMPILE_LANGUAGE:CXX>:${CMAKE_CURRENT_SOURCE_DIR}/${precompiled_header}>")
+		ENDFOREACH()
+	ENDIF()
 
 	# Make the name of current plugin available to the source code.
 	TARGET_COMPILE_DEFINITIONS(${target_name} PRIVATE "OVITO_PLUGIN_NAME=\"${target_name}\"")
@@ -105,9 +118,12 @@ MACRO(OVITO_STANDARD_PLUGIN target_name)
 	STRING(TOUPPER "${target_name}" _uppercase_plugin_name)
 	IF(BUILD_SHARED_LIBS)
 		TARGET_COMPILE_DEFINITIONS(${target_name} PRIVATE "OVITO_${_uppercase_plugin_name}_EXPORT=Q_DECL_EXPORT")
+		TARGET_COMPILE_DEFINITIONS(${target_name} PRIVATE "OVITO_${_uppercase_plugin_name}_EXPORT_TEMPLATE=")
 		TARGET_COMPILE_DEFINITIONS(${target_name} INTERFACE "OVITO_${_uppercase_plugin_name}_EXPORT=Q_DECL_IMPORT")
+		TARGET_COMPILE_DEFINITIONS(${target_name} INTERFACE "OVITO_${_uppercase_plugin_name}_EXPORT_TEMPLATE=Q_DECL_IMPORT")
 	ELSE()
 		TARGET_COMPILE_DEFINITIONS(${target_name} PUBLIC "OVITO_${_uppercase_plugin_name}_EXPORT=")
+		TARGET_COMPILE_DEFINITIONS(${target_name} PUBLIC "OVITO_${_uppercase_plugin_name}_EXPORT_TEMPLATE=")
 	ENDIF()
 
 	# Set visibility of symbols in this shared library to hidden by default, except those exported in the source code.

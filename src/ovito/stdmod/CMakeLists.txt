@@ -23,7 +23,6 @@
 # Define the plugin module.
 OVITO_STANDARD_PLUGIN(StdMod
 	SOURCES
-		StdMod.cpp
 		modifiers/SliceModifier.cpp
 		modifiers/AffineTransformationModifier.cpp
 		modifiers/InvertSelectionModifier.cpp
@@ -44,12 +43,9 @@ OVITO_STANDARD_PLUGIN(StdMod
 	PLUGIN_DEPENDENCIES
 		StdObj
 		Mesh
+	PRECOMPILED_HEADERS 
+		StdMod.h
 )
-
-# Speed up compilation by using precompiled headers.
-IF(OVITO_USE_PRECOMPILED_HEADERS)
-	ADD_PRECOMPILED_HEADER(StdMod ovito/stdmod/StdMod.h)
-ENDIF()
 
 # Build corresponding GUI plugin.
 IF(OVITO_BUILD_GUI)

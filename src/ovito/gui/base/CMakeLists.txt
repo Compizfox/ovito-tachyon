@@ -26,7 +26,6 @@ QT5_ADD_RESOURCES(ResourceFiles resources/guibase.qrc)
 # Define plugin module.
 OVITO_STANDARD_PLUGIN(GuiBase
 	SOURCES
-		GUIBase.cpp
 		mainwin/MainWindowInterface.cpp
 		rendering/ViewportSceneRenderer.cpp
 		rendering/PickingSceneRenderer.cpp
@@ -37,12 +36,9 @@ OVITO_STANDARD_PLUGIN(GuiBase
 		${ResourceFiles}
 	PLUGIN_DEPENDENCIES
 		OpenGLRenderer
+	PRECOMPILED_HEADERS
+		GUIBase.h
 )
-
-# Speed up compilation by using precompiled headers.
-IF(OVITO_USE_PRECOMPILED_HEADERS)
-	ADD_PRECOMPILED_HEADER(GuiBase ovito/gui/base/GUIBase.h)
-ENDIF()
 
 # Propagate list of plugins to parent scope.
 SET(OVITO_PLUGIN_LIST ${OVITO_PLUGIN_LIST} PARENT_SCOPE)

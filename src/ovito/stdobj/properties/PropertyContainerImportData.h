@@ -279,10 +279,10 @@ private:
 	/// List of properties.
 	std::vector<PropertyPtr> _properties;
 
-#if defined(Q_CC_MSVC) && _MSC_VER <= 1916
+#if defined(Q_CC_MSVC)
 	/// Needed as a workaround for a compiler bug in MVSC 2017.
 	/// See https://stackoverflow.com/questions/21056872/c-stdunique-ptr-wont-compile-in-map
-	/// Problem seems to be fixed in MSVC 2019.
+	/// Problem might be fixed in MSVC 2019.
 	std::unique_ptr<TypeList> _dummyWorkaroundForMVSCCompilerBug;
 #endif
 

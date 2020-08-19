@@ -116,18 +116,12 @@ ENDIF()
 
 # Define the plugin module.
 OVITO_STANDARD_PLUGIN(Particles
-	SOURCES
-		Particles.cpp
-		${SourceFiles}
+	SOURCES ${SourceFiles}
 	PLUGIN_DEPENDENCIES Mesh Grid StdObj Delaunay
 	PRIVATE_LIB_DEPENDENCIES VoroPlusPlus OpenGLRenderer PolyhedralTemplateMatching MinimumWeightMatchingCentrosymmetry
 	OPTIONAL_PLUGIN_DEPENDENCIES StdMod
+	PRECOMPILED_HEADERS Particles.h
 )
-
-# Speed up compilation by using precompiled headers.
-IF(OVITO_USE_PRECOMPILED_HEADERS)
-	ADD_PRECOMPILED_HEADER(Particles ovito/particles/Particles.h)
-ENDIF()
 
 # Build corresponding GUI plugin.
 IF(OVITO_BUILD_GUI)

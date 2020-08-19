@@ -559,31 +559,31 @@ public:
 	}
 };
 
-// Export a couple of commonly used class template instantiations. 
-extern template class OVITO_STDOBJ_EXPORT ConstPropertyAccess<int>;
-extern template class OVITO_STDOBJ_EXPORT ConstPropertyAccess<qlonglong>;
-extern template class OVITO_STDOBJ_EXPORT ConstPropertyAccess<FloatType>;
-extern template class OVITO_STDOBJ_EXPORT ConstPropertyAccess<Point3>;
-extern template class OVITO_STDOBJ_EXPORT ConstPropertyAccess<Vector3>;
-extern template class OVITO_STDOBJ_EXPORT ConstPropertyAccess<Color>;
-extern template class OVITO_STDOBJ_EXPORT ConstPropertyAccess<Vector3I>;
-extern template class OVITO_STDOBJ_EXPORT ConstPropertyAccess<std::array<qlonglong,2>>;
-extern template class OVITO_STDOBJ_EXPORT ConstPropertyAccess<int, true>;
-extern template class OVITO_STDOBJ_EXPORT ConstPropertyAccess<qlonglong, true>;
-extern template class OVITO_STDOBJ_EXPORT ConstPropertyAccess<FloatType, true>;
-extern template class OVITO_STDOBJ_EXPORT ConstPropertyAccess<void, true>;
-extern template class OVITO_STDOBJ_EXPORT PropertyAccess<int>;
-extern template class OVITO_STDOBJ_EXPORT PropertyAccess<qlonglong>;
-extern template class OVITO_STDOBJ_EXPORT PropertyAccess<FloatType>;
-extern template class OVITO_STDOBJ_EXPORT PropertyAccess<Point3>;
-extern template class OVITO_STDOBJ_EXPORT PropertyAccess<Vector3>;
-extern template class OVITO_STDOBJ_EXPORT PropertyAccess<Color>;
-extern template class OVITO_STDOBJ_EXPORT PropertyAccess<Vector3I>;
-extern template class OVITO_STDOBJ_EXPORT PropertyAccess<std::array<qlonglong,2>>;
-extern template class OVITO_STDOBJ_EXPORT PropertyAccess<int, true>;
-extern template class OVITO_STDOBJ_EXPORT PropertyAccess<qlonglong, true>;
-extern template class OVITO_STDOBJ_EXPORT PropertyAccess<FloatType, true>;
-extern template class OVITO_STDOBJ_EXPORT PropertyAccess<void, true>;
+// Export a couple of frequently used class template instantiations. 
+extern template class OVITO_STDOBJ_EXPORT_TEMPLATE ConstPropertyAccess<int>;
+extern template class OVITO_STDOBJ_EXPORT_TEMPLATE ConstPropertyAccess<qlonglong>;
+extern template class OVITO_STDOBJ_EXPORT_TEMPLATE ConstPropertyAccess<FloatType>;
+extern template class OVITO_STDOBJ_EXPORT_TEMPLATE ConstPropertyAccess<Point3>;
+extern template class OVITO_STDOBJ_EXPORT_TEMPLATE ConstPropertyAccess<Vector3>;
+extern template class OVITO_STDOBJ_EXPORT_TEMPLATE ConstPropertyAccess<Color>;
+extern template class OVITO_STDOBJ_EXPORT_TEMPLATE ConstPropertyAccess<Vector3I>;
+extern template class OVITO_STDOBJ_EXPORT_TEMPLATE ConstPropertyAccess<std::array<qlonglong,2>>;
+extern template class OVITO_STDOBJ_EXPORT_TEMPLATE ConstPropertyAccess<int, true>;
+extern template class OVITO_STDOBJ_EXPORT_TEMPLATE ConstPropertyAccess<qlonglong, true>;
+extern template class OVITO_STDOBJ_EXPORT_TEMPLATE ConstPropertyAccess<FloatType, true>;
+extern template class OVITO_STDOBJ_EXPORT_TEMPLATE ConstPropertyAccess<void, true>;
+extern template class OVITO_STDOBJ_EXPORT_TEMPLATE PropertyAccess<int>;
+extern template class OVITO_STDOBJ_EXPORT_TEMPLATE PropertyAccess<qlonglong>;
+extern template class OVITO_STDOBJ_EXPORT_TEMPLATE PropertyAccess<FloatType>;
+extern template class OVITO_STDOBJ_EXPORT_TEMPLATE PropertyAccess<Point3>;
+extern template class OVITO_STDOBJ_EXPORT_TEMPLATE PropertyAccess<Vector3>;
+extern template class OVITO_STDOBJ_EXPORT_TEMPLATE PropertyAccess<Color>;
+extern template class OVITO_STDOBJ_EXPORT_TEMPLATE PropertyAccess<Vector3I>;
+extern template class OVITO_STDOBJ_EXPORT_TEMPLATE PropertyAccess<std::array<qlonglong,2>>;
+extern template class OVITO_STDOBJ_EXPORT_TEMPLATE PropertyAccess<int, true>;
+extern template class OVITO_STDOBJ_EXPORT_TEMPLATE PropertyAccess<qlonglong, true>;
+extern template class OVITO_STDOBJ_EXPORT_TEMPLATE PropertyAccess<FloatType, true>;
+extern template class OVITO_STDOBJ_EXPORT_TEMPLATE PropertyAccess<void, true>;
 
 }	// End of namespace
 }	// End of namespace

@@ -23,7 +23,6 @@
 # Define the plugin module.
 OVITO_STANDARD_PLUGIN(StdObj
 	SOURCES
-		StdObj.cpp
 		camera/CameraObject.cpp
 		camera/TargetObject.cpp
 		simcell/SimulationCellObject.cpp
@@ -45,12 +44,9 @@ OVITO_STANDARD_PLUGIN(StdObj
 		util/ElementSelectionSet.cpp
 	LIB_DEPENDENCIES
 		muParser
+	PRECOMPILED_HEADERS 
+		StdObj.h
 )
-
-# Speed up compilation by using precompiled headers.
-IF(OVITO_USE_PRECOMPILED_HEADERS)
-	ADD_PRECOMPILED_HEADER(StdObj ovito/stdobj/StdObj.h)
-ENDIF()
 
 # Build corresponding GUI plugin.
 IF(OVITO_BUILD_GUI)

@@ -39,17 +39,11 @@ ENDIF()
 
 # Define the plugin module.
 OVITO_STANDARD_PLUGIN(Grid
-	SOURCES
-		Grid.cpp
-		${SourceFiles}
+	SOURCES ${SourceFiles}
 	PLUGIN_DEPENDENCIES Mesh StdObj
 	OPTIONAL_PLUGIN_DEPENDENCIES StdMod
+	PRECOMPILED_HEADERS Grid.h
 )
-
-# Speed up compilation by using precompiled headers.
-IF(OVITO_USE_PRECOMPILED_HEADERS)
-	ADD_PRECOMPILED_HEADER(Grid ovito/grid/Grid.h)
-ENDIF()
 
 # Build corresponding GUI plugin.
 IF(OVITO_BUILD_GUI)
