@@ -1,6 +1,6 @@
 #######################################################################################
 #
-#  Copyright 2019 Alexander Stukowski
+#  Copyright 2020 Alexander Stukowski
 #
 #  This file is part of OVITO (Open Visualization Tool).
 #
@@ -147,10 +147,10 @@ INSTALL(CODE "
 ")
 
 IF(OVITO_BUILD_PLUGIN_OSPRAY AND NOT OVITO_BUILD_BASIC)
-	# Extend the rpath information of the ospcommon library such that OSPRay extension modules loaded by dlopen()
+	# Extend the rpath information of the rkcommon library such that OSPRay extension modules loaded by dlopen()
 	# are found in the Frameworks/ directory at runtime.
 	INSTALL(CODE "
-		SET(lib \"\${CMAKE_INSTALL_PREFIX}/${MACOSX_BUNDLE_NAME}.app/Contents/Frameworks/libospcommon.dylib\")
+		SET(lib \"\${CMAKE_INSTALL_PREFIX}/${MACOSX_BUNDLE_NAME}.app/Contents/Frameworks/librkcommon.dylib\")
 		MESSAGE(\"Adding rpath to \${lib}\")
 		EXECUTE_PROCESS(COMMAND install_name_tool -add_rpath \"@loader_path/\" \"\${lib}\" RESULT_VARIABLE install_name_tool_result)
 		IF(install_name_tool_result)

@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Copyright 2018 Alexander Stukowski
+//  Copyright 2020 Alexander Stukowski
 //
 //  This file is part of OVITO (Open Visualization Tool).
 //
@@ -50,8 +50,8 @@ template<typename T, typename Compare = std::less<T>, int QUEUE_SIZE_LIMIT = 32>
 class BoundedPriorityQueue
 {
 public:
-	typedef T value_type;
-	typedef const value_type* const_iterator;
+	using value_type = T;
+	using const_iterator = typename std::array<value_type, QUEUE_SIZE_LIMIT>::const_iterator;
 
 	/// Constructor.
 	BoundedPriorityQueue(int size, const Compare& comp = Compare()) : _maxSize(size), _comp(comp) {
@@ -109,10 +109,10 @@ public:
 	}
 
 	/// Returns an iterator pointing to the first element in the queue.
-	const_iterator begin() const { return &_data[0]; }
+	const_iterator begin() const { return _data.begin(); }
 
 	/// Returns an iterator pointing to the element after the last element in the queue.
-	const_iterator end() const { return &_data[_count]; }
+	const_iterator end() const { return _data.begin() + _count; }
 
 	/// Returns the i-th entry in the queue.
 	const value_type& operator[](int i) const { OVITO_ASSERT(i >= 0 && i < _count); return _data[i]; }

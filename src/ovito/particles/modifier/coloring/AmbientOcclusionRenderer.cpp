@@ -40,6 +40,7 @@ bool AmbientOcclusionRenderer::startRender(DataSet* dataset, RenderSettings* set
 	OVITO_ASSERT(QOpenGLContext::currentContext() == nullptr);
 	_offscreenContext.reset(new QOpenGLContext());
 	_offscreenContext->setFormat(OpenGLSceneRenderer::getDefaultSurfaceFormat());
+	_offscreenContext->setScreen(_offscreenSurface.screen());
 	if(!_offscreenContext->create())
 		throwException(tr("Failed to create OpenGL context."));
 

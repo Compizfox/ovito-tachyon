@@ -106,6 +106,7 @@ public:
 		if(type == PTM_MATCH_DHEX) return HEX_DIAMOND;
 		if(type == PTM_MATCH_GRAPHENE) return GRAPHENE;
         OVITO_ASSERT(0);
+        return OTHER;
     }
 
     /// Converts an Ovito StructureType to the PTM index.
@@ -120,6 +121,7 @@ public:
 		if(type == HEX_DIAMOND) return PTM_MATCH_DHEX;
 		if(type == GRAPHENE) return PTM_MATCH_GRAPHENE;
         OVITO_ASSERT(0);
+        return PTM_MATCH_NONE;
     }
 
     /// Creates the algorithm object.
