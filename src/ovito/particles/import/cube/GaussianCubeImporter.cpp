@@ -32,7 +32,7 @@ namespace Ovito { namespace Particles {
 
 IMPLEMENT_OVITO_CLASS(GaussianCubeImporter);
 
-static const char* chemical_symbols[] = {
+const char* GaussianCubeImporter::chemical_symbols[] = {
     // 0
     "X",
     // 1

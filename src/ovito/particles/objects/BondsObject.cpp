@@ -332,7 +332,7 @@ boost::dynamic_bitset<> BondsObject::OOMetaClass::viewportFenceSelection(const Q
 						const ParticleIndexPair& t = topologyProperty[index];
 						int insideCount = 0;
 						for(size_t i = 0; i < 2; i++) {
-							if(t[i] >= posProperty.size()) continue;
+							if(t[i] >= (qlonglong)posProperty.size()) continue;
 							const Point3& p = posProperty[t[i]];
 
 							// Project particle center to screen coordinates.

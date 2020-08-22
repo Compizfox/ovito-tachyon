@@ -50,6 +50,9 @@ ADD_LIBRARY(PolyhedralTemplateMatching
 # Give our library file a new name to not confuse it with any system versions of the library.
 SET_TARGET_PROPERTIES(PolyhedralTemplateMatching PROPERTIES OUTPUT_NAME "ovito_ptm")
 
+# PTM library does not support unity build. Need to turn it off.
+SET_TARGET_PROPERTIES(PolyhedralTemplateMatching PROPERTIES UNITY_BUILD OFF)
+
 # Link to Voro++ library.
 TARGET_LINK_LIBRARIES(PolyhedralTemplateMatching PRIVATE VoroPlusPlus)
 

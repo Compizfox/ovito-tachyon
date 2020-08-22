@@ -54,6 +54,11 @@ MACRO(OVITO_STANDARD_PLUGIN target_name)
 		ENDFOREACH()
 	ENDIF()
 
+	# Speed up compilation by using unity build.
+	IF(OVITO_USE_UNITY_BUILD AND CMAKE_VERSION VERSION_GREATER_EQUAL 3.16)
+		SET_TARGET_PROPERTIES(${target_name} PROPERTIES UNITY_BUILD ON)
+	ENDIF()
+
 	# Make the name of current plugin available to the source code.
 	TARGET_COMPILE_DEFINITIONS(${target_name} PRIVATE "OVITO_PLUGIN_NAME=\"${target_name}\"")
 

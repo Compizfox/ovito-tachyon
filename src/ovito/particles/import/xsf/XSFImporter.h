@@ -105,6 +105,8 @@ private:
 		/// Scans the data file and builds a list of source frames.
 		virtual void discoverFramesInFile(QVector<FileSourceImporter::Frame>& frames) override;
 	};
+
+	static const char* chemical_symbols[];
 };
 
 }	// End of namespace

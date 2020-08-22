@@ -83,9 +83,9 @@ private:
 		/// Reads the frame data from the external file.
 		virtual FrameDataPtr loadFile() override;
 	};
+
+	static const char* chemical_symbols[];
 };
 
 }	// End of namespace
 }	// End of namespace
-
-

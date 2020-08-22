@@ -35,7 +35,7 @@ namespace Ovito { namespace Particles {
 
 IMPLEMENT_OVITO_CLASS(XSFImporter);
 
-static const char* chemical_symbols[] = {
+const char* XSFImporter::chemical_symbols[] = {
     // 0
     "X",
     // 1

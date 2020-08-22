@@ -33,7 +33,7 @@ namespace Ovito { namespace Particles {
 
 IMPLEMENT_OVITO_CLASS(CastepCellImporter);
 
-static const char* chemical_symbols[] = {
+const char* CastepCellImporter::chemical_symbols[] = {
     // 0
     "X",
     // 1

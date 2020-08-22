@@ -865,7 +865,7 @@ private:
 		// If the cell is a ghost cell, find the corresponding real cell first.
 		auto cell = facet.first;
 		if(_tessellation.getCellIndex(cell) != -1) {
-			OVITO_ASSERT(_tessellation.getCellIndex(cell) >= 0 && _tessellation.getCellIndex(cell) < _tetrahedraFaceList.size());
+			OVITO_ASSERT(_tessellation.getCellIndex(cell) >= 0 && _tessellation.getCellIndex(cell) < (qint64)_tetrahedraFaceList.size());
 			return _tetrahedraFaceList[_tessellation.getCellIndex(cell)][facet.second];
 		}
 		else {

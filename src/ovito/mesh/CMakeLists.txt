@@ -61,6 +61,11 @@ OVITO_STANDARD_PLUGIN(Mesh
 	PRECOMPILED_HEADERS Mesh.h
 )
 
+# Polytess code does not support unity build. Need to turn it off.
+FOREACH(file ${GLUSourceFiles})
+	SET_SOURCE_FILES_PROPERTIES(${file} PROPERTIES SKIP_UNITY_BUILD_INCLUSION ON)
+ENDFOREACH()
+
 # Build corresponding GUI plugin.
 IF(OVITO_BUILD_GUI)
 	ADD_SUBDIRECTORY(gui)

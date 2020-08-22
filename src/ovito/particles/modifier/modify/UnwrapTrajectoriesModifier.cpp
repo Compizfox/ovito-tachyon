@@ -365,7 +365,7 @@ void UnwrapTrajectoriesModifierApplication::fetchNextFrame()
 			// Schedule the pipeline evaluation for the next frame.
 			fetchNextFrame();
 		}
-		catch(const Exception& ex) {
+		catch(const Exception&) {
 			// In case of an error during pipeline evaluation or the unwrapping calculation, 
 			// abort the operation and forward the exception to the pipeline.
 			_unwrapOperation.captureException();
