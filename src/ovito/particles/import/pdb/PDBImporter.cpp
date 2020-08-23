@@ -301,12 +301,12 @@ FileSourceImporter::FrameDataPtr PDBImporter::FrameLoader::loadFile()
 						if(firstnumber) {
 							firstnumber = false;
 							atomIndex1 = std::distance(particleIdentifierProperty.cbegin(), std::find(particleIdentifierProperty.cbegin(), particleIdentifierProperty.cend(), atomSerialNumber));
-							if(atomIndex1 >= particleIdentifierProperty.size())
+							if((size_t)atomIndex1 >= particleIdentifierProperty.size())
 								throw Exception(tr("Nonexistent atom ID %1 encountered in line %2 of PDB file.").arg(atomSerialNumber).arg(stream.lineNumber()));
 						} 
 						else {
 					        atomIndex2 = std::distance(particleIdentifierProperty.cbegin(), std::find(particleIdentifierProperty.cbegin(), particleIdentifierProperty.cend(), atomSerialNumber));
-							if(atomIndex2 >= particleIdentifierProperty.size())
+							if((size_t)atomIndex2 >= particleIdentifierProperty.size())
 								throw Exception(tr("Nonexistent atom ID %1 encountered in line %2 of PDB file.").arg(atomSerialNumber).arg(stream.lineNumber()));
 							if(!bondTopologyProperty)
 								bondTopologyProperty = frameData->bonds().createStandardProperty<BondsObject>(1, BondsObject::TopologyProperty, false);

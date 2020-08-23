@@ -117,7 +117,7 @@ FileSourceImporter::FrameDataPtr GaussianCubeImporter::FrameLoader::loadFile()
 	stream.readLine();
 
 	// Read number of atoms and cell origin coordinates.
-	long long numAtoms;
+	qlonglong numAtoms;
 	bool voxelFieldTablePresent = false;
 	AffineTransformation cellMatrix;
 	if(sscanf(stream.readLine(), "%lli " FLOATTYPE_SCANF_STRING " " FLOATTYPE_SCANF_STRING " " FLOATTYPE_SCANF_STRING, &numAtoms, &cellMatrix.translation().x(), &cellMatrix.translation().y(), &cellMatrix.translation().z()) != 4)
@@ -157,7 +157,7 @@ FileSourceImporter::FrameDataPtr GaussianCubeImporter::FrameLoader::loadFile()
 	Point3* p = posProperty.begin();
 	int* a = typeProperty.begin();
 	setProgressMaximum(numAtoms + gridSize[0]*gridSize[1]*gridSize[2]);
-	for(unsigned long long i = 0; i < numAtoms; i++, ++p, ++a) {
+	for(qlonglong i = 0; i < numAtoms; i++, ++p, ++a) {
 		if(!setProgressValueIntermittent(i)) return {};
 		FloatType secondColumn;
 		if(sscanf(stream.readLine(), "%i " FLOATTYPE_SCANF_STRING " " FLOATTYPE_SCANF_STRING " " FLOATTYPE_SCANF_STRING " " FLOATTYPE_SCANF_STRING,

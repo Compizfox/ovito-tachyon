@@ -253,10 +253,10 @@ FileSourceImporter::FrameDataPtr GSDImporter::FrameLoader::loadFile()
 		PropertyAccess<ParticleIndexPair> bondTopologyProperty = frameData->bonds().createStandardProperty<BondsObject>(numBonds, BondsObject::TopologyProperty, false);
 		auto bondTopoPtr = bondList.cbegin();
 		for(ParticleIndexPair& bond : bondTopologyProperty) {
-			if(*bondTopoPtr >= numParticles)
+			if(*bondTopoPtr >= (qlonglong)numParticles)
 				throw Exception(tr("Nonexistent atom tag in bond list in GSD file."));
 			bond[0] = *bondTopoPtr++;
-			if(*bondTopoPtr >= numParticles)
+			if(*bondTopoPtr >= (qlonglong)numParticles)
 				throw Exception(tr("Nonexistent atom tag in bond list in GSD file."));
 			bond[1] = *bondTopoPtr++;
 		}

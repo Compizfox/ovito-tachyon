@@ -262,7 +262,7 @@ void ClusterAnalysisModifier::ClusterAnalysisEngine::perform()
 			PropertyAccess<Vector3I> pbcArray(_periodicImageBondProperty);
 			Vector3I* pbcVec = pbcArray.begin();
 			for(const ParticleIndexPair& bond : ConstPropertyAccess<ParticleIndexPair>(bondTopology())) {
-				if(bond[0] < positionsArray.size() && bond[1] < positionsArray.size()) {
+				if((size_t)bond[0] < positionsArray.size() && (size_t)bond[1] < positionsArray.size()) {
 					Vector3 s1 = unwrappedPositionsArray[bond[0]] - positionsArray[bond[0]];
 					Vector3 s2 = unwrappedPositionsArray[bond[1]] - positionsArray[bond[1]];
 					for(size_t dim = 0; dim < 3; dim++) {
@@ -539,7 +539,7 @@ void ClusterAnalysisModifier::ClusterAnalysisEngine::applyResults(TimePoint time
 		// Assign colors to particles according to the clusters they belong to.
 		PropertyAccess<Color> colorsArray = particles->createProperty(ParticlesObject::ColorProperty, false);
 		boost::transform(ConstPropertyAccess<qlonglong>(particleClusters()), colorsArray.begin(), [&](qlonglong cluster) { 
-			OVITO_ASSERT(cluster >= 0 && cluster < clusterColors.size());
+			OVITO_ASSERT(cluster >= 0 && (size_t)cluster < clusterColors.size());
 			return clusterColors[cluster];
 		});
 	}

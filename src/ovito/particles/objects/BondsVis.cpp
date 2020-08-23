@@ -338,7 +338,7 @@ std::vector<ColorA> BondsVis::halfBondColors(const ParticlesObject* particles, b
 		std::vector<ColorA> particleColors = particleVis->particleColors(particles, false, false);
 		auto bc = output.begin();
 		for(const auto& bond : topologyProperty) {
-			if(bond[0] < particleCount && bond[1] < particleCount) {
+			if((size_t)bond[0] < particleCount && (size_t)bond[1] < particleCount) {
 				*bc++ = particleColors[bond[0]];
 				*bc++ = particleColors[bond[1]];
 			}

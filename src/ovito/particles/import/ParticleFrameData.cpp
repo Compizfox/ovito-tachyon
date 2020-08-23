@@ -243,7 +243,7 @@ void ParticleFrameData::sortParticlesById()
 		if(PropertyAccess<ParticleIndexPair> bondTopology = bonds().findStandardProperty(BondsObject::TopologyProperty)) {
 			for(ParticleIndexPair& bond : bondTopology) {
 				for(qlonglong& idx : bond) {
-					if(idx >= 0 && idx < invertedPermutation.size())
+					if(idx >= 0 && idx < (qlonglong)invertedPermutation.size())
 						idx = invertedPermutation[idx];
 				}
 			}
@@ -253,7 +253,7 @@ void ParticleFrameData::sortParticlesById()
 		if(PropertyAccess<ParticleIndexTriplet> angleTopology = angles().findStandardProperty(AnglesObject::TopologyProperty)) {
 			for(ParticleIndexTriplet& angle : angleTopology) {
 				for(qlonglong& idx : angle) {
-					if(idx >= 0 && idx < invertedPermutation.size())
+					if(idx >= 0 && idx < (qlonglong)invertedPermutation.size())
 						idx = invertedPermutation[idx];
 				}
 			}
@@ -263,7 +263,7 @@ void ParticleFrameData::sortParticlesById()
 		if(PropertyAccess<ParticleIndexQuadruplet> dihedralTopology = dihedrals().findStandardProperty(DihedralsObject::TopologyProperty)) {
 			for(ParticleIndexQuadruplet& dihedral : dihedralTopology) {
 				for(qlonglong& idx : dihedral) {
-					if(idx >= 0 && idx < invertedPermutation.size())
+					if(idx >= 0 && idx < (qlonglong)invertedPermutation.size())
 						idx = invertedPermutation[idx];
 				}
 			}
@@ -273,7 +273,7 @@ void ParticleFrameData::sortParticlesById()
 		if(PropertyAccess<ParticleIndexQuadruplet> improperTopology = impropers().findStandardProperty(ImpropersObject::TopologyProperty)) {
 			for(ParticleIndexQuadruplet& improper : improperTopology) {
 				for(qlonglong& idx : improper) {
-					if(idx >= 0 && idx < invertedPermutation.size())
+					if(idx >= 0 && idx < (qlonglong)invertedPermutation.size())
 						idx = invertedPermutation[idx];
 				}
 			}
