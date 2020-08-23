@@ -59,6 +59,16 @@ MACRO(OVITO_STANDARD_PLUGIN target_name)
 		SET_TARGET_PROPERTIES(${target_name} PROPERTIES UNITY_BUILD ON)
 	ENDIF()
 
+	IF(MSVC)
+		# Turn off certain Microsoft compiler warnings.
+		TARGET_COMPILE_OPTIONS(${target_name} 
+			PRIVATE "/wd4267" # Suppress warning on conversion from size_t to int, possible loss of data.
+			PRIVATE "/bigobj" # Compiling template code leads to large object files.
+		)
+		# Do not warn about use of unsafe CRT Library functions.
+		TARGET_COMPILE_DEFINITIONS(${target_name} PRIVATE "_CRT_SECURE_NO_WARNINGS=")
+	ENDIF()
+
 	# Make the name of current plugin available to the source code.
 	TARGET_COMPILE_DEFINITIONS(${target_name} PRIVATE "OVITO_PLUGIN_NAME=\"${target_name}\"")
 

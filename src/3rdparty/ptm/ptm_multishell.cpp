@@ -125,7 +125,7 @@ int calculate_two_shell_neighbour_ordering(	int num_inner, int num_outer,
 	for (int i=0;i<num_inserted;i++)
 	{
 		int inner = data[i].inner;
-		int nbr_atom_index = data[i].atom_index;
+		int nbr_atom_index = (int)data[i].atom_index;
 
 		bool already_claimed = claimed.find(nbr_atom_index) != claimed.end();
 		if (counts[inner] >= num_outer || already_claimed)

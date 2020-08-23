@@ -150,7 +150,6 @@ IF(Libssh_FOUND)
 		utilities/io/ssh/ProcessChannel.cpp
 		utilities/io/ssh/ScpChannel.cpp
 		utilities/io/ssh/LsChannel.cpp
-		utilities/io/ssh/CatChannel.cpp
 	)
 ELSE()
 	MESSAGE("Libssh library not found. OVITO will be built without built-in SSH client.")

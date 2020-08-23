@@ -78,7 +78,7 @@ OPTION(OVITO_REDISTRIBUTABLE_PACKAGE "Create a redistributable program package t
 OPTION(OVITO_BUILD_APPSTORE_VERSION "Build binaries for the Apple App Store and Windows Store." "OFF")
 OPTION(OVITO_RUN_CLANG_TIDY "Run the clang-tidy tool to check code." "OFF")
 OPTION(OVITO_USE_PRECOMPILED_HEADERS "Use precompiled C++ headers to speed up build (requires CMake 3.16)." "ON")
-OPTION(OVITO_USE_UNITY_BUILD "Use unity builds to speed up compilation (requires CMake 3.16)." "ON")
+OPTION(OVITO_USE_UNITY_BUILD "Use unity builds to speed up compilation (requires CMake 3.16)." "OFF")
 OPTION(OVITO_DISABLE_THREADING "Disable multi-threading code (meant only for development purposes)." "OFF")
 OPTION(OVITO_USE_GIT_REVISION_NUMBER "Include git revision number in OVITO version string." "OFF")
 
@@ -119,17 +119,6 @@ ENDIF()
 
 IF(APPLE)
 	SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -stdlib=libc++ -Wno-invalid-offsetof")
-ENDIF()
-
-IF(MSVC)
-	# Suppress warning related to QVarLengthArray implementation.
-	ADD_COMPILE_OPTIONS("/wd4996")
-	# Suppress warning on conversion from size_t to int, possible loss of data.
-	ADD_COMPILE_OPTIONS("/wd4267")
-	# Suppress warning on missing definition for explicit template instantiation request.
-	ADD_COMPILE_OPTIONS("/wd4661")
-	# Compiling template code leads to large object files.
-	ADD_COMPILE_OPTIONS("/bigobj")
 ENDIF()
 
 # Set the name of the macOS application bundle to generate.

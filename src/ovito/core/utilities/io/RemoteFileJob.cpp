@@ -29,7 +29,6 @@
 	#include <ovito/core/utilities/io/ssh/SshConnection.h>
 	#include <ovito/core/utilities/io/ssh/ScpChannel.h>
 	#include <ovito/core/utilities/io/ssh/LsChannel.h>
-	#include <ovito/core/utilities/io/ssh/CatChannel.h>
 #endif
 #include "RemoteFileJob.h"
 

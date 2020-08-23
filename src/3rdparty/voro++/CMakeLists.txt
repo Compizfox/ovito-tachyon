@@ -46,6 +46,13 @@ SET_TARGET_PROPERTIES(VoroPlusPlus PROPERTIES OUTPUT_NAME "ovito_voro++")
 # Make header files of this library available to dependent targets.
 TARGET_INCLUDE_DIRECTORIES(VoroPlusPlus INTERFACE "${CMAKE_CURRENT_SOURCE_DIR}/src")
 
+IF(MSVC)
+	# Do not warn about use of unsafe CRT Library functions.
+	TARGET_COMPILE_DEFINITIONS(VoroPlusPlus PRIVATE "_CRT_SECURE_NO_WARNINGS=")
+	# Suppress warning on conversion from size_t to int, possible loss of data.
+	TARGET_COMPILE_OPTIONS(VoroPlusPlus PRIVATE "/wd4267")
+ENDIF()
+
 IF(NOT BUILD_SHARED_LIBS AND OVITO_BUILD_PYTHON_PACKAGE)
 	# Since we will link this library into the dynamically loaded Python extension module, we need to use the fPIC flag.
 	SET_PROPERTY(TARGET VoroPlusPlus PROPERTY POSITION_INDEPENDENT_CODE ON)

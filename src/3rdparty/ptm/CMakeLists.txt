@@ -59,6 +59,11 @@ TARGET_LINK_LIBRARIES(PolyhedralTemplateMatching PRIVATE VoroPlusPlus)
 # Make header files of this library available to dependent targets.
 TARGET_INCLUDE_DIRECTORIES(PolyhedralTemplateMatching INTERFACE "${CMAKE_CURRENT_SOURCE_DIR}/..")
 
+IF(MSVC)
+	# Suppress warning on conversion from size_t to int, possible loss of data.
+	TARGET_COMPILE_OPTIONS(PolyhedralTemplateMatching PRIVATE "/wd4267" "/wd4244")
+ENDIF()
+
 IF(NOT BUILD_SHARED_LIBS AND OVITO_BUILD_PYTHON_PACKAGE)
 	# Since we will link this library into the dynamically loaded Python extension module, we need to use the fPIC flag.
 	SET_PROPERTY(TARGET PolyhedralTemplateMatching PROPERTY POSITION_INDEPENDENT_CODE ON)
