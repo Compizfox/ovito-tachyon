@@ -47,6 +47,16 @@ DataTablePlotWidget::DataTablePlotWidget(QWidget* parent) : QwtPlot(parent)
 	plotGrid->setPen(Qt::gray, 0, Qt::DotLine);
 	plotGrid->attach(this);
 	plotGrid->setZ(0);
+
+	// Choose a smaller font size for the axis labels.
+    QFont fscl(fontInfo().family(), 8);
+    QFont fttl(fontInfo().family(), 8, QFont::Bold);
+    for(int axisId = 0; axisId < QwtPlot::axisCnt; axisId++) {
+        axisWidget(axisId)->setFont(fscl);
+		QwtText text = axisWidget(axisId)->title();
+		text.setFont(fttl);
+		axisWidget(axisId)->setTitle(text);
+	}
 }
 
 /******************************************************************************
