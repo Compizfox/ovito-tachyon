@@ -16,27 +16,15 @@
   <simplesect>
     <title>Windows</title>
     <para>
-      OVITO for Windows ships with a copy of the PySide2 module that has been built from the original sources provided by
-      the Qt Company, following the standard procedure described <link xlink:href="https://wiki.qt.io/Qt_for_Python/GettingStarted/Windows">here</link>.
-      PySide2 v5.15 has been compiled against Qt 5.15.0 (msvc2019 64-bit) and a standard <link xlink:href="https://www.python.org">CPython</link> 3.7 interpreter for 64-bit Windows:
-<programlisting>
-# Build platform: Windows 10 64-bit
-# Compiler: MSVC 2019
-git clone --recursive https://code.qt.io/pyside/pyside-setup
-cd pyside-setup
-git checkout 5.15
-python3.7 setup.py install ^
-  --ignore-git ^
-  --module-subset=Core,Gui,Widgets,Xml,Network,Svg ^
-  --skip-docs
-</programlisting>
+      OVITO Pro for Windows ships with a copy of the official PySide2 module (version 5.15.0) from 
+      the <link xlink:href="https://pypi.org/project/PySide2/">PyPI repository</link>.
     </para>
   </simplesect>
 
   <simplesect>
     <title>Linux</title>
     <para>
-      OVITO for Linux ships with a copy of the PySide2 module that has been built from the original sources provided by
+      OVITO Pro for Linux ships with a copy of the PySide2 module that has been built from the original sources provided by
       the Qt Company, following the standard procedure described <link xlink:href="https://wiki.qt.io/Qt_for_Python_GettingStarted/X11">here</link>.
       PySide2 v5.15 has been compiled against Qt 5.15.0 (see <link linkend="appendix.license.qt.instructions">here</link>) and a build of the standard <link xlink:href="https://www.python.org">CPython</link> 3.7 interpreter:
 <programlisting>
@@ -57,7 +45,7 @@ python3 setup.py install \
   <simplesect>
     <title>macOS</title>
     <para>
-      OVITO for macOS ships with a copy of the PySide2 module that has been built from the original sources provided by
+      OVITO Pro for macOS ships with a copy of the PySide2 module that has been built from the original sources provided by
       the Qt Company, following the standard procedure described <link xlink:href="https://wiki.qt.io/Qt_for_Python_GettingStarted/MacOS">here</link>.
       PySide2 v5.12 has been compiled against Qt 5.12.5 (macOS) and a standard installation of the <link xlink:href="https://www.python.org">CPython</link> 3.7 interpreter for macOS (64-bit):
 <programlisting>
