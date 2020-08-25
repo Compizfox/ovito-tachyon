@@ -36,7 +36,8 @@
     -qt-libpng \
     -qt-libjpeg \
     -qt-pcre \
-    -qt-xcb \
+    -xcb \
+    -bundled-xcb-xinput \
     -xkbcommon \
     -no-cups \
     -pch \
@@ -75,7 +76,7 @@
     -no-use-gold-linker \
     -prefix $HOME/progs/qt5
 # Apply source code patch, see https://github.com/qt/qtbase/pull/37
-sed -i "s/zs.next_in = mimetype_database/zs.next_in = const_cast<Bytef *>(mimetype_database)/" qtbase/src/corelib/mimetypes/qmimeprovider.cpp
+sed -i "s/zs.next_in = mimetype_database/zs.next_in = const_cast&lt;Bytef *&gt;(mimetype_database)/" qtbase/src/corelib/mimetypes/qmimeprovider.cpp
 make
 make install
 </programlisting>
