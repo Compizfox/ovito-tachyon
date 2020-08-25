@@ -169,10 +169,10 @@ FileSourceImporter::FrameDataPtr OXDNAImporter::FrameLoader::loadFile()
 	// Define nucleobase types.
 	PropertyAccess<int> baseProperty = frameData->particles().createStandardProperty<ParticlesObject>(numNucleotidesLong, ParticlesObject::NucleobaseTypeProperty, false);
 	PropertyContainerImportData::TypeList* typeList = frameData->particles().createPropertyTypesList(baseProperty, ElementType::OOClass());
-	typeList->addTypeId(1, QStringLiteral("T"));
-	typeList->addTypeId(2, QStringLiteral("C"));
-	typeList->addTypeId(3, QStringLiteral("G"));
-	typeList->addTypeId(4, QStringLiteral("A"));
+	typeList->addNamedTypeId(1, QStringLiteral("T"), true);
+	typeList->addNamedTypeId(2, QStringLiteral("C"), true);
+	typeList->addNamedTypeId(3, QStringLiteral("G"), true);
+	typeList->addNamedTypeId(4, QStringLiteral("A"), true);
 
 	// Define strands list.
 	PropertyAccess<int> strandsProperty = frameData->particles().createStandardProperty<ParticlesObject>(numNucleotidesLong, ParticlesObject::DNAStrandProperty, false);

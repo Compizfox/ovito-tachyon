@@ -78,6 +78,12 @@ public:
 	/// \brief Returns true if the file column is mapped to a target property; false otherwise (file column will be ignored during import).
 	bool isMapped() const { return dataType != QMetaType::Void; }
 
+	/// \brief Removes the mapping of this file column to a target property.
+	void unmap() {
+		property = {};
+		dataType = QMetaType::Void;
+	}
+
 	/// \brief Compares two column records for equality.
 	bool operator==(const InputColumnInfo& other) const {
 		return property == other.property && dataType == other.dataType && columnName == other.columnName;
@@ -216,6 +222,9 @@ public:
 	/// \throws Exception if the mapping is not valid.
 	InputColumnReader(const InputColumnMapping& mapping, PropertyContainerImportData& destination, size_t elementCount);
 
+	/// \brief Tells the parser to read the names of element types from the given file column
+	void readTypeNamesFromColumn(int nameColumn, int numericIdColumn);
+
 	/// \brief Parses the string tokens from one line of the input file and stores the values
 	///        in the target properties.
 	/// \param elementIndex The line index starting at 0 that specifies the data element whose properties
@@ -241,6 +250,9 @@ private:
 	/// Parse a single field from a text line.
 	void parseField(size_t elementIndex, int columnIndex, const char* token, const char* token_end);
 
+	/// Assigns textual names, read from separate file columns, to numeric element types.
+	void assignTypeNamesFromSeparateColumns();
+
 	/// Specifies the mapping of file columns to target properties.
 	InputColumnMapping _mapping;
 
@@ -257,10 +269,17 @@ private:
 		int dataType;
 		PropertyContainerImportData::TypeList* typeList = nullptr;
 		bool numericElementTypes;
+		int nameOfNumericTypeColumn = -1;
+		std::pair<const char*, const char*> typeName{nullptr, nullptr};
+		int lastTypeId = -1;
 	};
 
 	/// Specifies the destinations for the column data.
 	QVector<TargetPropertyRecord> _properties;
+
+	/// Indicates that the element names of at least one typed property are read from 
+	/// a separate file column.
+	bool _readingTypeNamesFromSeparateColumns = false;
 };
 
 }	// End of namespace

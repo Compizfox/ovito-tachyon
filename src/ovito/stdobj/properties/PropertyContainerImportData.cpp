@@ -147,7 +147,7 @@ void PropertyContainerImportData::insertTypes(PropertyObject* typeProperty, Type
 		for(auto& item : typeList->types()) {
 			// Look up existing element type.
 			OORef<ElementType> elementType;
-			if(item.name.isEmpty()) {
+			if(item.name.isEmpty() || item.preserveNumericId) {
 				elementType = typeProperty->elementType(item.id);
 			}
 			else {
@@ -173,18 +173,17 @@ void PropertyContainerImportData::insertTypes(PropertyObject* typeProperty, Type
 			if(!elementType) {
 				elementType = static_object_cast<ElementType>(typeList->elementClass().createInstance(typeProperty->dataset()));
 				elementType->setNumericId(item.id);
-				elementType->setName(item.name);
 				typeProperty->addElementType(elementType);
-				elementType->initialize(true, item.attributes, typeProperty->type());
+				elementType->initialize(true, item.name, item.attributes, typeProperty->type());
 			}
 			else {
 				// Update attributes of existing element type. 
 				// Note that this requires a mutable copy of the ElementType instance,
 				// which will be created if the first attempt to update the existing instance fails.
-				if(!elementType->initialize(false, item.attributes, typeProperty->type())) {
+				if(!elementType->initialize(false, item.name, item.attributes, typeProperty->type())) {
 					// Create a mutable copy of the original ElementType.
 					elementType = typeProperty->makeMutable<ElementType>(elementType);
-					elementType->initialize(false, item.attributes, typeProperty->type());
+					elementType->initialize(false, item.name, item.attributes, typeProperty->type());
 				}
 			}
 			activeTypes.insert(elementType);

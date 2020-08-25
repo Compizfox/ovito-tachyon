@@ -41,6 +41,7 @@ public:
 		int id;
 		QString name;
 		std::string name8bit;
+		bool preserveNumericId = false;
 		QVariantMap attributes;
 	};
 
@@ -58,13 +59,13 @@ public:
 		/// Defines a new element type with the given numeric id and no name.
 		void addTypeId(int id) {
 			if(hasTypeId(id)) return;
-			_types.push_back({ id, QString(), std::string() });
+			_types.push_back({id});
 		}
 
 		/// Defines a new type with the given numeric id and name.
-		void addTypeId(int id, const QString& name, const Color& color = Color(0,0,0), FloatType radius = 0, FloatType mass = 0) {
+		void addNamedTypeId(int id, const QString& name, bool preserveNumericId, const Color& color = Color(0,0,0), FloatType radius = 0, FloatType mass = 0) {
 			if(hasTypeId(id)) return;
-			_types.push_back({ id, name, name.toStdString() });
+			_types.push_back({ id, name, name.toStdString(), preserveNumericId });
 			if(color != Color(0,0,0)) _types.back().attributes.insert(QStringLiteral("color"), QVariant::fromValue(color));
 			if(radius) _types.back().attributes.insert(QStringLiteral("radius"), QVariant::fromValue(radius));
 			if(mass) _types.back().attributes.insert(QStringLiteral("mass"), QVariant::fromValue(mass));
@@ -80,11 +81,26 @@ public:
 		}
 
 		/// Changes the name of an existing type.
-		void setTypeName(int id, const QString& name) {
+		void setTypeName(int id, const QString& name, bool preserveNumericId) {
 			for(auto& type : _types) {
 				if(type.id == id) {
 					type.name = name;
 					type.name8bit = name.toStdString();
+					type.preserveNumericId = preserveNumericId;
+					break;
+				}
+			}
+		}
+
+		/// Gives an existing type a name unless it already has one.
+		void setTypeName(int id, const char* name, size_t length, bool preserveNumericId) {
+			for(auto& type : _types) {
+				if(type.id == id) {
+					if(type.name8bit.compare(0, length, name, length)) {
+						type.name8bit.assign(name, length);
+						type.name = QString::fromUtf8(name, length);
+						type.preserveNumericId = preserveNumericId;
+					}
 					break;
 				}
 			}

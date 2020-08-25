@@ -358,7 +358,7 @@ FileSourceImporter::FrameDataPtr LAMMPSDataImporter::FrameLoader::loadFile()
 				if(*start) {
 					QStringList words = QString::fromLocal8Bit(start).split(QRegularExpression("\\s+"), QString::SkipEmptyParts);
 					if(words.size() == 2)
-						typeList->setTypeName(atomType, words[1]);
+						typeList->setTypeName(atomType, words[1], true);
 				}
 			}
 		}

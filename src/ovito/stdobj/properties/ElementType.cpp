@@ -104,10 +104,17 @@ void ElementType::setDefaultColor(int typeClass, const QString& typeName, const 
 /******************************************************************************
 * Initializes the element type from a variable list of attributes delivered by a file importer.
 ******************************************************************************/
-bool ElementType::initialize(bool isNewlyCreated, const QVariantMap& attributes, int typePropertyId)
+bool ElementType::initialize(bool isNewlyCreated, const QString& name, const QVariantMap& attributes, int typePropertyId)
 {
 	if(isNewlyCreated && Application::instance()->executionContext() == Application::ExecutionContext::Interactive)
 		loadUserDefaults();
+
+	// Assign name string.
+	if(name != this->name() && (isNewlyCreated || !name.isEmpty())) {
+		if(!isSafeToModify())
+			return false;
+		setName(name);
+	}
 
 	// Initialize color value.
 	if(attributes.contains(QStringLiteral("color"))) {

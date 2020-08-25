@@ -288,6 +288,15 @@ FileSourceImporter::FrameDataPtr LAMMPSTextDumpImporter::FrameLoader::loadFile()
 				// Parse data columns.
 				InputColumnReader columnParser(columnMapping, frameData->particles(), numParticles);
 
+				// Check if there is an 'element' file column containing the atom type names.
+				int elementColumn = fileColumnNames.indexOf(QStringLiteral("element"));
+				if(elementColumn != -1) {
+					int typeColumn = fileColumnNames.indexOf(QStringLiteral("type"));
+					if(typeColumn != -1) {
+						columnParser.readTypeNamesFromColumn(elementColumn, typeColumn);
+					}
+				}
+
 				// If possible, use memory-mapped file access for best performance.
 				const char* s_start;
 				const char* s_end;
@@ -428,7 +437,19 @@ ParticleInputColumnMapping LAMMPSTextDumpImporter::generateAutomaticColumnMappin
 		else if(name == "vy") columnMapping.mapStandardColumn(i, ParticlesObject::VelocityProperty, 1);
 		else if(name == "vz") columnMapping.mapStandardColumn(i, ParticlesObject::VelocityProperty, 2);
 		else if(name == "id") columnMapping.mapStandardColumn(i, ParticlesObject::IdentifierProperty);
-		else if(name == "type" || name == "element" || name == "atom_types") columnMapping.mapStandardColumn(i, ParticlesObject::TypeProperty);
+		else if(name == "element") columnMapping.mapStandardColumn(i, ParticlesObject::TypeProperty);
+		else if(name == "type") {
+			if(!columnMapping.mapStandardColumn(i, ParticlesObject::TypeProperty)) {
+				// Give precedence of the 'type' column over the 'element' column.
+				for(int j = 0; j < i; j++) {
+					if(columnNames[j].compare(QStringLiteral("element"), Qt::CaseInsensitive) == 0) {
+						columnMapping[j].unmap();
+						columnMapping.mapStandardColumn(i, ParticlesObject::TypeProperty);
+						break;
+					}
+				}
+			}
+		}
 		else if(name == "mass") columnMapping.mapStandardColumn(i, ParticlesObject::MassProperty);
 		else if(name == "radius" || name == "diameter") columnMapping.mapStandardColumn(i, ParticlesObject::RadiusProperty);
 		else if(name == "mol") columnMapping.mapStandardColumn(i, ParticlesObject::MoleculeProperty);

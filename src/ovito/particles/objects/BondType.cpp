@@ -42,9 +42,9 @@ BondType::BondType(DataSet* dataset) : ElementType(dataset), _radius(0)
 /******************************************************************************
 * Initializes the element type from a variable list of attributes delivered by a file importer.
 ******************************************************************************/
-bool BondType::initialize(bool isNewlyCreated, const QVariantMap& attributes, int typePropertyId)
+bool BondType::initialize(bool isNewlyCreated, const QString& name, const QVariantMap& attributes, int typePropertyId)
 {
-	if(!ElementType::initialize(isNewlyCreated, attributes, typePropertyId))
+	if(!ElementType::initialize(isNewlyCreated, name, attributes, typePropertyId))
 		return false;
 
 	// Initialize color value.

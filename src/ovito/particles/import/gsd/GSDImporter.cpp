@@ -185,7 +185,7 @@ FileSourceImporter::FrameDataPtr GSDImporter::FrameLoader::loadFile()
 	PropertyAccess<int> typeProperty = frameData->particles().createStandardProperty<ParticlesObject>(numParticles, ParticlesObject::TypeProperty, false);
 	PropertyContainerImportData::TypeList* typeList = frameData->particles().createPropertyTypesList(typeProperty, ParticleType::OOClass());
 	for(int i = 0; i < particleTypeNames.size(); i++)
-		typeList->addTypeId(i, QString::fromUtf8(particleTypeNames[i]));
+		typeList->addNamedTypeId(i, QString::fromUtf8(particleTypeNames[i]), true);
 
 	// Read particle types.
 	if(gsd.hasChunk("particles/typeid", frameNumber))
@@ -275,7 +275,7 @@ FileSourceImporter::FrameDataPtr GSDImporter::FrameLoader::loadFile()
 			PropertyAccess<int> bondTypeProperty = frameData->bonds().createStandardProperty<BondsObject>(numBonds, BondsObject::TypeProperty, false);
 			PropertyContainerImportData::TypeList* bondTypeList = frameData->bonds().createPropertyTypesList(bondTypeProperty, BondType::OOClass());
 			for(int i = 0; i < bondTypeNames.size(); i++)
-				bondTypeList->addTypeId(i, QString::fromUtf8(bondTypeNames[i]));
+				bondTypeList->addNamedTypeId(i, QString::fromUtf8(bondTypeNames[i]), true);
 
 			// Read bond types.
 			if(gsd.hasChunk("bonds/typeid", frameNumber)) {

@@ -172,7 +172,7 @@ FileSourceImporter::FrameDataPtr GaussianCubeImporter::FrameLoader::loadFile()
 	PropertyContainerImportData::TypeList* typeList = frameData->particles().createPropertyTypesList(typeProperty, ParticleType::OOClass());
 	for(int a : typeProperty) {
 		if(a >= 0 && a < sizeof(chemical_symbols)/sizeof(chemical_symbols[0]))
-			typeList->addTypeId(a, chemical_symbols[a]);
+			typeList->addNamedTypeId(a, chemical_symbols[a], false);
 		else
 			typeList->addTypeId(a);
 	}

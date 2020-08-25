@@ -281,6 +281,18 @@ InputColumnReader::InputColumnReader(const InputColumnMapping& mapping, Property
 }
 
 /******************************************************************************
+ * Tells the parser to read the names of element types from the given file column
+ *****************************************************************************/
+void InputColumnReader::readTypeNamesFromColumn(int nameColumn, int numericIdColumn)
+{
+	OVITO_ASSERT(nameColumn >= 0 && nameColumn < _properties.size());
+	OVITO_ASSERT(numericIdColumn >= 0 && numericIdColumn < _properties.size());
+	OVITO_ASSERT(_properties[numericIdColumn].typeList != nullptr);
+	_properties[nameColumn].nameOfNumericTypeColumn = numericIdColumn;
+	_readingTypeNamesFromSeparateColumns = true;
+}
+
+/******************************************************************************
  * Parses the string tokens from one line of the input file and stores the values
  * in the target properties.
  *****************************************************************************/
@@ -307,6 +319,9 @@ const char* InputColumnReader::readElement(size_t elementIndex, const char* s, c
 	}
 	if(columnIndex < _properties.size())
 		throw Exception(tr("Data line in input file does not contain enough columns. Expected %1 file columns, but found only %2.").arg(_properties.size()).arg(columnIndex));
+
+	if(_readingTypeNamesFromSeparateColumns)
+		assignTypeNamesFromSeparateColumns();
 
 	// Skip to end of line.
 	while(s != s_end && *s != '\n')
@@ -339,6 +354,22 @@ void InputColumnReader::readElement(size_t elementIndex, const char* s)
 	}
 	if(columnIndex < _properties.size())
 		throw Exception(tr("Data line in input file does not contain enough columns. Expected %1 file columns, but found only %2.").arg(_properties.size()).arg(columnIndex));
+
+	if(_readingTypeNamesFromSeparateColumns)
+		assignTypeNamesFromSeparateColumns();
+}
+
+/******************************************************************************
+ * Assigns textual names, read from separate file columns, to numeric element types.
+ *****************************************************************************/
+void InputColumnReader::assignTypeNamesFromSeparateColumns()
+{
+	for(TargetPropertyRecord& record : _properties) {
+		if(record.typeList && record.typeName.second != record.typeName.first) {
+			size_t nameLength = record.typeName.second - record.typeName.first;
+			record.typeList->setTypeName(record.lastTypeId, record.typeName.first, nameLength, true);
+		}
+	}
 }
 
 /******************************************************************************
@@ -347,6 +378,9 @@ void InputColumnReader::readElement(size_t elementIndex, const char* s)
 void InputColumnReader::parseField(size_t elementIndex, int columnIndex, const char* token, const char* token_end)
 {
 	TargetPropertyRecord& prec = _properties[columnIndex];
+	if(prec.nameOfNumericTypeColumn != -1) {
+		_properties[prec.nameOfNumericTypeColumn].typeName = std::make_pair(token, token_end);
+	}
 	if(!prec.property || !prec.data) return;
 
 	if(elementIndex >= prec.count)
@@ -375,6 +409,7 @@ void InputColumnReader::parseField(size_t elementIndex, int columnIndex, const c
 				d = prec.typeList->addTypeName(token, token_end);
 				prec.numericElementTypes = false;
 			}
+			prec.lastTypeId = d;
 		}
 	}
 	else if(prec.dataType == PropertyStorage::Int64) {

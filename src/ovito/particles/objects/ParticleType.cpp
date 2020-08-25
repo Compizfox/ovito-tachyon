@@ -58,9 +58,9 @@ ParticleType::ParticleType(DataSet* dataset) : ElementType(dataset),
 /******************************************************************************
 * Initializes the element type from a variable list of attributes delivered by a file importer.
 ******************************************************************************/
-bool ParticleType::initialize(bool isNewlyCreated, const QVariantMap& attributes, int typePropertyId)
+bool ParticleType::initialize(bool isNewlyCreated, const QString& name, const QVariantMap& attributes, int typePropertyId)
 {
-	if(!ElementType::initialize(isNewlyCreated, attributes, typePropertyId))
+	if(!ElementType::initialize(isNewlyCreated, name, attributes, typePropertyId))
 		return false;
 
 	// Initialize color value.

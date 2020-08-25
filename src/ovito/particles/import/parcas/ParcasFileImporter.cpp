@@ -249,7 +249,7 @@ FileSourceImporter::FrameDataPtr ParcasFileImporter::FrameLoader::loadFile()
     for(int i = mintype; i <= maxtype; i++) {
     	stream.read(types[i - mintype].data(), 4);
     	types[i - mintype][4] = '\0';
-		typeList->addTypeId(i, QString::fromLatin1(types[i - mintype].data()).trimmed());
+		typeList->addNamedTypeId(i, QString::fromUtf8(types[i - mintype].data()).trimmed(), true);
     }
 
 	// The actual header is now parsed. Check the offsets.

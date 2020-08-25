@@ -99,6 +99,7 @@ void ParticleTypeEditor::createUI(const RolloutInsertionParameters& rolloutParam
 	// Button layout.
 	QHBoxLayout* hboxlayout = new QHBoxLayout();
 	hboxlayout->setContentsMargins(0,0,0,0);
+	hboxlayout->setSpacing(2);
 	gridLayout->addLayout(hboxlayout, 2, 0, 1, 2);
 
 	// "Load defaults" button
@@ -175,9 +176,9 @@ void ParticleTypeEditor::createUI(const RolloutInsertionParameters& rolloutParam
 			loadShapeBtn->setEnabled(true);
 			resetShapeBtn->setEnabled(ptype->shapeMesh() != nullptr);
 			if(ptype->shapeMesh() && ptype->shapeMesh()->mesh())
-				userShapeLabel->setText(tr("Assigned mesh: %1 faces/%2 vertices").arg(ptype->shapeMesh()->mesh()->faceCount()).arg(ptype->shapeMesh()->mesh()->vertexCount()));
+				userShapeLabel->setText(tr("Mesh: %1 faces / %2 vertices").arg(ptype->shapeMesh()->mesh()->faceCount()).arg(ptype->shapeMesh()->mesh()->vertexCount()));
 			else
-				userShapeLabel->setText(tr("No user-defined shape set"));
+				userShapeLabel->setText({});
 			highlightEdgesUI->setEnabled(ptype->shapeMesh() != nullptr);
 			shapeBackfaceCullingUI->setEnabled(ptype->shapeMesh() != nullptr);
 			shapeUseMeshColorUI->setEnabled(ptype->shapeMesh() != nullptr);

@@ -342,7 +342,7 @@ FileSourceImporter::FrameDataPtr XSFImporter::FrameLoader::loadFile()
 		if(PropertyContainerImportData::TypeList* typeList = frameData->particles().propertyTypesList(typeProperty)) {
 			for(const auto& t : typeList->types()) {
 				if(t.name.isEmpty() && t.id >= 1 && t.id < sizeof(chemical_symbols)/sizeof(chemical_symbols[0])) {
-					typeList->setTypeName(t.id, chemical_symbols[t.id]);
+					typeList->setTypeName(t.id, chemical_symbols[t.id], false);
 				}
 			}
 		}

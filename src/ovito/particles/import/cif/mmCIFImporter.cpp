@@ -157,7 +157,7 @@ FileSourceImporter::FrameDataPtr mmCIFImporter::FrameLoader::loadFile()
 					// Atomic type.
 					*typeIter++ = atom.element.ordinal();
 					if(!typeList->hasTypeId(atom.element.ordinal()))
-						typeList->addTypeId(atom.element.ordinal(), QString::fromStdString(atom.element.name()));
+						typeList->addNamedTypeId(atom.element.ordinal(), QString::fromStdString(atom.element.name()), false);
 
 					// Check for presence of occupancy values.
 					if(atom.occ != 1) hasOccupancy = true;

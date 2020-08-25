@@ -43,7 +43,7 @@ public:
 	Q_INVOKABLE BondType(DataSet* dataset);
 
 	/// \brief Initializes the element type from a variable list of attributes delivered by a file importer.
-	virtual bool initialize(bool isNewlyCreated, const QVariantMap& attributes, int typePropertyId) override;
+	virtual bool initialize(bool isNewlyCreated, const QString& name, const QVariantMap& attributes, int typePropertyId) override;
 
 	//////////////////////////////////// Utility methods ////////////////////////////////
 
