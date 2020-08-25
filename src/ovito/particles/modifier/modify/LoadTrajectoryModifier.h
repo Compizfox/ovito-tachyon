@@ -85,6 +85,13 @@ public:
 		return trajectorySource() ? trajectorySource()->sourceFrameToAnimationTime(frame) : inputTime;
 	}
 
+	/// Returns the human-readable labels associated with the animation frames (e.g. the simulation timestep numbers).
+	virtual QMap<int, QString> animationFrameLabels(QMap<int, QString> inputLabels) const override {
+		if(trajectorySource())
+			inputLabels.unite(trajectorySource()->animationFrameLabels());
+		return std::move(inputLabels);
+	}
+
 protected:
 
 	/// \brief Is called when a RefTarget referenced by this object has generated an event.
