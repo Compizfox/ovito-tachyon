@@ -130,6 +130,9 @@ protected:
 	/// Is called when the widgets looses the input focus.
 	virtual void focusOutEvent(QFocusEvent* event) override;
 
+	/// Handles key-press events.
+	virtual void keyPressEvent(QKeyEvent* event) override;
+
 private:
 
 	/// Renders the contents of the viewport window.

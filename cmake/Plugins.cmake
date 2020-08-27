@@ -64,6 +64,7 @@ MACRO(OVITO_STANDARD_PLUGIN target_name)
 		TARGET_COMPILE_OPTIONS(${target_name} 
 			PRIVATE "/wd4267" # Suppress warning on conversion from size_t to int, possible loss of data.
 			PRIVATE "/bigobj" # Compiling template code leads to large object files.
+			PRIVATE "/wd4996" # Suppress warnings for use of Qt 5.15 deprecated functions.
 		)
 		# Do not warn about use of unsafe CRT Library functions.
 		TARGET_COMPILE_DEFINITIONS(${target_name} PRIVATE "_CRT_SECURE_NO_WARNINGS=")

@@ -43,7 +43,7 @@ ViewportWindow::ViewportWindow(Viewport* vp, ViewportInputManager* inputManager,
 		_inputManager(inputManager)
 {
 	setMouseTracking(true);
-	setFocusPolicy(Qt::ClickFocus);
+	setFocusPolicy(Qt::StrongFocus);
 
 	// Determine OpenGL vendor string so other parts of the code can decide
 	// which OpenGL features are safe to use.
@@ -310,6 +310,26 @@ void ViewportWindow::focusOutEvent(QFocusEvent* event)
 			}
 		}
 	}
+}
+
+/******************************************************************************
+* Handles key-press events.
+******************************************************************************/
+void ViewportWindow::keyPressEvent(QKeyEvent* event)
+{
+	if(_inputManager) {
+		if(ViewportInputMode* mode = _inputManager->activeMode()) {
+			try {
+				if(mode->keyPressEvent(this, event))
+					return; // Do not propagate handled key events to base class.
+			}
+			catch(const Exception& ex) {
+				qWarning() << "Uncaught exception in viewport key-press event handler:";
+				ex.logError();
+			}
+		}
+	}
+	QOpenGLWidget::keyPressEvent(event);
 }
 
 /******************************************************************************

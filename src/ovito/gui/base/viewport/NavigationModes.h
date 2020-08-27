@@ -54,13 +54,16 @@ public:
 	/// Is called when a viewport looses the input focus.
 	virtual void focusOutEvent(ViewportWindowInterface* vpwin, QFocusEvent* event) override;
 
+	/// Applies a step-wise change of the view orientation. 
+	void discreteStep(ViewportWindowInterface* vpwin, QPointF delta);
+
 protected:
 
 	/// Protected constructor.
 	NavigationMode(QObject* parent) : ViewportInputMode(parent) {}
 
 	/// Computes the new view based on the new mouse position.
-	virtual void modifyView(ViewportWindowInterface* vpwin, Viewport* vp, QPointF delta) {}
+	virtual void modifyView(ViewportWindowInterface* vpwin, Viewport* vp, QPointF delta, bool discreteStep) {}
 
 	/// \brief This is called by the system after the input handler has
 	///        become the active handler.
@@ -128,7 +131,7 @@ public:
 protected:
 
 	/// Computes the new view based on the new mouse position.
-	virtual void modifyView(ViewportWindowInterface* vpwin, Viewport* vp, QPointF delta) override;
+	virtual void modifyView(ViewportWindowInterface* vpwin, Viewport* vp, QPointF delta, bool discreteStep) override;
 };
 
 /******************************************************************************
@@ -153,7 +156,7 @@ public:
 protected:
 
 	/// Computes the new view based on the new mouse position.
-	virtual void modifyView(ViewportWindowInterface* vpwin, Viewport* vp, QPointF delta) override;
+	virtual void modifyView(ViewportWindowInterface* vpwin, Viewport* vp, QPointF delta, bool discreteStep) override;
 };
 
 
@@ -182,7 +185,7 @@ public:
 protected:
 
 	/// Computes the new view based on the new mouse position.
-	virtual void modifyView(ViewportWindowInterface* vpwin, Viewport* vp, QPointF delta) override;
+	virtual void modifyView(ViewportWindowInterface* vpwin, Viewport* vp, QPointF delta, bool discreteStep) override;
 
 	/// Computes a scaling factor that depends on the total size of the scene which is used to
 	/// control the zoom sensitivity in perspective mode.
@@ -211,7 +214,7 @@ public:
 protected:
 
 	/// Computes the new view based on the new mouse position.
-	virtual void modifyView(ViewportWindowInterface* vpwin, Viewport* vp, QPointF delta) override;
+	virtual void modifyView(ViewportWindowInterface* vpwin, Viewport* vp, QPointF delta, bool discreteStep) override;
 };
 
 /******************************************************************************

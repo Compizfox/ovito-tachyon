@@ -292,7 +292,7 @@ FileSourceImporter::FrameDataPtr LAMMPSTextDumpImporter::FrameLoader::loadFile()
 				int elementColumn = fileColumnNames.indexOf(QStringLiteral("element"));
 				if(elementColumn != -1) {
 					int typeColumn = fileColumnNames.indexOf(QStringLiteral("type"));
-					if(typeColumn != -1) {
+					if(typeColumn != -1 && columnMapping[typeColumn].isMapped()) {
 						columnParser.readTypeNamesFromColumn(elementColumn, typeColumn);
 					}
 				}

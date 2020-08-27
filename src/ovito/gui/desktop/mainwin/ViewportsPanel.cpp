@@ -81,6 +81,8 @@ void ViewportsPanel::onViewportConfigurationReplaced(ViewportConfiguration* newV
 			for(Viewport* vp : newViewportConfiguration->viewports()) {
 				OVITO_ASSERT(vp->window() == nullptr);
 				ViewportWindow* viewportWindow = new ViewportWindow(vp, inputManager, mainWindow, this);
+				if(newViewportConfiguration->activeViewport() == vp)
+					viewportWindow->setFocus();
 			}
 		}
 		catch(const Exception& ex) {

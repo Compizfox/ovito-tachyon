@@ -192,6 +192,43 @@ void ViewportInputMode::focusOutEvent(ViewportWindowInterface* vpwin, QFocusEven
 }
 
 /******************************************************************************
+* Handles key-press events in a viewport window.
+******************************************************************************/
+bool ViewportInputMode::keyPressEvent(ViewportWindowInterface* vpwin, QKeyEvent* event)
+{
+	qreal delta = 1.0;
+	if(event->key() == Qt::Key_Left) {
+		if(!(event->modifiers() & Qt::ShiftModifier))
+			inputManager()->orbitMode()->discreteStep(vpwin, QPointF(-delta, 0));
+		else
+			inputManager()->panMode()->discreteStep(vpwin, QPointF(-delta, 0));
+		return true;
+	}
+	else if(event->key() == Qt::Key_Right) {
+		if(!(event->modifiers() & Qt::ShiftModifier))
+			inputManager()->orbitMode()->discreteStep(vpwin, QPointF(delta, 0));
+		else
+			inputManager()->panMode()->discreteStep(vpwin, QPointF(delta, 0));
+		return true;
+	}
+	else if(event->key() == Qt::Key_Up) {
+		if(!(event->modifiers() & Qt::ShiftModifier))
+			inputManager()->orbitMode()->discreteStep(vpwin, QPointF(0, -delta));
+		else
+			inputManager()->panMode()->discreteStep(vpwin, QPointF(0, -delta));
+		return true;
+	}
+	else if(event->key() == Qt::Key_Down) {
+		if(!(event->modifiers() & Qt::ShiftModifier))
+			inputManager()->orbitMode()->discreteStep(vpwin, QPointF(0, delta));
+		else
+			inputManager()->panMode()->discreteStep(vpwin, QPointF(0, delta));
+		return true;
+	}
+	return false;
+}
+
+/******************************************************************************
 * Redraws all viewports.
 ******************************************************************************/
 void ViewportInputMode::requestViewportUpdate()

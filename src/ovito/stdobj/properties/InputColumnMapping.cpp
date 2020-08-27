@@ -287,7 +287,6 @@ void InputColumnReader::readTypeNamesFromColumn(int nameColumn, int numericIdCol
 {
 	OVITO_ASSERT(nameColumn >= 0 && nameColumn < _properties.size());
 	OVITO_ASSERT(numericIdColumn >= 0 && numericIdColumn < _properties.size());
-	OVITO_ASSERT(_properties[numericIdColumn].typeList != nullptr);
 	_properties[nameColumn].nameOfNumericTypeColumn = numericIdColumn;
 	_readingTypeNamesFromSeparateColumns = true;
 }
