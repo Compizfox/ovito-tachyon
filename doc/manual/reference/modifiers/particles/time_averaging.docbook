@@ -14,8 +14,8 @@
     <informalfigure><screenshot><mediaobject><imageobject>
        <imagedata fileref="images/modifiers/time_averaging_panel.png" format="png" scale="50" />
     </imageobject></mediaobject></screenshot></informalfigure>
-    This modifier can compute the mean value of some input quantity averaged over all frames of a trajectory.
-    Three types of input quantities are supported:
+    This modifier can compute the average value of one or more input quantities, averaged over the frames of the simulation trajectory.
+    Three kinds of input quantities are supported:
     <variablelist>
       <varlistentry>
         <term>Attributes</term>
@@ -55,7 +55,7 @@
 
   <para>
     Note that the modifier has to step through all frames of the simulation trajectory to compute the time average of the 
-    selected quantity. This can be a lengthy process depending on the length of the trajectory and the dataset size. However, the averaging will happen 
+    selected quantity. This can be a lengthy process depending on the extent of the trajectory and the dataset size. However, the averaging will happen 
     in the background, and you can continue working with the program while the modifiers is performing the calculation.
     Once the averaging calculation is completed, you can press the <guibutton>Show in data inspector</guibutton> button 
     to reveal the computed average quantity in the <link linkend="data_inspector">data inspector</link> of OVITO.

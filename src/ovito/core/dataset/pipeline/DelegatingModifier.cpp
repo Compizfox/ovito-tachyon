@@ -162,7 +162,7 @@ TimeInterval MultiDelegatingModifier::validityInterval(const PipelineEvaluationR
 	TimeInterval iv = Modifier::validityInterval(request, modApp);
 
 	for(const ModifierDelegate* delegate : delegates()) {
-		if(delegate->isEnabled()) {
+		if(delegate && delegate->isEnabled()) {
 			iv.intersect(delegate->validityInterval(request, modApp));
 		}
 	}
@@ -217,7 +217,7 @@ void MultiDelegatingModifier::applyDelegates(PipelineFlowState& state, TimePoint
 	for(ModifierDelegate* delegate : delegates()) {
 
 		// Skip function if not applicable.
-		if(!state.data() || !delegate->isEnabled() || delegate->getOOMetaClass().getApplicableObjects(*state.data()).empty())
+		if(!state.data() || !delegate || !delegate->isEnabled() || delegate->getOOMetaClass().getApplicableObjects(*state.data()).empty())
 			continue;
 
 		// Call the delegate function.

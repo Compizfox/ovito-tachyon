@@ -166,6 +166,9 @@ class OVITO_CORE_EXPORT MultiDelegatingModifier : public Modifier
 {
 public:
 
+	/// The abstract base class of delegates used by this modifier type.
+	using DelegateBaseType = ModifierDelegate;
+
 	/// Give this modifier class its own metaclass.
 	class OVITO_CORE_EXPORT MultiDelegatingModifierClass : public ModifierClass
 	{
@@ -214,6 +217,5 @@ protected:
 	/// List of modifier delegates.
 	DECLARE_VECTOR_REFERENCE_FIELD_FLAGS(ModifierDelegate, delegates, PROPERTY_FIELD_ALWAYS_CLONE);
 };
-
 
 }	// End of namespace

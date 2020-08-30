@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Copyright 2017 Alexander Stukowski
+//  Copyright 2020 Alexander Stukowski
 //
 //  This file is part of OVITO (Open Visualization Tool).
 //
@@ -23,16 +23,16 @@
 #include <ovito/gui/desktop/GUI.h>
 #include <ovito/core/dataset/pipeline/DelegatingModifier.h>
 #include <ovito/gui/desktop/properties/ModifierPropertiesEditor.h>
-#include "ModifierDelegateListParameterUI.h"
+#include "ModifierDelegateFixedListParameterUI.h"
 
 namespace Ovito {
 
-IMPLEMENT_OVITO_CLASS(ModifierDelegateListParameterUI);
+IMPLEMENT_OVITO_CLASS(ModifierDelegateFixedListParameterUI);
 
 /******************************************************************************
 * The constructor.
 ******************************************************************************/
-ModifierDelegateListParameterUI::ModifierDelegateListParameterUI(QObject* parentEditor, const RolloutInsertionParameters& rolloutParams, OvitoClassPtr defaultEditorClass)
+ModifierDelegateFixedListParameterUI::ModifierDelegateFixedListParameterUI(QObject* parentEditor, const RolloutInsertionParameters& rolloutParams, OvitoClassPtr defaultEditorClass)
 	: RefTargetListParameterUI(parentEditor, PROPERTY_FIELD(MultiDelegatingModifier::delegates), rolloutParams, defaultEditorClass)
 {
 }
@@ -40,7 +40,7 @@ ModifierDelegateListParameterUI::ModifierDelegateListParameterUI(QObject* parent
 /******************************************************************************
 * Returns a data item from the list data model.
 ******************************************************************************/
-QVariant ModifierDelegateListParameterUI::getItemData(RefTarget* target, const QModelIndex& index, int role)
+QVariant ModifierDelegateFixedListParameterUI::getItemData(RefTarget* target, const QModelIndex& index, int role)
 {
 	if(role == Qt::DisplayRole) {
 		if(index.column() == 0 && target) {
@@ -59,7 +59,7 @@ QVariant ModifierDelegateListParameterUI::getItemData(RefTarget* target, const Q
 /******************************************************************************
 * Sets the role data for the item at index to value.
 ******************************************************************************/
-bool ModifierDelegateListParameterUI::setItemData(RefTarget* target, const QModelIndex& index, const QVariant& value, int role)
+bool ModifierDelegateFixedListParameterUI::setItemData(RefTarget* target, const QModelIndex& index, const QVariant& value, int role)
 {
 	if(index.column() == 0 && role == Qt::CheckStateRole) {
 		if(ModifierDelegate* delegate = dynamic_object_cast<ModifierDelegate>(target)) {
@@ -77,7 +77,7 @@ bool ModifierDelegateListParameterUI::setItemData(RefTarget* target, const QMode
 /******************************************************************************
 * Returns the model/view item flags for the given entry.
 ******************************************************************************/
-Qt::ItemFlags ModifierDelegateListParameterUI::getItemFlags(RefTarget* target, const QModelIndex& index)
+Qt::ItemFlags ModifierDelegateFixedListParameterUI::getItemFlags(RefTarget* target, const QModelIndex& index)
 {
 	Qt::ItemFlags flags = RefTargetListParameterUI::getItemFlags(target, index);
 	if(index.column() == 0) {
@@ -92,17 +92,6 @@ Qt::ItemFlags ModifierDelegateListParameterUI::getItemFlags(RefTarget* target, c
 		return flags | Qt::ItemIsUserCheckable;
 	}
 	return flags;
-}
-
-/******************************************************************************
-* This method is called when a reference target changes.
-******************************************************************************/
-bool ModifierDelegateListParameterUI::referenceEvent(RefTarget* source, const ReferenceEvent& event)
-{
-	if(event.type() == ReferenceEvent::ModifierInputChanged) {
-//		updateColumns(0, 0);
-	}
-	return RefTargetListParameterUI::referenceEvent(source, event);
 }
 
 }	// End of namespace

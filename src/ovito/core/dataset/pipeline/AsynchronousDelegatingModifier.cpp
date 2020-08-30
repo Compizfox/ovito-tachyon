@@ -29,7 +29,9 @@ namespace Ovito {
 
 IMPLEMENT_OVITO_CLASS(AsynchronousModifierDelegate);
 DEFINE_PROPERTY_FIELD(AsynchronousModifierDelegate, inputDataObject);
+DEFINE_PROPERTY_FIELD(AsynchronousModifierDelegate, isEnabled);
 SET_PROPERTY_FIELD_LABEL(AsynchronousModifierDelegate, inputDataObject, "Data object");
+SET_PROPERTY_FIELD_LABEL(AsynchronousModifierDelegate, isEnabled, "Enabled");
 
 IMPLEMENT_OVITO_CLASS(AsynchronousDelegatingModifier);
 DEFINE_REFERENCE_FIELD(AsynchronousDelegatingModifier, delegate);
@@ -62,7 +64,7 @@ TimeInterval AsynchronousDelegatingModifier::validityInterval(const PipelineEval
 {
 	TimeInterval iv = AsynchronousModifier::validityInterval(request, modApp);
 
-	if(delegate())
+	if(delegate() && delegate()->isEnabled())
 		iv.intersect(delegate()->validityInterval(request, modApp));
 
 	return iv;

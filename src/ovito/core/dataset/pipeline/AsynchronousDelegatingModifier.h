@@ -78,7 +78,7 @@ public:
 protected:
 
 	/// \brief Constructor.
-	AsynchronousModifierDelegate(DataSet* dataset, const DataObjectReference& inputDataObj = DataObjectReference()) : RefTarget(dataset), _inputDataObject(inputDataObj) {}
+	AsynchronousModifierDelegate(DataSet* dataset, const DataObjectReference& inputDataObj = DataObjectReference()) : RefTarget(dataset), _inputDataObject(inputDataObj), _isEnabled(true) {}
 
 public:
 
@@ -92,6 +92,9 @@ private:
 
 	/// Optionally specifies a particular input data object this delegate should operate on.
 	DECLARE_MODIFIABLE_PROPERTY_FIELD(DataObjectReference, inputDataObject, setInputDataObject);
+
+	/// Indicates whether this delegate is active or not.
+	DECLARE_MODIFIABLE_PROPERTY_FIELD(bool, isEnabled, setEnabled);
 };
 
 /**

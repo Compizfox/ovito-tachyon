@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Copyright 2017 Alexander Stukowski
+//  Copyright 2020 Alexander Stukowski
 //
 //  This file is part of OVITO (Open Visualization Tool).
 //
@@ -29,17 +29,18 @@
 namespace Ovito {
 
 /******************************************************************************
-* A list view that shows the delegates of a MultiDelegatingModifier.
+* A list view that shows the fixed set of delegates of a MultiDelegatingModifier,
+* which can each be enabled or disabled by the user.
 ******************************************************************************/
-class OVITO_GUI_EXPORT ModifierDelegateListParameterUI : public RefTargetListParameterUI
+class OVITO_GUI_EXPORT ModifierDelegateFixedListParameterUI : public RefTargetListParameterUI
 {
 	Q_OBJECT
-	OVITO_CLASS(ModifierDelegateListParameterUI)
+	OVITO_CLASS(ModifierDelegateFixedListParameterUI)
 
 public:
 
 	/// Constructor.
-	ModifierDelegateListParameterUI(QObject* parentEditor,
+	ModifierDelegateFixedListParameterUI(QObject* parentEditor,
 			const RolloutInsertionParameters& rolloutParams = RolloutInsertionParameters(), OvitoClassPtr defaultEditorClass = nullptr);
 
 	/// This method is called when a new editable object has been activated.
@@ -70,9 +71,6 @@ protected:
 		}
 		return RefTargetListParameterUI::getHorizontalHeaderData(index, role);
 	}
-
-	/// This method is called when a reference target changes.
-	virtual bool referenceEvent(RefTarget* source, const ReferenceEvent& event) override;
 };
 
 }	// End of namespace

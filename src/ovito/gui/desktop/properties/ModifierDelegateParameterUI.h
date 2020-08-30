@@ -67,6 +67,9 @@ public:
 		if(comboBox()) comboBox()->setWhatsThis(text);
 	}
 
+	/// This method populates the combobox widget.
+	static void populateComboBox(QComboBox* comboBox, Modifier* modifier, RefTarget* delegate, const DataObjectReference& inputDataObject, const OvitoClass& delegateType);
+
 public:
 
 	Q_PROPERTY(QComboBox comboBox READ comboBox);

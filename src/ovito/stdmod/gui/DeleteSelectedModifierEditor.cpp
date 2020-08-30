@@ -21,7 +21,7 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 
 #include <ovito/stdmod/gui/StdModGui.h>
-#include <ovito/gui/desktop/properties/ModifierDelegateListParameterUI.h>
+#include <ovito/gui/desktop/properties/ModifierDelegateFixedListParameterUI.h>
 #include <ovito/stdmod/modifiers/DeleteSelectedModifier.h>
 #include "DeleteSelectedModifierEditor.h"
 
@@ -43,7 +43,7 @@ void DeleteSelectedModifierEditor::createUI(const RolloutInsertionParameters& ro
 	layout->setContentsMargins(4,4,4,4);
 	layout->setSpacing(8);
 
-	ModifierDelegateListParameterUI* delegatesPUI = new ModifierDelegateListParameterUI(this, rolloutParams.after(rollout));
+	ModifierDelegateFixedListParameterUI* delegatesPUI = new ModifierDelegateFixedListParameterUI(this, rolloutParams.after(rollout));
 	layout->addWidget(delegatesPUI->listWidget());
 
 	// Status label.
