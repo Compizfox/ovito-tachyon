@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Copyright 2019 Alexander Stukowski
+//  Copyright 2020 Alexander Stukowski
 //
 //  This file is part of OVITO (Open Visualization Tool).
 //
@@ -26,9 +26,11 @@
 #include <ovito/core/dataset/DataSetContainer.h>
 #include <ovito/core/app/PluginManager.h>
 #include <ovito/gui/desktop/mainwin/MainWindow.h>
+#include <ovito/gui/desktop/actions/ActionManager.h>
 #include "OverlayCommandPage.h"
 #include "OverlayListModel.h"
 #include "OverlayListItem.h"
+#include "OverlayTypesModel.h"
 
 namespace Ovito {
 
@@ -36,21 +38,27 @@ namespace Ovito {
 * Initializes the command panel page.
 ******************************************************************************/
 OverlayCommandPage::OverlayCommandPage(MainWindow* mainWindow, QWidget* parent) : QWidget(parent),
-		_datasetContainer(mainWindow->datasetContainer())
+		_datasetContainer(mainWindow->datasetContainer()), _actionManager(mainWindow->actionManager())
 {
 	QVBoxLayout* layout = new QVBoxLayout(this);
 	layout->setContentsMargins(2,2,2,2);
 	layout->setSpacing(4);
 
+	_overlayListModel = new OverlayListModel(this);
+	connect(_overlayListModel, &OverlayListModel::selectedItemChanged, this, &OverlayCommandPage::onItemSelectionChanged, Qt::QueuedConnection);
+
 	_newLayerBox = new QComboBox(this);
     layout->addWidget(_newLayerBox);
-    connect(_newLayerBox, (void (QComboBox::*)(int))&QComboBox::activated, this, &OverlayCommandPage::onNewLayer);
-
-    _newLayerBox->addItem(tr("Add viewport layer..."));
-    _newLayerBox->insertSeparator(1);
-	for(OvitoClassPtr clazz : PluginManager::instance().listClasses(ViewportOverlay::OOClass())) {
-		_newLayerBox->addItem(clazz->displayName(), QVariant::fromValue(clazz));
-	}
+	_newLayerBox->setSizeAdjustPolicy(QComboBox::AdjustToContents);
+	_newLayerBox->setModel(new OverlayTypesModel(this, mainWindow, _overlayListModel));
+	_newLayerBox->setMaxVisibleItems(0xFFFF);
+    connect(_newLayerBox, qOverload<int>(&QComboBox::activated), this, [this](int index) {
+		QComboBox* selector = static_cast<QComboBox*>(sender());
+		if(QAction* action = static_cast<OverlayTypesModel*>(selector->model())->actionFromIndex(index))
+			action->trigger();
+		selector->setCurrentIndex(0);
+		_overlayListWidget->setFocus();
+	});
 
 	QSplitter* splitter = new QSplitter(Qt::Vertical);
 	splitter->setChildrenCollapsible(false);
@@ -78,12 +86,10 @@ OverlayCommandPage::OverlayCommandPage(MainWindow* mainWindow, QWidget* parent) 
 	subLayout->setSpacing(2);
 
 	_overlayListWidget = new OverlayListWidget(upperContainer);
-	_overlayListModel = new OverlayListModel(this);
 	_overlayListWidget->setEditTriggers(QAbstractItemView::SelectedClicked);
 	_overlayListWidget->setModel(_overlayListModel);
 	_overlayListWidget->setSelectionModel(_overlayListModel->selectionModel());
 	subLayout->addWidget(_overlayListWidget);
-	connect(_overlayListModel, &OverlayListModel::selectedItemChanged, this, &OverlayCommandPage::onItemSelectionChanged, Qt::QueuedConnection);
 	connect(_overlayListWidget, &OverlayListWidget::doubleClicked, this, &OverlayCommandPage::onLayerDoubleClicked);
 
 	QToolBar* editToolbar = new QToolBar(this);
@@ -93,19 +99,27 @@ OverlayCommandPage::OverlayCommandPage(MainWindow* mainWindow, QWidget* parent) 
 #endif
 	subLayout->addWidget(editToolbar);
 
-	_deleteLayerAction = new QAction(QIcon(":/gui/actions/modify/delete_modifier.bw.svg"), tr("Delete Layer"), this);
+	_deleteLayerAction = _actionManager->createCommandAction(ACTION_VIEWPORT_LAYER_DELETE, tr("Delete Viewport Layer"), ":/gui/actions/modify/delete_modifier.bw.svg", tr("Remove the selected viewport layer from the stack."));
 	_deleteLayerAction->setEnabled(false);
 	connect(_deleteLayerAction, &QAction::triggered, this, &OverlayCommandPage::onDeleteLayer);
 	editToolbar->addAction(_deleteLayerAction);
 
 	editToolbar->addSeparator();
 
-	_moveLayerUpAction = new QAction(QIcon(":/gui/actions/modify/modifier_move_up.bw.svg"), tr("Move Layer Up"), this);
+	_moveLayerUpAction = _actionManager->createCommandAction(ACTION_VIEWPORT_LAYER_MOVE_UP, tr("Move Viewport Layer Up"), ":/gui/actions/modify/modifier_move_up.bw.svg", tr("Move the selected viewport layer up in the stack."));
 	connect(_moveLayerUpAction, &QAction::triggered, this, &OverlayCommandPage::onLayerMoveUp);
 	editToolbar->addAction(_moveLayerUpAction);
-	_moveLayerDownAction = new QAction(QIcon(":/gui/actions/modify/modifier_move_down.bw.svg"), tr("Move Layer Down"), this);
+	_moveLayerDownAction = _actionManager->createCommandAction(ACTION_VIEWPORT_LAYER_MOVE_DOWN, tr("Move Viewport Layer Down"), ":/gui/actions/modify/modifier_move_down.bw.svg", tr("Move the selected viewport layer down in the stack."));
 	connect(_moveLayerDownAction, &QAction::triggered, this, &OverlayCommandPage::onLayerMoveDown);
 	editToolbar->addAction(_moveLayerDownAction);
+
+	_toggleLayerStateAction = _actionManager->createCommandAction(ACTION_VIEWPORT_LAYER_TOGGLE_STATE, tr("Enable/Disable Viewport Layer"), {}, tr("Turn the selected viewport layer on or off."));
+	_toggleLayerStateAction->setCheckable(true);
+	_toggleLayerStateAction->setEnabled(false);
+	QIcon toggleStateActionIcon(QString(":/gui/actions/modify/modifier_enabled_large.png"));
+	toggleStateActionIcon.addFile(QString(":/gui/actions/modify/modifier_disabled_large.png"), QSize(), QIcon::Normal, QIcon::On);
+	_toggleLayerStateAction->setIcon(toggleStateActionIcon);
+	connect(_toggleLayerStateAction, &QAction::triggered, this, &OverlayCommandPage::onLayerToggleState);
 
 	layout->addWidget(splitter, 1);
 
@@ -164,49 +178,13 @@ void OverlayCommandPage::onItemSelectionChanged()
 		const QVector<ViewportOverlay*> underlays = overlayListModel()->selectedViewport()->underlays();
 		_moveLayerUpAction->setEnabled(!overlays.contains(layer) || overlays.indexOf(layer) < overlays.size() - 1);
 		_moveLayerDownAction->setEnabled(!underlays.contains(layer) || underlays.indexOf(layer) > 0);
+		_toggleLayerStateAction->setEnabled(true);
 	}
 	else {
 		_deleteLayerAction->setEnabled(false);
 		_moveLayerUpAction->setEnabled(false);
 		_moveLayerDownAction->setEnabled(false);
-	}
-}
-
-/******************************************************************************
-* This inserts a new viewport layer.
-******************************************************************************/
-void OverlayCommandPage::onNewLayer(int index)
-{
-	if(index > 0) {
-		OvitoClassPtr descriptor = _newLayerBox->itemData(index).value<OvitoClassPtr>();
-		Viewport* vp = overlayListModel()->selectedViewport();
-		if(descriptor && vp) {
-			int overlayIndex = -1;
-			int underlayIndex = -1;
-			if(OverlayListItem* item = overlayListModel()->selectedItem()) {
-				overlayIndex = vp->overlays().indexOf(item->overlay());
-				underlayIndex = vp->underlays().indexOf(item->overlay());
-			}
-			UndoableTransaction::handleExceptions(vp->dataset()->undoStack(), tr("Add viewport layer"), [&]() {
-				// Create an instance of the overlay class.
-				OORef<ViewportOverlay> layer = static_object_cast<ViewportOverlay>(descriptor->createInstance(vp->dataset()));
-				// Load user-defined default parameters.
-				layer->loadUserDefaults();
-				// Make sure the new overlay gets selected in the UI.
-				overlayListModel()->setNextToSelectObject(layer);
-				// Insert it into either the overlays or the underlays list.
-				if(underlayIndex >= 0)
-					vp->insertUnderlay(underlayIndex+1, layer);
-				else if(overlayIndex >= 0)
-					vp->insertOverlay(overlayIndex+1, layer);
-				else
-					vp->insertOverlay(vp->overlays().size(), layer);
-				// Automatically activate preview mode to make the overlay visible.
-				vp->setRenderPreviewMode(true);
-			});
-			_overlayListWidget->setFocus();
-		}
-		_newLayerBox->setCurrentIndex(0);
+		_toggleLayerStateAction->setEnabled(false);
 	}
 }
 
@@ -235,6 +213,20 @@ void OverlayCommandPage::onLayerDoubleClicked(const QModelIndex& index)
 			});
 		}
 	}
+}
+
+/******************************************************************************
+* Handles the ACTION_VIEWPORT_LAYER_TOGGLE_STATE command, which toggles the
+* enabled/disable state of the selected layer.
+******************************************************************************/
+void OverlayCommandPage::onLayerToggleState(bool newState)
+{
+	// Get the selected modifier from the modifier stack box.
+	QModelIndexList selection = _overlayListWidget->selectionModel()->selectedRows();
+	if(selection.empty())
+		return;
+
+	onLayerDoubleClicked(selection.front());
 }
 
 /******************************************************************************

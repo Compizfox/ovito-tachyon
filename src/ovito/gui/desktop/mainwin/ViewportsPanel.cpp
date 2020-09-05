@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Copyright 2017 Alexander Stukowski
+//  Copyright 2020 Alexander Stukowski
 //
 //  This file is part of OVITO (Open Visualization Tool).
 //
@@ -37,7 +37,7 @@ namespace Ovito {
 /******************************************************************************
 * The constructor of the viewports panel class.
 ******************************************************************************/
-ViewportsPanel::ViewportsPanel(MainWindow* mainWindow)
+ViewportsPanel::ViewportsPanel(MainWindow* mainWindow) : _mainWindow(mainWindow)
 {
 	// Activate the new viewport layout as soon as a new state file is loaded.
 	connect(&mainWindow->datasetContainer(), &DataSetContainer::viewportConfigReplaced, this, &ViewportsPanel::onViewportConfigurationReplaced);
@@ -46,8 +46,20 @@ ViewportsPanel::ViewportsPanel(MainWindow* mainWindow)
 	// Track viewport input mode changes.
 	connect(mainWindow->viewportInputManager(), &ViewportInputManager::inputModeChanged, this, &ViewportsPanel::onInputModeChanged);
 
-	// Prevent the viewports from disappearing completely. 
+	// Prevent the viewports from collpasing and disappearing completely. 
 	setMinimumSize(40, 40);
+
+	// Create keyboard navigation shortcuts.
+	connect(new QShortcut(QKeySequence(Qt::Key_Left), this), &QShortcut::activated, this, &ViewportsPanel::onKeyShortcut);
+	connect(new QShortcut(QKeySequence(Qt::Key_Right), this), &QShortcut::activated, this, &ViewportsPanel::onKeyShortcut);
+	connect(new QShortcut(QKeySequence(Qt::Key_Up), this), &QShortcut::activated, this, &ViewportsPanel::onKeyShortcut);
+	connect(new QShortcut(QKeySequence(Qt::Key_Down), this), &QShortcut::activated, this, &ViewportsPanel::onKeyShortcut);
+	connect(new QShortcut(QKeySequence(Qt::SHIFT | Qt::Key_Left), this), &QShortcut::activated, this, &ViewportsPanel::onKeyShortcut);
+	connect(new QShortcut(QKeySequence(Qt::SHIFT | Qt::Key_Right), this), &QShortcut::activated, this, &ViewportsPanel::onKeyShortcut);
+	connect(new QShortcut(QKeySequence(Qt::SHIFT | Qt::Key_Up), this), &QShortcut::activated, this, &ViewportsPanel::onKeyShortcut);
+	connect(new QShortcut(QKeySequence(Qt::SHIFT | Qt::Key_Down), this), &QShortcut::activated, this, &ViewportsPanel::onKeyShortcut);
+	connect(new QShortcut(QKeySequence(QKeySequence::ZoomIn), this), &QShortcut::activated, this, &ViewportsPanel::onKeyShortcut);
+	connect(new QShortcut(QKeySequence(QKeySequence::ZoomOut), this), &QShortcut::activated, this, &ViewportsPanel::onKeyShortcut);
 }
 
 /******************************************************************************
@@ -76,11 +88,10 @@ void ViewportsPanel::onViewportConfigurationReplaced(ViewportConfiguration* newV
 
 		// Create windows for the new viewports.
 		try {
-			MainWindow* mainWindow = MainWindow::fromDataset(newViewportConfiguration->dataset());
-			ViewportInputManager* inputManager = mainWindow->viewportInputManager();
+			ViewportInputManager* inputManager = _mainWindow->viewportInputManager();
 			for(Viewport* vp : newViewportConfiguration->viewports()) {
 				OVITO_ASSERT(vp->window() == nullptr);
-				ViewportWindow* viewportWindow = new ViewportWindow(vp, inputManager, mainWindow, this);
+				ViewportWindow* viewportWindow = new ViewportWindow(vp, inputManager, _mainWindow, this);
 				if(newViewportConfiguration->activeViewport() == vp)
 					viewportWindow->setFocus();
 			}
@@ -123,16 +134,16 @@ void ViewportsPanel::onInputModeChanged(ViewportInputMode* oldMode, ViewportInpu
 {
 	disconnect(_activeModeCursorChangedConnection);
 	if(newMode) {
-		_activeModeCursorChangedConnection = connect(newMode, &ViewportInputMode::curserChanged, this, &ViewportsPanel::viewportModeCursorChanged);
-		viewportModeCursorChanged(newMode->cursor());
+		_activeModeCursorChangedConnection = connect(newMode, &ViewportInputMode::curserChanged, this, &ViewportsPanel::onViewportModeCursorChanged);
+		onViewportModeCursorChanged(newMode->cursor());
 	}
-	else viewportModeCursorChanged(cursor());
+	else onViewportModeCursorChanged(cursor());
 }
 
 /******************************************************************************
 * This is called when the mouse cursor of the active input mode has changed.
 ******************************************************************************/
-void ViewportsPanel::viewportModeCursorChanged(const QCursor& cursor)
+void ViewportsPanel::onViewportModeCursorChanged(const QCursor& cursor)
 {
 	if(!_viewportConfig) return;
 
@@ -237,6 +248,43 @@ void ViewportsPanel::layoutViewports()
 
 	if(needsRepaint)
 		update();
+}
+
+/******************************************************************************
+* Handles keyboard input for the viewport windows.
+******************************************************************************/
+void ViewportsPanel::onKeyShortcut()
+{
+	// Get the keyboard shortcut that was pressed.
+	QShortcut* shortcut = qobject_cast<QShortcut*>(sender());
+	OVITO_ASSERT(shortcut);
+	QKeySequence keySeq = shortcut->key();
+	
+	// Get the viewport the input pertains to.
+	Viewport* vp = _viewportConfig ? _viewportConfig->activeViewport() : nullptr;
+	if(!vp) return;
+
+	qreal delta = 1.0;
+	if(keySeq == QKeySequence(Qt::Key_Left))
+		_mainWindow->viewportInputManager()->orbitMode()->discreteStep(vp->window(), QPointF(-delta, 0));
+	else if(keySeq == QKeySequence(Qt::Key_Right))
+		_mainWindow->viewportInputManager()->orbitMode()->discreteStep(vp->window(), QPointF(delta, 0));
+	else if(keySeq == QKeySequence(Qt::Key_Up))
+		_mainWindow->viewportInputManager()->orbitMode()->discreteStep(vp->window(), QPointF(0, -delta));
+	else if(keySeq == QKeySequence(Qt::Key_Down))
+		_mainWindow->viewportInputManager()->orbitMode()->discreteStep(vp->window(), QPointF(0, delta));
+	else if(keySeq == QKeySequence(Qt::SHIFT | Qt::Key_Left))
+		_mainWindow->viewportInputManager()->panMode()->discreteStep(vp->window(), QPointF(-delta, 0));
+	else if(keySeq == QKeySequence(Qt::SHIFT | Qt::Key_Right))
+		_mainWindow->viewportInputManager()->panMode()->discreteStep(vp->window(), QPointF(delta, 0));
+	else if(keySeq == QKeySequence(Qt::SHIFT | Qt::Key_Up))
+		_mainWindow->viewportInputManager()->panMode()->discreteStep(vp->window(), QPointF(0, -delta));
+	else if(keySeq == QKeySequence(Qt::SHIFT | Qt::Key_Down))
+		_mainWindow->viewportInputManager()->panMode()->discreteStep(vp->window(), QPointF(0, delta));
+	else if(keySeq == QKeySequence(QKeySequence::ZoomIn))
+		_mainWindow->viewportInputManager()->zoomMode()->zoom(vp, 50);
+	else if(keySeq == QKeySequence(QKeySequence::ZoomOut))
+		_mainWindow->viewportInputManager()->zoomMode()->zoom(vp, -50);
 }
 
 }	// End of namespace

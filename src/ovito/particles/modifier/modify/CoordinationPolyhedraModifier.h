@@ -53,6 +53,7 @@ class OVITO_PARTICLES_EXPORT CoordinationPolyhedraModifier : public Asynchronous
 	OVITO_CLASS_META(CoordinationPolyhedraModifier, CoordinationPolyhedraModifierClass)
 
 	Q_CLASSINFO("DisplayName", "Coordination polyhedra");
+	Q_CLASSINFO("Description", "Visualize atomic coordination polyhedra.");
 #ifndef OVITO_BUILD_WEBGUI
 	Q_CLASSINFO("ModifierCategory", "Visualization");
 #else

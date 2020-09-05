@@ -36,6 +36,7 @@ class OVITO_STDMOD_EXPORT InvertSelectionModifier : public GenericPropertyModifi
 	Q_OBJECT
 	OVITO_CLASS(InvertSelectionModifier)
 	Q_CLASSINFO("DisplayName", "Invert selection");
+	Q_CLASSINFO("Description", "Invert the current selection state of each element.");
 	Q_CLASSINFO("ModifierCategory", "Selection");
 
 public:

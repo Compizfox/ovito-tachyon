@@ -62,6 +62,7 @@ class OVITO_STDMOD_EXPORT DeleteSelectedModifier : public MultiDelegatingModifie
 	Q_OBJECT
 	OVITO_CLASS_META(DeleteSelectedModifier, DeleteSelectedModifierClass)
 	Q_CLASSINFO("DisplayName", "Delete selected");
+	Q_CLASSINFO("Description", "Remove all currently selected elements.");
 	Q_CLASSINFO("ModifierCategory", "Modification");
 
 public:

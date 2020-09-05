@@ -55,7 +55,7 @@ void ModifierTemplatesPage::insertSettingsDialogPage(ApplicationSettingsDialog* 
 	layout1->addWidget(new QLabel(tr("Modifier templates:")), 2, 0);
 	_listWidget = new QListView(settingsDialog);
 	_listWidget->setUniformItemSizes(true);
-	_listWidget->setModel(&_templates);
+	_listWidget->setModel(ModifierTemplates::get());
 	layout1->addWidget(_listWidget, 3, 0);
 
 	QVBoxLayout* layout2 = new QVBoxLayout();
@@ -134,7 +134,7 @@ void ModifierTemplatesPage::onCreateTemplate()
 		mainLayout->addWidget(new QLabel(tr("Template name:")));
 		QComboBox* nameBox = new QComboBox(&dlg);
 		nameBox->setEditable(true);
-		nameBox->addItems(_templates.templateList());
+		nameBox->addItems(ModifierTemplates::get()->templateList());
 		if(selectedModifier)
 			nameBox->setCurrentText(tr("Custom %1").arg(selectedModifier->objectTitle()));
 		else
@@ -149,7 +149,7 @@ void ModifierTemplatesPage::onCreateTemplate()
 				QMessageBox::critical(&dlg, tr("Create modifier template"), tr("Please enter a name for the new modifier template."));
 				return;
 			}
-			if(_templates.templateList().contains(name)) {
+			if(ModifierTemplates::get()->templateList().contains(name)) {
 				if(QMessageBox::question(&dlg, tr("Create modifier template"), tr("A modifier template with the same name '%1' already exists. Do you want to replace it?").arg(name), QMessageBox::Yes | QMessageBox::Cancel) != QMessageBox::Yes)
 					return;
 			}
@@ -179,7 +179,7 @@ void ModifierTemplatesPage::onCreateTemplate()
 					selectedModifierList.push_back(modifierList[i]);
 				}
 			}
-			int idx = _templates.createTemplate(nameBox->currentText().trimmed(), selectedModifierList);
+			int idx = ModifierTemplates::get()->createTemplate(nameBox->currentText().trimmed(), selectedModifierList);
 			_listWidget->setCurrentIndex(_listWidget->model()->index(idx, 0));
 			_dirtyFlag = true;
 		}
@@ -198,9 +198,9 @@ void ModifierTemplatesPage::onDeleteTemplate()
 	try {
 		QStringList selectedTemplates;
 		for(const QModelIndex& index : _listWidget->selectionModel()->selectedRows())
-			selectedTemplates.push_back(_templates.templateList()[index.row()]);
+			selectedTemplates.push_back(ModifierTemplates::get()->templateList()[index.row()]);
 		for(const QString& templateName : selectedTemplates) {
-			_templates.removeTemplate(templateName);
+			ModifierTemplates::get()->removeTemplate(templateName);
 			_dirtyFlag = true;
 		}
 	}
@@ -217,15 +217,15 @@ void ModifierTemplatesPage::onRenameTemplate()
 {
 	try {
 		for(const QModelIndex& index : _listWidget->selectionModel()->selectedRows()) {
-			QString oldTemplateName = _templates.templateList()[index.row()];
+			QString oldTemplateName = ModifierTemplates::get()->templateList()[index.row()];
 			QString newTemplateName = oldTemplateName;
 			for(;;) {
 				newTemplateName = QInputDialog::getText(_settingsDialog, tr("Rename modifier template"),
 					tr("Please enter a new name for the modifier template:"),
 					QLineEdit::Normal, newTemplateName);
 				if(newTemplateName.isEmpty() || newTemplateName == oldTemplateName) break;
-				if(!_templates.templateList().contains(newTemplateName)) {
-					_templates.renameTemplate(oldTemplateName, newTemplateName);
+				if(!ModifierTemplates::get()->templateList().contains(newTemplateName)) {
+					ModifierTemplates::get()->renameTemplate(oldTemplateName, newTemplateName);
 					_dirtyFlag = true;
 					break;
 				}
@@ -247,7 +247,7 @@ void ModifierTemplatesPage::onRenameTemplate()
 void ModifierTemplatesPage::onExportTemplates()
 {
 	try {
-		if(_templates.templateList().empty())
+		if(ModifierTemplates::get()->templateList().empty())
 			throw Exception(tr("The are no modifier templates to export."));
 
 		QString filename = QFileDialog::getSaveFileName(_settingsDialog,
@@ -258,7 +258,7 @@ void ModifierTemplatesPage::onExportTemplates()
 		QFile::remove(filename);
 		QSettings settings(filename, QSettings::IniFormat);
 		settings.clear();
-		_templates.commit(settings);
+		ModifierTemplates::get()->commit(settings);
 		settings.sync();
 		if(settings.status() != QSettings::NoError)
 			throw Exception(tr("I/O error while writing modifier template file."));
@@ -283,7 +283,7 @@ void ModifierTemplatesPage::onImportTemplates()
 		QSettings settings(filename, QSettings::IniFormat);
 		if(settings.status() != QSettings::NoError)
 			throw Exception(tr("I/O error while reading modifier template file."));
-		if(_templates.load(settings) == 0)
+		if(ModifierTemplates::get()->load(settings) == 0)
 			throw Exception(tr("The selected file does not contain any modifier templates."));
 
 		_dirtyFlag = true;
@@ -301,8 +301,7 @@ bool ModifierTemplatesPage::saveValues(ApplicationSettingsDialog* settingsDialog
 {
 	try {
 		if(_dirtyFlag) {
-			QSettings settings;
-			_templates.commit(settings);
+			ModifierTemplates::get()->commit();
 			_dirtyFlag = false;
 		}
 		return true;
@@ -311,6 +310,24 @@ bool ModifierTemplatesPage::saveValues(ApplicationSettingsDialog* settingsDialog
 		ex.setContext(_settingsDialog);
 		ex.reportError(true);
 		return false;
+	}
+}
+
+/******************************************************************************
+* Lets the settings page restore the original values of changed settings when 
+* the user presses the Cancel button.
+******************************************************************************/
+void ModifierTemplatesPage::restoreValues(ApplicationSettingsDialog* settingsDialog, QTabWidget* tabWidget)
+{
+	try {
+		if(_dirtyFlag) {
+			ModifierTemplates::get()->restore();
+			_dirtyFlag = false;
+		}
+	}
+	catch(Exception& ex) {
+		ex.setContext(_settingsDialog);
+		ex.reportError(true);
 	}
 }
 

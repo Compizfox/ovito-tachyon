@@ -54,6 +54,7 @@ class OVITO_PARTICLES_EXPORT ConstructSurfaceModifier : public AsynchronousModif
 	OVITO_CLASS_META(ConstructSurfaceModifier, OOMetaClass)
 
 	Q_CLASSINFO("DisplayName", "Construct surface mesh");
+	Q_CLASSINFO("Description", "Build triangle mesh represention and compute volume and surface area of voids.");
 	Q_CLASSINFO("ModifierCategory", "Visualization");
 
 public:

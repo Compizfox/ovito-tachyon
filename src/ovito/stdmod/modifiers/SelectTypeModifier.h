@@ -38,6 +38,7 @@ class OVITO_STDMOD_EXPORT SelectTypeModifier : public GenericPropertyModifier
 	OVITO_CLASS(SelectTypeModifier)
 
 	Q_CLASSINFO("DisplayName", "Select type");
+	Q_CLASSINFO("Description", "Select particles based on chemical species, or bonds based on bond type.");
 	Q_CLASSINFO("ModifierCategory", "Selection");
 
 public:

@@ -54,6 +54,7 @@ class OVITO_PARTICLES_EXPORT ClusterAnalysisModifier : public AsynchronousModifi
 	OVITO_CLASS_META(ClusterAnalysisModifier, ClusterAnalysisModifierClass)
 
 	Q_CLASSINFO("DisplayName", "Cluster analysis");
+	Q_CLASSINFO("Description", "Decompose a particle-based structure into disconnected clusters.");
 	Q_CLASSINFO("ModifierCategory", "Analysis");
 
 public:

@@ -52,6 +52,7 @@ class OVITO_PARTICLES_EXPORT UnwrapTrajectoriesModifier : public Modifier
 	OVITO_CLASS_META(UnwrapTrajectoriesModifier, UnwrapTrajectoriesModifierClass)
 
 	Q_CLASSINFO("DisplayName", "Unwrap trajectories");
+	Q_CLASSINFO("Description", "Unwrap particle coordinates at periodic cell boundaries and generate continuous trajectories.");
 #ifndef OVITO_BUILD_WEBGUI
 	Q_CLASSINFO("ModifierCategory", "Modification");
 #else

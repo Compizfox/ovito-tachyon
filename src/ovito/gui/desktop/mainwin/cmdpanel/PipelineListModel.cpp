@@ -270,7 +270,7 @@ void PipelineListModel::refreshItem(PipelineListItem* item)
 ******************************************************************************/
 void PipelineListModel::applyModifiers(const QVector<OORef<Modifier>>& modifiers)
 {
-	if(modifiers.empty())
+	if(modifiers.empty() || !selectedNode())
 		return;
 
 	// Get the selected pipeline entry. The new modifier is inserted right behind it in the pipeline.

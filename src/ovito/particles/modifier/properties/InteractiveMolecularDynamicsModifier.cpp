@@ -56,7 +56,7 @@ InteractiveMolecularDynamicsModifier::InteractiveMolecularDynamicsModifier(DataS
 	connect(&_socket, &QAbstractSocket::stateChanged, this, &InteractiveMolecularDynamicsModifier::connectionStateChanged);
 
 	// Update modifier status whenever the a connection error occurs.
-	connect(&_socket, QOverload<QAbstractSocket::SocketError>::of(&QAbstractSocket::error), this, &InteractiveMolecularDynamicsModifier::connectionError);
+	connect(&_socket, qOverload<QAbstractSocket::SocketError>(&QAbstractSocket::error), this, &InteractiveMolecularDynamicsModifier::connectionError);
 
 	// Process incoming data. 
 	connect(&_socket, &QAbstractSocket::readyRead, this, &InteractiveMolecularDynamicsModifier::dataReceived);

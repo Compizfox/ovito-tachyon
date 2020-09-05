@@ -52,6 +52,7 @@ class OVITO_PARTICLES_EXPORT InteractiveMolecularDynamicsModifier : public Modif
 	Q_OBJECT
 	OVITO_CLASS_META(InteractiveMolecularDynamicsModifier, OOMetaClass)
 	Q_CLASSINFO("DisplayName", "Interactive molecular dynamics");
+	Q_CLASSINFO("Description", "Visualize live atomic trajectories from a running MD simulation as they are being calculated.");
 	Q_CLASSINFO("ModifierCategory", "Visualization");
 
 public:

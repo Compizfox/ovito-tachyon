@@ -23,6 +23,7 @@
 #include <ovito/core/Core.h>
 #include <ovito/core/dataset/pipeline/Modifier.h>
 #include <ovito/core/dataset/DataSet.h>
+#include <ovito/core/app/Application.h>
 #include "ModifierTemplates.h"
 
 namespace Ovito {
@@ -30,13 +31,20 @@ namespace Ovito {
 static const QString modTemplateStoreGroup = QStringLiteral("core/modifier/templates/");
 
 /******************************************************************************
+* Returns the singleton instance of this class. 
+******************************************************************************/
+ModifierTemplates* ModifierTemplates::get()
+{
+	static ModifierTemplates* instance = new ModifierTemplates(Application::instance());
+	return instance;
+}
+
+/******************************************************************************
 * Constructor.
 ******************************************************************************/
 ModifierTemplates::ModifierTemplates(QObject* parent) : QAbstractListModel(parent)
 {
-	QSettings settings;
-	settings.beginGroup(modTemplateStoreGroup);
-	_templateNames = settings.childKeys();
+	restore();
 }
 
 /******************************************************************************
@@ -207,6 +215,18 @@ int ModifierTemplates::load(QSettings& settings)
 	}
 	settings.endGroup();
 	return count;
+}
+
+/******************************************************************************
+* Reloads the in-memory template list from the given settings store.
+******************************************************************************/
+void ModifierTemplates::restore(QSettings& settings)
+{
+	_templateData.clear();
+	settings.beginGroup(modTemplateStoreGroup);
+	beginResetModel();
+	_templateNames = settings.childKeys();
+	endResetModel();
 }
 
 }	// End of namespace

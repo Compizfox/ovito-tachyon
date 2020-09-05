@@ -39,6 +39,7 @@ class OVITO_STDMOD_EXPORT FreezePropertyModifier : public GenericPropertyModifie
 	Q_OBJECT
 	OVITO_CLASS(FreezePropertyModifier)
 	Q_CLASSINFO("DisplayName", "Freeze property");
+	Q_CLASSINFO("Description", "Copy the values of a varying property from one trajectory frame to all others.");
 #ifndef OVITO_BUILD_WEBGUI
 	Q_CLASSINFO("ModifierCategory", "Modification");
 #else

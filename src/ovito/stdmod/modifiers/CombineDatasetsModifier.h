@@ -67,6 +67,7 @@ class OVITO_STDMOD_EXPORT CombineDatasetsModifier : public MultiDelegatingModifi
 	OVITO_CLASS_META(CombineDatasetsModifier, CombineDatasetsModifierClass)
 
 	Q_CLASSINFO("DisplayName", "Combine datasets");
+	Q_CLASSINFO("Description", "Merge particles and bonds from two separate input files into one dataset.");
 #ifndef OVITO_BUILD_WEBGUI
 	Q_CLASSINFO("ModifierCategory", "Modification");
 #else

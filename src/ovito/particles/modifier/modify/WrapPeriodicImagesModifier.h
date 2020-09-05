@@ -50,6 +50,7 @@ class OVITO_PARTICLES_EXPORT WrapPeriodicImagesModifier : public Modifier
 	OVITO_CLASS_META(WrapPeriodicImagesModifier, WrapPeriodicImagesModifierClass)
 
 	Q_CLASSINFO("DisplayName", "Wrap at periodic boundaries");
+	Q_CLASSINFO("Description", "Fold particle coordinates back into the periodic simulation box.");
 	Q_CLASSINFO("ModifierCategory", "Modification");
 
 public:

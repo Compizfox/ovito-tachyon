@@ -93,6 +93,7 @@ MainWindow::MainWindow() : _datasetContainer(this)
 	dataInspectorSplitter->setStretchFactor(0, 1);
 	dataInspectorSplitter->setStretchFactor(1, 0);
 	setCentralWidget(dataInspectorSplitter);
+	_viewportsPanel->setFocus(Qt::OtherFocusReason);
 
 	// Create the animation panel below the viewports.
 	QWidget* animationPanel = new QWidget();
@@ -310,12 +311,8 @@ void MainWindow::createMainMenu()
 	fileMenu->addSeparator();
 	if(QAction* runScriptFileAction = actionManager()->findAction(ACTION_SCRIPTING_RUN_FILE))
 		fileMenu->addAction(runScriptFileAction);
-	else
-		fileMenu->addAction(QIcon(":/gui/actions/file/scripting_manual.bw.svg"), tr("Run Python script..."))->setEnabled(false);
 	if(QAction* generateScriptFileAction = actionManager()->findAction(ACTION_SCRIPTING_GENERATE_CODE))
 		fileMenu->addAction(generateScriptFileAction);
-	else
-		fileMenu->addAction(QIcon(":/gui/actions/file/scripting_manual.bw.svg"), tr("Generate Python script..."))->setEnabled(false);
 	fileMenu->addSeparator();
 	fileMenu->addAction(actionManager()->getAction(ACTION_FILE_NEW_WINDOW));
 	fileMenu->addSeparator();
@@ -375,17 +372,19 @@ void MainWindow::createMainToolbar()
 	_mainToolbar->addAction(actionManager()->getAction(ACTION_EDIT_UNDO));
 	_mainToolbar->addAction(actionManager()->getAction(ACTION_EDIT_REDO));
 
-#if 1
 	_mainToolbar->addSeparator();
 
 	_mainToolbar->addAction(actionManager()->getAction(ACTION_SELECTION_MODE));
 	_mainToolbar->addAction(actionManager()->getAction(ACTION_XFORM_MOVE_MODE));
 	_mainToolbar->addAction(actionManager()->getAction(ACTION_XFORM_ROTATE_MODE));
-#endif
 
 	_mainToolbar->addSeparator();
 
 	_mainToolbar->addAction(actionManager()->getAction(ACTION_RENDER_ACTIVE_VIEWPORT));
+
+	_mainToolbar->addSeparator();
+
+	_mainToolbar->addAction(actionManager()->getAction(ACTION_COMMAND_QUICKSEARCH));
 }
 
 /******************************************************************************

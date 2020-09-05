@@ -29,14 +29,10 @@
 #include <ovito/gui/base/viewport/ViewportInputManager.h>
 #include <ovito/core/oo/RefTargetListener.h>
 
-// QtNetwork module
-#include <QtNetwork>
-
 namespace Ovito {
 
 class PipelineListModel;	// defined in PipelineListModel.h
 class PipelineListItem;		// defined in PipelineListItem.h
-class ModifierListBox;		// defined in ModifierListBox.h
 
 /**
  * The command panel tab lets the user modify the selected object.
@@ -67,9 +63,6 @@ protected Q_SLOTS:
 
 	/// Handles the ACTION_MODIFIER_DELETE command, which deleted the selected modifier from the stack.
 	void onDeleteModifier();
-
-	/// Is called when the user has selected an item in the modifier list to be inserted into the pipeline.
-	void applyModifiers(const QVector<OORef<Modifier>>& modifiers);
 
 	/// This called when the user double clicks on an item in the modifier stack.
 	void onModifierStackDoubleClicked(const QModelIndex& index);
@@ -114,8 +107,8 @@ private:
 	/// The Qt model for the data pipeline of the selected node(s).
 	PipelineListModel* _pipelineListModel;
 
-	/// This control displays the list of available modifier classes and allows the user to apply a modifier.
-	ModifierListBox* _modifierSelector;
+	/// This widget displays the list of available modifiers and allows the user to insert a modifier into the pipeline.
+	QComboBox* _modifierSelector;
 
 	/// This panel shows the properties of the selected modifier stack entry
 	PropertiesPanel* _propertiesPanel;

@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Copyright 2019 Alexander Stukowski
+//  Copyright 2020 Alexander Stukowski
 //
 //  This file is part of OVITO (Open Visualization Tool).
 //
@@ -65,6 +65,7 @@ class OVITO_STDMOD_EXPORT SliceModifier : public MultiDelegatingModifier
 	Q_OBJECT
 
 	Q_CLASSINFO("DisplayName", "Slice");
+	Q_CLASSINFO("Description", "Cut away some part of the dataset using a 3d plane.");
 	Q_CLASSINFO("ModifierCategory", "Modification");
 
 public:

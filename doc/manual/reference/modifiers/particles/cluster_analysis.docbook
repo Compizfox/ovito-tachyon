@@ -99,6 +99,8 @@
       <screenshot><mediaobject><imageobject>
         <imagedata fileref="images/modifiers/cluster_analysis_table.png" format="PNG" scale="160" />
       </imageobject></mediaobject></screenshot>
+      The calculation of the radius of gyration and the gyration tensor in OVITO follows the <link xlink:href="https://lammps.sandia.gov/doc/compute_gyration.html">compute gyration</link> command 
+      found in the LAMMPS simulation code. It takes into account the individual particle masses (if present) or the masses assigned to the particle types (if present).
     </para>
   </simplesect>
 

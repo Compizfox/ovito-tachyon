@@ -38,7 +38,9 @@
 #include <ovito/gui/desktop/widgets/selection/SceneNodeSelectionBox.h>
 #include "ModifyCommandPage.h"
 #include "PipelineListModel.h"
-#include "ModifierListBox.h"
+#include "ModifierListModel.h"
+
+#include <QtNetwork>
 
 namespace Ovito {
 
@@ -97,9 +99,25 @@ ModifyCommandPage::ModifyCommandPage(MainWindow* mainWindow, QWidget* parent) : 
 	connect(nodeSelBox, &SceneNodeSelectionBox::enabledChanged, pipelineMenuButton, &QToolButton::setEnabled);
 
 	_pipelineListModel = new PipelineListModel(_datasetContainer, this);
-	_modifierSelector = new ModifierListBox(this, _pipelineListModel);
+	class ModifierListBox : public QComboBox {
+	public:
+		using QComboBox::QComboBox;
+		virtual void showPopup() override {
+			static_cast<ModifierListModel*>(model())->updateActionState();
+			QComboBox::showPopup();
+		}
+	};
+	_modifierSelector = new ModifierListBox(this);
     layout->addWidget(_modifierSelector, 1, 0, 1, 1);
-    connect(_modifierSelector, &ModifierListBox::applyModifiers, this, &ModifyCommandPage::applyModifiers);
+	_modifierSelector->setSizeAdjustPolicy(QComboBox::AdjustToContents);
+	_modifierSelector->setModel(new ModifierListModel(this, mainWindow, _pipelineListModel));
+	_modifierSelector->setMaxVisibleItems(0xFFFF);
+    connect(_modifierSelector, qOverload<int>(&QComboBox::activated), this, [this](int index) {
+		QComboBox* selector = static_cast<QComboBox*>(sender());
+		if(QAction* action = static_cast<ModifierListModel*>(selector->model())->actionFromIndex(index))
+			action->trigger();
+		selector->setCurrentIndex(0);
+	});
 
 	class PipelineListView : public QListView {
 	public:
@@ -150,20 +168,20 @@ ModifyCommandPage::ModifyCommandPage(MainWindow* mainWindow, QWidget* parent) : 
 #endif
 	subLayout->addWidget(editToolbar);
 
-	QAction* deleteModifierAction = _actionManager->createCommandAction(ACTION_MODIFIER_DELETE, tr("Delete Modifier"), ":/gui/actions/modify/delete_modifier.bw.svg");
+	QAction* deleteModifierAction = _actionManager->createCommandAction(ACTION_MODIFIER_DELETE, tr("Delete Modifier"), ":/gui/actions/modify/delete_modifier.bw.svg", tr("Delete the selected modifier from the pipeline."));
 	connect(deleteModifierAction, &QAction::triggered, this, &ModifyCommandPage::onDeleteModifier);
 	editToolbar->addAction(deleteModifierAction);
 
 	editToolbar->addSeparator();
 
-	QAction* moveModifierUpAction = _actionManager->createCommandAction(ACTION_MODIFIER_MOVE_UP, tr("Move Modifier Up"), ":/gui/actions/modify/modifier_move_up.bw.svg");
+	QAction* moveModifierUpAction = _actionManager->createCommandAction(ACTION_MODIFIER_MOVE_UP, tr("Move Modifier Up"), ":/gui/actions/modify/modifier_move_up.bw.svg", tr("Move the selected modifier up in the pipeline."));
 	connect(moveModifierUpAction, &QAction::triggered, this, &ModifyCommandPage::onModifierMoveUp);
 	editToolbar->addAction(moveModifierUpAction);
-	QAction* moveModifierDownAction = mainWindow->actionManager()->createCommandAction(ACTION_MODIFIER_MOVE_DOWN, tr("Move Modifier Down"), ":/gui/actions/modify/modifier_move_down.bw.svg");
+	QAction* moveModifierDownAction = mainWindow->actionManager()->createCommandAction(ACTION_MODIFIER_MOVE_DOWN, tr("Move Modifier Down"), ":/gui/actions/modify/modifier_move_down.bw.svg", tr("Move the selected modifier down in the pipeline."));
 	connect(moveModifierDownAction, &QAction::triggered, this, &ModifyCommandPage::onModifierMoveDown);
 	editToolbar->addAction(moveModifierDownAction);
 
-	QAction* toggleModifierStateAction = _actionManager->createCommandAction(ACTION_MODIFIER_TOGGLE_STATE, tr("Enable/Disable Modifier"));
+	QAction* toggleModifierStateAction = _actionManager->createCommandAction(ACTION_MODIFIER_TOGGLE_STATE, tr("Enable/Disable Modifier"), {}, tr("Turn the selected modifier in the pipeline on or off."));
 	toggleModifierStateAction->setCheckable(true);
 	QIcon toggleStateActionIcon(QString(":/gui/actions/modify/modifier_enabled_large.png"));
 	toggleStateActionIcon.addFile(QString(":/gui/actions/modify/modifier_disabled_large.png"), QSize(), QIcon::Normal, QIcon::On);
@@ -171,11 +189,11 @@ ModifyCommandPage::ModifyCommandPage(MainWindow* mainWindow, QWidget* parent) : 
 	connect(toggleModifierStateAction, &QAction::triggered, this, &ModifyCommandPage::onModifierToggleState);
 
 	editToolbar->addSeparator();
-	QAction* makeElementIndependentAction = _actionManager->createCommandAction(ACTION_PIPELINE_MAKE_INDEPENDENT, tr("Replace With Independent Copy"), ":/gui/actions/modify/make_element_independent.bw.svg");
+	QAction* makeElementIndependentAction = _actionManager->createCommandAction(ACTION_PIPELINE_MAKE_INDEPENDENT, tr("Replace With Independent Copy"), ":/gui/actions/modify/make_element_independent.bw.svg", tr("Duplicate an entry that is shared by multiple pipelines."));
 	connect(makeElementIndependentAction, &QAction::triggered, this, &ModifyCommandPage::onMakeElementIndependent);
 	editToolbar->addAction(makeElementIndependentAction);
 
-	QAction* manageModifierTemplatesAction = _actionManager->createCommandAction(ACTION_MODIFIER_MANAGE_TEMPLATES, tr("Manage Modifier Templates..."), ":/gui/actions/modify/modifier_save_preset.bw.svg");
+	QAction* manageModifierTemplatesAction = _actionManager->createCommandAction(ACTION_MODIFIER_MANAGE_TEMPLATES, tr("Manage Modifier Templates..."), ":/gui/actions/modify/modifier_save_preset.bw.svg", tr("Open the dialog that lets you manage the saved modifier templates."));
 	connect(manageModifierTemplatesAction, &QAction::triggered, [mainWindow]() {
 		ApplicationSettingsDialog dlg(mainWindow, &ModifierTemplatesPage::OOClass());
 		dlg.exec();
@@ -275,18 +293,6 @@ void ModifyCommandPage::updateActions(PipelineListItem* currentItem)
 	}
 
 	makeElementIndependentAction->setEnabled(PipelineListModel::isSharedObject(currentObject));
-}
-
-/******************************************************************************
-* Is called when the user has selected an item in the modifier list to be 
-* inserted into the pipeline.
-******************************************************************************/
-void ModifyCommandPage::applyModifiers(const QVector<OORef<Modifier>>& modifiers)
-{
-	if(!pipelineListModel()->isUpToDate()) return;
-
-	pipelineListModel()->applyModifiers(modifiers);
-	pipelineListModel()->requestUpdate();
 }
 
 /******************************************************************************

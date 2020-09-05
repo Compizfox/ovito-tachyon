@@ -174,21 +174,6 @@ void ActionManager::on_FileNewWindow_triggered()
 }
 
 /******************************************************************************
-* Handles the ACTION_FILE_NEW command.
-******************************************************************************/
-void ActionManager::on_FileNew_triggered()
-{
-	try {
-		if(mainWindow()->datasetContainer().askForSaveChanges()) {
-			mainWindow()->datasetContainer().fileNew();
-		}
-	}
-	catch(const Exception& ex) {
-		ex.reportError();
-	}
-}
-
-/******************************************************************************
 * Handles the ACTION_FILE_OPEN command.
 ******************************************************************************/
 void ActionManager::on_FileOpen_triggered()
@@ -269,7 +254,7 @@ void ActionManager::on_FileImport_triggered()
 {
 	try {
 		// Let the user select a file.
-		ImportFileDialog dialog(PluginManager::instance().metaclassMembers<FileImporter>(), _dataset, mainWindow(), tr("Load File"));
+		ImportFileDialog dialog(PluginManager::instance().metaclassMembers<FileImporter>(), dataset(), mainWindow(), tr("Load File"));
 		if(dialog.exec() != QDialog::Accepted)
 			return;
 
@@ -288,7 +273,7 @@ void ActionManager::on_FileRemoteImport_triggered()
 {
 	try {
 		// Let the user enter the URL of the remote file.
-		ImportRemoteFileDialog dialog(PluginManager::instance().metaclassMembers<FileImporter>(), _dataset, mainWindow(), tr("Load Remote File"));
+		ImportRemoteFileDialog dialog(PluginManager::instance().metaclassMembers<FileImporter>(), dataset(), mainWindow(), tr("Load Remote File"));
 		if(dialog.exec() != QDialog::Accepted)
 			return;
 
@@ -309,7 +294,7 @@ void ActionManager::on_FileExport_triggered()
 	QStringList filterStrings;
 	QVector<const FileExporterClass*> exporterTypes = PluginManager::instance().metaclassMembers<FileExporter>();
 	if(exporterTypes.empty()) {
-		Exception(tr("This function is disabled, because no file exporter plugins have been installed."), _dataset).reportError();
+		Exception(tr("This function is disabled, because no file exporter plugins have been installed."), dataset()).reportError();
 		return;
 	}
 	std::sort(exporterTypes.begin(), exporterTypes.end(), [](const FileExporterClass* a, const FileExporterClass* b) {
@@ -363,7 +348,7 @@ void ActionManager::on_FileExport_triggered()
 		OVITO_ASSERT(exportFilterIndex >= 0 && exportFilterIndex < exporterTypes.size());
 
 		// Create exporter.
-		OORef<FileExporter> exporter = static_object_cast<FileExporter>(exporterTypes[exportFilterIndex]->createInstance(_dataset));
+		OORef<FileExporter> exporter = static_object_cast<FileExporter>(exporterTypes[exportFilterIndex]->createInstance(dataset()));
 
 		// Load user-defined default settings.
 		exporter->loadUserDefaults();
@@ -373,10 +358,10 @@ void ActionManager::on_FileExport_triggered()
 
 		// Wait until the scene is ready.
 		{
-			ProgressDialog progressDialog(mainWindow(), _dataset->taskManager(), tr("File export"));
-			SharedFuture<> sceneReadyFuture = _dataset->whenSceneReady();
+			ProgressDialog progressDialog(mainWindow(), dataset()->taskManager(), tr("File export"));
+			SharedFuture<> sceneReadyFuture = dataset()->whenSceneReady();
 			progressDialog.registerTask(sceneReadyFuture.task());
-			if(!_dataset->taskManager().waitForFuture(sceneReadyFuture))
+			if(!dataset()->taskManager().waitForFuture(sceneReadyFuture))
 				return;
 		}
 
@@ -389,7 +374,7 @@ void ActionManager::on_FileExport_triggered()
 			return;
 
 		// Show progress dialog.
-		ProgressDialog progressDialog(mainWindow(), _dataset->taskManager(), tr("File export"));
+		ProgressDialog progressDialog(mainWindow(), dataset()->taskManager(), tr("File export"));
 
 		// Let the exporter do its work.
 		exporter->doExport(progressDialog.createOperation());

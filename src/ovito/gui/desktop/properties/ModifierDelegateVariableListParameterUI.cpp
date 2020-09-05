@@ -139,7 +139,7 @@ void ModifierDelegateVariableListParameterUI::referenceInserted(const PropertyFi
 		sublayout->setContentsMargins(0,0,0,0);
 		sublayout->setSpacing(2);
 		QComboBox* comboBox = new QComboBox();
-		connect(comboBox, QOverload<int>::of(&QComboBox::activated), this, &ModifierDelegateVariableListParameterUI::onDelegateSelected);
+		connect(comboBox, qOverload<int>(&QComboBox::activated), this, &ModifierDelegateVariableListParameterUI::onDelegateSelected);
 		sublayout->addWidget(comboBox, 1);
 		QToolBar* toolbar = new QToolBar();
 		toolbar->setStyleSheet("QToolBar { padding: 0px; margin: 0px; border: 0px none black; }");

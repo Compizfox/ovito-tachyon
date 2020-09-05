@@ -39,15 +39,17 @@ HtmlListWidget::HtmlListWidget(QWidget* parent) : QListWidget(parent)
 			QTextDocument doc;
 			doc.setHtml(options.text);
 			options.text.clear();
-			options.widget->style()->drawControl(QStyle::CE_ItemViewItem, &options, painter);
-			// shift text right to make icon visible
+			options.widget->style()->drawControl(QStyle::CE_ItemViewItem, &options, painter, options.widget);
+			// Shift text right to make icon visible
 			painter->translate(options.rect.left(), options.rect.top());
 			QRect clip(0, 0, options.rect.width(), options.rect.height());
 			doc.setTextWidth(clip.width());
 			QAbstractTextDocumentLayout::PaintContext ctx;
-			// set text color to red for selected item
+#ifndef Q_OS_WIN
+			// Set text color for highlighted item
 			if(option.state & QStyle::State_Selected)
 				ctx.palette.setColor(QPalette::Text, options.palette.color(QPalette::Active, QPalette::HighlightedText));
+#endif
 			ctx.clip = clip;
 			doc.documentLayout()->draw(painter, ctx);
 			painter->restore();

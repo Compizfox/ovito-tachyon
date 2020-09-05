@@ -83,6 +83,7 @@ class OVITO_STDMOD_EXPORT ExpressionSelectionModifier : public DelegatingModifie
 	Q_OBJECT
 	OVITO_CLASS_META(ExpressionSelectionModifier, ExpressionSelectionModifierClass)
 	Q_CLASSINFO("DisplayName", "Expression selection");
+	Q_CLASSINFO("Description", "Select particles or other elements using a user-defined criterion.");
 	Q_CLASSINFO("ModifierCategory", "Selection");
 
 public:

@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Copyright 2013 Alexander Stukowski
+//  Copyright 2020 Alexander Stukowski
 //
 //  This file is part of OVITO (Open Visualization Tool).
 //
@@ -32,8 +32,6 @@ namespace Ovito {
 
 /// This action closes the main window and exits the application.
 #define ACTION_QUIT				"Quit"
-/// This action loads an empty state file.
-#define ACTION_FILE_NEW			"FileNew"
 /// This action shows the file open dialog.
 #define ACTION_FILE_OPEN		"FileOpen"
 /// This action saves the current file.
@@ -96,14 +94,23 @@ namespace Ovito {
 #define ACTION_MODIFIER_DELETE				"ModifierDelete"
 /// This action moves the currently selected modifer up one entry in the modifier stack.
 #define ACTION_MODIFIER_MOVE_UP				"ModifierMoveUp"
-/// This action moves the currently selected modifer up down entry in the modifier stack.
+/// This action moves the currently selected modifer down one entry in the modifier stack.
 #define ACTION_MODIFIER_MOVE_DOWN			"ModifierMoveDown"
 /// This action toggles the enabled/disable state of the currently selected modifier.
 #define ACTION_MODIFIER_TOGGLE_STATE		"ModifierToggleEnabledState"
 /// This action opens the dialog box for managing modifier templates.
 #define ACTION_MODIFIER_MANAGE_TEMPLATES	"ModifierManageTemplates"
 /// This action creates a unique copy of the selected pipeline item.
-#define ACTION_PIPELINE_MAKE_INDEPENDENT			"PipelineMakeUnique"
+#define ACTION_PIPELINE_MAKE_INDEPENDENT	"PipelineMakeUnique"
+
+/// This action deletes the currently selected viewport layer.
+#define ACTION_VIEWPORT_LAYER_DELETE			"ViewportLayerDelete"
+/// This action moves the currently selected viewport layer up one entry in the stack.
+#define ACTION_VIEWPORT_LAYER_MOVE_UP			"ViewportLayerMoveUp"
+/// This action moves the currently selected viewport layer down one entry in the stack.
+#define ACTION_VIEWPORT_LAYER_MOVE_DOWN			"ViewportLayerMoveDown"
+/// This action toggles the enabled/disable state of the currently selected viewport layer.
+#define ACTION_VIEWPORT_LAYER_TOGGLE_STATE		"ViewportLayerToggleEnabledState"
 
 /// This action jumps to the start of the animation
 #define ACTION_GOTO_START_OF_ANIMATION		"AnimationGotoStart"
@@ -122,7 +129,7 @@ namespace Ovito {
 /// This action shows the animation settings dialog
 #define ACTION_ANIMATION_SETTINGS			"AnimationSettings"
 /// This action activates/deactivates the animation mode
-#define ACTION_AUTO_KEY_MODE_TOGGLE		"AnimationToggleRecording"
+#define ACTION_AUTO_KEY_MODE_TOGGLE			"AnimationToggleRecording"
 
 /// This action starts rendering of the current view.
 #define ACTION_RENDER_ACTIVE_VIEWPORT		"RenderActiveViewport"
@@ -131,6 +138,8 @@ namespace Ovito {
 
 /// This actions open the application's "Settings" dialog.
 #define ACTION_SETTINGS_DIALOG				"Settings"
+/// Opens a list of commands for quick access by the user.
+#define ACTION_COMMAND_QUICKSEARCH			"CommandQuickSearch"
 
 /// This actions activates the scene node selection mode.
 #define ACTION_SELECTION_MODE				"SelectionMode"
@@ -147,17 +156,27 @@ namespace Ovito {
 /**
  * \brief Manages all available user interface actions.
  */
-class OVITO_GUI_EXPORT ActionManager : public QObject
+class OVITO_GUI_EXPORT ActionManager : public QAbstractListModel
 {
 	Q_OBJECT
 
 public:
+
+	/// Item model roles supported by this QAbstractListModel.
+	enum ModelRoles {
+		ActionRole = Qt::UserRole,	///< Pointer to the QAction object.
+		ShortcutRole,				///< QKeySequence of the action's shortcut. 
+		SearchTextRole				///< The text string used for seaching commands.
+	};
 
 	/// Constructor.
 	ActionManager(MainWindow* mainWindow);
 
 	/// Returns the main window this action manager belongs to.
 	MainWindow* mainWindow() const { return reinterpret_cast<MainWindow*>(parent()); }
+
+	/// Returns dataset currently being edited in the main window.
+	DataSet* dataset() const;
 
 	/// \brief Returns the action with the given ID or NULL.
 	/// \param actionId The identifier string of the action to return.
@@ -197,6 +216,24 @@ public:
 						const QString& statusTip = QString(),
 						const QKeySequence& shortcut = QKeySequence());
 
+	/// \brief Removes the given action from the ActionManager and deletes it.
+	/// \param action The action to be deletes.
+	void deleteAction(QAction* action);
+
+	/// \brief Returns the number of rows in this list model.
+	virtual int rowCount(const QModelIndex& parent) const override { return _actions.size(); }
+
+	/// \brief Returns the data stored in this list model under the given role.
+	virtual QVariant data(const QModelIndex& index, int role) const override;
+
+	/// \brief Returns the flags for an item in this list model.
+	virtual Qt::ItemFlags flags(const QModelIndex& index) const override;
+
+Q_SIGNALS:
+
+	/// \brief This signal is emitted by the ActionManager when the quick command search is activated. It tells the system to refresh the enabled/disabled state of actions as needed. 
+	void actionUpdateRequested();
+
 private Q_SLOTS:
 
 	/// This is called when a new dataset has been loaded.
@@ -211,12 +248,14 @@ private Q_SLOTS:
 	/// This is called whenever the scene node selection changed.
 	void onSelectionChangeComplete(SelectionSet* selection);
 
+	/// Is called when the user selects a command in the quick search field.
+	void onQuickSearchCommandSelected(const QModelIndex& index);
+
 	void on_Quit_triggered();
 	void on_HelpAbout_triggered();
 	void on_HelpOpenGLInfo_triggered();
 	void on_HelpShowOnlineHelp_triggered();
 	void on_HelpShowScriptingReference_triggered();
-	void on_FileNew_triggered();
 	void on_FileOpen_triggered();
 	void on_FileSave_triggered();
 	void on_FileSaveAs_triggered();
@@ -244,6 +283,12 @@ private Q_SLOTS:
 
 private:
 
+	void setupCommandSearch();
+	void updateActionStates();
+
+	/// The list of registered actions.
+	QVector<QAction*> _actions;
+
 	QMetaObject::Connection _canUndoChangedConnection;
 	QMetaObject::Connection _canRedoChangedConnection;
 	QMetaObject::Connection _undoTextChangedConnection;
@@ -256,9 +301,6 @@ private:
 	QMetaObject::Connection _animationIntervalChangedConnection;
 	QMetaObject::Connection _animationPlaybackChangedConnection;
 	QMetaObject::Connection _animationPlaybackToggledConnection;
-
-	/// The current dataset being edited in the main window.
-	OORef<DataSet> _dataset;
 };
 
 }	// End of namespace

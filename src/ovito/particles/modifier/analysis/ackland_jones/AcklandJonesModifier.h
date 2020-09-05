@@ -38,6 +38,7 @@ class OVITO_PARTICLES_EXPORT AcklandJonesModifier : public StructureIdentificati
 	Q_OBJECT
 	OVITO_CLASS(AcklandJonesModifier)
 	Q_CLASSINFO("DisplayName", "Ackland-Jones analysis");
+	Q_CLASSINFO("Description", "Identify common crystalline structures based on local bond angles.");
 #ifndef OVITO_BUILD_WEBGUI
 	Q_CLASSINFO("ModifierCategory", "Structure identification");
 #else

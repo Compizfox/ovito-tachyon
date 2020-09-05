@@ -164,6 +164,7 @@ class OVITO_STDMOD_EXPORT ComputePropertyModifier : public AsynchronousDelegatin
 	OVITO_CLASS_META(ComputePropertyModifier, ComputePropertyModifierClass)
 
 	Q_CLASSINFO("DisplayName", "Compute property");
+	Q_CLASSINFO("Description", "Enter a user-defined formula to set properties of particles, bonds and other elements.");
 	Q_CLASSINFO("ModifierCategory", "Modification");
 
 public:

@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Copyright 2013 Alexander Stukowski
+//  Copyright 2020 Alexander Stukowski
 //
 //  This file is part of OVITO (Open Visualization Tool).
 //
@@ -40,38 +40,37 @@ namespace Ovito {
 /******************************************************************************
 * Initializes the ActionManager.
 ******************************************************************************/
-ActionManager::ActionManager(MainWindow* mainWindow) : QObject(mainWindow)
+ActionManager::ActionManager(MainWindow* mainWindow) : QAbstractListModel(mainWindow)
 {
 	// Actions need to be updated whenever a new dataset is loaded or the current selection changes.
 	connect(&mainWindow->datasetContainer(), &DataSetContainer::dataSetChanged, this, &ActionManager::onDataSetChanged);
 	connect(&mainWindow->datasetContainer(), &DataSetContainer::animationSettingsReplaced, this, &ActionManager::onAnimationSettingsReplaced);
 	connect(&mainWindow->datasetContainer(), &DataSetContainer::selectionChangeComplete, this, &ActionManager::onSelectionChangeComplete);
 
-	createCommandAction(ACTION_QUIT, tr("Exit"), ":/gui/actions/file/file_quit.bw.svg", tr("Quit the application."), QKeySequence::Quit);
-	createCommandAction(ACTION_FILE_NEW, tr("Reset State"), ":/gui/actions/file/file_new.bw.svg", tr("Resets the program to its initial state."), QKeySequence::New);
+	createCommandAction(ACTION_QUIT, tr("Quit"), ":/gui/actions/file/file_quit.bw.svg", tr("Quit the application."), QKeySequence::Quit);
 	createCommandAction(ACTION_FILE_OPEN, tr("Load Session State"), ":/gui/actions/file/file_open.bw.svg", tr("Load a previously saved session from a file."), QKeySequence::Open);
 	createCommandAction(ACTION_FILE_SAVE, tr("Save Session State"), ":/gui/actions/file/file_save.bw.svg", tr("Save the current program session to a file."), QKeySequence::Save);
 	createCommandAction(ACTION_FILE_SAVEAS, tr("Save Session State As"), ":/gui/actions/file/file_save_as.bw.svg", tr("Save the current program session to a new file."), QKeySequence::SaveAs);
 	createCommandAction(ACTION_FILE_IMPORT, tr("Load File"), ":/gui/actions/file/file_import.bw.svg", tr("Import data from a file on this computer."), Qt::CTRL + Qt::Key_I);
 	createCommandAction(ACTION_FILE_REMOTE_IMPORT, tr("Load Remote File"), ":/gui/actions/file/file_import_remote.bw.svg", tr("Import a file from a remote location."), Qt::CTRL + Qt::SHIFT + Qt::Key_I);
 	createCommandAction(ACTION_FILE_EXPORT, tr("Export File"), ":/gui/actions/file/file_export.bw.svg", tr("Export data to a file."), Qt::CTRL + Qt::Key_E);
-	createCommandAction(ACTION_FILE_NEW_WINDOW, tr("New Program Window"), ":/gui/actions/file/new_window.bw.svg", tr("Opens a new OVITO window."), QKeySequence::New);
-	createCommandAction(ACTION_HELP_ABOUT, tr("About Ovito"), ":/gui/actions/file/about.bw.svg", tr("Show information about the application."));
+	createCommandAction(ACTION_FILE_NEW_WINDOW, tr("New Program Window"), ":/gui/actions/file/new_window.bw.svg", tr("Open another OVITO program window."), QKeySequence::New);
+	createCommandAction(ACTION_HELP_ABOUT, tr("About Ovito"), ":/gui/actions/file/about.bw.svg", tr("Show information about the software."));
 	createCommandAction(ACTION_HELP_SHOW_ONLINE_HELP, tr("User Manual"), ":/gui/actions/file/user_manual.bw.svg", tr("Open the user manual."), QKeySequence::HelpContents);
-	createCommandAction(ACTION_HELP_SHOW_SCRIPTING_HELP, tr("Scripting Reference"), ":/gui/actions/file/scripting_manual.bw.svg", tr("Open the scripting reference."));
+	createCommandAction(ACTION_HELP_SHOW_SCRIPTING_HELP, tr("Scripting Reference"), ":/gui/actions/file/scripting_manual.bw.svg", tr("Open the Python API documentation."));
 	createCommandAction(ACTION_HELP_OPENGL_INFO, tr("OpenGL Information"), ":/gui/actions/file/opengl_info.bw.svg", tr("Display OpenGL graphics driver information."));
 
-	createCommandAction(ACTION_EDIT_UNDO, tr("Undo"), ":/gui/actions/edit/edit_undo.bw.svg", tr("Reverse a user action."), QKeySequence::Undo);
-	createCommandAction(ACTION_EDIT_REDO, tr("Redo"), ":/gui/actions/edit/edit_redo.bw.svg", tr("Redo the previously undone user action."), QKeySequence::Redo);
-	createCommandAction(ACTION_EDIT_CLEAR_UNDO_STACK, tr("Clear Undo Stack"), nullptr, tr("Discards all existing undo records."));
+	createCommandAction(ACTION_EDIT_UNDO, tr("Undo"), ":/gui/actions/edit/edit_undo.bw.svg", tr("Reverse the last action."), QKeySequence::Undo);
+	createCommandAction(ACTION_EDIT_REDO, tr("Redo"), ":/gui/actions/edit/edit_redo.bw.svg", tr("Restore the previously reversed action."), QKeySequence::Redo);
+	createCommandAction(ACTION_EDIT_CLEAR_UNDO_STACK, tr("Clear Undo Stack"), nullptr, tr("Discards all existing undo records."))->setVisible(false);
 
-	createCommandAction(ACTION_EDIT_CLONE_PIPELINE, tr("Clone Pipeline..."), ":/gui/actions/edit/clone_pipeline.bw.svg", tr("Duplicates the current pipeline to show multiple datasets side by side."));
+	createCommandAction(ACTION_EDIT_CLONE_PIPELINE, tr("Clone Pipeline..."), ":/gui/actions/edit/clone_pipeline.bw.svg", tr("Duplicate the current pipeline to show multiple datasets side by side."));
 	createCommandAction(ACTION_EDIT_RENAME_PIPELINE, tr("Rename Pipeline..."), ":/gui/actions/edit/rename_pipeline.bw.svg", tr("Assign a new name to the selected pipeline."));
-	createCommandAction(ACTION_EDIT_DELETE, tr("Delete Pipeline"), ":/gui/actions/edit/edit_delete.bw.svg", tr("Deletes the selected object from the scene."));
+	createCommandAction(ACTION_EDIT_DELETE, tr("Delete Pipeline"), ":/gui/actions/edit/edit_delete.bw.svg", tr("Delete the selected object from the scene."));
 
-	createCommandAction(ACTION_SETTINGS_DIALOG, tr("&Application Settings..."), ":/gui/actions/file/preferences.bw.svg", QString(), QKeySequence::Preferences);
+	createCommandAction(ACTION_SETTINGS_DIALOG, tr("Application Settings..."), ":/gui/actions/file/preferences.bw.svg", tr("Open the application settings dialog"), QKeySequence::Preferences);
 
-	createCommandAction(ACTION_RENDER_ACTIVE_VIEWPORT, tr("Render Active Viewport"), ":/gui/actions/rendering/render_active_viewport.bw.svg");
+	createCommandAction(ACTION_RENDER_ACTIVE_VIEWPORT, tr("Render Active Viewport"), ":/gui/actions/rendering/render_active_viewport.bw.svg", tr("Render an image or animation of the active viewport."));
 
 	createCommandAction(ACTION_VIEWPORT_MAXIMIZE, tr("Maximize Active Viewport"), ":/gui/actions/viewport/maximize_viewport.bw.svg", tr("Enlarge/reduce the active viewport."));
 	createCommandAction(ACTION_VIEWPORT_ZOOM_SCENE_EXTENTS, tr("Zoom Scene Extents"), ":/gui/actions/viewport/zoom_scene_extents.bw.svg",
@@ -89,28 +88,36 @@ ActionManager::ActionManager(MainWindow* mainWindow) : QObject(mainWindow)
 	createViewportModeAction(ACTION_VIEWPORT_PAN, vpInputManager->panMode(), tr("Pan"), ":/gui/actions/viewport/mode_pan.bw.svg", tr("Activate pan mode to shift the region visible in the viewports."));
 	createViewportModeAction(ACTION_VIEWPORT_ORBIT, vpInputManager->orbitMode(), tr("Orbit Camera"), ":/gui/actions/viewport/mode_orbit.bw.svg", tr("Activate orbit mode to rotate the camera around the scene."));
 	createViewportModeAction(ACTION_VIEWPORT_FOV, vpInputManager->fovMode(), tr("Change Field Of View"), ":/gui/actions/viewport/mode_fov.bw.svg", tr("Activate field of view mode to change the perspective projection."));
-	createViewportModeAction(ACTION_VIEWPORT_PICK_ORBIT_CENTER, vpInputManager->pickOrbitCenterMode(), tr("Set Orbit Center"), ":/gui/actions/viewport/mode_set_orbit_center.png", tr("Set the center of rotation."));
+	createViewportModeAction(ACTION_VIEWPORT_PICK_ORBIT_CENTER, vpInputManager->pickOrbitCenterMode(), tr("Set Orbit Center"), ":/gui/actions/viewport/mode_set_orbit_center.png", tr("Set the center of rotation of the viewport camera."))->setVisible(false);
 
 	createViewportModeAction(ACTION_SELECTION_MODE, vpInputManager->selectionMode(), tr("Select"), ":/gui/actions/edit/mode_select.bw.svg", tr("Select objects in the viewports."));
 	createViewportModeAction(ACTION_XFORM_MOVE_MODE, new MoveMode(vpInputManager), tr("Move"), ":/gui/actions/edit/mode_move.bw.svg", tr("Move objects."));
 	createViewportModeAction(ACTION_XFORM_ROTATE_MODE, new RotateMode(vpInputManager), tr("Rotate"), ":/gui/actions/edit/mode_rotate.bw.svg", tr("Rotate objects."));
 
-	createCommandAction(ACTION_GOTO_START_OF_ANIMATION, tr("Go to Start of Animation"), ":/gui/actions/animation/goto_animation_start.bw.svg", QString(), Qt::Key_Home);
-	createCommandAction(ACTION_GOTO_END_OF_ANIMATION, tr("Go to End of Animation"), ":/gui/actions/animation/goto_animation_end.bw.svg", QString(), Qt::Key_End);
-	createCommandAction(ACTION_GOTO_PREVIOUS_FRAME, tr("Go to Previous Frame"), ":/gui/actions/animation/goto_previous_frame.bw.svg", QString(), Qt::ALT + Qt::Key_Left);
-	createCommandAction(ACTION_GOTO_NEXT_FRAME, tr("Go to Next Frame"), ":/gui/actions/animation/goto_next_frame.bw.svg", QString(), Qt::ALT + Qt::Key_Right);
-	createCommandAction(ACTION_START_ANIMATION_PLAYBACK, tr("Start Animation Playback"), ":/gui/actions/animation/play_animation.bw.svg");
-	createCommandAction(ACTION_STOP_ANIMATION_PLAYBACK, tr("Stop Animation Playback"), ":/gui/actions/animation/stop_animation.bw.svg");
-	createCommandAction(ACTION_ANIMATION_SETTINGS, tr("Animation Settings"), ":/gui/actions/animation/animation_settings.bw.svg");
+	createCommandAction(ACTION_GOTO_START_OF_ANIMATION, tr("Go to Start of Animation"), ":/gui/actions/animation/goto_animation_start.bw.svg", tr("Jump to first frame of the animation."), Qt::Key_Home);
+	createCommandAction(ACTION_GOTO_END_OF_ANIMATION, tr("Go to End of Animation"), ":/gui/actions/animation/goto_animation_end.bw.svg", tr("Jump to the last frame of the animation."), Qt::Key_End);
+	createCommandAction(ACTION_GOTO_PREVIOUS_FRAME, tr("Go to Previous Frame"), ":/gui/actions/animation/goto_previous_frame.bw.svg", tr("Move time slider one animation frame backward."), Qt::ALT + Qt::Key_Left);
+	createCommandAction(ACTION_GOTO_NEXT_FRAME, tr("Go to Next Frame"), ":/gui/actions/animation/goto_next_frame.bw.svg", tr("Move time slider one animation frame forward."), Qt::ALT + Qt::Key_Right);
+	createCommandAction(ACTION_START_ANIMATION_PLAYBACK, tr("Start Animation Playback"), ":/gui/actions/animation/play_animation.bw.svg", tr("Start playing the animation in the viewports."));
+	createCommandAction(ACTION_STOP_ANIMATION_PLAYBACK, tr("Stop Animation Playback"), ":/gui/actions/animation/stop_animation.bw.svg", tr("Stop playing the animation in the viewports."));
+	createCommandAction(ACTION_ANIMATION_SETTINGS, tr("Animation Settings"), ":/gui/actions/animation/animation_settings.bw.svg", tr("Open the animation settings dialog."));
 	createCommandAction(ACTION_TOGGLE_ANIMATION_PLAYBACK, tr("Play Animation"), ":/gui/actions/animation/play_animation.bw.svg", tr("Start/stop animation playback. Hold down Shift key to play backwards."), Qt::Key_Space)->setCheckable(true);
-	createCommandAction(ACTION_AUTO_KEY_MODE_TOGGLE, tr("Auto Key Mode"), ":/gui/actions/animation/animation_mode.bw.svg")->setCheckable(true);
+	createCommandAction(ACTION_AUTO_KEY_MODE_TOGGLE, tr("Auto Key Mode"), ":/gui/actions/animation/animation_mode.bw.svg", tr("Toggle auto-key mode for creating animation keys."))->setCheckable(true);
+
+	// Set up the command quick search.
+	setupCommandSearch();
 
 	QMetaObject::connectSlotsByName(this);
 }
 
 /******************************************************************************
-* This is called when a new dataset has been loaded.
+* Returns dataset currently being edited in the main window.
 ******************************************************************************/
+DataSet* ActionManager::dataset() const
+{
+	return mainWindow()->datasetContainer().currentSet();
+}
+
 void ActionManager::onDataSetChanged(DataSet* newDataSet)
 {
 	disconnect(_canUndoChangedConnection);
@@ -120,7 +127,6 @@ void ActionManager::onDataSetChanged(DataSet* newDataSet)
 	disconnect(_undoTriggeredConnection);
 	disconnect(_redoTriggeredConnection);
 	disconnect(_clearUndoStackTriggeredConnection);
-	_dataset = newDataSet;
 	QAction* undoAction = getAction(ACTION_EDIT_UNDO);
 	QAction* redoAction = getAction(ACTION_EDIT_REDO);
 	QAction* clearUndoStackAction = getAction(ACTION_EDIT_CLEAR_UNDO_STACK);
@@ -207,7 +213,7 @@ void ActionManager::onSelectionChangeComplete(SelectionSet* selection)
 void ActionManager::invokeAction(const QString& actionId)
 {
 	QAction* action = getAction(actionId);
-	if(!action) throw Exception(tr("Action with id '%1' is not defined.").arg(actionId), _dataset);
+	if(!action) throw Exception(tr("Action with id '%1' is not defined.").arg(actionId), dataset());
 	action->trigger();
 }
 
@@ -218,9 +224,30 @@ void ActionManager::addAction(QAction* action)
 {
 	OVITO_CHECK_POINTER(action);
 	OVITO_ASSERT_MSG(action->parent() == this || findAction(action->objectName()) == nullptr, "ActionManager::addAction()", "There is already an action with the same ID.");
+	OVITO_ASSERT(!_actions.contains(action));
 
-	// Make it a child of this manager.
+	// Make the action a child of this object.
 	action->setParent(this);
+	beginInsertRows(QModelIndex(), _actions.size(), _actions.size());
+	_actions.push_back(action);
+	endInsertRows();
+}
+
+/******************************************************************************
+* Removes the given action from the ActionManager and deletes it.
+******************************************************************************/
+void ActionManager::deleteAction(QAction* action)
+{
+	OVITO_CHECK_POINTER(action);
+	OVITO_ASSERT_MSG(action->parent() == this, "ActionManager::deleteAction()", "The action is not owned by the ActionManager.");
+	OVITO_ASSERT_MSG(_actions.contains(action), "ActionManager::deleteAction()", "The action has not been registered with the ActionManager.");
+
+	// Make the action a child of this object.
+	int index = _actions.indexOf(action);
+	beginRemoveRows(QModelIndex(), index, index);
+	_actions.remove(index);
+	delete action;
+	endRemoveRows();
 }
 
 /******************************************************************************
@@ -261,18 +288,68 @@ QAction* ActionManager::createViewportModeAction(const QString& id, ViewportInpu
 }
 
 /******************************************************************************
+* Returns the data stored in this list model under the given role.
+******************************************************************************/
+QVariant ActionManager::data(const QModelIndex& index, int role) const
+{
+	QAction* action = _actions[index.row()];
+	if(role == Qt::DisplayRole) {
+		QString text = action->text();
+		if(text.endsWith(QStringLiteral("...")))
+			text.chop(3);
+		return text;
+	}
+	else if(role == SearchTextRole)
+		return QStringLiteral("%1 %2").arg(action->text(), action->statusTip());
+	else if(role == ActionRole)
+		return QVariant::fromValue(action);
+	else if(role == Qt::StatusTipRole)
+		return action->statusTip();
+	else if(role == Qt::DecorationRole)
+		return action->icon();
+	else if(role == ShortcutRole)
+		return action->shortcut();
+	else if(role == Qt::FontRole) {
+		static QFont font = QGuiApplication::font();
+		font.setBold(true);
+		return font;
+	}
+	return {};
+}
+
+/******************************************************************************
+* Returns the flags for an item in this list model.
+******************************************************************************/
+Qt::ItemFlags ActionManager::flags(const QModelIndex& index) const
+{
+	Qt::ItemFlags flags = QAbstractListModel::flags(index);
+	QAction* action = _actions[index.row()];
+	if(!action->isEnabled())
+		flags.setFlag(Qt::ItemIsEnabled, false);
+	return flags;
+}
+
+/******************************************************************************
+* Updates the enabled/disabled state of all actions.
+******************************************************************************/
+void ActionManager::updateActionStates()
+{
+	Q_EMIT actionUpdateRequested();
+}
+
+/******************************************************************************
 * Handles ACTION_EDIT_DELETE command
 ******************************************************************************/
 void ActionManager::on_EditDelete_triggered()
 {
-	UndoableTransaction::handleExceptions(_dataset->undoStack(), tr("Delete pipeline"), [this]() {
+	UndoableTransaction::handleExceptions(dataset()->undoStack(), tr("Delete pipeline"), [this]() {
 		// Delete all nodes in selection set.
-		for(SceneNode* node : _dataset->selection()->nodes())
+		for(SceneNode* node : dataset()->selection()->nodes())
 			node->deleteNode();
 
 		// Automatically select one of the remaining nodes.
-		if(_dataset->sceneRoot()->children().isEmpty() == false)
-			_dataset->selection()->setNode(_dataset->sceneRoot()->children().front());
+		if(dataset()->sceneRoot()->children().isEmpty() == false)
+			dataset()->selection()->setNode(dataset()->sceneRoot()->children().front());
 	});
 }
 
@@ -281,7 +358,7 @@ void ActionManager::on_EditDelete_triggered()
 ******************************************************************************/
 void ActionManager::on_ClonePipeline_triggered()
 {
-	if(PipelineSceneNode* pipeline = dynamic_object_cast<PipelineSceneNode>(_dataset->selection()->firstNode())) {
+	if(PipelineSceneNode* pipeline = dynamic_object_cast<PipelineSceneNode>(dataset()->selection()->firstNode())) {
 		ClonePipelineDialog dialog(pipeline, mainWindow());
 		dialog.exec();
 	}
@@ -292,12 +369,12 @@ void ActionManager::on_ClonePipeline_triggered()
 ******************************************************************************/
 void ActionManager::on_RenamePipeline_triggered()
 {
-	if(OORef<PipelineSceneNode> pipeline = dynamic_object_cast<PipelineSceneNode>(_dataset->selection()->firstNode())) {
+	if(OORef<PipelineSceneNode> pipeline = dynamic_object_cast<PipelineSceneNode>(dataset()->selection()->firstNode())) {
 		QString oldPipelineName = pipeline->objectTitle();
 		bool ok;
 		QString pipelineName = QInputDialog::getText(mainWindow(), tr("Rename pipeline"), tr("Please enter a new name for the selected pipeline:"), QLineEdit::Normal, oldPipelineName, &ok).trimmed();
 		if(ok && pipelineName != oldPipelineName) {
-			UndoableTransaction::handleExceptions(_dataset->undoStack(), tr("Rename pipeline"), [&]() {
+			UndoableTransaction::handleExceptions(dataset()->undoStack(), tr("Rename pipeline"), [&]() {
 				pipeline->setNodeName(pipelineName);
 			});
 		}

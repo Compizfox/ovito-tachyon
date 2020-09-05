@@ -37,7 +37,7 @@ AutocompleteTextEdit::AutocompleteTextEdit(QWidget* parent) : QPlainTextEdit(par
 	_completer->setCaseSensitivity(Qt::CaseInsensitive);
 	_completer->setModel(_wordListModel);
 	_completer->setWidget(this);
-	connect(_completer, (void (QCompleter::*)(const QString&))&QCompleter::activated, this, &AutocompleteTextEdit::onComplete);
+	connect(_completer, qOverload<const QString&>(&QCompleter::activated), this, &AutocompleteTextEdit::onComplete);
 }
 
 /******************************************************************************

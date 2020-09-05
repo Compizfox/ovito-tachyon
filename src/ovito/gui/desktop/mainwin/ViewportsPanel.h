@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Copyright 2014 Alexander Stukowski
+//  Copyright 2020 Alexander Stukowski
 //
 //  This file is part of OVITO (Open Visualization Tool).
 //
@@ -69,7 +69,10 @@ private Q_SLOTS:
 	void onInputModeChanged(ViewportInputMode* oldMode, ViewportInputMode* newMode);
 
 	/// This is called when the mouse cursor of the active input mode has changed.
-	void viewportModeCursorChanged(const QCursor& cursor);
+	void onViewportModeCursorChanged(const QCursor& cursor);
+
+	/// Handles keyboard input for the viewport windows.
+	void onKeyShortcut();
 
 private:
 
@@ -81,8 +84,7 @@ private:
 
 	OORef<ViewportConfiguration> _viewportConfig;
 	OORef<AnimationSettings> _animSettings;
+	MainWindow* _mainWindow;
 };
 
 }	// End of namespace
-
-
