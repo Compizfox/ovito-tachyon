@@ -11,9 +11,9 @@
 
   <para>
 
-    Modifiers are your basic building blocks for creating a <link linkend="usage.modification_pipeline">data pipeline</link> in OVITO.
-    Like tools in a toolbox, each modifier implements a specific, well-defined type of operation or computation, and typically one needs to
-    combine several modifiers in a sequence to accomplish more complex tasks.
+    Modifiers are the basic building blocks for creating a <link linkend="usage.modification_pipeline">data pipeline</link> in OVITO.
+    Like tools in a toolbox, each modifier implements a very specific, well-defined type of operation or computation, and typically you will need to
+    combine several modifiers to accomplish more complex tasks.
 
     <informaltable>
         <tgroup cols="2">
@@ -83,6 +83,10 @@
             <row>
               <entry><link linkend="particles.modifiers.time_averaging">Time&#xA0;averaging</link><ovito-pro/></entry>
               <entry>Computes the average of some time-dependent input quantity over the entire trajectory.</entry>
+            </row>
+            <row>
+              <entry><link linkend="particles.modifiers.time_series">Time&#xA0;series</link><ovito-pro/></entry>
+              <entry>Plots the value of a global attribute as function of simulation time.</entry>
             </row>
             <row>
               <entry><link linkend="particles.modifiers.voronoi_analysis">Voronoi&#xA0;analysis</link></entry>
@@ -346,6 +350,8 @@
   <xi:include href="particles/smooth_trajectory.docbook"/>
 
   <xi:include href="particles/time_averaging.docbook"/>
+
+  <xi:include href="particles/time_series.docbook"/>
 
   <xi:include href="particles/unwrap_trajectories.docbook"/>
 

@@ -35,7 +35,7 @@ namespace Ovito { namespace StdObj {
 class OVITO_STDOBJ_EXPORT DataTable : public PropertyContainer
 {
 	/// Define a new property metaclass for data table property containers.
-	class OOMetaClass : public PropertyContainerClass
+	class OVITO_STDOBJ_EXPORT OOMetaClass : public PropertyContainerClass
 	{
 	public:
 
