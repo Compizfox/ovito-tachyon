@@ -34,7 +34,7 @@ void ActionManager::setupCommandSearch()
 #ifndef Q_OS_MAC
 	commandQuickSearchAction->setShortcut(QKeySequence(Qt::CTRL | Qt::Key_Q));
 #else
-	commandQuickSearchAction->setShortcut(QKeySequence(Qt::META | Qt::Key_P));
+	commandQuickSearchAction->setShortcut(QKeySequence(Qt::CTRL | Qt::Key_P));
 #endif
 	commandQuickSearchAction->setStatusTip(tr("Quickly access program commands."));
 
@@ -76,7 +76,7 @@ void ActionManager::setupCommandSearch()
 					initStyleOption(&options, index);
 					options.features |= QStyleOptionViewItem::HasDecoration;
 					options.decorationSize = static_cast<const QAbstractItemView*>(option.widget)->iconSize();
-					
+
 					// Draw list item without text content.
 					QString text = std::move(options.text);
 					options.text.clear();
@@ -85,13 +85,18 @@ void ActionManager::setupCommandSearch()
 					// Draw shortcut text.
 					options.rect.adjust(0, 4, 0, -4);
 					options.backgroundBrush = {};
+#ifndef Q_OS_WIN
+					// Override text color for highlighted items.
+					if(options.state & QStyle::State_Selected)
+						options.palette.setColor(QPalette::Text, options.palette.color(QPalette::Active, QPalette::HighlightedText));
+#endif
 					options.state.setFlag(QStyle::State_Selected, false);
 					options.state.setFlag(QStyle::State_MouseOver, false);
 					options.icon = {};
 					options.displayAlignment = Qt::AlignRight | Qt::AlignVCenter;
 					QKeySequence keySequence = index.data(ShortcutRole).value<QKeySequence>();
 					if(!keySequence.isEmpty()) {
-						options.text = keySequence.toString() + QStringLiteral(" ");
+						options.text = keySequence.toString(QKeySequence::NativeText) + QStringLiteral(" ");
 						QFont oldFont = std::move(options.font);
 						options.font = _tooltipFont;
 						options.widget->style()->drawControl(QStyle::CE_ItemViewItem, &options, painter, options.widget);
@@ -188,7 +193,7 @@ void ActionManager::setupCommandSearch()
 
 	// Set up the command quick search field.
 	SearchField* commandQuickSearchInputField = new SearchField(this);
-	commandQuickSearchInputField->setPlaceholderText(tr("Quick command search (%1)").arg(commandQuickSearchAction->shortcut().toString()));
+	commandQuickSearchInputField->setPlaceholderText(tr("Quick command search (%1)").arg(commandQuickSearchAction->shortcut().toString(QKeySequence::NativeText)));
 	commandQuickSearchInputField->setMaximumSize(QSize(260, commandQuickSearchInputField->maximumHeight()));
 	commandQuickSearchAction->setDefaultWidget(commandQuickSearchInputField);
 
