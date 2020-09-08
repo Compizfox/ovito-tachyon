@@ -28,8 +28,6 @@
 #include <ovito/core/utilities/io/CompressedTextReader.h>
 #include "CFGImporter.h"
 
-#include <boost/algorithm/string.hpp>
-
 namespace Ovito { namespace Particles {
 
 IMPLEMENT_OVITO_CLASS(CFGImporter);
@@ -62,7 +60,7 @@ bool CFGImporter::OOMetaClass::checkFileFormat(const FileHandle& file) const
 		const char* line = stream.readLineTrimLeft(1024);
 
 		// CFG files start with the string "Number of particles".
-		if(boost::algorithm::starts_with(line, "Number of particles"))
+		if(stream.lineStartsWith("Number of particles"))
 			return true;
 
 		// Terminate early if line is non-empty and contains anything else than a comment (#).

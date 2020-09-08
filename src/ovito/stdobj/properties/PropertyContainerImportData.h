@@ -71,6 +71,13 @@ public:
 			if(mass) _types.back().attributes.insert(QStringLiteral("mass"), QVariant::fromValue(mass));
 		}
 
+		/// Defines a new type with the given numeric id and name.
+		void addNamedTypeId(int id, const char* name, const char* name_end, bool preserveNumericId) {
+			if(hasTypeId(id)) return;
+			size_t nameLen = (name_end ? (name_end - name) : qstrlen(name));
+			_types.push_back({ id, QString::fromLocal8Bit(name, nameLen), std::string(name, nameLen), preserveNumericId });
+		}
+
 		/// Checks if a type with the given numeric id already exists.
 		bool hasTypeId(int id) const {
 			for(const auto& type : _types) {

@@ -161,6 +161,11 @@
               <entry><para>Configuration/topology file format used by the <link xlink:href="https://dna.physics.ox.ac.uk/">oxDNA</link> simulation code for coarse-grained DNA models.</para></entry>
               <entry><link linkend="scene_objects.particles">particles</link>, <link linkend="scene_objects.bonds">bonds</link></entry>
             </row>
+            <row>
+              <entry>Gromacs GRO</entry>
+              <entry><para>Coordinate file format used by the <link xlink:href="http://www.gromacs.org/">GROMACS</link> simulation code.</para></entry>
+              <entry><link linkend="scene_objects.particles">particles</link></entry>
+            </row>
 
           </tbody>
         </tgroup>

@@ -24,15 +24,18 @@
 
 
 #include <ovito/particles/Particles.h>
+#include <ovito/particles/import/ParticleImporter.h>
+#include <ovito/particles/objects/ParticlesObject.h>
 #include <ovito/core/dataset/DataSetContainer.h>
-#include "../ParticleImporter.h"
 
 namespace Ovito { namespace Particles {
 
 /**
- * \brief File parser for the XSF (XCRySDen) structure format.
+ * File parser GROMACS coordinates file in GROMOS-87 format.
+ * 
+ * http://manual.gromacs.org/documentation/current/reference-manual/topologies/topology-file-formats.html#coordinate-file
  */
-class OVITO_PARTICLES_EXPORT XSFImporter : public ParticleImporter
+class OVITO_PARTICLES_EXPORT GroImporter : public ParticleImporter
 {
 	/// Defines a metaclass specialization for this importer type.
 	class OOMetaClass : public ParticleImporter::OOMetaClass
@@ -42,32 +45,30 @@ class OVITO_PARTICLES_EXPORT XSFImporter : public ParticleImporter
 		using ParticleImporter::OOMetaClass::OOMetaClass;
 
 		/// Returns the file filter that specifies the files that can be imported by this service.
-		virtual QString fileFilter() const override { return QStringLiteral("*"); }
+		virtual QString fileFilter() const override { return QStringLiteral("*.gro"); }
 
 		/// Returns the filter description that is displayed in the drop-down box of the file dialog.
-		virtual QString fileFilterDescription() const override { return tr("XSF (XCrySDen) Files"); }
+		virtual QString fileFilterDescription() const override { return tr("Gromacs Coordinate Files"); }
 
 		/// Checks if the given file has format that can be read by this importer.
 		virtual bool checkFileFormat(const FileHandle& file) const override;
 	};
 
-	OVITO_CLASS_META(XSFImporter, OOMetaClass)
+	OVITO_CLASS_META(GroImporter, OOMetaClass)
 	Q_OBJECT
 
 public:
 
 	/// \brief Constructs a new instance of this class.
-	Q_INVOKABLE XSFImporter(DataSet* dataset) : ParticleImporter(dataset) {
-		setMultiTimestepFile(true);
-	}
+	Q_INVOKABLE GroImporter(DataSet* dataset) : ParticleImporter(dataset) {}
 
 	/// Returns the title of this object.
-	virtual QString objectTitle() const override { return tr("XSF"); }
+	virtual QString objectTitle() const override { return tr("GRO"); }
 
 	/// Creates an asynchronous loader object that loads the data for the given frame from the external file.
 	virtual std::shared_ptr<FileSourceImporter::FrameLoader> createFrameLoader(const Frame& frame, const FileHandle& file) override {
 		activateCLocale();
-		return std::make_shared<FrameLoader>(frame, file);
+		return std::make_shared<FrameLoader>(frame, std::move(file));
 	}
 
 	/// Creates an asynchronous frame discovery object that scans the input file for contained animation frames.
@@ -104,9 +105,7 @@ private:
 
 		/// Scans the data file and builds a list of source frames.
 		virtual void discoverFramesInFile(QVector<FileSourceImporter::Frame>& frames) override;
-	};
-
-	static const char* chemical_symbols[];
+	};	
 };
 
 }	// End of namespace

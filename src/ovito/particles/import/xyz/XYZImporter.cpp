@@ -136,7 +136,7 @@ void XYZImporter::FrameFinder::discoverFramesInFile(QVector<FileSourceImporter::
 		}
 
 		// Create a new record for the time step.
-		frame.label = QString("%1 (Frame %2)").arg(filename).arg(frameNumber++);
+		frame.label = QStringLiteral("%1 (Frame %2)").arg(filename).arg(frameNumber++);
 		frames.push_back(frame);
 
 		// Skip comment line.
@@ -252,7 +252,7 @@ FileSourceImporter::FrameDataPtr XYZImporter::FrameLoader::loadFile()
 			throw Exception(tr("Parsing error in line %1 of XYZ file. According to the XYZ format specification, the first line should contain the number of particles. This is not a valid integer number of particles:\n\n\"%2\"").arg(stream.lineNumber()).arg(stream.lineString().trimmed()));
 	}
 	if(numParticlesLong > (unsigned long long)std::numeric_limits<int>::max())
-		throw Exception(tr("Too many particles in XYZ file. This program version can read XYZ file with up to %1 particles only.").arg(std::numeric_limits<int>::max()));
+		throw Exception(tr("Too many particles in XYZ file. This program version can read XYZ files with up to %1 particles only.").arg(std::numeric_limits<int>::max()));
 
 	setProgressMaximum(numParticlesLong);
 	QString fileExcerpt = stream.lineString();

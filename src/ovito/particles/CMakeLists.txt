@@ -85,6 +85,7 @@ SET(SourceFiles
 	import/quantumespresso/QuantumEspressoImporter.cpp
 	import/cif/CIFImporter.cpp
 	import/cif/mmCIFImporter.cpp
+	import/gromacs/GroImporter.cpp
 	export/ParticleExporter.cpp
 	export/FileColumnParticleExporter.cpp
 	export/vasp/POSCARExporter.cpp
