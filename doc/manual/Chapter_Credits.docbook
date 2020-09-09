@@ -196,6 +196,11 @@
               <entry><link linkend="appendix.license.pegtl">license</link></entry>
               <entry></entry>
             </row>
+            <row>
+              <entry>XTC/XDR file I/O routines</entry>
+              <entry><link linkend="appendix.license.xdrfile">license</link></entry>
+              <entry></entry>
+            </row>
           </tbody>
         </tgroup>
       </informaltable>
@@ -415,5 +420,7 @@
   <xi:include href="licenses/pegtl.docbook"/>
 
   <xi:include href="licenses/PySide2.instructions.docbook"/>
+
+  <xi:include href="licenses/xdrfile.docbook"/>
 
 </chapter>

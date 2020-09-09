@@ -197,7 +197,7 @@ FileSourceImporter::FrameDataPtr GroImporter::FrameLoader::loadFile()
 		char residueName[6];
 		char* residueNameStart = residueName;
 		token_end = token + 5;
-		for(token; token != token_end; token++, residueNameStart++) {
+		for(; token != token_end; token++, residueNameStart++) {
 			if(*token == '\0')
 				throw Exception(tr("Parsing error in line %1 of Gromacs file. Unexpected end of line.").arg(stream.lineNumber()));
 			if(*token > ' ')
@@ -217,7 +217,7 @@ FileSourceImporter::FrameDataPtr GroImporter::FrameLoader::loadFile()
 		char atomName[6];
 		char* atomNameStart = atomName;
 		token_end = token + 5;
-		for(token; token != token_end; token++, atomNameStart++) {
+		for(; token != token_end; token++, atomNameStart++) {
 			if(*token == '\0')
 				throw Exception(tr("Parsing error in line %1 of Gromacs file. Unexpected end of line.").arg(stream.lineNumber()));
 			if(*token > ' ')
