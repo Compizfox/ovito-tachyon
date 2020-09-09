@@ -36,14 +36,20 @@
           <tbody>
 
             <row>
+              <entry>LAMMPS&#xA0;data</entry>
+              <entry><para>File format used by the <link xlink:href="http://lammps.sandia.gov/doc/read_data.html">LAMMPS</link> molecular dynamics code.</para></entry>
+              <entry><link linkend="scene_objects.particles">particles</link>, <link linkend="scene_objects.bonds">bonds</link>, angles, dihedrals, impropers</entry>
+            </row>
+            <row>
               <entry>LAMMPS&#xA0;dump</entry>
               <entry><para>File format used by the <link xlink:href="http://lammps.sandia.gov">LAMMPS</link> molecular dynamics code. OVITO supports both text-based and binary dump files.</para></entry>
               <entry><link linkend="scene_objects.particles">particles</link></entry>
             </row>
             <row>
-              <entry>LAMMPS&#xA0;data</entry>
-              <entry><para>File format used by the <link xlink:href="http://lammps.sandia.gov/doc/read_data.html">LAMMPS</link> molecular dynamics code.</para></entry>
-              <entry><link linkend="scene_objects.particles">particles</link>, <link linkend="scene_objects.bonds">bonds</link>, angles, dihedrals, impropers</entry>
+              <entry>LAMMPS&#xA0;dump&#xA0;local</entry>
+              <entry><para>File format written by the <link xlink:href="https://lammps.sandia.gov/doc/dump.html">dump local</link> command of LAMMPS. OVITO's <link linkend="particles.modifiers.load_trajectory">Load trajectory</link> modifier can read varying bond topology and 
+                per-bond quantities from such files generated in reactive molecular dynamics simulations.</para></entry>
+              <entry><link linkend="scene_objects.bonds">bonds</link></entry>
             </row>
             <row>
               <entry>XYZ</entry>
@@ -60,8 +66,13 @@
               <entry><link linkend="scene_objects.particles">particles</link>, <link linkend="scene_objects.voxel_grid">voxel&#xA0;grids</link></entry>
             </row>
             <row>
-              <entry>IMD</entry>
-              <entry><para>File format used by the molecular dynamics code <link xlink:href="http://imd.itap.physik.uni-stuttgart.de/">IMD</link>.</para></entry>
+              <entry>Gromacs GRO</entry>
+              <entry><para>Coordinate file format used by the <link xlink:href="http://www.gromacs.org/">GROMACS</link> simulation code.</para></entry>
+              <entry><link linkend="scene_objects.particles">particles</link></entry>
+            </row>
+            <row>
+              <entry>Gromacs XTC</entry>
+              <entry><para>Trajectory file format used by the <link xlink:href="http://www.gromacs.org/">GROMACS</link> simulation code.</para></entry>
               <entry><link linkend="scene_objects.particles">particles</link></entry>
             </row>
             <row>
@@ -70,24 +81,31 @@
               <entry><link linkend="scene_objects.particles">particles</link></entry>
             </row>
             <row>
-              <entry>DL_POLY</entry>
-              <entry><para>File format used by the molecular simulation package <link xlink:href="https://www.scd.stfc.ac.uk/Pages/DL_POLY.aspx">DL_POLY</link>.</para></entry>
-              <entry><link linkend="scene_objects.particles">particles</link></entry>
-            </row>
-            <row>
-              <entry>PARCAS</entry>
-              <entry><para>Binary file format written by the MD code <emphasis>Parcas</emphasis> developed in K. Nordlund's group at University of Helsinki.</para></entry>
-              <entry><link linkend="scene_objects.particles">particles</link></entry>
-            </row>
-            <row>
               <entry>NetCDF</entry>
               <entry><para>Binary format for molecular dynamics data following the <link xlink:href="http://ambermd.org/netcdf/nctraj.pdf">AMBER format convention</link>. NetCDF files are produced by the LAMMPS <link xlink:href="http://lammps.sandia.gov/doc/dump_netcdf.html">dump netcdf</link> command.</para></entry>
+              <entry><link linkend="scene_objects.particles">particles</link></entry>
+            </row>
+            <row>
+              <entry>CIF</entry>
+              <entry><para><link xlink:href="https://www.iucr.org/resources/cif">Crystallographic Information File</link> format as specified by the
+                International Union of Crystallography (IUCr). Parser supports only small-molecule crystal structures.</para></entry>
               <entry><link linkend="scene_objects.particles">particles</link></entry>
             </row>
             <row>
               <entry>PDB</entry>
               <entry><para>Protein Data Bank (PDB) files (experimental support).</para></entry>
               <entry><link linkend="scene_objects.particles">particles</link>, <link linkend="scene_objects.bonds">bonds</link></entry>
+            </row>
+            <row>
+              <entry>PDBx/mmCIF</entry>
+              <entry><para>The <link xlink:href="http://mmcif.wwpdb.org">PDBx/mmCIF</link> format stores 
+              macromolecular structures and is used by the Worldwide Protein Data Bank. </para></entry>
+              <entry><link linkend="scene_objects.particles">particles</link></entry>
+            </row>
+            <row>
+              <entry>Quantum Espresso</entry>
+              <entry><para>Input data format used by the <link xlink:href="https://www.quantum-espresso.org/">Quantum Espresso</link> electronic-structure calculation code.</para></entry>
+              <entry><link linkend="scene_objects.particles">particles</link></entry>
             </row>
             <row>
               <entry>FHI-aims</entry>
@@ -115,26 +133,19 @@
               <entry><link linkend="scene_objects.particles">particles</link>, <link linkend="scene_objects.voxel_grid">voxel&#xA0;grids</link></entry>
             </row>
             <row>
+              <entry>IMD</entry>
+              <entry><para>File format used by the molecular dynamics code <link xlink:href="http://imd.itap.physik.uni-stuttgart.de/">IMD</link>.</para></entry>
+              <entry><link linkend="scene_objects.particles">particles</link></entry>
+            </row>
+            <row>
+              <entry>DL_POLY</entry>
+              <entry><para>File format used by the molecular simulation package <link xlink:href="https://www.scd.stfc.ac.uk/Pages/DL_POLY.aspx">DL_POLY</link>.</para></entry>
+              <entry><link linkend="scene_objects.particles">particles</link></entry>
+            </row>
+            <row>
               <entry>GALAMOST</entry>
               <entry><para>XML-based file format used by the <emphasis>GALAMOST</emphasis> molecular dynamics code.</para></entry>
               <entry><link linkend="scene_objects.particles">particles</link>, <link linkend="scene_objects.bonds">bonds</link></entry>
-            </row>
-            <row>
-              <entry>Quantum Espresso</entry>
-              <entry><para>Input data format used by the <link xlink:href="https://www.quantum-espresso.org/">Quantum Espresso</link> electronic-structure calculation code.</para></entry>
-              <entry><link linkend="scene_objects.particles">particles</link></entry>
-            </row>
-            <row>
-              <entry>CIF</entry>
-              <entry><para><link xlink:href="https://www.iucr.org/resources/cif">Crystallographic Information File</link> format as specified by the
-                International Union of Crystallography (IUCr). Parser supports only small-molecule crystal structures.</para></entry>
-              <entry><link linkend="scene_objects.particles">particles</link></entry>
-            </row>
-            <row>
-              <entry>PDBx/mmCIF</entry>
-              <entry><para>The <link xlink:href="http://mmcif.wwpdb.org">PDBx/mmCIF</link> format stores 
-              macromolecular structures and is used by the Worldwide Protein Data Bank. </para></entry>
-              <entry><link linkend="scene_objects.particles">particles</link></entry>
             </row>
             <row>
               <entry>VTK</entry>
@@ -152,6 +163,11 @@
               <entry><link linkend="scene_objects.triangle_mesh">triangle&#xA0;meshes</link></entry>
             </row>
             <row>
+              <entry>PARCAS</entry>
+              <entry><para>Binary file format written by the MD code <emphasis>Parcas</emphasis> developed in K. Nordlund's group at University of Helsinki.</para></entry>
+              <entry><link linkend="scene_objects.particles">particles</link></entry>
+            </row>
+            <row>
               <entry>ParaDiS</entry>
               <entry><para>File format of the <link xlink:href="http://paradis.stanford.edu">ParaDiS</link> discrete dislocation dynamics code.</para></entry>
               <entry><link linkend="scene_objects.dislocations">dislocation&#xA0;lines</link></entry>
@@ -161,12 +177,6 @@
               <entry><para>Configuration/topology file format used by the <link xlink:href="https://dna.physics.ox.ac.uk/">oxDNA</link> simulation code for coarse-grained DNA models.</para></entry>
               <entry><link linkend="scene_objects.particles">particles</link>, <link linkend="scene_objects.bonds">bonds</link></entry>
             </row>
-            <row>
-              <entry>Gromacs GRO</entry>
-              <entry><para>Coordinate file format used by the <link xlink:href="http://www.gromacs.org/">GROMACS</link> simulation code.</para></entry>
-              <entry><link linkend="scene_objects.particles">particles</link></entry>
-            </row>
-
           </tbody>
         </tgroup>
       </informaltable>

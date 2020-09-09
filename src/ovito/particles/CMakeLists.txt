@@ -86,6 +86,7 @@ SET(SourceFiles
 	import/cif/CIFImporter.cpp
 	import/cif/mmCIFImporter.cpp
 	import/gromacs/GroImporter.cpp
+	import/gromacs/XTCImporter.cpp
 	export/ParticleExporter.cpp
 	export/FileColumnParticleExporter.cpp
 	export/vasp/POSCARExporter.cpp
@@ -119,7 +120,7 @@ ENDIF()
 OVITO_STANDARD_PLUGIN(Particles
 	SOURCES ${SourceFiles}
 	PLUGIN_DEPENDENCIES Mesh Grid StdObj Delaunay
-	PRIVATE_LIB_DEPENDENCIES VoroPlusPlus OpenGLRenderer PolyhedralTemplateMatching MinimumWeightMatchingCentrosymmetry
+	PRIVATE_LIB_DEPENDENCIES VoroPlusPlus OpenGLRenderer PolyhedralTemplateMatching MinimumWeightMatchingCentrosymmetry xdrfile
 	OPTIONAL_PLUGIN_DEPENDENCIES StdMod
 	PRECOMPILED_HEADERS Particles.h
 )

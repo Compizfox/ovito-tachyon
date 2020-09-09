@@ -165,14 +165,15 @@ FileSourceImporter::FrameDataPtr GroImporter::FrameLoader::loadFile()
 
 	// Create particle properties.
 	PropertyAccess<Point3> posProperty = frameData->particles().createStandardProperty<ParticlesObject>(numParticles, ParticlesObject::PositionProperty, true);
-	PropertyAccess<int> residueProperty = frameData->particles().addProperty(std::make_shared<PropertyStorage>(numParticles, PropertyStorage::Int, 1, 0, QStringLiteral("Residue"), false));
+	PropertyAccess<int> residueTypeProperty = frameData->particles().addProperty(std::make_shared<PropertyStorage>(numParticles, PropertyStorage::Int, 1, 0, QStringLiteral("Residue Type"), false));
+	PropertyAccess<qlonglong> residueNumberProperty = frameData->particles().addProperty(std::make_shared<PropertyStorage>(numParticles, PropertyStorage::Int64, 1, 0, QStringLiteral("Residue Identifier"), false));
 	PropertyAccess<int> typeProperty = frameData->particles().createStandardProperty<ParticlesObject>(numParticles, ParticlesObject::TypeProperty, false);
 	PropertyAccess<qlonglong> identifierProperty = frameData->particles().createStandardProperty<ParticlesObject>(numParticles, ParticlesObject::IdentifierProperty, true);
 	PropertyAccess<Vector3> velocityProperty;
 
 	// Create particle and residue type lists, because we need to populate them while parsing.
 	std::unique_ptr<PropertyContainerImportData::TypeList> typeList = std::make_unique<PropertyContainerImportData::TypeList>(ParticleType::OOClass());
-	std::unique_ptr<PropertyContainerImportData::TypeList> residueList = std::make_unique<PropertyContainerImportData::TypeList>(ElementType::OOClass());
+	std::unique_ptr<PropertyContainerImportData::TypeList> residueTypeList = std::make_unique<PropertyContainerImportData::TypeList>(ElementType::OOClass());
 
 	// Parse list of atoms.
 	for(size_t i = 0; i < numParticles; i++) {
@@ -249,8 +250,8 @@ FileSourceImporter::FrameDataPtr GroImporter::FrameLoader::loadFile()
 		// Store parsed value in property arrays.
 		identifierProperty.set(atomIndex, atomNumber);
 		typeProperty.set(atomIndex, typeList->addTypeName(atomNameStart, atomNameEnd));
-		residueList->addNamedTypeId(residueNumber, residueNameStart, residueNameEnd, true);
-		residueProperty.set(atomIndex, residueNumber);
+		residueTypeProperty.set(atomIndex, residueTypeList->addTypeName(residueNameStart, residueNameEnd));
+		residueNumberProperty.set(atomIndex, residueNumber);
 
 		// Parse atomic xyz coordinates.
 		// First, determine column width by counting distance between decimal points.
@@ -310,8 +311,9 @@ FileSourceImporter::FrameDataPtr GroImporter::FrameLoader::loadFile()
 	// depend on the storage order of particles in the file. We rather want a well-defined particle type ordering, that's
 	// why we sort them now.
 	typeList->sortTypesByName(typeProperty);
+	residueTypeList->sortTypesByName(residueTypeProperty);
 	frameData->particles().setPropertyTypesList(typeProperty, std::move(typeList));
-	frameData->particles().setPropertyTypesList(residueProperty, std::move(residueList));
+	frameData->particles().setPropertyTypesList(residueTypeProperty, std::move(residueTypeList));
 
 	// Parse simulation cell definition.
 	AffineTransformation cell = AffineTransformation::Identity();
