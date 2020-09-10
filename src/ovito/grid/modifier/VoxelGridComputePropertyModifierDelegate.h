@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Copyright 2019 Alexander Stukowski
+//  Copyright 2020 Alexander Stukowski
 //
 //  This file is part of OVITO (Open Visualization Tool).
 //
@@ -63,15 +63,6 @@ public:
 
 	/// Constructor.
 	Q_INVOKABLE VoxelGridComputePropertyModifierDelegate(DataSet* dataset) :  ComputePropertyModifierDelegate(dataset) {}
-
-	/// Creates a computation engine that will compute the property values.
-	virtual std::shared_ptr<ComputePropertyModifierDelegate::PropertyComputeEngine> createEngine(
-				TimePoint time,
-				const PipelineFlowState& input,
-				const PropertyContainer* container,
-				PropertyPtr outputProperty,
-				ConstPropertyPtr selectionProperty,
-				QStringList expressions) override;
 };
 
 }	// End of namespace

@@ -159,7 +159,7 @@ Future<AsynchronousModifier::EnginePtr> ComputePropertyModifier::createEngine(co
 
 	// Create engine object. Pass all relevant modifier parameters to the engine as well as the input data.
 	auto engine = delegate()->createEngine(request.time(), input,
-			container, std::move(outp),
+			objectPath, std::move(outp),
 			std::move(selectionProperty),
 			expressions());
 
@@ -185,13 +185,38 @@ Future<AsynchronousModifier::EnginePtr> ComputePropertyModifier::createEngine(co
 }
 
 /******************************************************************************
+* Creates and initializes a computation engine that will compute the
+* modifier's results.
+******************************************************************************/
+std::shared_ptr<ComputePropertyModifierDelegate::PropertyComputeEngine> ComputePropertyModifierDelegate::createEngine(
+				TimePoint time,
+				const PipelineFlowState& input,
+				const ConstDataObjectPath& containerPath,
+				PropertyPtr outputProperty,
+				ConstPropertyPtr selectionProperty,
+				QStringList expressions)
+{
+	// Create engine object. Pass all relevant modifier parameters to the engine as well as the input data.
+	return std::make_shared<PropertyComputeEngine>(
+			input.stateValidity(),
+			time,
+			input,
+			containerPath,
+			std::move(outputProperty),
+			std::move(selectionProperty),
+			std::move(expressions),
+			dataset()->animationSettings()->timeToFrame(time),
+			std::make_unique<PropertyExpressionEvaluator>());
+}
+
+/******************************************************************************
 * Constructor.
 ******************************************************************************/
 ComputePropertyModifierDelegate::PropertyComputeEngine::PropertyComputeEngine(
 		const TimeInterval& validityInterval,
 		TimePoint time,
 		const PipelineFlowState& input,
-		const PropertyContainer* container,
+		const ConstDataObjectPath& containerPath,
 		PropertyPtr outputProperty,
 		ConstPropertyPtr selectionProperty,
 		QStringList expressions,
@@ -208,7 +233,7 @@ ComputePropertyModifierDelegate::PropertyComputeEngine::PropertyComputeEngine(
 	OVITO_ASSERT(_expressions.size() == this->outputProperty()->componentCount());
 
 	// Initialize expression evaluator.
-	_evaluator->initialize(_expressions, input, container, _frameNumber);
+	_evaluator->initialize(_expressions, input, containerPath, _frameNumber);
 }
 
 /******************************************************************************

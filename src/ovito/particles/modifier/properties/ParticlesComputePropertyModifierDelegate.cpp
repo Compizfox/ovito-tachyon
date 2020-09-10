@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Copyright 2019 Alexander Stukowski
+//  Copyright 2020 Alexander Stukowski
 //
 //  This file is part of OVITO (Open Visualization Tool).
 //
@@ -83,7 +83,7 @@ void ParticlesComputePropertyModifierDelegate::setComponentCount(int componentCo
 std::shared_ptr<ComputePropertyModifierDelegate::PropertyComputeEngine> ParticlesComputePropertyModifierDelegate::createEngine(
 				TimePoint time,
 				const PipelineFlowState& input,
-				const PropertyContainer* container,
+				const ConstDataObjectPath& containerPath,
 				PropertyPtr outputProperty,
 				ConstPropertyPtr selectionProperty,
 				QStringList expressions)
@@ -100,7 +100,7 @@ std::shared_ptr<ComputePropertyModifierDelegate::PropertyComputeEngine> Particle
 			input.stateValidity(),
 			time,
 			std::move(outputProperty),
-			container,
+			containerPath,
 			std::move(selectionProperty),
 			std::move(expressions),
 			dataset()->animationSettings()->timeToFrame(time),
@@ -117,7 +117,7 @@ ParticlesComputePropertyModifierDelegate::Engine::Engine(
 		const TimeInterval& validityInterval,
 		TimePoint time,
 		PropertyPtr outputProperty,
-		const PropertyContainer* container,
+		const ConstDataObjectPath& containerPath,
 		ConstPropertyPtr selectionProperty,
 		QStringList expressions,
 		int frameNumber,
@@ -129,7 +129,7 @@ ParticlesComputePropertyModifierDelegate::Engine::Engine(
 			validityInterval,
 			time,
 			input,
-			container,
+			containerPath,
 			std::move(outputProperty),
 			std::move(selectionProperty),
 			std::move(expressions),
@@ -157,7 +157,7 @@ ParticlesComputePropertyModifierDelegate::Engine::Engine(
 	_evaluator->registerGlobalParameter("Cutoff", _cutoff);
 	_evaluator->registerGlobalParameter("NumNeighbors", 0);
 
-	_neighborEvaluator->initialize(_neighborExpressions, input, _frameNumber);
+	_neighborEvaluator->initialize(_neighborExpressions, input, containerPath, _frameNumber);
 	_neighborEvaluator->registerGlobalParameter("Cutoff", _cutoff);
 	_neighborEvaluator->registerGlobalParameter("NumNeighbors", 0);
 	_neighborEvaluator->registerGlobalParameter("Distance", 0);

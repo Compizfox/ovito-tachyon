@@ -37,8 +37,10 @@ QByteArray PropertyExpressionEvaluator::_validVariableNameChars("0123456789_abcd
 * Specifies the expressions to be evaluated for each data element and create the
 * list of input variables.
 ******************************************************************************/
-void PropertyExpressionEvaluator::initialize(const QStringList& expressions, const PipelineFlowState& state, const PropertyContainer* container, int animationFrame)
+void PropertyExpressionEvaluator::initialize(const QStringList& expressions, const PipelineFlowState& state, const ConstDataObjectPath& containerPath, int animationFrame)
 {
+	const PropertyContainer* container = static_object_cast<PropertyContainer>(containerPath.back());
+
 	// Build list of properties that will be made available as expression variables.
 	std::vector<ConstPropertyPtr> inputProperties;
 	for(const PropertyObject* property : container->properties())
@@ -50,23 +52,13 @@ void PropertyExpressionEvaluator::initialize(const QStringList& expressions, con
 	const SimulationCellObject* simCellObj = state.getObject<SimulationCellObject>();
 	if(simCellObj) simCell = simCellObj->data();
 
-	// Call overloaded function.
-	initialize(expressions, container->elementCount(), inputProperties, simCellObj ? &simCell : nullptr, state.buildAttributesMap(), animationFrame);
-}
-
-/******************************************************************************
-* Specifies the expressions to be evaluated for each data element and create the
-* list of input variables.
-******************************************************************************/
-void PropertyExpressionEvaluator::initialize(const QStringList& expressions, size_t elementCount, const std::vector<ConstPropertyPtr>& inputProperties, const SimulationCell* simCell, const QVariantMap& attributes, int animationFrame)
-{
 	// Determine number of input elements.
-	OVITO_ASSERT(inputProperties.empty() || elementCount == inputProperties.front()->size());
-	_elementCount = elementCount;
+	_elementCount = container->elementCount();
 	_referencedVariablesKnown = false;
+	OVITO_ASSERT(inputProperties.empty() || _elementCount == inputProperties.front()->size());
 
 	// Create list of input variables.
-	createInputVariables(inputProperties, simCell, attributes, animationFrame);
+	createInputVariables(inputProperties, simCellObj ? &simCell : nullptr, state.buildAttributesMap(), animationFrame);
 
 	// Copy expression strings into internal array.
 	_expressions.resize(expressions.size());
@@ -279,7 +271,7 @@ void PropertyExpressionEvaluator::evaluate(const std::function<void(size_t,size_
 /******************************************************************************
 * Initializes the parser objects of this thread.
 ******************************************************************************/
-PropertyExpressionEvaluator::Worker::Worker(PropertyExpressionEvaluator& evaluator)
+PropertyExpressionEvaluator::Worker::Worker(PropertyExpressionEvaluator& evaluator) : _evaluator(evaluator)
 {
 	_parsers.resize(evaluator._expressions.size());
 
@@ -365,7 +357,7 @@ double PropertyExpressionEvaluator::Worker::evaluate(size_t elementIndex, size_t
 			_lastElementIndex = elementIndex;
 
 			// Update variable values for the current data element.
-			updateVariables(0, elementIndex);
+			_evaluator.updateVariables(*this, elementIndex);
 		}
 
 		// Evaluate expression for the current data element.

@@ -56,7 +56,7 @@ protected:
 		PropertyComputeEngine(const TimeInterval& validityInterval,
 				TimePoint time,
 				const PipelineFlowState& input,
-				const PropertyContainer* container,
+				const ConstDataObjectPath& containerPath,
 				PropertyPtr outputProperty,
 				ConstPropertyPtr selectionProperty,
 				QStringList expressions,
@@ -137,10 +137,10 @@ public:
 	virtual std::shared_ptr<PropertyComputeEngine> createEngine(
 				TimePoint time,
 				const PipelineFlowState& input,
-				const PropertyContainer* container,
+				const ConstDataObjectPath& containerPath,
 				PropertyPtr outputProperty,
 				ConstPropertyPtr selectionProperty,
-				QStringList expressions) = 0;
+				QStringList expressions);
 };
 
 /**

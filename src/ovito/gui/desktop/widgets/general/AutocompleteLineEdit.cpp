@@ -106,4 +106,20 @@ void AutocompleteLineEdit::keyPressEvent(QKeyEvent* event)
 		_completer->popup()->hide();
 }
 
+/******************************************************************************
+* Handles all widget events.
+******************************************************************************/
+bool AutocompleteLineEdit::event(QEvent* event) 
+{
+	// This is required to forward key up/down input events to the popup listbox.
+	if(event->type() == QEvent::ShortcutOverride) {
+		if(_completer->popup() && _completer->popup()->isVisible()) {
+			event->accept();
+			return true;
+		}
+	}
+	return QLineEdit::event(event);
+}
+
+
 }	// End of namespace

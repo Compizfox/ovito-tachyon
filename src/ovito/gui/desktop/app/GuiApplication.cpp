@@ -93,7 +93,7 @@ void GuiApplication::createQtApplication(int& argc, char** argv)
 		// Enable high-resolution toolbar icons on hi-dpi screens.
 		QApplication::setAttribute(Qt::AA_UseHighDpiPixmaps);
 		QApplication::setAttribute(Qt::AA_EnableHighDpiScaling);
-#if QT_VERSION >= QT_VERSION_CHECK(5, 14, 0)
+#if QT_VERSION >= QT_VERSION_CHECK(5, 14, 0) && !defined(Q_OS_MAC)
 		QGuiApplication::setHighDpiScaleFactorRoundingPolicy(Qt::HighDpiScaleFactorRoundingPolicy::RoundPreferFloor);
 #endif
 

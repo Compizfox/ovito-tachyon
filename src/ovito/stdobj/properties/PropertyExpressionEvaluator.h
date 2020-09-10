@@ -43,14 +43,14 @@ class OVITO_STDOBJ_EXPORT PropertyExpressionEvaluator
 
 public:
 
-	/// \brief Constructor.
+	/// Constructor.
 	PropertyExpressionEvaluator() = default;
 
-	/// Specifies the expressions to be evaluated for each element and creates the input variables.
-	void initialize(const QStringList& expressions, const PipelineFlowState& state, const PropertyContainer* container, int animationFrame = 0);
+	/// Destructor.
+	virtual ~PropertyExpressionEvaluator() {}
 
 	/// Specifies the expressions to be evaluated for each element and creates the input variables.
-	void initialize(const QStringList& expressions, size_t elementCount, const std::vector<ConstPropertyPtr>& inputProperties, const SimulationCell* simCell, const QVariantMap& attributes, int animationFrame = 0);
+	virtual void initialize(const QStringList& expressions, const PipelineFlowState& state, const ConstDataObjectPath& containerPath, int animationFrame = 0);
 
 	/// Initializes the parser object and evaluates the expressions for every element.
 	void evaluate(const std::function<void(size_t,size_t,double)>& callback, const std::function<bool(size_t)>& filter = std::function<bool(size_t)>());
@@ -71,7 +71,7 @@ public:
 	QStringList inputVariableNames() const;
 
 	/// Returns a human-readable text listing the input variables.
-	QString inputVariableTable() const;
+	virtual QString inputVariableTable() const;
 
 	/// Returns the stored simulation cell information.
 	const SimulationCell& simCell() const { return _simCell; }
@@ -219,6 +219,9 @@ public:
 		/// The worker routine.
 		void run(size_t startIndex, size_t endIndex, std::function<void(size_t,size_t,double)> callback, std::function<bool(size_t)> filter);
 
+		// Paremt of this worker object.
+		PropertyExpressionEvaluator& _evaluator;
+
 		/// List of parser objects used by this thread.
 		std::vector<mu::Parser> _parsers;
 
@@ -238,6 +241,11 @@ protected:
 
 	/// Initializes the list of input variables from the given input state.
 	virtual void createInputVariables(const std::vector<ConstPropertyPtr>& inputProperties, const SimulationCell* simCell, const QVariantMap& attributes, int animationFrame);
+
+	/// Updates the stored value of variables that depends on the current element index.
+	virtual void updateVariables(Worker& worker, size_t elementIndex) {
+		worker.updateVariables(0, elementIndex);
+	}
 
 	/// Registers an input variable if the name does not exist yet.
 	size_t addVariable(ExpressionVariable v);
