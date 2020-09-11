@@ -16,14 +16,14 @@
   <simplesect>
     <title>Windows</title>
     <para>
-      OVITO for Windows includes the original and unmodified binary DLLs of Qt 5.15.0 distributed by the Qt Company.
+      OVITO for Windows is built against the original, unmodified binary DLLs of Qt 5.15.1 (MSVC 2019 64-bit) distributed by the Qt Company.
     </para>
   </simplesect>
 
   <simplesect>
     <title>Linux</title>
     <para>
-      OVITO for Linux includes Qt libraries that have been built from the unmodified sources of Qt 5.15.0 distributed by the Qt Company.
+      OVITO for Linux includes Qt libraries that have been built from the unmodified sources of Qt 5.15.1 distributed by the Qt Company.
       The following commands have been used to generate them:
 <programlisting>
 # Build platform: CentOS 6.9
@@ -75,8 +75,6 @@
     -skip qtxmlpatterns \
     -no-use-gold-linker \
     -prefix $HOME/progs/qt5
-# Apply source code patch, see https://github.com/qt/qtbase/pull/37
-sed -i "s/zs.next_in = mimetype_database/zs.next_in = const_cast&lt;Bytef *&gt;(mimetype_database)/" qtbase/src/corelib/mimetypes/qmimeprovider.cpp
 make
 make install
 </programlisting>

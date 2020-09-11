@@ -25,10 +25,6 @@
     The <code>ovito</code> Python module, distributed as PyPI and Anaconda packages, is made available by OVITO GmbH under the <link xlink:href="https://gitlab.com/stuko/ovito/-/blob/master/LICENSE.MIT.txt">MIT License</link>.
   </para>
 
-  <para>
-    Any preview development builds of <emphasis>OVITO Pro</emphasis> and <emphasis>OVITO Basic</emphasis> ("3.0.0-dev") are licensed on an as-is basis under the terms of the <link linkend="appendix.license.ovito_pro">MIT license</link>.
-  </para>
-
   <simplesect>
     <title>Third-party software</title>
     <para><emphasis>OVITO Pro</emphasis> and <emphasis>OVITO Basic</emphasis> are based on the following third-party software 
