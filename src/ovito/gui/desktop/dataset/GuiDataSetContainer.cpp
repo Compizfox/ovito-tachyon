@@ -270,42 +270,61 @@ bool GuiDataSetContainer::fileLoad(const QString& filename)
 /******************************************************************************
 * Imports a given file into the scene.
 ******************************************************************************/
-bool GuiDataSetContainer::importFile(const QUrl& url, const FileImporterClass* importerType)
+bool GuiDataSetContainer::importFiles(const std::vector<QUrl>& urls, const FileImporterClass* importerType)
 {
 	OVITO_ASSERT(currentSet() != nullptr);
+	OVITO_ASSERT(!urls.empty());
 
-	if(!url.isValid())
-		throw Exception(tr("Failed to import file. URL is not valid: %1").arg(url.toString()), currentSet());
+	std::vector<std::pair<QUrl, OORef<FileImporter>>> urlImporters;
+	for(const QUrl& url : urls) {
+		if(!url.isValid())
+			throw Exception(tr("Failed to import file. URL is not valid: %1").arg(url.toString()), currentSet());
 
-	OORef<FileImporter> importer;
-	if(!importerType) {
+		OORef<FileImporter> importer;
+		if(!importerType) {
 
-		// Detect file format.
-		Future<OORef<FileImporter>> importerFuture = FileImporter::autodetectFileFormat(currentSet(), url);
-		if(!taskManager().waitForFuture(importerFuture))
-			return false;
+			// Detect file format.
+			Future<OORef<FileImporter>> importerFuture = FileImporter::autodetectFileFormat(currentSet(), url);
+			if(!taskManager().waitForFuture(importerFuture))
+				return false;
 
-		importer = importerFuture.result();
-		if(!importer)
-			currentSet()->throwException(tr("Could not detect the format of the file to be imported. The format might not be supported."));
+			importer = importerFuture.result();
+			if(!importer)
+				currentSet()->throwException(tr("Could not auto-detect the format of the file %1. The file format might not be supported.").arg(url.fileName()));
+		}
+		else {
+			importer = static_object_cast<FileImporter>(importerType->createInstance(currentSet()));
+			if(!importer)
+				currentSet()->throwException(tr("Failed to import file. Could not initialize import service."));
+		}
+
+		// Load user-defined default settings for the importer.
+		importer->loadUserDefaults();
+
+		urlImporters.push_back(std::make_pair(url, std::move(importer)));
 	}
-	else {
-		importer = static_object_cast<FileImporter>(importerType->createInstance(currentSet()));
-		if(!importer)
-			currentSet()->throwException(tr("Failed to import file. Could not initialize import service."));
-	}
 
-	// Load user-defined default settings for the importer.
-	importer->loadUserDefaults();
+	// Order URLs and their corresponding importers.
+	std::stable_sort(urlImporters.begin(), urlImporters.end(), [](const auto& a, const auto& b) {
+		int pa = a.second->importerPriority();
+		int pb = b.second->importerPriority();
+		if(pa > pb) return true;
+		if(pa < pb) return false;
+		return a.second->getOOClass().name() < b.second->getOOClass().name();
+	});
 
-	// Show the optional user interface (which is provided by the corresponding FileImporterEditor class) for the new importer.
-	for(OvitoClassPtr clazz = &importer->getOOClass(); clazz != nullptr; clazz = clazz->superClass()) {
-		OvitoClassPtr editorClass = PropertiesEditor::registry().getEditorClass(clazz);
-		if(editorClass && editorClass->isDerivedFrom(FileImporterEditor::OOClass())) {
-			OORef<FileImporterEditor> editor = dynamic_object_cast<FileImporterEditor>(editorClass->createInstance(nullptr));
-			if(editor) {
-				if(!editor->inspectNewFile(importer, url, mainWindow()))
-					return false;
+	// Display the optional UI (which is provided by the corresponding FileImporterEditor class) for each importer.
+	for(const auto& item : urlImporters) {
+		const QUrl& url = item.first;
+		const OORef<FileImporter>& importer = item.second;
+		for(OvitoClassPtr clazz = &importer->getOOClass(); clazz != nullptr; clazz = clazz->superClass()) {
+			OvitoClassPtr editorClass = PropertiesEditor::registry().getEditorClass(clazz);
+			if(editorClass && editorClass->isDerivedFrom(FileImporterEditor::OOClass())) {
+				OORef<FileImporterEditor> editor = dynamic_object_cast<FileImporterEditor>(editorClass->createInstance(nullptr));
+				if(editor) {
+					if(!editor->inspectNewFile(importer, url, mainWindow()))
+						return false;
+				}
 			}
 		}
 	}
@@ -313,8 +332,10 @@ bool GuiDataSetContainer::importFile(const QUrl& url, const FileImporterClass* i
 	// Determine how the file's data should be inserted into the current scene.
 	FileImporter::ImportMode importMode = FileImporter::ResetScene;
 
+	const QUrl& url = urlImporters.front().first;
+	OORef<FileImporter> importer = urlImporters.front().second;
 	if(mainWindow()) {
-		if(importer->isReplaceExistingPossible(url)) {
+		if(importer->isReplaceExistingPossible(urls)) {
 			// Ask user if the current import node including any applied modifiers should be kept.
 			QMessageBox msgBox(QMessageBox::Question, tr("Import file"),
 					tr("When importing the selected file, do you want to keep the existing objects?"),
@@ -366,7 +387,7 @@ bool GuiDataSetContainer::importFile(const QUrl& url, const FileImporterClass* i
 		}
 	}
 
-	return importer->importFile({url}, importMode, true);
+	return importer->importFileSet(std::move(urlImporters), importMode, true);
 }
 
 }	// End of namespace

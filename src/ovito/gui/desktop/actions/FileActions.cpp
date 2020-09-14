@@ -253,13 +253,13 @@ void ActionManager::on_Settings_triggered()
 void ActionManager::on_FileImport_triggered()
 {
 	try {
-		// Let the user select a file.
-		ImportFileDialog dialog(PluginManager::instance().metaclassMembers<FileImporter>(), dataset(), mainWindow(), tr("Load File"));
+		// Let the user select one or more files.
+		ImportFileDialog dialog(PluginManager::instance().metaclassMembers<FileImporter>(), dataset(), mainWindow(), tr("Load File"), true);
 		if(dialog.exec() != QDialog::Accepted)
 			return;
 
-		// Import file.
-		mainWindow()->datasetContainer().importFile(dialog.urlToImport(), dialog.selectedFileImporterType());
+		// Import file(s).
+		mainWindow()->datasetContainer().importFiles(dialog.urlsToImport(), dialog.selectedFileImporterType());
 	}
 	catch(const Exception& ex) {
 		ex.reportError();
@@ -278,7 +278,7 @@ void ActionManager::on_FileRemoteImport_triggered()
 			return;
 
 		// Import URL.
-		mainWindow()->datasetContainer().importFile(dialog.urlToImport(), dialog.selectedFileImporterType());
+		mainWindow()->datasetContainer().importFiles({dialog.urlToImport()}, dialog.selectedFileImporterType());
 	}
 	catch(const Exception& ex) {
 		ex.reportError();

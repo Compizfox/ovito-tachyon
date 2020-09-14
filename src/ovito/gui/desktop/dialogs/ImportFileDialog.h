@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Copyright 2014 Alexander Stukowski
+//  Copyright 2020 Alexander Stukowski
 //
 //  This file is part of OVITO (Open Visualization Tool).
 //
@@ -39,13 +39,16 @@ class OVITO_GUI_EXPORT ImportFileDialog : public HistoryFileDialog
 public:
 
 	/// \brief Constructs the dialog window.
-	ImportFileDialog(const QVector<const FileImporterClass*>& importerTypes, DataSet* dataset, QWidget* parent, const QString& caption, const QString& dialogClass = QStringLiteral("import"));
+	ImportFileDialog(const QVector<const FileImporterClass*>& importerTypes, DataSet* dataset, QWidget* parent, const QString& caption, bool allowMultiSelection, const QString& dialogClass = QStringLiteral("import"));
 
 	/// \brief Returns the file to import after the dialog has been closed with "OK".
 	QString fileToImport() const;
 
 	/// \brief Returns the file to import after the dialog has been closed with "OK".
 	QUrl urlToImport() const;
+
+	/// \brief Returns the list of files to import after the dialog has been closed with "OK".
+	std::vector<QUrl> urlsToImport() const;
 
 	/// \brief Returns the selected importer type or NULL if auto-detection is requested.
 	const FileImporterClass* selectedFileImporterType() const;
@@ -59,5 +62,3 @@ private:
 };
 
 }	// End of namespace
-
-

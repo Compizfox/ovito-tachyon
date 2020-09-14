@@ -145,6 +145,10 @@ void ActionManager::setupCommandSearch()
 				rect.setLeft(rect.left() - rect.width() / 2);
 			_completer->complete(rect);
 		}
+		virtual QSize sizeHint() const override {
+			int textWidth = fontMetrics().boundingRect(placeholderText()).width();
+			return QSize(textWidth * 5/4, 0).expandedTo(QLineEdit::sizeHint());
+		}
 	protected:
 		ActionManager* _actionManager;
 		QCompleter* _completer;
@@ -194,7 +198,7 @@ void ActionManager::setupCommandSearch()
 	// Set up the command quick search field.
 	SearchField* commandQuickSearchInputField = new SearchField(this);
 	commandQuickSearchInputField->setPlaceholderText(tr("Quick command search (%1)").arg(commandQuickSearchAction->shortcut().toString(QKeySequence::NativeText)));
-	commandQuickSearchInputField->setMaximumSize(QSize(260, commandQuickSearchInputField->maximumHeight()));
+	commandQuickSearchInputField->setSizePolicy(QSizePolicy::Maximum, QSizePolicy::Maximum);
 	commandQuickSearchAction->setDefaultWidget(commandQuickSearchInputField);
 
 	// Set input focus to search field when action shortcut is triggered.  

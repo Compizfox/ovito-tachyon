@@ -65,6 +65,9 @@ public:
 	/// Returns the title of this object.
 	virtual QString objectTitle() const override { return tr("XYZ File"); }
 
+	/// Indicates whether this file importer type loads particle trajectories.
+	virtual bool isTrajectoryFormat() const override { return true; } 
+
 	/// Guesses the mapping of input file columns to internal particle properties.
 	static bool mapVariableToProperty(ParticleInputColumnMapping& columnMapping, int column, QString name, int dataType, int vec);
 

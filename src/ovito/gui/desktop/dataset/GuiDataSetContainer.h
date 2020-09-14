@@ -44,12 +44,12 @@ public:
 	/// \brief Returns the window this dataset container is linked to (may be NULL).
 	MainWindow* mainWindow() const { return _mainWindow; }
 
-	/// \brief Imports a given file into the current dataset.
-	/// \param url The location of the file to import.
-	/// \param importerType The FileImporter type to use. If NULL, the file format will be automatically detected.
-	/// \return true if the file was successfully imported; false if operation has been canceled by the user.
+	/// \brief Imports a set of files into the current dataset.
+	/// \param urls The locations of the files to import.
+	/// \param importerType The FileImporter type to use. If NULL, the file format will be auto-detected.
+	/// \return true if the file(s) were successfully imported; false if operation has been canceled by the user.
 	/// \throw Exception on error.
-	bool importFile(const QUrl& url, const FileImporterClass* importerType = nullptr);
+	bool importFiles(const std::vector<QUrl>& urls, const FileImporterClass* importerType = nullptr);
 
 	/// \brief Creates an empty dataset and makes it the current dataset.
 	/// \return \c true if the operation was completed; \c false if the operation has been canceled by the user.

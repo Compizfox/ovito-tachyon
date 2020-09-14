@@ -65,6 +65,9 @@ public:
 	/// Returns the title of this object.
 	virtual QString objectTitle() const override { return tr("LAMMPS Dump File"); }
 
+	/// Indicates whether this file importer type loads particle trajectories.
+	virtual bool isTrajectoryFormat() const override { return true; } 
+
 	/// Creates an asynchronous loader object that loads the data for the given frame from the external file.
 	virtual std::shared_ptr<FileSourceImporter::FrameLoader> createFrameLoader(const Frame& frame, const FileHandle& file) override {
 		return std::make_shared<FrameLoader>(frame, file, sortParticles(), columnMapping());

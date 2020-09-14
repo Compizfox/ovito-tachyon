@@ -85,7 +85,7 @@ protected:
 
 public:
 
-	/// Import modes that control the behavior of the importFile() method.
+	/// Import modes that control the behavior of the importFileSet() method.
 	enum ImportMode {
 		AddToScene,				///< Add the imported data as a new object to the scene.
 		ReplaceSelected,		///< Replace existing input data with newly imported data if possible. Add to scene otherwise.
@@ -96,17 +96,20 @@ public:
 	Q_ENUMS(ImportMode);
 
 	/// \brief Asks the importer if the option to replace the currently selected object
-	///        with the new file is available.
-	virtual bool isReplaceExistingPossible(const QUrl& sourceUrl) { return false; }
+	///        with the new file(s) is available.
+	virtual bool isReplaceExistingPossible(const std::vector<QUrl>& sourceUrls) { return false; }
 
-	/// \brief Imports a file or file sequence into the scene.
-	/// \param sourceUrls The location of the file(s) to import.
+	/// \brief Returns the priority level of this importer, which is used to order multiple files that are imported simultaneously.
+	virtual int importerPriority() const { return 0; }
+
+	/// \brief Imports one or more files into the scene.
+	/// \param sourceUrlsAndImporters The location of the file(s) to import and the corresponding importers.
 	/// \param importMode Controls how the imported data is inserted into the scene.
 	/// \param autodetectFileSequences Enables the automatic detection of file sequences.
 	/// \return \c The new pipeline if the file has been successfully imported.
 	//	        \c nullptr if the operation has been canceled by the user.
 	/// \throw Exception when the import operation has failed.
-	virtual OORef<PipelineSceneNode> importFile(std::vector<QUrl> sourceUrls, ImportMode importMode, bool autodetectFileSequences) = 0;
+	virtual OORef<PipelineSceneNode> importFileSet(std::vector<std::pair<QUrl, OORef<FileImporter>>> sourceUrlsAndImporters, ImportMode importMode, bool autodetectFileSequences) = 0;
 
 	/// \brief Tries to detect the format of the given file.
 	/// \return The importer class that can handle the given file. If the file format could not be recognized then NULL is returned.

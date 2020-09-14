@@ -517,18 +517,20 @@ void MainWindow::dropEvent(QDropEvent* event)
 {
     event->acceptProposedAction();
 	try {
+		std::vector<QUrl> importUrls;
 		for(const QUrl& url : event->mimeData()->urls()) {
 			if(url.fileName().endsWith(".ovito", Qt::CaseInsensitive)) {
 				if(url.isLocalFile()) {
-					if(!datasetContainer().askForSaveChanges())
-						continue;
-					datasetContainer().fileLoad(url.toLocalFile());
+					if(datasetContainer().askForSaveChanges())
+						datasetContainer().fileLoad(url.toLocalFile());
+					return;
 				}
 			}
 			else {
-				datasetContainer().importFile(url);
+				importUrls.push_back(url);
 			}
 		}
+		datasetContainer().importFiles(std::move(importUrls));
 	}
 	catch(const Exception& ex) {
 		ex.reportError();

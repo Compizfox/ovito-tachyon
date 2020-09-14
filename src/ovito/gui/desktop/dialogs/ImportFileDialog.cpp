@@ -30,7 +30,7 @@ namespace Ovito {
 /******************************************************************************
 * Constructs the dialog window.
 ******************************************************************************/
-ImportFileDialog::ImportFileDialog(const QVector<const FileImporterClass*>& importerTypes, DataSet* dataset, QWidget* parent, const QString& caption, const QString& dialogClass) :
+ImportFileDialog::ImportFileDialog(const QVector<const FileImporterClass*>& importerTypes, DataSet* dataset, QWidget* parent, const QString& caption, bool allowMultiSelection, const QString& dialogClass) :
 	HistoryFileDialog(dialogClass, parent, caption), _importerTypes(importerTypes)
 {
 	// Build filter string.
@@ -45,7 +45,7 @@ ImportFileDialog::ImportFileDialog(const QVector<const FileImporterClass*>& impo
 
 	setNameFilters(_filterStrings);
 	setAcceptMode(QFileDialog::AcceptOpen);
-	setFileMode(QFileDialog::ExistingFile);
+	setFileMode(allowMultiSelection ? QFileDialog::ExistingFiles : QFileDialog::ExistingFile);
 
 	selectNameFilter(_filterStrings.front());
 }
@@ -69,6 +69,18 @@ QString ImportFileDialog::fileToImport() const
 QUrl ImportFileDialog::urlToImport() const
 {
 	return Application::instance()->fileManager()->urlFromUserInput(fileToImport());
+}
+
+/******************************************************************************
+* Returns the list of files to import after the dialog has been closed with "OK".
+******************************************************************************/
+std::vector<QUrl> ImportFileDialog::urlsToImport() const
+{
+	std::vector<QUrl> list;
+	for(const QString& file : selectedFiles()) {
+		list.push_back(Application::instance()->fileManager()->urlFromUserInput(file));
+	}
+	return list;
 }
 
 /******************************************************************************

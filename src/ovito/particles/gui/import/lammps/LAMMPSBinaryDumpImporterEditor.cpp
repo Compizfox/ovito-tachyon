@@ -67,6 +67,11 @@ bool LAMMPSBinaryDumpImporterEditor::inspectNewFile(FileImporter* importer, cons
 		InputColumnMappingDialog dialog(mapping, parent, importer->dataset()->taskManager());
 		if(dialog.exec() == QDialog::Accepted) {
 			lammpsImporter->setColumnMapping(dialog.mapping());
+			// Remember the user-defined mapping for the next time.
+			QSettings settings;
+			settings.beginGroup("viz/importer/lammps_binary_dump/");
+			settings.setValue("colmapping", dialog.mapping().toByteArray(importer->dataset()->taskManager()));
+			settings.endGroup();
 			return true;
 		}
 

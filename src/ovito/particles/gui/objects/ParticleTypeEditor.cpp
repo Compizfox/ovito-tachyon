@@ -208,7 +208,7 @@ void ParticleTypeEditor::createUI(const RolloutInsertionParameters& rolloutParam
 					}
 
 					// Let the user select a geometry file to import.
-					ImportFileDialog fileDialog(meshImporters, ptype->dataset(), mainWindow(), tr("Load mesh file"), QStringLiteral("particle_shape_mesh"));
+					ImportFileDialog fileDialog(meshImporters, ptype->dataset(), mainWindow(), tr("Load mesh file"), false, QStringLiteral("particle_shape_mesh"));
 					if(fileDialog.exec() != QDialog::Accepted)
 						return;
 

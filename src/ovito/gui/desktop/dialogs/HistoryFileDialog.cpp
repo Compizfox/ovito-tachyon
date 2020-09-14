@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Copyright 2013 Alexander Stukowski
+//  Copyright 2020 Alexander Stukowski
 //
 //  This file is part of OVITO (Open Visualization Tool).
 //
@@ -34,6 +34,9 @@ HistoryFileDialog::HistoryFileDialog(const QString& dialogClass, QWidget* parent
 	QFileDialog(parent, caption, directory, filter), _dialogClass(dialogClass)
 {
 	connect(this, &QFileDialog::fileSelected, this, &HistoryFileDialog::onFileSelected);
+	connect(this, &QFileDialog::filesSelected, this, [&](const QStringList& selected) {
+		if(!selected.empty()) onFileSelected(selected.front());
+	});
 
 	// The user can request the Qt file dialog instead of the native dialog by settings the corresponding
 	// option in the application settings.
