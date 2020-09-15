@@ -31,7 +31,7 @@ void ActionManager::setupCommandSearch()
 	QWidgetAction* commandQuickSearchAction = new QWidgetAction(this);
 	commandQuickSearchAction->setText(tr("Quick Command Search"));
 	commandQuickSearchAction->setObjectName(ACTION_COMMAND_QUICKSEARCH);
-#ifndef Q_OS_MAC
+#ifdef Q_OS_WIN
 	commandQuickSearchAction->setShortcut(QKeySequence(Qt::CTRL | Qt::Key_Q));
 #else
 	commandQuickSearchAction->setShortcut(QKeySequence(Qt::CTRL | Qt::Key_P));
@@ -76,6 +76,9 @@ void ActionManager::setupCommandSearch()
 					initStyleOption(&options, index);
 					options.features |= QStyleOptionViewItem::HasDecoration;
 					options.decorationSize = static_cast<const QAbstractItemView*>(option.widget)->iconSize();
+#ifdef Q_OS_LINUX
+					options.state.setFlag(QStyle::State_HasFocus, false);
+#endif
 
 					// Draw list item without text content.
 					QString text = std::move(options.text);
