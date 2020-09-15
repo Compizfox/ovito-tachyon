@@ -54,7 +54,6 @@ public:
 private:
 
 	QCheckBox* _useQtFileDialog;
-	QCheckBox* _enableMRUModifierList;
 	QCheckBox* _overrideGLContextSharing;
 	QComboBox* _contextSharingMode;
 	QCheckBox* _overrideUseOfPointSprites;

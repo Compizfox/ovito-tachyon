@@ -49,12 +49,6 @@ void GeneralSettingsPage::insertSettingsDialogPage(ApplicationSettingsDialog* se
 	layout2->addWidget(_useQtFileDialog, 0, 0);
 	_useQtFileDialog->setChecked(settings.value("file/use_qt_dialog", false).toBool());
 
-	_enableMRUModifierList = new QCheckBox(tr("Modifier list: Only show most recently used modifiers"), uiGroupBox);
-	_enableMRUModifierList->setToolTip(tr(
-			"<p>Restricts the modifiers dhown in the <i>Add Modification</i> list box to the most recently used ones.</p>"));
-	layout2->addWidget(_enableMRUModifierList, 1, 0);
-	_enableMRUModifierList->setChecked(settings.value("core/modifier/mru/enable_mru", false).toBool());
-
 	QGroupBox* openglGroupBox = new QGroupBox(tr("Viewport rendering / OpenGL"), page);
 	layout1->addWidget(openglGroupBox);
 	layout2 = new QGridLayout(openglGroupBox);
@@ -160,7 +154,6 @@ bool GeneralSettingsPage::saveValues(ApplicationSettingsDialog* settingsDialog, 
 {
 	QSettings settings;
 	settings.setValue("file/use_qt_dialog", _useQtFileDialog->isChecked());
-	settings.setValue("core/modifier/mru/enable_mru", _enableMRUModifierList->isChecked());
 #if !defined(OVITO_BUILD_APPSTORE_VERSION)
 	settings.setValue("updates/check_for_updates", _enableUpdateChecks->isChecked());
 	settings.setValue("updates/transmit_id", _enableUsageStatistics->isChecked());

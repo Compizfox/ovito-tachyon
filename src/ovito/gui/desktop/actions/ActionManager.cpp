@@ -47,7 +47,7 @@ ActionManager::ActionManager(MainWindow* mainWindow) : QAbstractListModel(mainWi
 	connect(&mainWindow->datasetContainer(), &DataSetContainer::animationSettingsReplaced, this, &ActionManager::onAnimationSettingsReplaced);
 	connect(&mainWindow->datasetContainer(), &DataSetContainer::selectionChangeComplete, this, &ActionManager::onSelectionChangeComplete);
 
-	createCommandAction(ACTION_QUIT, tr("Quit"), ":/gui/actions/file/file_quit.bw.svg", tr("Quit the application."), QKeySequence::Quit);
+	createCommandAction(ACTION_QUIT, tr("Quit"), ":/gui/actions/file/file_quit.bw.svg", tr("Quit the application."));
 	createCommandAction(ACTION_FILE_OPEN, tr("Load Session State"), ":/gui/actions/file/file_open.bw.svg", tr("Load a previously saved session from a file."), QKeySequence::Open);
 	createCommandAction(ACTION_FILE_SAVE, tr("Save Session State"), ":/gui/actions/file/file_save.bw.svg", tr("Save the current program session to a file."), QKeySequence::Save);
 	createCommandAction(ACTION_FILE_SAVEAS, tr("Save Session State As"), ":/gui/actions/file/file_save_as.bw.svg", tr("Save the current program session to a new file."), QKeySequence::SaveAs);
@@ -205,6 +205,7 @@ void ActionManager::onSelectionChangeComplete(SelectionSet* selection)
 {
 	getAction(ACTION_EDIT_DELETE)->setEnabled(selection && !selection->nodes().empty());
 	getAction(ACTION_EDIT_CLONE_PIPELINE)->setEnabled(selection && !selection->nodes().empty());
+	getAction(ACTION_EDIT_RENAME_PIPELINE)->setEnabled(selection && !selection->nodes().empty());
 }
 
 /******************************************************************************

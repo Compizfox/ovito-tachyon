@@ -25,31 +25,96 @@
 
 namespace Ovito {
 
+/// A Qt list model managing the list of actions shown in the quick command search box.
+class ActionListModel : public QSortFilterProxyModel 
+{
+public:
+	
+	ActionListModel(QObject* parent, QAbstractItemModel* sourceModel) : QSortFilterProxyModel(parent) {
+		setDynamicSortFilter(false);
+		loadUseCounts();
+		setSourceModel(sourceModel);
+	}
+
+	virtual ~ActionListModel() {
+		saveUseCounts();
+	}
+
+	void actionTriggered(QAction* action) {
+		_useCounts[action->objectName()]++;
+	}
+
+protected:
+
+	bool filterAcceptsRow(int sourceRow, const QModelIndex& sourceParent) const override {
+		QAction* action = sourceModel()->index(sourceRow, 0, sourceParent).data(ActionManager::ActionRole).value<QAction*>();
+		return action->isVisible();
+	}
+
+	bool lessThan(const QModelIndex& left, const QModelIndex& right) const override {
+		QAction* actionLeft = left.data(ActionManager::ActionRole).value<QAction*>();
+		QAction* actionRight = right.data(ActionManager::ActionRole).value<QAction*>();
+		OVITO_ASSERT(actionLeft && !actionLeft->objectName().isEmpty());
+		OVITO_ASSERT(actionRight && !actionRight->objectName().isEmpty());
+		auto useCountLeft = _useCounts.find(actionLeft->objectName());
+		auto useCountRight = _useCounts.find(actionRight->objectName());
+		if(useCountLeft != _useCounts.end() && useCountRight != _useCounts.end()) {
+			if(useCountLeft->second > useCountRight->second) return true; 
+			if(useCountLeft->second < useCountRight->second) return false; 
+		}
+		else if(useCountLeft != _useCounts.end() && useCountLeft->second > 0) {
+			return true;
+		}
+		else if(useCountRight != _useCounts.end() && useCountRight->second > 0) {
+			return false;
+		}
+		return actionLeft->text().compare(actionRight->text(), Qt::CaseInsensitive) < 0;
+	}
+
+	void saveUseCounts() const {
+		QSettings settings;
+		settings.beginGroup("actions");
+		settings.beginWriteArray("use_counts");
+		int index = 0;
+		for(const auto& entry : _useCounts) {
+			settings.setArrayIndex(index++);
+			settings.setValue("id", entry.first);
+			settings.setValue("count", entry.second); 
+		}
+		settings.endArray();
+		settings.endGroup();
+	}
+
+	void loadUseCounts() {
+		QSettings settings;
+		settings.beginGroup("actions");
+		int count = settings.beginReadArray("use_counts");
+		for(int index = 0; index < count; index++) {
+			settings.setArrayIndex(index);
+			_useCounts.emplace(settings.value("id").toString(), settings.value("count").toInt());
+		}
+		settings.endArray();
+		settings.endGroup();
+	}
+
+private:
+
+	/// Keeps track of how frequently each action has been invoked by the user.
+	std::map<QString, int> _useCounts;
+};
+
 void ActionManager::setupCommandSearch()
 {
-	// Set up QAction that activates quick search.
+	// Set up QAction that activates quick command search.
 	QWidgetAction* commandQuickSearchAction = new QWidgetAction(this);
 	commandQuickSearchAction->setText(tr("Quick Command Search"));
 	commandQuickSearchAction->setObjectName(ACTION_COMMAND_QUICKSEARCH);
-#ifdef Q_OS_WIN
+#ifndef Q_OS_MAC
 	commandQuickSearchAction->setShortcut(QKeySequence(Qt::CTRL | Qt::Key_Q));
 #else
 	commandQuickSearchAction->setShortcut(QKeySequence(Qt::CTRL | Qt::Key_P));
 #endif
 	commandQuickSearchAction->setStatusTip(tr("Quickly access program commands."));
-
-	// Sort and filter input list of actions.
-	class ActionListModel : public QSortFilterProxyModel {
-	public:
-		ActionListModel(QObject* parent, QAbstractItemModel* sourceModel) : QSortFilterProxyModel(parent) {
-			setSourceModel(sourceModel);
-			sort(0, Qt::AscendingOrder);
-		}
-		bool filterAcceptsRow(int sourceRow, const QModelIndex& sourceParent) const override {
-			QAction* action = sourceModel()->index(sourceRow, 0, sourceParent).data(ActionRole).value<QAction*>();
-			return action->isVisible();
-		}
-	};
 
 	// Subclass QLineEdit.
 	class SearchField : public QLineEdit {
@@ -62,6 +127,7 @@ void ActionManager::setupCommandSearch()
 			_completer->setModel(new ActionListModel(_completer, actionManager));
 			_completer->setCompletionRole(SearchTextRole);
 			_completer->setWidget(this);
+			_completer->setWrapAround(false);
 
 			class ItemDelegate : public QStyledItemDelegate 
 			{
@@ -138,8 +204,10 @@ void ActionManager::setupCommandSearch()
 			connect(_completer, qOverload<const QModelIndex&>(&QCompleter::activated), this, &QLineEdit::clear);
 		}
 		void showPopup() {
-			if(_completer->popup()->isVisible() == false && text().isEmpty())
+			if(_completer->popup()->isVisible() == false && text().isEmpty()) {
 				_actionManager->updateActionStates();
+				_completer->model()->sort(0, Qt::AscendingOrder);
+			}
 			_completer->setCompletionPrefix(text().trimmed());
 			_completer->popup()->setCurrentIndex(_completer->completionModel()->index(0,0));
 			QRect rect = this->rect();
@@ -216,9 +284,14 @@ void ActionManager::setupCommandSearch()
 // Is called when the user selects a command in the quick search field.
 void ActionManager::onQuickSearchCommandSelected(const QModelIndex& index)
 {
+	QCompleter* completer = qobject_cast<QCompleter*>(sender());
+	ActionListModel* actionModel = static_cast<ActionListModel*>(completer->model());
+
 	QAction* action = index.data(ActionRole).value<QAction*>();
-	if(action && action->isEnabled())
+	if(action && action->isEnabled()) {
+		actionModel->actionTriggered(action);
 		action->trigger();
+	}
 }
 
 }	// End of namespace
