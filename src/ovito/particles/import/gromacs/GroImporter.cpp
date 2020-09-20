@@ -176,6 +176,8 @@ FileSourceImporter::FrameDataPtr GroImporter::FrameLoader::loadFile()
 	std::unique_ptr<PropertyContainerImportData::TypeList> residueTypeList = std::make_unique<PropertyContainerImportData::TypeList>(ElementType::OOClass());
 
 	// Parse list of atoms.
+	int atomBaseNumber = 0;
+	int residueBaseNumber = 0;
 	for(size_t i = 0; i < numParticles; i++) {
 		if(!setProgressValueIntermittent(i)) return {};
 		const char* token = stream.readLine();
@@ -191,6 +193,9 @@ FileSourceImporter::FrameDataPtr GroImporter::FrameLoader::loadFile()
 		bool ok = parseInt(token, token_end, residueNumber);
 		if(!ok)
 			throw Exception(tr("Parsing error in line %1 of Gromacs file. Invalid residue number.").arg(stream.lineNumber()));
+		if(residueNumber == 0)
+			residueBaseNumber += 100000;
+		residueNumber += residueBaseNumber;
 		token = token_end;
 
 		// Parse residue name (5 characters).
@@ -240,8 +245,11 @@ FileSourceImporter::FrameDataPtr GroImporter::FrameLoader::loadFile()
 				throw Exception(tr("Parsing error in line %1 of Gromacs file. Unexpected end of line.").arg(stream.lineNumber()));
 			++token;
 		}
-		int atomNumber;
+		int atomNumber = 0;
 		ok = parseInt(token, token_end, atomNumber);
+		if(ok && atomNumber == 0 && numParticles >= 100000)
+			atomBaseNumber += 100000;
+		atomNumber += atomBaseNumber;
 		if(!ok || atomNumber <= 0 || atomNumber > numParticles)
 			throw Exception(tr("Parsing error in line %1 of Gromacs file. Invalid atom number.").arg(stream.lineNumber()));
 		token = token_end;

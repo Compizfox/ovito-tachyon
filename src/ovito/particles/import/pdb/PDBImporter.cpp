@@ -94,7 +94,6 @@ void PDBImporter::FrameFinder::discoverFramesInFile(QVector<FileSourceImporter::
 /******************************************************************************
 * Parses the given input file.
 ******************************************************************************/
-
 FileSourceImporter::FrameDataPtr PDBImporter::FrameLoader::loadFile()
 {
 	// Open file for reading.
