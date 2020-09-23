@@ -508,7 +508,7 @@ void ConstructSurfaceModifier::GaussianDensityEngine::perform()
 		}
 	}
 
-	// Transfer property values from particles to to mesh vertices.
+	// Transfer property values from particles to the mesh vertices.
 	if(!propertyMapping.empty()) {
 		// Compute the accumulated density at each grid point.
 		parallelFor(mesh().vertexCount(), *this, [&](size_t vertexIndex) {

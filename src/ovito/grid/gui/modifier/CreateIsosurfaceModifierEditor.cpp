@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Copyright 2017 Alexander Stukowski
+//  Copyright 2020 Alexander Stukowski
 //
 //  This file is part of OVITO (Open Visualization Tool).
 //
@@ -80,6 +80,10 @@ void CreateIsosurfaceModifierEditor::createUI(const RolloutInsertionParameters& 
 	layout2->addWidget(isolevelPUI->label(), 2, 0);
 	layout2->addLayout(isolevelPUI->createFieldLayout(), 2, 1);
 
+	// Transfer field values.
+	BooleanParameterUI* transferFieldValuesUI = new BooleanParameterUI(this, PROPERTY_FIELD(CreateIsosurfaceModifier::transferFieldValues));
+	layout2->addWidget(transferFieldValuesUI->checkBox(), 3, 0, 1, 2);
+
 	_plotWidget = new StdObj::DataTablePlotWidget();
 	_plotWidget->setMinimumHeight(200);
 	_plotWidget->setMaximumHeight(200);
@@ -90,8 +94,8 @@ void CreateIsosurfaceModifierEditor::createUI(const RolloutInsertionParameters& 
 	_isoLevelIndicator->attach(_plotWidget);
 	_isoLevelIndicator->hide();
 
-	layout2->addWidget(new QLabel(tr("Histogram:")), 3, 0, 1, 2);
-	layout2->addWidget(_plotWidget, 4, 0, 1, 2);
+	layout2->addWidget(new QLabel(tr("Histogram:")), 4, 0, 1, 2);
+	layout2->addWidget(_plotWidget, 5, 0, 1, 2);
 
 	// Status label.
 	layout1->addSpacing(8);
