@@ -48,29 +48,61 @@ bool GroImporter::OOMetaClass::checkFileFormat(const FileHandle& file) const
 	if(*p == '\0')
 		return false;
 
-	// Expect a digit (number of atoms).
-	if(*p < '0' || *p > '9') return false;
-	// Skip digits.
-	while(*p >= '0' && *p <= '9') {
-		if(*p == '\0') break;
-		++p;
-	}
-	// The number of atoms should be followed by nothing but whitespace.
+	// Parse number of atoms.
+	unsigned long long numParticles;
+	int charCount;
+	if(sscanf(p, "%llu%n", &numParticles, &charCount) != 1 || numParticles < 1)
+		return false;
+
+	// Check trailing whitespace. There should be nothing but the number of atoms on the second line.
 	bool foundNewline = false;
-	while(*p != '\0') {
-		if(*p > ' ') return false;
+	for(p += charCount; *p != '\0'; ++p) {
+		if(*p > ' ')
+			return false;
 		if(*p == '\n' || *p == '\r')
 			foundNewline = true;
-		++p;
 	}
-
-	if(!foundNewline) return false;
-
-	// Read third line.
-	int i1, i2;
-	char s1[6], s2[6];
-	if(sscanf(stream.readLine(), "%5i%5s%5s%5i", &i1, s1, s2, &i2) != 4 || i1 < 1 || i2 < 1) {
+	if(!foundNewline) 
 		return false;
+
+	// Read a few atom lines to check if the columns have the right format.
+	for(unsigned long long i = 0; i < 10; i++) {
+		int i1, i2;
+		char s1[6], s2[6];
+		if(sscanf(stream.readLine(), "%5i%5s%5s%5i", &i1, s1, s2, &i2) != 4 || i1 < 1 || i2 < 1 || qstrlen(stream.line()) < 20)
+			return false;
+
+		// Parse atomic xyz coordinates.
+		// First, determine column width by counting distance between decimal points.
+		const char* token = stream.line() + 20;
+		const char* c = token;
+		while(*c != '\0' && *c != '.')
+			c++;
+		if(*c == '\0')
+			return false;
+		int columnWidth = 1;
+		for(const char* c2 = c + 1; *c2 != '\0' && *c2 != '.'; ++c2)
+			columnWidth++;
+		for(size_t dim = 0; dim < 3; dim++) {
+			const char* token_end = token + columnWidth;
+			while(token < token_end && *token <= ' ') {
+				if(*token == '\0')
+					return false;
+				++token;
+			}
+			FloatType f;
+			if(!parseFloatType(token, token_end, f))
+				return false;
+			token = token_end;
+		}
+
+		// If end of atoms list is already reached, parse simulation cell definition.
+		if(i == numParticles - 1) {
+			AffineTransformation cell;
+			if(sscanf(stream.readLine(), FLOATTYPE_SCANF_STRING " " FLOATTYPE_SCANF_STRING " " FLOATTYPE_SCANF_STRING, &cell(0,0), &cell(1,1), &cell(2,2)) != 3)
+				return false;
+			break;
+		}
 	}
 
 	return true;
@@ -154,7 +186,7 @@ FileSourceImporter::FrameDataPtr GroImporter::FrameLoader::loadFile()
 	if(sscanf(stream.readLine(), "%llu%n", &numParticles, &charCount) != 1)
 		throw Exception(tr("Invalid number of particles in line %1 of Gromacs file: %2").arg(stream.lineNumber()).arg(stream.lineString().trimmed()));
 
-	// Check trailing whitespace. There should be nothing else but the number of atoms on the first line.
+	// Check trailing whitespace. There should be nothing but the number of atoms on that line.
 	for(const char* p = stream.line() + charCount; *p != '\0'; ++p) {
 		if(*p > ' ')
 			throw Exception(tr("Parsing error in line %1 of Gromacs file. The second line of a .gro file should contain just the number of atoms and nothing else.").arg(stream.lineNumber()));
