@@ -28,9 +28,8 @@
 
 namespace Ovito {
 
-
 /**
- * \brief Base class for modifier delegates used by the MultiDelegatingModifier class.
+ * \brief Base class for modifier delegates used by the DelegatingModifier and MultiDelegatingModifier classes.
  */
 class OVITO_CORE_EXPORT ModifierDelegate : public RefTarget
 {
@@ -72,6 +71,7 @@ public:
 		}
 	};
 
+	Q_CLASSINFO("ClassNameAlias", "AsynchronousModifierDelegate");	// For backward compatibility with OVITO 3.2.1.
 	OVITO_CLASS_META(ModifierDelegate, ModifierDelegateClass)
 	Q_OBJECT
 
@@ -86,7 +86,7 @@ public:
 	virtual TimeInterval validityInterval(const PipelineEvaluationRequest& request, const ModifierApplication* modApp) const { return TimeInterval::infinite(); }
 
 	/// \brief Applies the modifier operation to the data in a pipeline flow state.
-	virtual PipelineStatus apply(Modifier* modifier, PipelineFlowState& state, TimePoint time, ModifierApplication* modApp, const std::vector<std::reference_wrapper<const PipelineFlowState>>& additionalInputs) = 0;
+	virtual PipelineStatus apply(Modifier* modifier, PipelineFlowState& state, TimePoint time, ModifierApplication* modApp, const std::vector<std::reference_wrapper<const PipelineFlowState>>& additionalInputs) { return PipelineStatus::Success; }
 
 	/// \brief Returns the modifier owning this delegate.
 	Modifier* modifier() const;

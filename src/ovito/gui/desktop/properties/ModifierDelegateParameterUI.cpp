@@ -131,8 +131,6 @@ void ModifierDelegateParameterUI::populateComboBox(QComboBox* comboBox, Modifier
 				QVector<DataObjectReference> objList;
 				if(clazz->isDerivedFrom(ModifierDelegate::OOClass()))
 					objList = static_cast<const ModifierDelegate::OOMetaClass*>(clazz)->getApplicableObjects(*data);
-				else if(clazz->isDerivedFrom(AsynchronousModifierDelegate::OOClass()))
-					objList = static_cast<const AsynchronousModifierDelegate::OOMetaClass*>(clazz)->getApplicableObjects(*data);
 
 				// Combine the delegate's list with the existing list.
 				// Make sure no data object appears more than once.
@@ -232,7 +230,7 @@ void ModifierDelegateParameterUI::updatePropertyValue()
 				else if(AsynchronousDelegatingModifier* delegatingMod = dynamic_object_cast<AsynchronousDelegatingModifier>(mod)) {
 					if(delegatingMod->delegate() == nullptr || &delegatingMod->delegate()->getOOClass() != delegateType || delegatingMod->delegate()->inputDataObject() != ref) {
 						// Create the new delegate object.
-						OORef<AsynchronousModifierDelegate> delegate = static_object_cast<AsynchronousModifierDelegate>(delegateType->createInstance(mod->dataset()));
+						OORef<ModifierDelegate> delegate = static_object_cast<ModifierDelegate>(delegateType->createInstance(mod->dataset()));
 						// Set which input data object the delegate should operate on.
 						delegate->setInputDataObject(ref);
 						// Activate the new delegate.

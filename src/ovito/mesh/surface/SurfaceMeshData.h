@@ -305,7 +305,7 @@ public:
         return topology()->createOppositeEdge(edge, face);
     }
 
-    /// Inserts a new vertex in the midle of an existing edge.
+    /// Inserts a new vertex in the middle of an existing edge.
     vertex_index splitEdge(edge_index edge, const Point3& pos) {
         OVITO_ASSERT(isTopologyMutable());
         vertex_index new_v = createVertex(pos);
@@ -602,6 +602,9 @@ public:
 
     /// Joins adjacent faces that are coplanar.
     void joinCoplanarFaces(FloatType thresholdAngle = qDegreesToRadians(0.01));
+
+    /// Joins pairs of triangular faces to form quadrilateral faces.
+    void makeQuadrilateralFaces();
 
     /// Triangulates the polygonal faces of this mesh and outputs the results as a TriMesh object.
     void convertToTriMesh(TriMesh& outputMesh, bool smoothShading, const boost::dynamic_bitset<>& faceSubset = boost::dynamic_bitset<>{}, std::vector<size_t>* originalFaceMap = nullptr, bool autoGenerateOppositeFaces = false) const;

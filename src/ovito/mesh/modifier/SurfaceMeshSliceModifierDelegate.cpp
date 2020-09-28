@@ -32,7 +32,7 @@ namespace Ovito { namespace Mesh {
 IMPLEMENT_OVITO_CLASS(SurfaceMeshSliceModifierDelegate);
 
 /******************************************************************************
-* Performs the actual rejection of particles.
+* Performs the slicing of a surface mesh.
 ******************************************************************************/
 PipelineStatus SurfaceMeshSliceModifierDelegate::apply(Modifier* modifier, PipelineFlowState& state, TimePoint time, ModifierApplication* modApp, const std::vector<std::reference_wrapper<const PipelineFlowState>>& additionalInputs)
 {

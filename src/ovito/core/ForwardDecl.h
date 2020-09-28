@@ -109,7 +109,6 @@ namespace Ovito {
 	class DelegatingModifier;
 	class MultiDelegatingModifier;
 	class AsynchronousModifier;
-	class AsynchronousModifierDelegate;
 	class AsynchronousDelegatingModifier;
 	class AbstractCameraObject;
 	class SceneRenderer;

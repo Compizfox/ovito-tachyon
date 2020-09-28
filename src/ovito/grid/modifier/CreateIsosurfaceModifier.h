@@ -83,6 +83,9 @@ public:
 	/// Sets the level at which to create the isosurface.
 	void setIsolevel(FloatType value) { if(isolevelController()) isolevelController()->setCurrentFloatValue(value); }
 
+	/// Transfers voxel grid properties to the vertices of a surfaces mesh.
+	static bool transferPropertiesFromGridToMesh(Task& task, SurfaceMeshData& mesh, const std::vector<ConstPropertyPtr>& fieldProperties, const SimulationCell& cell, VoxelGrid::GridDimensions gridShape);
+
 protected:
 
 	/// Creates a computation engine that will compute the modifier's results.

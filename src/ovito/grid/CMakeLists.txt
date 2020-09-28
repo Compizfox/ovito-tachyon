@@ -34,6 +34,7 @@ IF(OVITO_BUILD_PLUGIN_STDMOD)
 		modifier/VoxelGridAffineTransformationModifierDelegate.cpp
 		modifier/VoxelGridColorCodingModifierDelegate.cpp
 		modifier/VoxelGridComputePropertyModifierDelegate.cpp
+		modifier/VoxelGridSliceModifierDelegate.cpp
 	)
 ENDIF()
 

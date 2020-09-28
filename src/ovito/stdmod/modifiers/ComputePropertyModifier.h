@@ -37,7 +37,7 @@ namespace Ovito { namespace StdMod {
 /**
  * \brief Base class for modifier delegates used by the ComputePropertyModifier class.
  */
-class OVITO_STDMOD_EXPORT ComputePropertyModifierDelegate : public AsynchronousModifierDelegate
+class OVITO_STDMOD_EXPORT ComputePropertyModifierDelegate : public ModifierDelegate
 {
 	Q_OBJECT
 	OVITO_CLASS(ComputePropertyModifierDelegate)
@@ -45,7 +45,7 @@ class OVITO_STDMOD_EXPORT ComputePropertyModifierDelegate : public AsynchronousM
 protected:
 
 	/// Constructor.
-	using AsynchronousModifierDelegate::AsynchronousModifierDelegate;
+	using ModifierDelegate::ModifierDelegate;
 
 	/// Asynchronous compute engine that does the actual work in a separate thread.
 	class OVITO_STDMOD_EXPORT PropertyComputeEngine : public AsynchronousModifier::Engine
@@ -157,7 +157,7 @@ class OVITO_STDMOD_EXPORT ComputePropertyModifier : public AsynchronousDelegatin
 		using AsynchronousDelegatingModifier::OOMetaClass::OOMetaClass;
 
 		/// Return the metaclass of delegates for this modifier type.
-		virtual const AsynchronousModifierDelegate::OOMetaClass& delegateMetaclass() const override { return ComputePropertyModifierDelegate::OOClass(); }
+		virtual const ModifierDelegate::OOMetaClass& delegateMetaclass() const override { return ComputePropertyModifierDelegate::OOClass(); }
 	};
 
 	Q_OBJECT

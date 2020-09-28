@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Copyright 2017 Alexander Stukowski
+//  Copyright 2020 Alexander Stukowski
 //
 //  This file is part of OVITO (Open Visualization Tool).
 //
@@ -43,12 +43,16 @@ public:
 		_reciprocalSimulationCell = AffineTransformation::Zero();
 		_pbcFlags.fill(false);
 		_is2D = false;
+		_isValid = false;
 	}
 
 	/// Initialization constructor.
 	SimulationCell(const AffineTransformation& cellMatrix, const std::array<bool,3>& pbcFlags, bool is2D = false) : _simulationCell(cellMatrix), _pbcFlags(pbcFlags), _is2D(is2D) {
 		computeInverseMatrix();
 	}
+
+	/// Indicates that the simulation cell geometry has been specified and is non-degenerate. 
+	bool isValid() const { return _isValid; }
 
 	/// Returns whether this is a 2D system.
 	bool is2D() const { return _is2D; }
@@ -190,13 +194,17 @@ private:
 	/// Computes the inverse of the cell matrix.
 	void computeInverseMatrix() {
 		if(!is2D()) {
-			if(!_simulationCell.inverse(_reciprocalSimulationCell))
+			_isValid = _simulationCell.inverse(_reciprocalSimulationCell);
+			if(!_isValid) {
 				_reciprocalSimulationCell.setIdentity();
+				_pbcFlags.fill(false);
+			}
 		}
 		else {
 			_reciprocalSimulationCell.setIdentity();
 			FloatType det = _simulationCell(0,0)*_simulationCell(1,1) - _simulationCell(0,1)*_simulationCell(1,0);
-			if(std::abs(det) > FLOATTYPE_EPSILON) {
+			_isValid = (std::abs(det) > FLOATTYPE_EPSILON);
+			if(_isValid) {
 				_reciprocalSimulationCell(0,0) = _simulationCell(1,1) / det;
 				_reciprocalSimulationCell(1,0) = -_simulationCell(1,0) / det;
 				_reciprocalSimulationCell(0,1) = -_simulationCell(0,1) / det;
@@ -204,6 +212,7 @@ private:
 				_reciprocalSimulationCell.translation().x() = -(_reciprocalSimulationCell(0,0) * _simulationCell.translation().x() + _reciprocalSimulationCell(0,1) * _simulationCell.translation().y());
 				_reciprocalSimulationCell.translation().y() = -(_reciprocalSimulationCell(1,0) * _simulationCell.translation().x() + _reciprocalSimulationCell(1,1) * _simulationCell.translation().y());
 			}
+			else _pbcFlags.fill(false);
 		}
 	}
 
@@ -218,6 +227,9 @@ private:
 
 	/// Indicates that it is a 2D system.
 	bool _is2D;
+
+	/// Indicates whether the simulation cell geometry has been specified.
+	bool _isValid;
 };
 
 }	// End of namespace

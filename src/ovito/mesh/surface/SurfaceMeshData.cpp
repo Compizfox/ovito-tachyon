@@ -46,9 +46,11 @@ SurfaceMeshData::SurfaceMeshData(const SimulationCell& cell) :
 ******************************************************************************/
 SurfaceMeshData::SurfaceMeshData(const SurfaceMesh* sm) :
     _topology(sm->topology()),
-    _cell(sm->domain()->data()),
     _spaceFillingRegion(sm->spaceFillingRegion())
 {
+    if(sm->domain())
+		_cell = SimulationCell(sm->domain()->data());
+
 	OVITO_ASSERT(_topology);
 	for(const PropertyObject* property : sm->vertices()->properties()) {
 	    addVertexProperty(const_pointer_cast<PropertyStorage>(property->storage()));
@@ -569,12 +571,14 @@ void SurfaceMeshData::convertToTriMesh(TriMesh& outputMesh, bool smoothShading, 
 	for(HalfEdgeMesh::face_index face = 0; face < faceCount; face++) {
 		if(!faceSubset.empty() && !faceSubset[face]) continue;
 
+		// Determine whether opposite triangles should be created for the current source face. 
+		bool createOppositeFace = autoGenerateOppositeFaces && (!topology.hasOppositeFace(face) || (!faceSubset.empty() && !faceSubset[topology.oppositeFace(face)]));
+
 		// Go around the edges of the face to triangulate the general polygon (assuming it is convex).
 		HalfEdgeMesh::edge_index faceEdge = topology.firstFaceEdge(face);
 		HalfEdgeMesh::vertex_index baseVertex = topology.vertex2(faceEdge);
 		HalfEdgeMesh::edge_index edge1 = topology.nextFaceEdge(faceEdge);
 		HalfEdgeMesh::edge_index edge2 = topology.nextFaceEdge(edge1);
-		bool createOppositeFace = autoGenerateOppositeFaces && (!topology.hasOppositeFace(face) || (!faceSubset.empty() && !faceSubset[topology.oppositeFace(face)])) ;
 		while(edge2 != faceEdge) {
 			TriMeshFace& outputFace = outputMesh.addFace();
 			outputFace.setVertices(baseVertex + baseVertexCount, topology.vertex2(edge1) + baseVertexCount, topology.vertex2(edge2) + baseVertexCount);
@@ -654,17 +658,18 @@ void SurfaceMeshData::convertToTriMesh(TriMesh& outputMesh, bool smoothShading, 
 			return normal;
 		};
 
-		// Compute normal at each face vertex.
+		// Compute normal at each face vertex of the output mesh.
 		outputMesh.setHasNormals(true);
 		auto outputNormal = outputMesh.normals().begin() + (baseFaceCount * 3);
 		for(HalfEdgeMesh::face_index face = 0; face < faceCount; face++) {
 			if(!faceSubset.empty() && !faceSubset[face]) continue;
 
+			bool createOppositeFace = autoGenerateOppositeFaces && (!topology.hasOppositeFace(face) || (!faceSubset.empty() && !faceSubset[topology.oppositeFace(face)])) ;
+
 			// Go around the edges of the face.
 			HalfEdgeMesh::edge_index faceEdge = topology.firstFaceEdge(face);
 			HalfEdgeMesh::edge_index edge1 = topology.nextFaceEdge(faceEdge);
 			HalfEdgeMesh::edge_index edge2 = topology.nextFaceEdge(edge1);
-			bool createOppositeFace = autoGenerateOppositeFaces && (!topology.hasOppositeFace(face) || (!faceSubset.empty() && !faceSubset[topology.oppositeFace(face)])) ;
 			Vector3 baseNormal = calculateNormalAtVertex(faceEdge);
 			Vector3 normal1 = calculateNormalAtVertex(edge1);
 			while(edge2 != faceEdge) {
@@ -820,6 +825,71 @@ SurfaceMeshData::edge_index SurfaceMeshData::splitFace(edge_index edge1, edge_in
 	return new_e;
 }
 
+/******************************************************************************
+* Joins pairs of triangular faces to form quadrilateral faces.
+******************************************************************************/
+void SurfaceMeshData::makeQuadrilateralFaces()
+{
+	// Visit each triangular face and its adjacent faces.
+	for(face_index face = 0; face < faceCount(); ) {
+		
+		// Determine the longest edge of the current face and check if it is a triangle.
+		// Find the longest edge of the three edges.
+		edge_index faceEdge = firstFaceEdge(face);
+		edge_index edge = faceEdge;
+		int edgeCount = 0;
+		edge_index longestEdge;
+		FloatType longestEdgeLengthSq = 0;
+		do {
+			edgeCount++;
+			FloatType edgeLengthSq = edgeVector(edge).squaredLength();
+			if(edgeLengthSq >= longestEdgeLengthSq) {
+				longestEdgeLengthSq = edgeLengthSq;
+				longestEdge = edge;
+			}
+			edge = nextFaceEdge(edge);
+		}
+		while(edge != faceEdge);
+
+		// Skip face if it is not a triangle.
+		if(edgeCount != 3) {
+			face++;
+			continue;
+		}
+		face_index nextFace = face + 1;
+
+		// Check if the adjacent face exists and is also a triangle.
+		edge = longestEdge;
+		edge_index opp_edge = oppositeEdge(edge);
+		if(opp_edge != HalfEdgeMesh::InvalidIndex) {
+			face_index adj_face = adjacentFace(opp_edge);
+			if(adj_face > face && topology()->countFaceEdges(adj_face) == 3) {
+
+				// Eliminate this half-edge pair and join the two faces.
+				for(edge_index currentEdge = nextFaceEdge(edge); currentEdge != edge; currentEdge = nextFaceEdge(currentEdge)) {
+					OVITO_ASSERT(adjacentFace(currentEdge) == face);
+					topology()->setAdjacentFace(currentEdge, adj_face);
+				}
+				topology()->setFirstFaceEdge(adj_face, nextFaceEdge(opp_edge));
+				topology()->setFirstFaceEdge(face, edge);
+				topology()->setNextFaceEdge(prevFaceEdge(edge), nextFaceEdge(opp_edge));
+				topology()->setPrevFaceEdge(nextFaceEdge(opp_edge), prevFaceEdge(edge));
+				topology()->setNextFaceEdge(prevFaceEdge(opp_edge), nextFaceEdge(edge));
+				topology()->setPrevFaceEdge(nextFaceEdge(edge), prevFaceEdge(opp_edge));
+				topology()->setNextFaceEdge(edge, opp_edge);
+				topology()->setNextFaceEdge(opp_edge, edge);
+				topology()->setPrevFaceEdge(edge, opp_edge);
+				topology()->setPrevFaceEdge(opp_edge, edge);
+				topology()->setAdjacentFace(opp_edge, face);
+				OVITO_ASSERT(adjacentFace(edge) == face);
+				OVITO_ASSERT(topology()->countFaceEdges(face) == 2);
+				deleteFace(face);
+				nextFace = face;
+			}
+		}
+		face = nextFace;
+	}
+}
 
 }	// End of namespace
 }	// End of namespace

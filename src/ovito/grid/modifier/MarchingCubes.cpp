@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Copyright 2019 Alexander Stukowski
+//  Copyright 2020 Alexander Stukowski
 //
 //  This file is part of OVITO (Open Visualization Tool).
 //
@@ -29,23 +29,17 @@ namespace Ovito { namespace Grid {
 /******************************************************************************
 * Constructor.
 ******************************************************************************/
-MarchingCubes::MarchingCubes(SurfaceMeshData& outputMesh, int size_x, int size_y, int size_z, const FloatType* data, size_t stride, bool lowerIsSolid) :
+MarchingCubes::MarchingCubes(SurfaceMeshData& outputMesh, int size_x, int size_y, int size_z, bool lowerIsSolid, std::function<FloatType(int i, int j, int k)> field, bool infiniteDomain) :
     _outputMesh(outputMesh),
     _pbcFlags(outputMesh.cell().pbcFlags()),
-    _data_size_x(size_x),
-    _data_size_y(size_y),
-    _data_size_z(size_z),
+    _infiniteDomain(infiniteDomain),
     _size_x(size_x + (_pbcFlags[0] ? 0 : 1)),
     _size_y(size_y + (_pbcFlags[1] ? 0 : 1)),
     _size_z(size_z + (_pbcFlags[2] ? 0 : 1)),
-    _data(data),
-    _dataStride(stride),
+    getFieldValue(std::move(field)),
     _cubeVerts(_size_x * _size_y * _size_z * 3, HalfEdgeMesh::InvalidIndex),
     _lowerIsSolid(lowerIsSolid)
 {
-    OVITO_ASSERT(stride >= 1);
-    OVITO_ASSERT(outputMesh.vertexCount() == 0);
-    OVITO_ASSERT(outputMesh.faceCount() == 0);
     OVITO_ASSERT(outputMesh.regionCount() == 0);
     OVITO_ASSERT(outputMesh.spaceFillingRegion() == HalfEdgeMesh::InvalidIndex);
 }
@@ -55,14 +49,18 @@ MarchingCubes::MarchingCubes(SurfaceMeshData& outputMesh, int size_x, int size_y
 ******************************************************************************/
 bool MarchingCubes::generateIsosurface(FloatType isolevel, Task& task)
 {
-    task.setProgressMaximum(_size_z * 2);
+    int size_x = _infiniteDomain ? (_size_x - 1) : _size_x;
+    int size_y = _infiniteDomain ? (_size_y - 1) : _size_y;
+    int size_z = _infiniteDomain ? (_size_z - 1) : _size_z;
+
+    task.setProgressMaximum(size_z * 2);
     task.setProgressValue(0);
     computeIntersectionPoints(isolevel, task);
     if(task.isCanceled()) return false;
 
-    for(int k = 0; k < _size_z && !task.isCanceled(); k++, task.incrementProgressValue()) {
-        for(int j = 0; j < _size_y; j++) {
-            for(int i = 0; i < _size_x; i++) {
+    for(int k = 0; k < size_z && !task.isCanceled(); k++, task.incrementProgressValue()) {
+        for(int j = 0; j < size_y; j++) {
+            for(int i = 0; i < size_x; i++) {
                 _lut_entry = 0;
                 for(int p = 0; p < 8; ++p) {
                     _cube[p] = getFieldValue(i+((p^(p>>1))&1), j+((p>>1)&1), k+((p>>2)&1)) - isolevel;

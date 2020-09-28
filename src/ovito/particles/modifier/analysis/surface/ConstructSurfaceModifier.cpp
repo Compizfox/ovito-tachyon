@@ -467,9 +467,42 @@ void ConstructSurfaceModifier::GaussianDensityEngine::perform()
 
 	nextProgressSubStep();
 
+	// Set up callback function returning the field value, which will be passed to the marching cubes algorithm.
+    auto getFieldValue = [
+			_data = densityData.data(),
+			_pbcFlags = mesh().cell().pbcFlags(),
+			_gridShape = gridDims
+			](int i, int j, int k) -> FloatType {
+        if(_pbcFlags[0]) {
+            if(i == _gridShape[0]) i = 0;
+        }
+        else {
+            if(i == 0 || i == _gridShape[0] + 1) return std::numeric_limits<FloatType>::lowest();
+            i--;
+        }
+        if(_pbcFlags[1]) {
+            if(j == _gridShape[1]) j = 0;
+        }
+        else {
+            if(j == 0 || j == _gridShape[1] + 1) return std::numeric_limits<FloatType>::lowest();
+            j--;
+        }
+        if(_pbcFlags[2]) {
+            if(k == _gridShape[2]) k = 0;
+        }
+        else {
+            if(k == 0 || k == _gridShape[2] + 1) return std::numeric_limits<FloatType>::lowest();
+            k--;
+        }
+        OVITO_ASSERT(i >= 0 && i < _gridShape[0]);
+        OVITO_ASSERT(j >= 0 && j < _gridShape[1]);
+        OVITO_ASSERT(k >= 0 && k < _gridShape[2]);
+        return _data[(i + j*_gridShape[0] + k*_gridShape[0]*_gridShape[1])];
+    };
+
 	// Construct isosurface of the density field.
 	mesh().cell().setMatrix(gridBoundaries);
-	MarchingCubes mc(mesh(), gridDims[0], gridDims[1], gridDims[2], densityData.data(), 1, false);
+	MarchingCubes mc(mesh(), gridDims[0], gridDims[1], gridDims[2], false, std::move(getFieldValue));
 	if(!mc.generateIsosurface(_isoLevel, *this))
 		return;
 
