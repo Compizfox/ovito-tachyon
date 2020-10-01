@@ -44,6 +44,9 @@ public:
 	/// \brief Returns the widget that is associated with the given viewport.
 	static QWidget* viewportWidget(Viewport* vp);
 
+	/// Handles keyboard input for the viewport windows.
+	bool onKeyShortcut(QKeyEvent* event);
+
 public Q_SLOTS:
 
 	/// \brief Performs the layout of the viewports in the panel.
@@ -70,9 +73,6 @@ private Q_SLOTS:
 
 	/// This is called when the mouse cursor of the active input mode has changed.
 	void onViewportModeCursorChanged(const QCursor& cursor);
-
-	/// Handles keyboard input for the viewport windows.
-	void onKeyShortcut();
 
 private:
 

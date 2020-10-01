@@ -254,16 +254,6 @@ void ActionManager::setupCommandSearch()
 			QLineEdit::focusOutEvent(event);
 			clear();
 		}
-		virtual bool event(QEvent* event) override {
-			// This is required to forward key up/down input events to the popup listbox.
-			if(event->type() == QEvent::ShortcutOverride) {
-				if(_completer->popup() && _completer->popup()->isVisible()) {
-					event->accept();
-					return true;
-				}
-			}
-			return QLineEdit::event(event);
-		}
 	};
 
 	// Set up the command quick search field.

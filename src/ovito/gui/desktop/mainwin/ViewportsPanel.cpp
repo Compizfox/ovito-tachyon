@@ -48,18 +48,6 @@ ViewportsPanel::ViewportsPanel(MainWindow* mainWindow) : _mainWindow(mainWindow)
 
 	// Prevent the viewports from collpasing and disappearing completely. 
 	setMinimumSize(40, 40);
-
-	// Create keyboard navigation shortcuts.
-	connect(new QShortcut(QKeySequence(Qt::Key_Left), this), &QShortcut::activated, this, &ViewportsPanel::onKeyShortcut);
-	connect(new QShortcut(QKeySequence(Qt::Key_Right), this), &QShortcut::activated, this, &ViewportsPanel::onKeyShortcut);
-	connect(new QShortcut(QKeySequence(Qt::Key_Up), this), &QShortcut::activated, this, &ViewportsPanel::onKeyShortcut);
-	connect(new QShortcut(QKeySequence(Qt::Key_Down), this), &QShortcut::activated, this, &ViewportsPanel::onKeyShortcut);
-	connect(new QShortcut(QKeySequence(Qt::SHIFT | Qt::Key_Left), this), &QShortcut::activated, this, &ViewportsPanel::onKeyShortcut);
-	connect(new QShortcut(QKeySequence(Qt::SHIFT | Qt::Key_Right), this), &QShortcut::activated, this, &ViewportsPanel::onKeyShortcut);
-	connect(new QShortcut(QKeySequence(Qt::SHIFT | Qt::Key_Up), this), &QShortcut::activated, this, &ViewportsPanel::onKeyShortcut);
-	connect(new QShortcut(QKeySequence(Qt::SHIFT | Qt::Key_Down), this), &QShortcut::activated, this, &ViewportsPanel::onKeyShortcut);
-	connect(new QShortcut(QKeySequence(QKeySequence::ZoomIn), this), &QShortcut::activated, this, &ViewportsPanel::onKeyShortcut);
-	connect(new QShortcut(QKeySequence(QKeySequence::ZoomOut), this), &QShortcut::activated, this, &ViewportsPanel::onKeyShortcut);
 }
 
 /******************************************************************************
@@ -253,38 +241,55 @@ void ViewportsPanel::layoutViewports()
 /******************************************************************************
 * Handles keyboard input for the viewport windows.
 ******************************************************************************/
-void ViewportsPanel::onKeyShortcut()
+bool ViewportsPanel::onKeyShortcut(QKeyEvent* event)
 {
-	// Get the keyboard shortcut that was pressed.
-	QShortcut* shortcut = qobject_cast<QShortcut*>(sender());
-	OVITO_ASSERT(shortcut);
-	QKeySequence keySeq = shortcut->key();
-	
+	// Suppress viewport navigation shortcuts when a list/table widget has the focus.
+	QWidget* focusWidget = _mainWindow->focusWidget();
+	if(qobject_cast<QAbstractItemView*>(focusWidget))
+		return false;
+
 	// Get the viewport the input pertains to.
 	Viewport* vp = _viewportConfig ? _viewportConfig->activeViewport() : nullptr;
-	if(!vp) return;
+	if(!vp) return false;
 
 	qreal delta = 1.0;
-	if(keySeq == QKeySequence(Qt::Key_Left))
-		_mainWindow->viewportInputManager()->orbitMode()->discreteStep(vp->window(), QPointF(-delta, 0));
-	else if(keySeq == QKeySequence(Qt::Key_Right))
-		_mainWindow->viewportInputManager()->orbitMode()->discreteStep(vp->window(), QPointF(delta, 0));
-	else if(keySeq == QKeySequence(Qt::Key_Up))
-		_mainWindow->viewportInputManager()->orbitMode()->discreteStep(vp->window(), QPointF(0, -delta));
-	else if(keySeq == QKeySequence(Qt::Key_Down))
-		_mainWindow->viewportInputManager()->orbitMode()->discreteStep(vp->window(), QPointF(0, delta));
-	else if(keySeq == QKeySequence(Qt::SHIFT | Qt::Key_Left))
-		_mainWindow->viewportInputManager()->panMode()->discreteStep(vp->window(), QPointF(-delta, 0));
-	else if(keySeq == QKeySequence(Qt::SHIFT | Qt::Key_Right))
-		_mainWindow->viewportInputManager()->panMode()->discreteStep(vp->window(), QPointF(delta, 0));
-	else if(keySeq == QKeySequence(Qt::SHIFT | Qt::Key_Up))
-		_mainWindow->viewportInputManager()->panMode()->discreteStep(vp->window(), QPointF(0, -delta));
-	else if(keySeq == QKeySequence(Qt::SHIFT | Qt::Key_Down))
-		_mainWindow->viewportInputManager()->panMode()->discreteStep(vp->window(), QPointF(0, delta));
-	else if(keySeq == QKeySequence(QKeySequence::ZoomIn))
+	if(event->key() == Qt::Key_Left) {
+		if(!(event->modifiers() & Qt::ShiftModifier))
+			_mainWindow->viewportInputManager()->orbitMode()->discreteStep(vp->window(), QPointF(-delta, 0));
+		else
+			_mainWindow->viewportInputManager()->panMode()->discreteStep(vp->window(), QPointF(-delta, 0));
+		return true;
+	}
+	else if(event->key() == Qt::Key_Right) {
+		if(!(event->modifiers() & Qt::ShiftModifier))
+			_mainWindow->viewportInputManager()->orbitMode()->discreteStep(vp->window(), QPointF(delta, 0));
+		else
+			_mainWindow->viewportInputManager()->panMode()->discreteStep(vp->window(), QPointF(delta, 0));
+		return true;
+	}
+	else if(event->key() == Qt::Key_Up) {
+		if(!(event->modifiers() & Qt::ShiftModifier))
+			_mainWindow->viewportInputManager()->orbitMode()->discreteStep(vp->window(), QPointF(0, -delta));
+		else
+			_mainWindow->viewportInputManager()->panMode()->discreteStep(vp->window(), QPointF(0, -delta));
+		return true;
+	}
+	else if(event->key() == Qt::Key_Down) {
+		if(!(event->modifiers() & Qt::ShiftModifier))
+			_mainWindow->viewportInputManager()->orbitMode()->discreteStep(vp->window(), QPointF(0, delta));
+		else
+			_mainWindow->viewportInputManager()->panMode()->discreteStep(vp->window(), QPointF(0, delta));
+		return true;
+	}
+	else if(event->matches(QKeySequence::ZoomIn)) {
 		_mainWindow->viewportInputManager()->zoomMode()->zoom(vp, 50);
-	else if(keySeq == QKeySequence(QKeySequence::ZoomOut))
+		return true;
+	}
+	else if(event->matches(QKeySequence::ZoomOut)) {
 		_mainWindow->viewportInputManager()->zoomMode()->zoom(vp, -50);
+		return true;
+	}
+	return false;
 }
 
 }	// End of namespace

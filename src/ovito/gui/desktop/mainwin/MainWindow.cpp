@@ -400,6 +400,15 @@ bool MainWindow::event(QEvent* event)
 }
 
 /******************************************************************************
+* Handles global key input.
+******************************************************************************/
+void MainWindow::keyPressEvent(QKeyEvent* event)
+{
+	if(!static_cast<ViewportsPanel*>(_viewportsPanel)->onKeyShortcut(event))
+		QMainWindow::keyPressEvent(event);
+}
+
+/******************************************************************************
 * Is called when the user closes the window.
 ******************************************************************************/
 void MainWindow::closeEvent(QCloseEvent* event)

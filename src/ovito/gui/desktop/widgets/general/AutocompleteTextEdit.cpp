@@ -117,21 +117,6 @@ void AutocompleteTextEdit::keyPressEvent(QKeyEvent* event)
 }
 
 /******************************************************************************
-* Handles all widget events.
-******************************************************************************/
-bool AutocompleteTextEdit::event(QEvent* event) 
-{
-	// This is required to forward key up/down input events to the popup listbox.
-	if(event->type() == QEvent::ShortcutOverride) {
-		if(_completer->popup() && _completer->popup()->isVisible()) {
-			event->accept();
-			return true;
-		}
-	}
-	return QPlainTextEdit::event(event);
-}
-
-/******************************************************************************
 * Handles keyboard focus lost events.
 ******************************************************************************/
 void AutocompleteTextEdit::focusOutEvent(QFocusEvent* event)

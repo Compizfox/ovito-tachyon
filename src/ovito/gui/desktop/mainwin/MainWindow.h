@@ -136,6 +136,9 @@ protected:
 	/// Is called when the window receives an event.
 	virtual bool event(QEvent *event) override;
 
+	/// Handles global key input.
+	virtual void keyPressEvent(QKeyEvent* event) override;
+
 	/// Called by the system when a drag is in progress and the mouse enters this window.
 	virtual void dragEnterEvent(QDragEnterEvent* event) override;
 

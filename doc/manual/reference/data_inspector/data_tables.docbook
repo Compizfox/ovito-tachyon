@@ -26,13 +26,24 @@
   <para>
     The current data pipeline may output several data tables, and the list box on the left
     lets you switch between them. The selected table is plotted in the central area of the 
-    tab. The tool buttons on the right let you switch between the graphical plotting mode and
+    tab. The tool buttons on the right let you switch between the graphical plot mode and
     a tabular view of the underlying numerical table data. 
   </para>
 
   <para>
-    The save button lets you export the plot to a PDF or PNG graphics file, or the tabular values to a text file, 
-    depending on the currently selected view.
+    The save button lets you export the diagram to a PDF or PNG graphics file, or, if the tabular view is currently active, 
+    the numerical values to a text file.
+  </para>
+
+  <para>
+    The plot area supports mouse navigation:
+    <itemizedlist>
+      <listitem>Left click: show plot coordinates at cursor position</listitem>
+      <listitem>Left button + drag: zoom in to rectangular region</listitem>
+      <listitem>Left button + Shift + drag: panning</listitem>
+      <listitem>Mouse wheel: zoom in/out</listitem>
+      <listitem>Right click: reset view</listitem>
+    </itemizedlist>
   </para>
 
 </section>
