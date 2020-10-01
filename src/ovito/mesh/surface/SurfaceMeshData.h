@@ -606,6 +606,9 @@ public:
     /// Joins pairs of triangular faces to form quadrilateral faces.
     void makeQuadrilateralFaces();
 
+    /// Deletes all vertices from the mesh which are not connected to any half-edge.
+    void deleteIsolatedVertices();
+
     /// Triangulates the polygonal faces of this mesh and outputs the results as a TriMesh object.
     void convertToTriMesh(TriMesh& outputMesh, bool smoothShading, const boost::dynamic_bitset<>& faceSubset = boost::dynamic_bitset<>{}, std::vector<size_t>* originalFaceMap = nullptr, bool autoGenerateOppositeFaces = false) const;
 

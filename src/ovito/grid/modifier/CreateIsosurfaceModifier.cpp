@@ -313,8 +313,7 @@ bool CreateIsosurfaceModifier::transferPropertiesFromGridToMesh(Task& task, Surf
 			size_t cornerIndices[8];
 			FloatType cornerWeights[8];
 			const Point3& p = mesh.vertexPosition(vertexIndex);
-			if(mesh.firstVertexEdge(vertexIndex) == HalfEdgeMesh::InvalidIndex)
-				return;
+			OVITO_ASSERT(mesh.firstVertexEdge(vertexIndex) != HalfEdgeMesh::InvalidIndex);
 			Vector3 x0, x1;
 			Vector3I x0_vc, x1_vc;
 			for(size_t dim = 0; dim < 3; dim++) {

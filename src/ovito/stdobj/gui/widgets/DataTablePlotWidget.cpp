@@ -32,6 +32,9 @@
 #include <qwt/qwt_plot_legenditem.h>
 #include <qwt/qwt_plot_layout.h>
 #include <qwt/qwt_scale_widget.h>
+#include <qwt/qwt_plot_zoomer.h>
+#include <qwt/qwt_plot_magnifier.h>
+#include <qwt/qwt_plot_panner.h>
 
 namespace Ovito { namespace StdObj {
 
@@ -57,6 +60,21 @@ DataTablePlotWidget::DataTablePlotWidget(QWidget* parent) : QwtPlot(parent)
 		text.setFont(fttl);
 		axisWidget(axisId)->setTitle(text);
 	}
+
+	// Left button: zoom region
+	// Left button + Shift: panning
+	// Right button: zoom out to full size
+	// Mouse wheel: zoom in/out
+
+	_zoomer = new QwtPlotZoomer(canvas());
+	_zoomer->setMousePattern(QwtEventPattern::MouseSelect2, Qt::RightButton);
+
+	_magnifier = new QwtPlotMagnifier(canvas());
+	_magnifier->setMouseButton(Qt::NoButton);
+	_magnifier->setWheelFactor(1.0 / _magnifier->wheelFactor()); // Flip mouse wheel direction.
+
+	_panner = new QwtPlotPanner(canvas());
+	_panner->setMouseButton(Qt::LeftButton, Qt::ShiftModifier);
 }
 
 /******************************************************************************
@@ -142,6 +160,8 @@ void DataTablePlotWidget::updateDataPlot()
 		delete _legend;
 		_legend = nullptr;
 	}
+
+	bool enableMouseInteraction = true;
 
 	// Create plot items.
 	if(plotMode == DataTable::Scatter) {
@@ -284,7 +304,13 @@ void DataTablePlotWidget::updateDataPlot()
 
 		// Extra call to replot() needed here as a workaround for a layout bug in QwtPlot.
 		replot();
+
+		enableMouseInteraction = false;
 	}
+	if(_axisAutoscaleEnabled[QwtPlot::xBottom])
+		QwtPlot::setAxisAutoScale(QwtPlot::xBottom);
+	if(_axisAutoscaleEnabled[QwtPlot::yLeft])
+		QwtPlot::setAxisAutoScale(QwtPlot::yLeft);
 
 	if(plotMode != DataTable::PlotMode::None) {
 		setAxisTitle(QwtPlot::xBottom, (!x || !table()->axisLabelX().isEmpty()) ? table()->axisLabelX() : x->name());
@@ -296,6 +322,11 @@ void DataTablePlotWidget::updateDataPlot()
 	axisWidget(QwtPlot::yLeft)->setBorderDist(0, 0);
 
 	replot();
+	
+	_zoomer->setEnabled(enableMouseInteraction && _mouseNavigationEnabled);
+	_magnifier->setEnabled(enableMouseInteraction && _mouseNavigationEnabled);
+	_panner->setEnabled(enableMouseInteraction && _mouseNavigationEnabled);
+	_zoomer->setZoomBase(false);
 }
 
 }	// End of namespace

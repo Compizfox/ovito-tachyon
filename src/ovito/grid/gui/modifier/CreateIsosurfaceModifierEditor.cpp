@@ -95,6 +95,7 @@ void CreateIsosurfaceModifierEditor::createUI(const RolloutInsertionParameters& 
 	_isoLevelIndicator->setZ(1);
 	_isoLevelIndicator->attach(_plotWidget);
 	_isoLevelIndicator->hide();
+	_plotWidget->setMouseNavigationEnabled(false);
 	QwtPlotPicker* picker = new QwtPlotPicker(_plotWidget->canvas());
 	OVITO_ASSERT(picker->isEnabled());
 	picker->setTrackerMode(QwtPlotPicker::AlwaysOff);

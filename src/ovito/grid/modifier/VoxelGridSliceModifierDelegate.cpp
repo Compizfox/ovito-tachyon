@@ -76,8 +76,10 @@ PipelineStatus VoxelGridSliceModifierDelegate::apply(Modifier* modifier, Pipelin
 		planes[numPlanes++] = Plane3(-plane.normal, -plane.dist + sliceWidth);
 	}
 
-	for(const DataObject* obj : state.data()->objects()) {
-		if(const VoxelGrid* voxelGrid = dynamic_object_cast<VoxelGrid>(obj)) {
+	// Note: Using index-based instead of range-based for-loop here, because the 
+	// object list gets modified within the loop.
+	for(int idx = 0; idx < state.data()->objects().size(); idx++) {
+		if(const VoxelGrid* voxelGrid = dynamic_object_cast<VoxelGrid>(state.data()->objects()[idx])) {
 			// Get domain of voxel grid.
 			VoxelGrid::GridDimensions gridShape = voxelGrid->shape();
 			SimulationCell cell = voxelGrid->domain()->data();
@@ -121,6 +123,9 @@ PipelineStatus VoxelGridSliceModifierDelegate::apply(Modifier* modifier, Pipelin
 			// the marching cubes algorithm.
 			if(std::abs(planeGridSpace.normal.x()) <= FLOATTYPE_MAX || std::abs(planeGridSpace.normal.y()) <= FLOATTYPE_MAX || std::abs(planeGridSpace.normal.z()) <= FLOATTYPE_MAX)
 				mesh.makeQuadrilateralFaces();
+
+			// Deletes all vertices from the mesh which are not connected to any half-edge.
+			mesh.deleteIsolatedVertices();
 
 			// Transform from double resolution grid to single resolution.
 			mesh.transformVertices(AffineTransformation(

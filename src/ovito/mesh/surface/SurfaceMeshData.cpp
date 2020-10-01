@@ -891,5 +891,17 @@ void SurfaceMeshData::makeQuadrilateralFaces()
 	}
 }
 
+/******************************************************************************
+* Deletes all vertices from the mesh which are not connected to any half-edge.
+******************************************************************************/
+void SurfaceMeshData::deleteIsolatedVertices()
+{
+	for(vertex_index vertex = vertexCount() - 1; vertex >= 0; vertex--) {
+		if(firstVertexEdge(vertex) == HalfEdgeMesh::InvalidIndex) {
+			deleteVertex(vertex);
+		}
+	}
+}
+
 }	// End of namespace
 }	// End of namespace
