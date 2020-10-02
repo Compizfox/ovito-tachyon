@@ -108,10 +108,22 @@ public:
 	int listIndexFromCategoryIndex(int categoryIndex) const;
 
 	/// Returns the category index for the modifier templates.
-	int modifierTemplatesCategory() const { return _actions.size() - 2; }
+	int modifierTemplatesCategory() const { return _actionsPerCategory.size() - 2; }
 
 	/// Returns the category index for the Python modifiers.
-	int modifierScriptsCategory() const { return _actions.size() - 1; }
+	int modifierScriptsCategory() const { return _actionsPerCategory.size() - 1; }
+
+	/// Returns whether sorting of available modifiers into categories is enabled.
+	bool useCategories() const { return _useCategories; }
+
+	/// Sets whether available modifiers are storted by category instead of name.
+	void setUseCategories(bool on);
+
+	/// Returns whether sorting of available modifiers into categories is enabled globally for the application.
+	static bool useCategoriesGlobal();
+
+	/// Sets whether available modifiers are storted by category gloablly for the application.
+	static void setUseCategoriesGlobal(bool on);
 
 public Q_SLOTS:
 
@@ -128,8 +140,11 @@ private Q_SLOTS:
 
 private:
 
+	/// The complete list of modifier actions, sorted alphabetically.
+	std::vector<ModifierAction*> _allActions;
+
 	/// The list of modifier actions, sorted by category.
-	std::vector<std::vector<ModifierAction*>> _actions;
+	std::vector<std::vector<ModifierAction*>> _actionsPerCategory;
 
 	/// The list of modifier categories.
 	std::vector<QString> _categoryNames;
@@ -149,6 +164,9 @@ private:
 	/// Colors used for category header items.
 	QBrush _categoryBackgroundBrush{Qt::lightGray, Qt::Dense4Pattern};
 	QBrush _categoryForegroundBrush{Qt::blue};
+
+	/// Controls the sorting of available modifiers into categories.
+	bool _useCategories = useCategoriesGlobal();
 };
 
 }	// End of namespace

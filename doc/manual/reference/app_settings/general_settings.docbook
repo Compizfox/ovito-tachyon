@@ -31,6 +31,15 @@
             </para>
           </listitem>
         </varlistentry>
+        <varlistentry>
+          <term>Modifiers list: Sort by category</term>
+          <listitem>
+            <para>If this option is turned on, the <link linkend="particles.modifiers">list of available modifiers</link> 
+            will be divided into several categories. If turned off, the modifiers will be shown as
+            one contiguous, alphabetically ordered list.  
+            </para>
+          </listitem>
+        </varlistentry>
       </variablelist>
     </para>
   </simplesect>

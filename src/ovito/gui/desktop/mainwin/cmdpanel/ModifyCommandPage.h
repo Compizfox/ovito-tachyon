@@ -28,6 +28,7 @@
 #include <ovito/gui/desktop/widgets/general/RolloutContainer.h>
 #include <ovito/gui/base/viewport/ViewportInputManager.h>
 #include <ovito/core/oo/RefTargetListener.h>
+#include "ModifierListModel.h"
 
 namespace Ovito {
 
@@ -51,6 +52,9 @@ public:
 
 	/// Returns the list model that encapsulates the modification pipeline of the selected node(s).
 	PipelineListModel* pipelineListModel() const { return _pipelineListModel; }
+
+	/// Returns the list model that lists the available modifiers.
+	ModifierListModel* modifierListModel() const { return static_cast<ModifierListModel*>(_modifierSelector->model()); }
 
 protected Q_SLOTS:
 

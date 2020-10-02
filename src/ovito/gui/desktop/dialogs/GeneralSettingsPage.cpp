@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Copyright 2014 Alexander Stukowski
+//  Copyright 2020 Alexander Stukowski
 //
 //  This file is part of OVITO (Open Visualization Tool).
 //
@@ -21,6 +21,7 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 
 #include <ovito/gui/desktop/GUI.h>
+#include <ovito/gui/desktop/mainwin/cmdpanel/ModifierListModel.h>
 #include <ovito/opengl/OpenGLSceneRenderer.h>
 #include "GeneralSettingsPage.h"
 
@@ -43,13 +44,18 @@ void GeneralSettingsPage::insertSettingsDialogPage(ApplicationSettingsDialog* se
 	layout1->addWidget(uiGroupBox);
 	QGridLayout* layout2 = new QGridLayout(uiGroupBox);
 
-	_useQtFileDialog = new QCheckBox(tr("Load file: Use alternative file selection dialog"), uiGroupBox);
+	_useQtFileDialog = new QCheckBox(tr("Load file: Use alternative file selection dialog"));
 	_useQtFileDialog->setToolTip(tr(
 			"<p>Use an alternative file selection dialog instead of the native dialog box provided by the operating system.</p>"));
 	layout2->addWidget(_useQtFileDialog, 0, 0);
 	_useQtFileDialog->setChecked(settings.value("file/use_qt_dialog", false).toBool());
 
-	QGroupBox* openglGroupBox = new QGroupBox(tr("Viewport rendering / OpenGL"), page);
+	_sortModifiersByCategory = new QCheckBox(tr("Modifiers list: Sort by category"));
+	_sortModifiersByCategory->setToolTip(tr("<p>Show categorized list of available modifiers in command panel.</p>"));
+	layout2->addWidget(_sortModifiersByCategory, 1, 0);
+	_sortModifiersByCategory->setChecked(ModifierListModel::useCategoriesGlobal());
+
+	QGroupBox* openglGroupBox = new QGroupBox(tr("Viewport rendering / OpenGL"));
 	layout1->addWidget(openglGroupBox);
 	layout2 = new QGridLayout(openglGroupBox);
 
@@ -154,6 +160,7 @@ bool GeneralSettingsPage::saveValues(ApplicationSettingsDialog* settingsDialog, 
 {
 	QSettings settings;
 	settings.setValue("file/use_qt_dialog", _useQtFileDialog->isChecked());
+	ModifierListModel::setUseCategoriesGlobal(_sortModifiersByCategory->isChecked());
 #if !defined(OVITO_BUILD_APPSTORE_VERSION)
 	settings.setValue("updates/check_for_updates", _enableUpdateChecks->isChecked());
 	settings.setValue("updates/transmit_id", _enableUsageStatistics->isChecked());
