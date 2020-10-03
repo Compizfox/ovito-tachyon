@@ -40,9 +40,9 @@ bool PDBImporter::OOMetaClass::checkFileFormat(const FileHandle& file) const
 	// Open input file.
 	CompressedTextReader stream(file);
 
-	// Read the first N lines.
-	for(int i = 0; i < 20 && !stream.eof(); i++) {
-		stream.readLine(86);
+	// Read up to 40 lines from the beginning of the file.
+	for(int i = 0; i < 40 && !stream.eof(); i++) {
+		stream.readLine(256);
 		if(qstrlen(stream.line()) > 83 && !stream.lineStartsWithToken("TITLE"))
 			return false;
 		if(qstrlen(stream.line()) >= 7 && stream.line()[6] != ' ' && std::find(stream.line(), stream.line()+6, ' ') != stream.line()+6)
@@ -50,6 +50,7 @@ bool PDBImporter::OOMetaClass::checkFileFormat(const FileHandle& file) const
 		if(stream.lineStartsWithToken("HEADER") || stream.lineStartsWithToken("ATOM") || stream.lineStartsWith("HETATM"))
 			return true;
 	}
+
 	return false;
 }
 
@@ -358,7 +359,6 @@ FileSourceImporter::FrameDataPtr PDBImporter::FrameLoader::loadFile()
 	frameData->setStatus(tr("Number of atoms: %1").arg(numAtoms));
 	return frameData;
 }
-
 
 }	// End of namespace
 }	// End of namespace
