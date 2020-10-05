@@ -93,8 +93,8 @@
             </row>
             <row>
               <entry>PDB</entry>
-              <entry><para>Protein Data Bank (PDB) files (experimental support).</para></entry>
-              <entry><link linkend="scene_objects.particles">particles</link>, <link linkend="scene_objects.bonds">bonds</link></entry>
+              <entry><para>Protein Data Bank (PDB) files.</para></entry>
+              <entry><link linkend="scene_objects.particles">particles</link></entry>
             </row>
             <row>
               <entry>PDBx/mmCIF</entry>

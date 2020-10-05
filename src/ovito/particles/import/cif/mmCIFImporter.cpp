@@ -183,7 +183,7 @@ FileSourceImporter::FrameDataPtr mmCIFImporter::FrameLoader::loadFile()
 		// Since we created particle types on the go while reading the particles, the assigned particle type IDs
 		// depend on the storage order of particles in the file We rather want a well-defined particle type ordering, that's
 		// why we sort them now.
-		typeList->sortTypesByName(typeProperty);
+		typeList->sortTypesById();
 
 		// Parse unit cell.
 		if(structure.cell.is_crystal()) {

@@ -28,6 +28,66 @@
 #include <ovito/core/utilities/io/NumberParsing.h>
 #include "PDBImporter.h"
 
+#include <3rdparty/gemmi/pdb.hpp>
+
+namespace gemmi { namespace pdb_impl {
+template<>
+inline size_t copy_line_from_stream<Ovito::CompressedTextReader&>(char* line, int size, Ovito::CompressedTextReader& stream) 
+{
+	// Return no line if end of file has been reached.
+	if(stream.eof())
+		return 0;
+
+	// Read a single line form the input stream.
+	const char* src_line = stream.readLine();
+
+	// Stop reading the file when ENDMDL marker is reached. We don't want Gemmi to read all frames of a trajectory file.
+	if(is_record_type(src_line, "ENDMDL")) {
+		return 0;
+	}
+
+	// Copy line contents to output buffer.
+	size_t len = qstrlen(src_line);
+	qstrncpy(line, src_line, size);
+
+	if(is_record_type(src_line, "ATOM") || is_record_type(src_line, "HETATM")) {
+		// Some PDB files have an ATOM or HETATM line that is shorter than what Gemmi's parser expects.
+		// Pad such lines by appending  additional whitespace.
+		if(len < 66 && len >= 55 && size > 66) {
+			while(len < 66)
+				line[len++] = ' ';
+			line[len] = '\0';
+		}
+
+		// Gemmi expects atom names to start at column index 12. Some files have one extra space at this positions and the 
+		// name actually begins at position 13. Make the parser happy by moving the text by one positon to the left.
+		// For example, turn " Au " into "Au  ", but preserve " CA " or " HE ".
+		if(len >= 16 && size >= 16 && line[12] == ' ' && line[13] >= 'A' && line[13] <= 'Z' && line[14] >= 'a' && line[14] <= 'z' && line[15] == ' ') {
+			line[12] = line[13];
+			line[13] = line[14];
+			line[14] = ' ';
+			line[15] = ' ';
+		}
+		// Some files have 2 extra spaces at this positions and the name actually begins at position 14. Make the parser happy by moving the text by two characters to the left.
+		// For example, turn "  O " into "O   ":
+		else if(len >= 16 && size >= 16 && line[12] == ' ' && line[13] == ' ' && line[14] >= 'A' && line[14] <= 'Z') {
+			line[12] = line[14];
+			line[13] = line[15];
+			line[14] = ' ';
+			line[15] = ' ';
+		}
+		// Some files have a digit prepended to the element name. Remove it so that Gemmi can recognize the element correctly.
+		// For example, turn "1HH1" into " HH1":
+		else if(len >= 16 && size >= 16 && line[12] >= '1' && line[12] <= '9' && line[13] >= 'A' && line[13] <= 'Z') {
+			line[12] = ' ';
+		}
+	}
+
+	// Return line length (up to maximum) to caller.
+	return std::min(len, (size_t)(size - 1));
+}
+}}
+
 namespace Ovito { namespace Particles {
 
 IMPLEMENT_OVITO_CLASS(PDBImporter);
@@ -72,9 +132,6 @@ void PDBImporter::FrameFinder::discoverFramesInFile(QVector<FileSourceImporter::
 			return;
 
 		stream.readLine();
-		int lineLength = qstrlen(stream.line());
-		if(lineLength < 3 || (lineLength > 83 && !stream.lineStartsWithToken("TITLE")))
-			throw Exception(tr("Invalid line length detected in Protein Data Bank (PDB) file at line %1").arg(stream.lineNumber()));
 
 		if(!setProgressValueIntermittent(stream.underlyingByteOffset()))
 			return;
@@ -108,6 +165,7 @@ FileSourceImporter::FrameDataPtr PDBImporter::FrameLoader::loadFile()
 	// Create the destination container for loaded data.
 	std::shared_ptr<ParticleFrameData> frameData = std::make_shared<ParticleFrameData>();
 
+#if 0
 	// Parse metadata records.
 	int numAtoms = 0;
 	bool hasSimulationCell = false;
@@ -353,10 +411,136 @@ FileSourceImporter::FrameDataPtr PDBImporter::FrameLoader::loadFile()
 				boundingBox.minc - Point3::Origin()));
 	}
 
+
 	if(bondTopologyProperty)
 		frameData->generateBondPeriodicImageProperty();
 
-	frameData->setStatus(tr("Number of atoms: %1").arg(numAtoms));
+#else
+
+	try {
+		// Parse the PDB file's contents.
+		gemmi::Structure structure = gemmi::pdb_impl::read_pdb_from_line_input(stream, qPrintable(frame().sourceFile.path()), gemmi::PdbReadOptions());
+		if(isCanceled()) return {};
+
+		structure.merge_chain_parts();
+		if(isCanceled()) return {};
+
+		if(structure.models.empty())
+			throw Exception(tr("PDB parsing error: No structural models."));
+		const gemmi::Model& model = structure.models.back();
+
+		// Count total number of atoms.
+		size_t natoms = 0;
+		for(const gemmi::Chain& chain : model.chains) {
+			for(const gemmi::Residue& residue : chain.residues) {
+				natoms += residue.atoms.size();
+			}
+		}
+
+		// Allocate property arrays for atoms.
+		PropertyAccess<Point3> posProperty = frameData->particles().createStandardProperty<ParticlesObject>(natoms, ParticlesObject::PositionProperty, false);
+		PropertyAccess<int> typeProperty = frameData->particles().createStandardProperty<ParticlesObject>(natoms, ParticlesObject::TypeProperty, false);
+		PropertyContainerImportData::TypeList* typeList = frameData->particles().createPropertyTypesList(typeProperty, ParticleType::OOClass());
+		Point3* posIter = posProperty.begin();
+		int* typeIter = typeProperty.begin();
+
+		// Transfer atomic data from Gemmi to OVITO data structures.
+		bool hasOccupancy = false;
+		for(const gemmi::Chain& chain : model.chains) {
+			for(const gemmi::Residue& residue : chain.residues) {
+				if(isCanceled()) return {};
+				for(const gemmi::Atom& atom : residue.atoms) {
+					// Atomic position.
+					*posIter++ = Point3(atom.pos.x, atom.pos.y, atom.pos.z);
+
+					// Atomic type.
+					*typeIter++ = atom.element.ordinal();
+					if(!typeList->hasTypeId(atom.element.ordinal()))
+						typeList->addNamedTypeId(atom.element.ordinal(), QString::fromStdString(atom.element.name()), false);
+
+					// Check for presence of occupancy values.
+					if(atom.occ != 0 && atom.occ != 1) hasOccupancy = true;
+				}
+			}
+		}
+		if(isCanceled()) return {};
+
+		// Parse the optional site occupancy information.
+		if(hasOccupancy) {
+			PropertyAccess<FloatType> occupancyProperty = frameData->particles().addProperty(std::make_shared<PropertyStorage>(natoms, PropertyStorage::Float, 1, 0, QStringLiteral("Occupancy"), false));
+			FloatType* occupancyIter = occupancyProperty.begin();
+			for(const gemmi::Chain& chain : model.chains) {
+				for(const gemmi::Residue& residue : chain.residues) {
+					for(const gemmi::Atom& atom : residue.atoms) {
+						*occupancyIter++ = atom.occ;
+					}
+				}
+			}
+			OVITO_ASSERT(occupancyIter == occupancyProperty.end());
+		}
+
+		// Since we created particle types on the go while reading the particles, the assigned particle type IDs
+		// depend on the storage order of particles in the file We rather want a well-defined particle type ordering, that's
+		// why we sort them now.
+		typeList->sortTypesById();
+
+		// Parse unit cell.
+		if(structure.cell.is_crystal()) {
+			// Process periodic unit cell definition.
+			AffineTransformation cell = AffineTransformation::Identity();
+			if(structure.cell.alpha == 90 && structure.cell.beta == 90 && structure.cell.gamma == 90) {
+				cell(0,0) = structure.cell.a;
+				cell(1,1) = structure.cell.b;
+				cell(2,2) = structure.cell.c;
+			}
+			else if(structure.cell.alpha == 90 && structure.cell.beta == 90) {
+				FloatType gamma = qDegreesToRadians(structure.cell.gamma);
+				cell(0,0) = structure.cell.a;
+				cell(0,1) = structure.cell.b * std::cos(gamma);
+				cell(1,1) = structure.cell.b * std::sin(gamma);
+				cell(2,2) = structure.cell.c;
+			}
+			else {
+				FloatType alpha = qDegreesToRadians(structure.cell.alpha);
+				FloatType beta = qDegreesToRadians(structure.cell.beta);
+				FloatType gamma = qDegreesToRadians(structure.cell.gamma);
+				FloatType v = structure.cell.a * structure.cell.b * structure.cell.c * sqrt(1.0 - std::cos(alpha)*std::cos(alpha) - std::cos(beta)*std::cos(beta) - std::cos(gamma)*std::cos(gamma) + 2.0 * std::cos(alpha) * std::cos(beta) * std::cos(gamma));
+				cell(0,0) = structure.cell.a;
+				cell(0,1) = structure.cell.b * std::cos(gamma);
+				cell(1,1) = structure.cell.b * std::sin(gamma);
+				cell(0,2) = structure.cell.c * std::cos(beta);
+				cell(1,2) = structure.cell.c * (std::cos(alpha) - std::cos(beta)*std::cos(gamma)) / std::sin(gamma);
+				cell(2,2) = v / (structure.cell.a * structure.cell.b * std::sin(gamma));
+			}
+			frameData->simulationCell().setMatrix(cell);
+		}
+		else if(posProperty.size() != 0) {
+			// Use bounding box of atomic coordinates as non-periodic simulation cell.
+			Box3 boundingBox;
+			boundingBox.addPoints(posProperty);
+			frameData->simulationCell().setPbcFlags(false, false, false);
+			frameData->simulationCell().setMatrix(AffineTransformation(
+					Vector3(boundingBox.sizeX(), 0, 0),
+					Vector3(0, boundingBox.sizeY(), 0),
+					Vector3(0, 0, boundingBox.sizeZ()),
+					boundingBox.minc - Point3::Origin()));
+		}
+		frameData->setStatus(tr("Number of atoms: %1").arg(natoms));
+	}
+	catch(const std::exception& e) {
+		throw Exception(tr("PDB file error: %1").arg(e.what()));
+	}
+
+	// Check if more frames are following in the trajectory file.
+	if(!stream.eof()) {
+		stream.readLine();
+		if(!stream.eof()) {
+			frameData->signalAdditionalFrames();
+		}
+	}
+
+#endif
+
 	return frameData;
 }
 
