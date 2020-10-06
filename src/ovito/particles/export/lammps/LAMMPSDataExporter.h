@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Copyright 2019 Alexander Stukowski
+//  Copyright 2020 Alexander Stukowski
 //
 //  This file is part of OVITO (Open Visualization Tool).
 //
@@ -54,7 +54,10 @@ class OVITO_PARTICLES_EXPORT LAMMPSDataExporter : public ParticleExporter
 public:
 
 	/// \brief Constructs a new instance of this class.
-	Q_INVOKABLE LAMMPSDataExporter(DataSet* dataset) : ParticleExporter(dataset), _atomStyle(LAMMPSDataImporter::AtomStyle_Atomic), _omitMassesSection(false) {}
+	Q_INVOKABLE LAMMPSDataExporter(DataSet* dataset) : ParticleExporter(dataset), 
+		_atomStyle(LAMMPSDataImporter::AtomStyle_Atomic), 
+		_omitMassesSection(false),
+		_ignoreParticleIdentifiers(false) {}
 
 protected:
 
@@ -68,6 +71,9 @@ private:
 
 	/// Flag that allows the user to suppress the "Masses" file section.
 	DECLARE_MODIFIABLE_PROPERTY_FIELD(bool, omitMassesSection, setOmitMassesSection);
+
+	/// Flag that allows the user to suppress export of existing particle identifiers.
+	DECLARE_MODIFIABLE_PROPERTY_FIELD(bool, ignoreParticleIdentifiers, setIgnoreParticleIdentifiers);
 };
 
 }	// End of namespace

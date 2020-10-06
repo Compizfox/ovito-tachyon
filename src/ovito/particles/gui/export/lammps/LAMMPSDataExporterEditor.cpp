@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Copyright 2016 Alexander Stukowski
+//  Copyright 2020 Alexander Stukowski
 //
 //  This file is part of OVITO (Open Visualization Tool).
 //
@@ -67,6 +67,9 @@ void LAMMPSDataExporterEditor::createUI(const RolloutInsertionParameters& rollou
 
 	BooleanParameterUI* omitMassesSectionUI = new BooleanParameterUI(this, PROPERTY_FIELD(LAMMPSDataExporter::omitMassesSection));
 	layout->addWidget(omitMassesSectionUI->checkBox(), 1, 0, 1, 4);
+
+	BooleanParameterUI* ignoreParticleIdentifiersUI = new BooleanParameterUI(this, PROPERTY_FIELD(LAMMPSDataExporter::ignoreParticleIdentifiers));
+	layout->addWidget(ignoreParticleIdentifiersUI->checkBox(), 2, 0, 1, 4);
 }
 
 }	// End of namespace

@@ -34,8 +34,10 @@ namespace Ovito { namespace Particles {
 IMPLEMENT_OVITO_CLASS(LAMMPSDataExporter);
 DEFINE_PROPERTY_FIELD(LAMMPSDataExporter, atomStyle);
 DEFINE_PROPERTY_FIELD(LAMMPSDataExporter, omitMassesSection);
+DEFINE_PROPERTY_FIELD(LAMMPSDataExporter, ignoreParticleIdentifiers);
 SET_PROPERTY_FIELD_LABEL(LAMMPSDataExporter, atomStyle, "Atom style");
 SET_PROPERTY_FIELD_LABEL(LAMMPSDataExporter, omitMassesSection, "Omit 'Masses' section");
+SET_PROPERTY_FIELD_LABEL(LAMMPSDataExporter, ignoreParticleIdentifiers, "Ignore particle identifiers");
 
 /******************************************************************************
 * Writes the particles of one animation frame to the current output file.
@@ -47,7 +49,7 @@ bool LAMMPSDataExporter::exportData(const PipelineFlowState& state, int frameNum
 	particles->verifyIntegrity();
 	ConstPropertyAccess<Point3> posProperty = particles->expectProperty(ParticlesObject::PositionProperty);
 	ConstPropertyAccess<Vector3> velocityProperty = particles->getProperty(ParticlesObject::VelocityProperty);
-	ConstPropertyAccess<qlonglong> identifierProperty = particles->getProperty(ParticlesObject::IdentifierProperty);
+	ConstPropertyAccess<qlonglong> identifierProperty = !ignoreParticleIdentifiers() ? particles->getProperty(ParticlesObject::IdentifierProperty) : nullptr;
 	ConstPropertyAccess<Vector3I> periodicImageProperty = particles->getProperty(ParticlesObject::PeriodicImageProperty);
 	const PropertyObject* particleTypeProperty = particles->getProperty(ParticlesObject::TypeProperty);
 	ConstPropertyAccess<int> particleTypeArray(particleTypeProperty);
