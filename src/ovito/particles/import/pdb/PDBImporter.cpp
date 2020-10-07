@@ -53,7 +53,7 @@ inline size_t copy_line_from_stream<Ovito::CompressedTextReader&>(char* line, in
 	if(is_record_type(src_line, "ATOM") || is_record_type(src_line, "HETATM")) {
 		// Some PDB files have an ATOM or HETATM line that is shorter than what Gemmi's parser expects.
 		// Pad such lines by appending  additional whitespace.
-		if(len < 66 && len >= 55 && size > 66) {
+		if(len < 66 && len >= 54 && size > 66) {
 			while(len < 66)
 				line[len++] = ' ';
 			line[len] = '\0';
