@@ -200,6 +200,7 @@ public:
 		size_t a;
 		size_t b;
 		FloatType disorientation;
+		FloatType length;
 	};
 
 	struct DendrogramNode {
@@ -342,7 +343,7 @@ private:
 	// TODO: remove this and replace with a lambda function if possible
 	struct PriorityQueueCompare
 	{
-		bool operator()(const NeighborBond &a, const NeighborBond &b) const {return a.disorientation < b.disorientation;}
+		bool operator()(const NeighborBond &a, const NeighborBond &b) const {return a.disorientation > b.disorientation;}
 	};
 
 private:
@@ -456,10 +457,22 @@ public:
 	/// Returns the array storing the cluster ID of each particle.
 	const PropertyPtr& atomClusters() const { return _atomClusters; }
 
+
+	struct PQNode {
+		qlonglong cluster;
+		size_t particleIndex;
+		FloatType length;
+	};
+
 private:
 
 	/// Merges any orphan atoms into the closest cluster.
 	bool mergeOrphanAtoms();
+
+	struct PQCompareLength
+	{
+		bool operator()(const PQNode &a, const PQNode &b) const {return a.length > b.length;}
+	};
 
 private:
 

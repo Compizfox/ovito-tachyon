@@ -95,7 +95,8 @@ static bool fill_neighbors(NearestNeighborFinder::Query<PTMAlgorithm::MAX_INPUT_
 						   size_t particleIndex,
 						   size_t offset,
 						   size_t num,
-						   ptm_atomicenv_t* env)
+						   ptm_atomicenv_t* env,
+                           double* delta)
 {
 	neighQuery.findNeighbors(particleIndex);
 	int numNeighbors = neighQuery.results().size();
@@ -114,9 +115,9 @@ static bool fill_neighbors(NearestNeighborFinder::Query<PTMAlgorithm::MAX_INPUT_
 	for(int i = 0; i < num; i++) {
 		int p = env->correspondences[i + 1 + offset] - 1;
 		env->atom_indices[i + 1 + offset] = neighQuery.results()[p].index;
-		env->points[i + 1 + offset][0] = neighQuery.results()[p].delta.x();
-		env->points[i + 1 + offset][1] = neighQuery.results()[p].delta.y();
-		env->points[i + 1 + offset][2] = neighQuery.results()[p].delta.z();
+		env->points[i + 1 + offset][0] = neighQuery.results()[p].delta.x() + delta[0];
+		env->points[i + 1 + offset][1] = neighQuery.results()[p].delta.y() + delta[1];
+		env->points[i + 1 + offset][2] = neighQuery.results()[p].delta.z() + delta[2];
 	}
 
 	return true;
@@ -158,10 +159,10 @@ static void establish_atomic_environment(NearestNeighborFinder::Query<PTMAlgorit
 		num_outer = 2;
 	}
 
-	fill_neighbors(neighQuery, particleIndex, 0, num_inner, env);
+	fill_neighbors(neighQuery, particleIndex, 0, num_inner, env, env->points[0]);
 	if (num_outer) {
 		for (int i=0;i<num_inner;i++) {
-			fill_neighbors(neighQuery, env->atom_indices[1 + i], num_inner + i * num_outer, num_outer, env);
+			fill_neighbors(neighQuery, env->atom_indices[1 + i], num_inner + i * num_outer, num_outer, env, env->points[i + 1]);
 		}
 	}
 }
@@ -219,9 +220,18 @@ bool GrainSegmentationEngine1::identifyAtomicStructures()
 			for(int j = 0; j < numNeighbors; j++) {
 				size_t neighborIndex = env.atom_indices[j + 1];
 
+				FloatType dx = env.points[j + 1][0];
+				FloatType dy = env.points[j + 1][1];
+				FloatType dz = env.points[j + 1][2];
+				FloatType length = sqrt(dx * dx + dy * dy + dz * dz);
+
+// TODO: apply canonical selection here rather than just using particle indices
 				// Create a bond to the neighbor, but skip every other bond to create just one bond per particle pair.
 				if(index < neighborIndex)
-					threadlocalNeighborBonds.push_back({index, neighborIndex});
+					threadlocalNeighborBonds.push_back({index,
+                                                        neighborIndex,
+                                                        std::numeric_limits<FloatType>::infinity(),
+                                                        length});
 
 				// Check if neighbor vector spans more than half of a periodic simulation cell.
 				double* delta = env.points[j + 1];
@@ -604,7 +614,7 @@ fclose(fout);
 
 		// Create PropertyStorage objects for the output plot.
 		PropertyAccess<FloatType> mergeDistanceArray = _mergeDistance = std::make_shared<PropertyStorage>(numPlot, PropertyStorage::Float, 1, 0, GrainSegmentationModifier::tr("Log merge distance"), false, DataTable::XProperty);
-		PropertyAccess<FloatType> mergeSizeArray = _mergeSize = std::make_shared<PropertyStorage>(numPlot, PropertyStorage::Float, 1, 0, GrainSegmentationModifier::tr("Merge size"), false, DataTable::YProperty);
+		PropertyAccess<FloatType> mergeSizeArray = _mergeSize = std::make_shared<PropertyStorage>(numPlot, PropertyStorage::Float, 1, 0, GrainSegmentationModifier::tr("Delta merge size"), false, DataTable::YProperty);
 
 		// Generate output data plot points from dendrogram data.
 		FloatType* mergeDistanceIter = mergeDistanceArray.begin();
@@ -616,23 +626,26 @@ fclose(fout);
 			}
 		}
 
-		// Sort dendrogram entries by distance.
-		boost::sort(_dendrogram, [](const DendrogramNode& a, const DendrogramNode& b) { return a.distance < b.distance; });
-
 		auto regressor = ThresholdSelection::Regressor(_dendrogram);
 		_suggestedMergingThreshold = regressor.calculate_threshold(_dendrogram, 1.5);
 
 		// Create PropertyStorage objects for the output plot.
-		auto size = regressor.residuals.size();
-		PropertyAccess<FloatType> logMergeSizeArray = _logMergeSize = std::make_shared<PropertyStorage>(size, PropertyStorage::Float, 1, 0, GrainSegmentationModifier::tr("Log merge size"), false, DataTable::XProperty);
-		PropertyAccess<FloatType> logMergeDistanceArray = _logMergeDistance = std::make_shared<PropertyStorage>(size, PropertyStorage::Float, 1, 0, GrainSegmentationModifier::tr("Log merge distance"), false, DataTable::YProperty);
+		numPlot = 0;
+		for (auto y: regressor.ys) {
+			numPlot += (y > 0) ? 1 : 0; // plot positive distances only, for clarity
+		}
+
+		PropertyAccess<FloatType> logMergeSizeArray = _logMergeSize = std::make_shared<PropertyStorage>(numPlot, PropertyStorage::Float, 1, 0, GrainSegmentationModifier::tr("Log geometric merge size"), false, DataTable::XProperty);
+		PropertyAccess<FloatType> logMergeDistanceArray = _logMergeDistance = std::make_shared<PropertyStorage>(numPlot, PropertyStorage::Float, 1, 0, GrainSegmentationModifier::tr("Log merge distance"), false, DataTable::YProperty);
 
 		// Generate output data plot points from dendrogram data.
 		FloatType* logMergeDistanceIter = logMergeDistanceArray.begin();
 		FloatType* logMergeSizeIter = logMergeSizeArray.begin();
-		for (size_t i=0;i<size;i++) {
-			*logMergeSizeIter++ = regressor.xs[i];
-			*logMergeDistanceIter++ = regressor.ys[i];
+		for (size_t i=0;i<regressor.residuals.size();i++) {
+			if (regressor.ys[i] > 0) {
+				*logMergeSizeIter++ = regressor.xs[i];
+				*logMergeDistanceIter++ = regressor.ys[i];
+			}
 		}
 
 	}
@@ -855,72 +868,64 @@ bool GrainSegmentationEngine2::mergeOrphanAtoms()
 	PropertyAccess<qlonglong> atomClustersArray(atomClusters());
 	PropertyAccess<qlonglong> grainSizeArray(_grainSizes);
 
-	// Build list of orphan atoms.
-	std::vector<size_t> orphanAtoms;
-	for(size_t i = 0; i < _numParticles; i++) {
-		if(atomClustersArray[i] == 0)
-			orphanAtoms.push_back(i);
-	}
-
 	/// The bonds connecting neighboring non-crystalline atoms.
-	std::vector<ParticleIndexPair> noncrystallineBonds;
+	std::vector<GrainSegmentationEngine1::NeighborBond> noncrystallineBonds;
 	for (auto nb: _engine1->neighborBonds()) {
 		if (atomClustersArray[nb.a] == 0 || atomClustersArray[nb.b] == 0) {
 			// Add bonds for both atoms
-			noncrystallineBonds.push_back({(qlonglong)nb.a, (qlonglong)nb.b});
-			noncrystallineBonds.push_back({(qlonglong)nb.b, (qlonglong)nb.a});
+			noncrystallineBonds.push_back(nb);
+
+            std::swap(nb.a, nb.b);
+			noncrystallineBonds.push_back(nb);
 		}
 	}
 	if(isCanceled())
 		return false;
 
-	boost::stable_sort(noncrystallineBonds);
+    boost::sort(noncrystallineBonds,
+                 [](const GrainSegmentationEngine1::NeighborBond& a, const GrainSegmentationEngine1::NeighborBond& b)
+                 {return a.a < b.a;});
 
-	// Add orphan atoms to the grains.
-	setProgressMaximum(orphanAtoms.size());
-	size_t oldOrphanCount = orphanAtoms.size();
-	for(;;) {
-		std::vector<size_t> newlyAssignedClusters(orphanAtoms.size(), 0);
-		for(size_t i = 0; i < orphanAtoms.size(); i++) {
-			if(isCanceled()) return false;
+	boost::heap::priority_queue<PQNode, boost::heap::compare<PQCompareLength>> pq;
 
-			size_t index = orphanAtoms[i];
+	// Populate priority queue with bonds at a crystalline-noncrystalline interface
+	for (auto bond: _engine1->neighborBonds()) {
+        auto clusterA = atomClustersArray[bond.a];
+        auto clusterB = atomClustersArray[bond.b];
 
-			// Get the range of bonds adjacent to the current atom.
-			auto bondsRange = boost::range::equal_range(noncrystallineBonds, ParticleIndexPair{{(qlonglong)index,0}},
-				[](const ParticleIndexPair& a, const ParticleIndexPair& b) { return a[0] < b[0]; });
-
-			// Find the closest cluster atom in the neighborhood (using PTM ordering).
-			for(const ParticleIndexPair& bond : boost::make_iterator_range(bondsRange.first, bondsRange.second)) {
-				OVITO_ASSERT(bond[0] == index);
-
-				auto neighborIndex = bond[1];
-				if(neighborIndex == std::numeric_limits<size_t>::max()) break;
-				auto grain = atomClustersArray[neighborIndex];
-				if(grain != 0) {
-					newlyAssignedClusters[i] = grain;
-					break;
-				}
-			}
+		if (clusterA != 0 && clusterB == 0) {
+			pq.push({clusterA, bond.b, bond.length});
 		}
-
-		// Assign atoms to closest cluster and compress orphan list.
-		size_t newOrphanCount = 0;
-		for(size_t i = 0; i < orphanAtoms.size(); i++) {
-			atomClustersArray[orphanAtoms[i]] = newlyAssignedClusters[i];
-			if(newlyAssignedClusters[i] == 0) {
-				orphanAtoms[newOrphanCount++] = orphanAtoms[i];
-			}
-			else {
-				grainSizeArray[newlyAssignedClusters[i] - 1]++;
-				if(!incrementProgressValue()) return false;
-			}
+		else if (clusterA == 0 && clusterB != 0) {
+			pq.push({clusterB, bond.a, bond.length});
 		}
+	}
 
-		orphanAtoms.resize(newOrphanCount);
-		if(newOrphanCount == oldOrphanCount)
-			break;
-		oldOrphanCount = newOrphanCount;
+	while (pq.size()) {
+		auto node = *pq.begin();
+		pq.pop();
+
+        if (atomClustersArray[node.particleIndex] != 0)
+            continue;
+
+        atomClustersArray[node.particleIndex] = node.cluster;
+        grainSizeArray[node.cluster - 1]++;
+
+		// Get the range of bonds adjacent to the current atom.
+		auto bondsRange = boost::range::equal_range(noncrystallineBonds, GrainSegmentationEngine1::NeighborBond{node.particleIndex, 0, 0, 0},
+			[](const GrainSegmentationEngine1::NeighborBond& a, const GrainSegmentationEngine1::NeighborBond& b)
+            { return a.a < b.a; });
+
+		// Find the closest cluster atom in the neighborhood (using PTM ordering).
+		for(const GrainSegmentationEngine1::NeighborBond& bond : boost::make_iterator_range(bondsRange.first, bondsRange.second)) {
+			OVITO_ASSERT(bond.a == node.particleIndex);
+
+			auto neighborIndex = bond.b;
+			if(neighborIndex == std::numeric_limits<size_t>::max()) break;
+			if(atomClustersArray[neighborIndex] != 0) continue;
+
+			pq.push({node.cluster, neighborIndex, node.length + bond.length});
+		}
 	}
 
 	return !isCanceled();
