@@ -56,6 +56,7 @@ SET(SourceFiles
 	modifier/analysis/wignerseitz/WignerSeitzAnalysisModifier.cpp
 	modifier/analysis/ptm/PolyhedralTemplateMatchingModifier.cpp
 	modifier/analysis/ptm/PTMAlgorithm.cpp
+	modifier/analysis/ptm/PTMNeighborFinder.cpp
 	modifier/analysis/surface/ConstructSurfaceModifier.cpp
 	modifier/selection/ExpandSelectionModifier.cpp
 	modifier/properties/SmoothTrajectoryModifier.cpp
