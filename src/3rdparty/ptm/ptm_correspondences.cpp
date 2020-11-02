@@ -8,6 +8,8 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 */
 
 
+#include <algorithm>
+#include <cmath>
 #include <cmath>
 #include <cassert>
 #include "ptm_constants.h"
@@ -16,45 +18,54 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
 namespace ptm {
 
-// taken from http://antoinecomeau.blogspot.com/2014/07/mapping-between-permutations-and.html
-void index_to_permutation(int n, uint64_t k, int8_t* permuted)
+void index_to_permutation(int n, uint64_t encoded, int8_t* permutation)
 {
-	int elems[PTM_MAX_INPUT_POINTS];
-	for(int i=0;i<n;i++)
-		elems[i] = i;
+    int base = n;
+    uint64_t code[PTM_MAX_INPUT_POINTS] = {0};
 
-	uint64_t m = k;
-	for(int i=0;i<n;i++)
-	{
-		uint64_t ind = m % (n - i);
-		m = m / (n - i);
-		permuted[i] = elems[ind];
-		elems[ind] = elems[n - i - 1];
-	}
+    for (int i=0;i<base;i++) {
+        code[i] = encoded % (base - i);
+        encoded /= base - i;
+    }
+
+    for (int i=0;i<n;i++) {
+        permutation[i] = i;
+    }
+
+    for (int i=0;i<base - 1;i++) {
+        std::swap(permutation[i], permutation[i + code[i]]);
+    }
 }
 
-// taken from http://antoinecomeau.blogspot.com/2014/07/mapping-between-permutations-and.html
 uint64_t permutation_to_index(int n, int8_t* permutation)
 {
-	int pos[PTM_MAX_INPUT_POINTS];
-	int elems[PTM_MAX_INPUT_POINTS];
-	for(int i=0;i<n;i++)
-	{
-		pos[i] = i;
-		elems[i] = i;
-	}
+	int p[PTM_MAX_INPUT_POINTS];
+	int q[PTM_MAX_INPUT_POINTS];
+    for (int i=0;i<n;i++) {
+        p[i] = i;
+        q[i] = i;
+    }
 
-	uint64_t m = 1;
-	uint64_t k = 0;
-	for(int i=0;i<n-1;i++)
-	{
-		k += m * pos[permutation[i]];
-		m = m * (n - i);
-		pos[elems[n - i - 1]] = pos[permutation[i]];
-		elems[pos[permutation[i]]] = elems[n - i - 1];
-	}
+    int8_t code[PTM_MAX_INPUT_POINTS] = {0};
+    for (int i=0;i<n;i++) {
+        int e = permutation[i];
+        int d = q[e] - i;
+        code[i] = d;
+        if (d > 0) {
+            int j = q[e];
+            std::swap(q[p[i]], q[p[j]]);
+            std::swap(p[i], p[j]);
+        }
+    }
 
-	return k;
+    uint64_t encoded = 0;
+    for (int i=0;i<n;i++) {
+        uint64_t v = code[n - i - 1];
+        encoded *= i + 1;
+        encoded += v;
+    }
+
+    return encoded;
 }
 
 static bool is_single_shell(int type)
