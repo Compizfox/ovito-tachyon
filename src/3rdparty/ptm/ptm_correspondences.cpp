@@ -14,13 +14,13 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 #include <cassert>
 #include "ptm_constants.h"
 #include "ptm_correspondences.h"
+#include "ptm_multishell.h"
 
 
 namespace ptm {
 
-void index_to_permutation(int n, uint64_t encoded, int8_t* permutation)
+static void index_to_permutation(int base, int n, uint64_t encoded, int8_t* permutation)
 {
-    int base = n;
     uint64_t code[PTM_MAX_INPUT_POINTS] = {0};
 
     for (int i=0;i<base;i++) {
@@ -28,20 +28,25 @@ void index_to_permutation(int n, uint64_t encoded, int8_t* permutation)
         encoded /= base - i;
     }
 
-    for (int i=0;i<n;i++) {
-        permutation[i] = i;
+    int8_t temp[PTM_MAX_INPUT_POINTS];
+    for (int i=0;i<base;i++) {
+        temp[i] = i;
     }
 
-    for (int i=0;i<base - 1;i++) {
-        std::swap(permutation[i], permutation[i + code[i]]);
+    for (int i=0;i<std::min(n, base - 1);i++) {
+        std::swap(temp[i], temp[i + code[i]]);
+    }
+
+    for (int i=0;i<std::min(n, base - 1);i++) {
+        permutation[i] = temp[i];
     }
 }
 
-uint64_t permutation_to_index(int n, int8_t* permutation)
+static uint64_t permutation_to_index(int base, int n, int8_t* permutation)
 {
 	int p[PTM_MAX_INPUT_POINTS];
 	int q[PTM_MAX_INPUT_POINTS];
-    for (int i=0;i<n;i++) {
+    for (int i=0;i<base;i++) {
         p[i] = i;
         q[i] = i;
     }
@@ -59,9 +64,9 @@ uint64_t permutation_to_index(int n, int8_t* permutation)
     }
 
     uint64_t encoded = 0;
-    for (int i=0;i<n;i++) {
-        uint64_t v = code[n - i - 1];
-        encoded *= i + 1;
+    for (int it=0;it<n;it++) {
+        uint64_t v = code[n - it - 1];
+        encoded *= 1 + base - n + it;
         encoded += v;
     }
 
@@ -120,7 +125,7 @@ uint64_t encode_correspondences(int type, int8_t* correspondences)
     if (is_single_shell(type)) {
         complete_correspondences(num_nbrs + 1, correspondences);
         vector_add(PTM_MAX_INPUT_POINTS - 1, &correspondences[1], transformed, -1);
-        return permutation_to_index(PTM_MAX_INPUT_POINTS - 1, transformed);
+        return permutation_to_index(PTM_MAX_INPUT_POINTS - 1, PTM_MAX_INPUT_POINTS - 1, transformed);
     }
     else {
         int num_inner = 4, num_outer = 3;   //diamond types
@@ -130,20 +135,18 @@ uint64_t encode_correspondences(int type, int8_t* correspondences)
         }
 
         for (int i=0;i<num_nbrs + 1;i++) {
-            assert(correspondences[i] <= 17);
+            assert(correspondences[i] <= MAX_MULTISHELL_NEIGHBOURS);
         }
 
-        vector_add(num_inner, &correspondences[1], &transformed[0], -1);
+        vector_add(num_nbrs, &correspondences[1], &transformed[0], -1);
+        uint64_t encoded = permutation_to_index(MAX_MULTISHELL_NEIGHBOURS, num_inner, transformed);
+
         for (int i=0;i<num_inner;i++) {
-            vector_add(num_outer,
-                       &correspondences[1 + num_inner + i * num_outer],
-                       &transformed[num_inner + i * num_outer], -1);
-        }
-
-        uint64_t encoded = 0;
-        for (int i=0;i<num_nbrs;i++) {
-            uint64_t t = transformed[i];
-            encoded |= t << (4 * i);
+            uint64_t partial_encoded = permutation_to_index(MAX_MULTISHELL_NEIGHBOURS,
+                                                            num_outer, &transformed[num_inner + i * num_outer]);
+            // log2(15*14*13*12) < 15
+            // log2(15*14*13) < 12
+            encoded |= partial_encoded << (15 + 12 * i);
         }
 
         return encoded;
@@ -155,11 +158,9 @@ void decode_correspondences(int type, uint64_t encoded, int8_t* correspondences)
     int8_t decoded[PTM_MAX_INPUT_POINTS];
 
     if (is_single_shell(type)) {
-        index_to_permutation(PTM_MAX_INPUT_POINTS - 1, encoded, decoded);
-
+        index_to_permutation(PTM_MAX_INPUT_POINTS - 1, PTM_MAX_INPUT_POINTS - 1, encoded, decoded);
         correspondences[0] = 0;
-        for (int i=0;i<PTM_MAX_INPUT_POINTS - 1;i++)
-            correspondences[i + 1] = decoded[i] + 1;
+        vector_add(PTM_MAX_INPUT_POINTS - 1, &decoded[0], &correspondences[1], +1);
     }
     else {
         int num_inner = 4, num_outer = 3;   //diamond types
@@ -168,21 +169,16 @@ void decode_correspondences(int type, uint64_t encoded, int8_t* correspondences)
             num_outer = 2;
         }
 
-        int num_nbrs = ptm_num_nbrs[type];
-        for (int i=0;i<num_nbrs;i++) {
-            decoded[i] = encoded & 0xF;
-            encoded >>= 4;
-        }
-
-        correspondences[0] = 0;
-        vector_add(num_inner, &decoded[0], &correspondences[1], +1);
+        uint64_t partial = encoded & 0x7FFF;
+        index_to_permutation(MAX_MULTISHELL_NEIGHBOURS, num_inner, partial, decoded);
         for (int i=0;i<num_inner;i++) {
-            vector_add(num_outer,
-                       &decoded[num_inner + i * num_outer],
-                       &correspondences[1 + num_inner + i * num_outer], +1);
+            partial = (encoded >> (15 + 12 * i)) & 0xFFF;
+            index_to_permutation(MAX_MULTISHELL_NEIGHBOURS, num_outer, partial, &decoded[num_inner + i * num_outer]);
         }
 
-        complete_correspondences(num_nbrs + 1, correspondences);
+        int num_nbrs = ptm_num_nbrs[type];
+        correspondences[0] = 0;
+        vector_add(num_nbrs, &decoded[0], &correspondences[1], +1);
     }
 }
 

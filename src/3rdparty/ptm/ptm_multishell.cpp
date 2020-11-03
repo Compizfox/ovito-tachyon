@@ -39,11 +39,6 @@ static bool atomorder_compare(atomorder_t const& a, atomorder_t const& b)
 	return a.rank < b.rank;
 }
 
-// Correspondence encoding doesn't allow a neighbour index higher than 16.
-// A structure which needs a neighbour with an index higher than 16 is in
-// any case not graphene or a diamond structure.
-#define  MAX_MULTISHELL_NEIGHBOURS 16
-
 static void filter_neighbours(ptm_atomicenv_t* env)
 {
     for (int i=0;i<env->num;i++) {
