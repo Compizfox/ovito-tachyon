@@ -26,7 +26,8 @@
 #include <ovito/particles/util/NearestNeighborFinder.h>
 #include <ovito/core/dataset/pipeline/ModifierApplication.h>
 #include <ovito/core/utilities/concurrent/ParallelFor.h>
-#include <ovito/particles/modifier/analysis/ptm/PTMNeighborFinder.h>
+//#include <ovito/particles/modifier/analysis/ptm/PTMNeighborFinder.h>
+#include <ovito/particles/util/PTMNeighborFinder.h>
 #include "GrainSegmentationEngine.h"
 #include "GrainSegmentationModifier.h"
 #include "DisjointSet.h"
@@ -114,7 +115,8 @@ bool GrainSegmentationEngine1::identifyAtomicStructures()
 
 		// Construct local neighbor list builder.
 		NearestNeighborFinder::Query<PTMAlgorithm::MAX_INPUT_NEIGHBORS> neighQuery(neighFinder);
-        auto ptmNeighQuery = PTMNeighborFinder(neighQuery, correspondences(), structureTypes());
+        auto ptmNeighQuery = PTMNeighborFinder();
+		ptmNeighQuery.prepare(&neighQuery, correspondences(), structureTypes(), this);
 
 		// Thread-local list of generated bonds connecting neighboring lattice atoms.
 		std::vector<NeighborBond> threadlocalNeighborBonds;
@@ -274,7 +276,9 @@ bool GrainSegmentationEngine1::rotateHexagonalAtoms()
 
 	// Construct local neighbor list builder.
 	NearestNeighborFinder::Query<PTMAlgorithm::MAX_INPUT_NEIGHBORS> neighQuery(neighFinder);
-    auto ptmNeighQuery = PTMNeighborFinder(neighQuery, correspondences(), structureTypes());
+    auto ptmNeighQuery = PTMNeighborFinder();
+	ptmNeighQuery.prepare(&neighQuery, correspondences(), structureTypes(), this);
+
 
 	// TODO: replace comparator with a lambda function
 	boost::heap::priority_queue<NeighborBond, boost::heap::compare<PriorityQueueCompare>> pq;

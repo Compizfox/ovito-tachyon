@@ -56,7 +56,6 @@ SET(SourceFiles
 	modifier/analysis/wignerseitz/WignerSeitzAnalysisModifier.cpp
 	modifier/analysis/ptm/PolyhedralTemplateMatchingModifier.cpp
 	modifier/analysis/ptm/PTMAlgorithm.cpp
-	modifier/analysis/ptm/PTMNeighborFinder.cpp
 	modifier/analysis/surface/ConstructSurfaceModifier.cpp
 	modifier/selection/ExpandSelectionModifier.cpp
 	modifier/properties/SmoothTrajectoryModifier.cpp
@@ -95,6 +94,7 @@ SET(SourceFiles
 	export/gsd/GSDExporter.cpp
 	util/NearestNeighborFinder.cpp
 	util/CutoffNeighborFinder.cpp
+	util/PTMNeighborFinder.cpp
 	util/ParticleExpressionEvaluator.cpp
 )
 

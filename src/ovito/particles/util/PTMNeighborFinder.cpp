@@ -21,16 +21,28 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 
 #include <ovito/particles/Particles.h>
+#include <ovito/core/utilities/concurrent/Task.h>
+#include <ovito/particles/modifier/analysis/ptm/PTMAlgorithm.h>
 #include "PTMNeighborFinder.h"
-
 
 namespace Ovito { namespace Particles {
 
-PTMNeighborFinder::PTMNeighborFinder(NearestNeighborFinder::Query<PTMAlgorithm::MAX_INPUT_NEIGHBORS>& neighQuery,
-				        ConstPropertyAccess<qlonglong> correspondenceArray,
-				        ConstPropertyAccess<PTMAlgorithm::StructureType> structuresArray) : _neighQuery(neighQuery), _correspondenceArray(correspondenceArray), _structuresArray(structuresArray)
+/******************************************************************************
+* Prepares the neighbor list builder.
+******************************************************************************/
+bool PTMNeighborFinder::prepare(NearestNeighborFinder::Query<PTMAlgorithm::MAX_INPUT_NEIGHBORS> *neighQuery,
+								ConstPropertyAccess<qlonglong> correspondenceArray,
+								ConstPropertyAccess<PTMAlgorithm::StructureType> structuresArray,
+								Task* promise)
 {
+	OVITO_ASSERT(posProperty);
+	if(promise) promise->setProgressMaximum(0);
+
+	_neighQuery = neighQuery;
+	_correspondenceArray = correspondenceArray;
+	_structuresArray = structuresArray;
     structureType = PTMAlgorithm::OTHER;
+	return true;
 }
 
 }	// End of namespace
