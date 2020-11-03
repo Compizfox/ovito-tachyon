@@ -223,22 +223,17 @@ public:
 
         /// Returns the number of nearest neighbors found for the current particle.
         int numNearestNeighbors() const { return results().size(); }
-		//int numNearestNeighbors() const { return _env.num - 1; }
 
         /// Returns the number of nearest neighbors that lie within a ball of twice the radius of the nearest neighbor distance.
 		int numGoodNeighbors() const {
-            //return results().size();
-
 			FloatType minDist = std::numeric_limits<FloatType>::infinity();;
 			FloatType distances[PTM_MAX_INPUT_POINTS];
-            //qDebug() << "_env.num:" << _env.num << PTM_MAX_INPUT_POINTS << minDist;
             OVITO_ASSERT(_env.num <= PTM_MAX_INPUT_POINTS);
 			for (int i=1;i<_env.num;i++) {
-				FloatType dx = _env.points[i][0];
-				FloatType dy = _env.points[i][1];
-				FloatType dz = _env.points[i][2];
-				distances[i] = sqrt(dx * dx + dy * dy + dz * dz);
-				minDist = std::min(minDist, distances[i]);
+                auto point = _env.points[i];
+                FloatType distance = sqrt(Vector3(point[0], point[1], point[2]).squaredLength());
+				minDist = std::min(minDist, distance);
+				distances[i] = distance;
 			}
 
 			int n = 0;
@@ -286,8 +281,6 @@ public:
         int32_t _orderingType = ORDERING_NONE;
         int _bestTemplateIndex;
         const double (*_bestTemplate)[3] = nullptr;
-        //int8_t _correspondences[MAX_INPUT_NEIGHBORS+1];
-        std::vector<uint64_t> _cachedNeighbors;
         ptm_atomicenv_t _env;
     };
 
