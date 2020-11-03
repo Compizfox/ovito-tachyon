@@ -35,7 +35,6 @@ bool PTMNeighborFinder::prepare(NearestNeighborFinder::Query<PTMAlgorithm::MAX_I
 								ConstPropertyAccess<PTMAlgorithm::StructureType> structuresArray,
 								Task* promise)
 {
-	OVITO_ASSERT(posProperty);
 	if(promise) promise->setProgressMaximum(0);
 
 	_neighQuery = neighQuery;
