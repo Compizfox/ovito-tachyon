@@ -190,7 +190,7 @@ public:
 		/// Identifies the local structure of the given particle and builds the list of nearest neighbors
 		/// that form that structure. Subsequently, in case of a successful match, additional outputs of the calculation
 		/// can be retrieved with the query methods below.
-		StructureType identifyStructure(size_t particleIndex, const std::vector<uint64_t>& cachedNeighbors, Quaternion* qtarget);
+		StructureType identifyStructure(size_t particleIndex, const std::vector<uint64_t>& cachedNeighbors);
 
 		// Calculates the topological ordering of a particle's neighbors.
 		int cacheNeighbors(size_t particleIndex, uint64_t* res);
@@ -218,51 +218,10 @@ public:
 		/// The index of the best-matching structure template.
 		int bestTemplateIndex() const { return _bestTemplateIndex; }
 
-		/// Returns the number of neighbors for the PTM structure found for the current particle.
-		int numTemplateNeighbors() const;
-
-		/// Returns the number of nearest neighbors found for the current particle.
-		int numNearestNeighbors() const { return results().size(); }
-
-		/// Returns the number of nearest neighbors that lie within a ball of twice the radius of the nearest neighbor distance.
-		int numGoodNeighbors() const {
-			FloatType minDist = std::numeric_limits<FloatType>::infinity();;
-			FloatType distances[PTM_MAX_INPUT_POINTS];
-			OVITO_ASSERT(_env.num <= PTM_MAX_INPUT_POINTS);
-			for (int i=1;i<_env.num;i++) {
-				auto point = _env.points[i];
-				FloatType distance = sqrt(Vector3(point[0], point[1], point[2]).squaredLength());
-				minDist = std::min(minDist, distance);
-				distances[i] = distance;
-			}
-
-			int n = 0;
-			for (int i=1;i<_env.num;i++) {
-				if (distances[i] < 2 * minDist)
-					n++;
-			}
-
-			return n;
-		}
-
 		uint64_t correspondence() {
 			int type = ovito_to_ptm_structure_type(structureType());
 			return ptm_encode_correspondences(type, _env.correspondences);
 		}
-
-		/// Returns the neighbor information for the i-th nearest neighbor of the current particle.
-		const NearestNeighborFinder::Neighbor& getNearestNeighbor(int index) const {
-			OVITO_ASSERT(index >= 0 && index < results().size());
-			return results()[index];
-		}
-
-		/// Returns the neighbor information corresponding to the i-th neighbor in the PTM template
-		/// identified for the current particle.
-		const NearestNeighborFinder::Neighbor& getTemplateNeighbor(int index) const;
-
-		/// Returns the ideal vector corresponding to the i-th neighbor in the PTM template
-		/// identified for the current particle.
-		const Vector_3<double>& getIdealNeighborVector(int index) const;
 
 	private:
 		/// Reference to the parent algorithm object.

@@ -229,7 +229,7 @@ void PolyhedralTemplateMatchingModifier::PTMEngine::perform()
 			}
 
 			// Perform the PTM analysis for the current particle.
-			PTMAlgorithm::StructureType type = kernel.identifyStructure(index, cachedNeighbors, nullptr);
+			PTMAlgorithm::StructureType type = kernel.identifyStructure(index, cachedNeighbors);
 
 			// Store results in the output arrays.
 			outputStructureArray[index] = type;
