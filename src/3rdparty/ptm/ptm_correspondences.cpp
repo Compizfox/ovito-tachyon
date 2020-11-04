@@ -144,9 +144,9 @@ uint64_t encode_correspondences(int type, int8_t* correspondences)
 		for (int i=0;i<num_inner;i++) {
 			uint64_t partial_encoded = permutation_to_index(MAX_MULTISHELL_NEIGHBOURS,
 															num_outer, &transformed[num_inner + i * num_outer]);
-			// log2(15*14*13*12) < 15
-			// log2(15*14*13) < 12
-			encoded |= partial_encoded << (15 + 12 * i);
+			// log2(12*11*10*9) < 14
+			// log2(12*11*10) < 11
+			encoded |= partial_encoded << (14 + 11 * i);
 		}
 
 		return encoded;
@@ -169,10 +169,10 @@ void decode_correspondences(int type, uint64_t encoded, int8_t* correspondences)
 			num_outer = 2;
 		}
 
-		uint64_t partial = encoded & 0x7FFF;
+		uint64_t partial = encoded & 0x3FFF;
 		index_to_permutation(MAX_MULTISHELL_NEIGHBOURS, num_inner, partial, decoded);
 		for (int i=0;i<num_inner;i++) {
-			partial = (encoded >> (15 + 12 * i)) & 0xFFF;
+			partial = (encoded >> (14 + 11 * i)) & 0x7FF;
 			index_to_permutation(MAX_MULTISHELL_NEIGHBOURS, num_outer, partial, &decoded[num_inner + i * num_outer]);
 		}
 
