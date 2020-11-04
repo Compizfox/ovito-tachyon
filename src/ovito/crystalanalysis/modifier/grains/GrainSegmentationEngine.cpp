@@ -132,7 +132,7 @@ bool GrainSegmentationEngine1::identifyAtomicStructures()
 			if(task.isCanceled())
 				break;
 
-			// Decode the PTM correspondence
+			// Get PTM information
 			ptmNeighQuery.findNeighbors(index);
 			auto structureType = ptmNeighQuery.structureType;
 			int numNeighbors = ptmNeighQuery.results().size();
@@ -277,7 +277,8 @@ bool GrainSegmentationEngine1::rotateHexagonalAtoms()
 	// Construct local neighbor list builder.
 	NearestNeighborFinder::Query<PTMAlgorithm::MAX_INPUT_NEIGHBORS> neighQuery(neighFinder);
     auto ptmNeighQuery = PTMNeighborFinder();
-	ptmNeighQuery.prepare(&neighQuery, correspondences(), structureTypes(), this);
+	if(!ptmNeighQuery.prepare(&neighQuery, correspondences(), structureTypes(), this))
+		return false;
 
 
 	// TODO: replace comparator with a lambda function
@@ -309,9 +310,8 @@ bool GrainSegmentationEngine1::rotateHexagonalAtoms()
 		_adjustedStructureTypes[index] = targetStructureType;
 		_adjustedOrientations[index] = rotated;
 
-		// Decode the PTM correspondences.
+		// find neighbors to add to the queue
 		ptmNeighQuery.findNeighbors(index);
-		auto structureType = ptmNeighQuery.structureType;   // Use original structure type for decoding correspondences.
 		int numNeighbors = ptmNeighQuery.results().size();
 		for(int j = 0; j < numNeighbors; j++) {
 			size_t neighborIndex = ptmNeighQuery.results()[j].index;
