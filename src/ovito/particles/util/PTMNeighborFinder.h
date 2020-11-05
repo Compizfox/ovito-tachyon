@@ -147,8 +147,10 @@ public:
 		}
 		else {
 			numNeighbors = ptm_num_nbrs[ptm_type];
-			ptm_decode_correspondences(ptm_type, _correspondenceArray[particleIndex],
-									   _env.correspondences, &best_template_index);
+			ptm_decode_correspondences(ptm_type,
+									   _correspondenceArray[particleIndex],
+									   _env.correspondences,
+									   &best_template_index);
 		}
 
 		_env.num = numNeighbors + 1;

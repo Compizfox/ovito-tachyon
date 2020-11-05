@@ -26,7 +26,6 @@
 #include <ovito/particles/util/NearestNeighborFinder.h>
 #include <ovito/core/dataset/pipeline/ModifierApplication.h>
 #include <ovito/core/utilities/concurrent/ParallelFor.h>
-//#include <ovito/particles/modifier/analysis/ptm/PTMNeighborFinder.h>
 #include <ovito/particles/util/PTMNeighborFinder.h>
 #include "GrainSegmentationEngine.h"
 #include "GrainSegmentationModifier.h"
@@ -35,7 +34,6 @@
 
 #include <boost/heap/priority_queue.hpp>
 #include <ptm/ptm_functions.h>
-#include <ptm/ptm_quat.h>
 
 #define DEBUG_OUTPUT 0
 #if DEBUG_OUTPUT
@@ -188,40 +186,25 @@ bool GrainSegmentationEngine1::interface_cubic_hex(NeighborBond& bond, bool pare
 
 	auto a = bond.a;
 	auto b = bond.b;
-	auto structureA = _adjustedStructureTypes[a];
-	auto structureB = _adjustedStructureTypes[b];
-	if (structureA == structureB) {
+	if (_adjustedStructureTypes[a] == _adjustedStructureTypes[b]) {
 		return false;
 	}
 
 	// We want ordering of (a, b) to be (parent phase, defect phase)
 	bool flipped = false;
-	flipped |= parent_fcc && structureA == PTMAlgorithm::HCP;
-	flipped |= !parent_fcc && structureA == PTMAlgorithm::FCC;
-	flipped |= parent_dcub && structureA == PTMAlgorithm::HEX_DIAMOND;
-	flipped |= !parent_dcub && structureA == PTMAlgorithm::CUBIC_DIAMOND;
+	flipped |= parent_fcc   && _adjustedStructureTypes[a] == PTMAlgorithm::HCP;
+	flipped |= !parent_fcc  && _adjustedStructureTypes[a] == PTMAlgorithm::FCC;
+	flipped |= parent_dcub  && _adjustedStructureTypes[a] == PTMAlgorithm::HEX_DIAMOND;
+	flipped |= !parent_dcub && _adjustedStructureTypes[a] == PTMAlgorithm::CUBIC_DIAMOND;
 	if (flipped) {
 		std::swap(a, b);
-		std::swap(structureA, structureB);
 	}
 
-	const Quaternion& qa = _adjustedOrientations[a];
-	const Quaternion& qb = _adjustedOrientations[b];
-	double orientA[4] = { qa.w(), qa.x(), qa.y(), qa.z() };
-	double orientB[4] = { qb.w(), qb.x(), qb.y(), qb.z() };
-
-	if (structureA == PTMAlgorithm::FCC || structureA == PTMAlgorithm::CUBIC_DIAMOND) {
-		disorientation = (FloatType)ptm::quat_disorientation_hexagonal_to_cubic(orientA, orientB);
-	}
-	else {
-		disorientation = (FloatType)ptm::quat_disorientation_cubic_to_hexagonal(orientA, orientB);
-	}
-	disorientation = qRadiansToDegrees(disorientation);
-
-	output.w() = orientB[0];
-	output.x() = orientB[1];
-	output.y() = orientB[2];
-	output.z() = orientB[3];
+	disorientation = PTMAlgorithm::calculate_interfacial_disorientation(_adjustedStructureTypes[a],
+																		_adjustedStructureTypes[b],
+																		_adjustedOrientations[a],
+																		_adjustedOrientations[b],
+																		output);
 	index = b;
 	return true;
 }
@@ -337,29 +320,10 @@ bool GrainSegmentationEngine1::computeDisorientationAngles()
 
 	parallelFor(_neighborBonds.size(), *this, [&](size_t bondIndex) {
 		NeighborBond& bond = _neighborBonds[bondIndex];
-		bond.disorientation = std::numeric_limits<FloatType>::max();
-
-		int a = bond.a;
-		int b = bond.b;
-		if (_adjustedStructureTypes[b] < _adjustedStructureTypes[a]) {
-			std::swap(a, b);
-		}
-
-		const Quaternion& qa = _adjustedOrientations[a];
-		const Quaternion& qb = _adjustedOrientations[b];
-		double orientA[4] = { qa.w(), qa.x(), qa.y(), qa.z() };
-		double orientB[4] = { qb.w(), qb.x(), qb.y(), qb.z() };
-
-		if(_adjustedStructureTypes[a] == _adjustedStructureTypes[b]) {
-			int structureType = _adjustedStructureTypes[a];
-
-			if(structureType == PTMAlgorithm::SC || structureType == PTMAlgorithm::FCC || structureType == PTMAlgorithm::BCC || structureType == PTMAlgorithm::CUBIC_DIAMOND)
-				bond.disorientation = (FloatType)ptm::quat_disorientation_cubic(orientA, orientB);
-			else if(structureType == PTMAlgorithm::HCP || structureType == PTMAlgorithm::HEX_DIAMOND || structureType == PTMAlgorithm::GRAPHENE)
-				bond.disorientation = (FloatType)ptm::quat_disorientation_hcp_conventional(orientA, orientB);
-
-			bond.disorientation = qRadiansToDegrees(bond.disorientation);
-		}
+		bond.disorientation = PTMAlgorithm::calculate_disorientation(_adjustedStructureTypes[bond.a],
+																	 _adjustedStructureTypes[bond.b],
+																	 _adjustedOrientations[bond.a],
+																	 _adjustedOrientations[bond.b]);
 	});
 	if(isCanceled()) return false;
 

@@ -122,6 +122,52 @@ public:
 		OVITO_ASSERT(0);
 	}
 
+	static FloatType calculate_disorientation(StructureType structureTypeA,
+											  StructureType structureTypeB,
+											  const Quaternion& qa,
+											  const Quaternion& qb)
+	{
+		FloatType disorientation = std::numeric_limits<FloatType>::max();
+		if (structureTypeA != structureTypeB) {
+			return disorientation;
+		}
+
+		double orientA[4] = { qa.w(), qa.x(), qa.y(), qa.z() };
+		double orientB[4] = { qb.w(), qb.x(), qb.y(), qb.z() };
+
+		int structureType = structureTypeA;
+		if(structureType == PTMAlgorithm::SC || structureType == PTMAlgorithm::FCC || structureType == PTMAlgorithm::BCC || structureType == PTMAlgorithm::CUBIC_DIAMOND)
+			disorientation = (FloatType)ptm::quat_disorientation_cubic(orientA, orientB);
+		else if(structureType == PTMAlgorithm::HCP || structureType == PTMAlgorithm::HEX_DIAMOND || structureType == PTMAlgorithm::GRAPHENE)
+			disorientation = (FloatType)ptm::quat_disorientation_hcp_conventional(orientA, orientB);
+
+		return qRadiansToDegrees(disorientation);
+	}
+
+	static FloatType calculate_interfacial_disorientation(StructureType structureTypeA,
+														  StructureType structureTypeB,
+														  const Quaternion& qa,
+														  const Quaternion& qb,
+														  Quaternion& output)
+	{
+		FloatType disorientation = std::numeric_limits<FloatType>::infinity();
+		double orientA[4] = { qa.w(), qa.x(), qa.y(), qa.z() };
+		double orientB[4] = { qb.w(), qb.x(), qb.y(), qb.z() };
+
+		if (structureTypeA == PTMAlgorithm::FCC || structureTypeA == PTMAlgorithm::CUBIC_DIAMOND) {
+			disorientation = (FloatType)ptm::quat_disorientation_hexagonal_to_cubic(orientA, orientB);
+		}
+		else {
+			disorientation = (FloatType)ptm::quat_disorientation_cubic_to_hexagonal(orientA, orientB);
+		}
+
+		output.w() = orientB[0];
+		output.x() = orientB[1];
+		output.y() = orientB[2];
+		output.z() = orientB[3];
+		return qRadiansToDegrees(disorientation);
+	}
+
 	/// Creates the algorithm object.
 	PTMAlgorithm();
 
