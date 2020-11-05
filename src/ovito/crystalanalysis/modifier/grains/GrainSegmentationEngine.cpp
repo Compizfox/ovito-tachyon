@@ -78,7 +78,7 @@ GrainSegmentationEngine1::GrainSegmentationEngine1(
 void GrainSegmentationEngine1::perform()
 {
 	// First phase of grain segmentation algorithm:
-	if(!identifyAtomicStructures()) return;
+	if(!createNeighborBonds()) return;
 	if(!rotateHexagonalAtoms()) return;
 	if(!computeDisorientationAngles()) return;
 	if(!determineMergeSequence()) return;
@@ -92,10 +92,9 @@ void GrainSegmentationEngine1::perform()
 
 
 /******************************************************************************
-* Performs the PTM algorithm. Determines the local structure type and the
-* local lattice orientation at each atomic site.
+* Creates neighbor bonds from stored PTM data.
 ******************************************************************************/
-bool GrainSegmentationEngine1::identifyAtomicStructures()
+bool GrainSegmentationEngine1::createNeighborBonds()
 {
 	NearestNeighborFinder neighFinder(PTMAlgorithm::MAX_INPUT_NEIGHBORS);
 	if(!neighFinder.prepare(*positions(), cell(), nullptr, this))
