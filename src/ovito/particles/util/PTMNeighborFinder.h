@@ -137,6 +137,7 @@ public:
 		int numNeighbors = _neighQuery->results().size();
 		int num_inner = ptm_num_nbrs[ptm_type], num_outer = 0;
 
+		int best_template_index = 0;
 		if (ptm_type == PTM_MATCH_NONE) {
 			for (int i=0;i<PTM_MAX_INPUT_POINTS;i++) {
 				_env.correspondences[i] = i;
@@ -146,7 +147,8 @@ public:
 		}
 		else {
 			numNeighbors = ptm_num_nbrs[ptm_type];
-			ptm_decode_correspondences(ptm_type, _correspondenceArray[particleIndex], _env.correspondences);
+			ptm_decode_correspondences(ptm_type, _correspondenceArray[particleIndex],
+									   _env.correspondences, &best_template_index);
 		}
 
 		_env.num = numNeighbors + 1;

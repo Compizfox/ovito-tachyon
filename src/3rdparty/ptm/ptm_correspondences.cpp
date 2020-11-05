@@ -117,7 +117,7 @@ void complete_correspondences(int n, int8_t* correspondences)
 	}
 }
 
-uint64_t encode_correspondences(int type, int8_t* correspondences)
+uint64_t encode_correspondences(int type, int8_t* correspondences, int best_template_index)
 {
 	int num_nbrs = ptm_num_nbrs[type];
 	int8_t transformed[PTM_MAX_INPUT_POINTS];
@@ -149,13 +149,17 @@ uint64_t encode_correspondences(int type, int8_t* correspondences)
 			encoded |= partial_encoded << (14 + 11 * i);
 		}
 
+		encoded |= (uint64_t)(best_template_index) << 62;
 		return encoded;
 	}
 }
 
-void decode_correspondences(int type, uint64_t encoded, int8_t* correspondences)
+void decode_correspondences(int type, uint64_t encoded, int8_t* correspondences, int* p_best_template_index)
 {
 	int8_t decoded[PTM_MAX_INPUT_POINTS];
+
+	*p_best_template_index = (int)(encoded >> 62);
+	encoded &= 0X3FFFFFFFFFFFFFFF;
 
 	if (is_single_shell(type)) {
 		index_to_permutation(PTM_MAX_INPUT_POINTS - 1, PTM_MAX_INPUT_POINTS - 1, encoded, decoded);
@@ -188,14 +192,14 @@ void decode_correspondences(int type, uint64_t encoded, int8_t* correspondences)
 extern "C" {
 #endif
 
-uint64_t ptm_encode_correspondences(int type, int8_t* correspondences)
+uint64_t ptm_encode_correspondences(int type, int8_t* correspondences, int best_template_index)
 {
-	return ptm::encode_correspondences(type, correspondences);
+	return ptm::encode_correspondences(type, correspondences, best_template_index);
 }
 
-void ptm_decode_correspondences(int type, uint64_t encoded, int8_t* correspondences)
+void ptm_decode_correspondences(int type, uint64_t encoded, int8_t* correspondences, int* p_best_template_index)
 {
-	return ptm::decode_correspondences(type, encoded, correspondences);
+	return ptm::decode_correspondences(type, encoded, correspondences, p_best_template_index);
 }
 
 #ifdef __cplusplus

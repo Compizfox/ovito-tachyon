@@ -76,8 +76,11 @@ static int get_neighbours(void* vdata, size_t _unused_lammps_variable, size_t at
 	OVITO_ASSERT(numNeighbors <= PTMAlgorithm::MAX_INPUT_NEIGHBORS);
 	OVITO_ASSERT(cachedNeighbors[atom_index] != 0);
 
+	int dummy = 0;
 	ptm_decode_correspondences(PTM_MATCH_FCC,   //this gives us default behaviour
-							   cachedNeighbors[atom_index], env->correspondences);
+							   cachedNeighbors[atom_index],
+							   env->correspondences,
+							   &dummy);
 
 	// Bring neighbor coordinates into a form suitable for the PTM library.
 	env->atom_indices[0] = atom_index;
