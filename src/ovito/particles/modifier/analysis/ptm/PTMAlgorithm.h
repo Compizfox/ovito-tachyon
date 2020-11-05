@@ -27,6 +27,7 @@
 #include <ovito/stdobj/properties/PropertyAccess.h>
 #include <ovito/particles/util/NearestNeighborFinder.h>
 #include <3rdparty/ptm/ptm_functions.h>
+#include <3rdparty/ptm/ptm_initialize_data.h>
 
 extern "C" {
 	typedef struct ptm_local_handle* ptm_local_handle_t;
@@ -119,6 +120,29 @@ public:
 		if(type == CUBIC_DIAMOND) return PTM_MATCH_DCUB;
 		if(type == HEX_DIAMOND) return PTM_MATCH_DHEX;
 		if(type == GRAPHENE) return PTM_MATCH_GRAPHENE;
+		OVITO_ASSERT(0);
+	}
+
+	static const double (*get_template(StructureType structureType, int templateIndex))[3]
+	{
+		if (structureType == OTHER) {
+			return nullptr;
+		}
+
+		int ptm_type = ovito_to_ptm_structure_type(structureType);
+		const ptm::refdata_t* ref = ptm::refdata[ptm_type];
+		if (templateIndex == 0) {
+			return ref->points;
+		}
+		else if (templateIndex == 1) {
+			return ref->points_alt1;
+		}
+		else if (templateIndex == 2) {
+			return ref->points_alt2;
+		}
+		else if (templateIndex == 3) {
+			return ref->points_alt3;
+		}
 		OVITO_ASSERT(0);
 	}
 

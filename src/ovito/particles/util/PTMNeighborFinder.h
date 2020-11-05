@@ -55,19 +55,23 @@ class OVITO_PARTICLES_EXPORT PTMNeighborFinder
 {
 public:
 	//// Constructor
-	PTMNeighborFinder() {}
+	PTMNeighborFinder(bool _all_properties)
+	{
+		all_properties = _all_properties;
+	}
 
 	/// \brief Prepares the tree data structure.
 	/// \param posProperty The positions of the particles.
 	/// \param cellData The simulation cell data.
 	/// \param selectionProperty Determines which particles are included in the neighbor search (optional).
-	/// \param promis A callback object that will be used to the report progress.
+	/// \param promise A callback object that will be used to the report progress.
 	/// \return \c false when the operation has been canceled by the user;
 	///         \c true on success.
 	/// \throw Exception on error.
 	bool prepare(NearestNeighborFinder::Query<PTMAlgorithm::MAX_INPUT_NEIGHBORS> *neighQuery,
-				 ConstPropertyAccess<qlonglong> correspondenceArray,
 				 ConstPropertyAccess<PTMAlgorithm::StructureType> structuresArray,
+				 ConstPropertyAccess<Quaternion> orientationsArray,
+				 ConstPropertyAccess<qlonglong> correspondencesArray,
 				 Task* promise);
 
 #if 0
@@ -85,14 +89,17 @@ public:
 
 public:
 	PTMAlgorithm::StructureType structureType;
+	Quaternion orientation;
 
 	/// Contains information about a single neighbor of the central particle.
 	struct Neighbor
 	{
 		Vector3 delta;
 		FloatType distanceSq;
+		Vector3 idealVector;
 		//NeighborListAtom* atom;
 		size_t index;
+		FloatType disorientation;
 	};
 
 private:
@@ -127,33 +134,29 @@ private:
 		return true;
 	}
 
-public:
-	void findNeighbors(size_t particleIndex)
+	bool getNeighbors(size_t particleIndex, int ptm_type)
 	{
-		structureType = (PTMAlgorithm::StructureType)_structuresArray[particleIndex];
-		int ptm_type = PTMAlgorithm::ovito_to_ptm_structure_type(structureType);
-
 		_neighQuery->findNeighbors(particleIndex);
-		int numNeighbors = _neighQuery->results().size();
-		int num_inner = ptm_num_nbrs[ptm_type], num_outer = 0;
+		_numNeighbors = _neighQuery->results().size();
+		_templateIndex = 0;
 
-		int best_template_index = 0;
+		int num_inner = ptm_num_nbrs[ptm_type], num_outer = 0;
 		if (ptm_type == PTM_MATCH_NONE) {
 			for (int i=0;i<PTM_MAX_INPUT_POINTS;i++) {
 				_env.correspondences[i] = i;
 			}
 
-			num_inner = numNeighbors;
+			num_inner = _numNeighbors;
 		}
 		else {
-			numNeighbors = ptm_num_nbrs[ptm_type];
+			_numNeighbors = ptm_num_nbrs[ptm_type];
 			ptm_decode_correspondences(ptm_type,
-									   _correspondenceArray[particleIndex],
+									   _correspondencesArray[particleIndex],
 									   _env.correspondences,
-									   &best_template_index);
+									   &_templateIndex);
 		}
 
-		_env.num = numNeighbors + 1;
+		_env.num = _numNeighbors + 1;
 
 		if (ptm_type == PTM_MATCH_DCUB || ptm_type == PTM_MATCH_DHEX) {
 			num_inner = 4;
@@ -167,17 +170,52 @@ public:
 		fill_neighbors(_neighQuery, particleIndex, 0, num_inner, _env.points[0]);
 		if (num_outer) {
 			for (int i=0;i<num_inner;i++) {
-				fill_neighbors(_neighQuery, _env.atom_indices[1 + i], num_inner + i * num_outer, num_outer, _env.points[i + 1]);
+				fill_neighbors(_neighQuery,
+							   _env.atom_indices[1 + i],
+							   num_inner + i * num_outer,
+							   num_outer,
+							   _env.points[i + 1]);
 			}
 		}
 
+		return true;
+	}
+
+public:
+	void findNeighbors(size_t particleIndex)
+	{
+		structureType = _structuresArray[particleIndex];
+		orientation = _orientationsArray[particleIndex];
+
+		int ptm_type = PTMAlgorithm::ovito_to_ptm_structure_type(structureType);
+		getNeighbors(particleIndex, ptm_type);
+		const double (*ptmTemplate)[3] = PTMAlgorithm::get_template(structureType, _templateIndex);;
+
+		// TODO:
+		// rmsd
+		// scale
+
 		_results.clear();
-		for (int i=0;i<numNeighbors;i++) {
+		for (int i=0;i<_numNeighbors;i++) {
 			Neighbor n;
 			double* point = _env.points[i + 1];
 			n.delta = Vector3(point[0], point[1], point[2]);
 			n.distanceSq = n.delta.squaredLength();
 			n.index = _env.atom_indices[1 + i];
+
+			if (structureType == PTMAlgorithm::OTHER || !all_properties) {
+				n.disorientation = std::numeric_limits<FloatType>::max();
+				n.idealVector = Vector_3<double>(0, 0, 0);
+			}
+			else {
+				n.disorientation = PTMAlgorithm::calculate_disorientation(structureType,
+																		  _structuresArray[n.index],
+																		  orientation,
+																		  _orientationsArray[n.index]);
+				int index = _env.correspondences[i + 1] - 1;
+				n.idealVector = *reinterpret_cast<const Vector_3<double>*>(ptmTemplate[index + 1]);
+			}
+
 			//n.atom = atom;
 			_results.push_back(n);
 		}
@@ -186,9 +224,13 @@ public:
 	std::vector<Neighbor> results() {return _results;}
 
 private:
+	bool all_properties;
 	NearestNeighborFinder::Query<PTMAlgorithm::MAX_INPUT_NEIGHBORS> *_neighQuery;
-	ConstPropertyAccess<qlonglong> _correspondenceArray;
 	ConstPropertyAccess<PTMAlgorithm::StructureType> _structuresArray;
+	ConstPropertyAccess<Quaternion> _orientationsArray;
+	ConstPropertyAccess<qlonglong> _correspondencesArray;
+	int _numNeighbors;
+	int _templateIndex;
 	ptm_atomicenv_t _env;
 	std::vector<Neighbor> _results;
 
@@ -287,4 +329,39 @@ private:
 		/// Returns the ideal vector corresponding to the i-th neighbor in the PTM template
 		/// identified for the current particle.
 		const Vector_3<double>& getIdealNeighborVector(int index) const;
+#endif
+
+
+#if 0
+/******************************************************************************
+* Returns the number of neighbors for the PTM structure found for the current particle.
+******************************************************************************/
+int PTMAlgorithm::Kernel::numTemplateNeighbors() const
+{
+	return ptm_num_nbrs[_structureType];
+}
+
+/******************************************************************************
+* Returns the neighbor information corresponding to the i-th neighbor in the
+* PTM template identified for the current particle.
+******************************************************************************/
+const NearestNeighborFinder::Neighbor& PTMAlgorithm::Kernel::getTemplateNeighbor(int index) const
+{
+	OVITO_ASSERT(_structureType != OTHER);
+	OVITO_ASSERT(index >= 0 && index < numTemplateNeighbors());
+	int mappedIndex = _env.correspondences[index + 1] - 1;
+	return getNearestNeighbor(mappedIndex);
+}
+
+/******************************************************************************
+* Returns the ideal vector corresponding to the i-th neighbor in the PTM template
+* identified for the current particle.
+******************************************************************************/
+const Vector_3<double>& PTMAlgorithm::Kernel::getIdealNeighborVector(int index) const
+{
+	OVITO_ASSERT(_structureType != OTHER);
+	OVITO_ASSERT(index >= 0 && index < numTemplateNeighbors());
+	OVITO_ASSERT(_bestTemplate != nullptr);
+	return *reinterpret_cast<const Vector_3<double>*>(_bestTemplate[index + 1]);
+}
 #endif

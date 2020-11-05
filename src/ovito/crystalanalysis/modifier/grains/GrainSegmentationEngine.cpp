@@ -112,8 +112,8 @@ bool GrainSegmentationEngine1::createNeighborBonds()
 
 		// Construct local neighbor list builder.
 		NearestNeighborFinder::Query<PTMAlgorithm::MAX_INPUT_NEIGHBORS> neighQuery(neighFinder);
-        auto ptmNeighQuery = PTMNeighborFinder();
-		ptmNeighQuery.prepare(&neighQuery, correspondences(), structureTypes(), this);
+        auto ptmNeighQuery = PTMNeighborFinder(false);
+		ptmNeighQuery.prepare(&neighQuery, structureTypes(), orientations(), correspondences(), this);
 
 		// Thread-local list of generated bonds connecting neighboring lattice atoms.
 		std::vector<NeighborBond> threadlocalNeighborBonds;
@@ -258,8 +258,8 @@ bool GrainSegmentationEngine1::rotateHexagonalAtoms()
 
 	// Construct local neighbor list builder.
 	NearestNeighborFinder::Query<PTMAlgorithm::MAX_INPUT_NEIGHBORS> neighQuery(neighFinder);
-    auto ptmNeighQuery = PTMNeighborFinder();
-	if(!ptmNeighQuery.prepare(&neighQuery, correspondences(), structureTypes(), this))
+    auto ptmNeighQuery = PTMNeighborFinder(false);
+	if(!ptmNeighQuery.prepare(&neighQuery, structureTypes(), orientations(), correspondences(), this))
 		return false;
 
 
