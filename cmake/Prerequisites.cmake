@@ -167,6 +167,14 @@ IF(UNIX AND NOT APPLE AND OVITO_REDISTRIBUTABLE_PACKAGE)
 	OVITO_INSTALL_SHARED_LIB("${OVITO_XKBCOMMONX11_DEP}" "./lib")
 	UNSET(OVITO_XKBCOMMONX11_DEP CACHE)
 
+	# Distribute libxcb-xinerama.so with Ovito, which is a dependency of the Qt XCB plugin that might not be present on all systems.
+	FIND_LIBRARY(OVITO_XINERAMA_DEP NAMES libxcb-xinerama.so.0 PATHS /usr/lib /usr/local/lib /usr/lib/x86_64-linux-gnu /usr/lib64 NO_DEFAULT_PATH)
+	IF(NOT OVITO_XINERAMA_DEP)
+		MESSAGE(FATAL_ERROR "Could not find shared library libxcb-xinerama.so.0 in system path.")
+	ENDIF()
+	OVITO_INSTALL_SHARED_LIB("${OVITO_XINERAMA_DEP}" "./lib")
+	UNSET(OVITO_XINERAMA_DEP CACHE)
+	
 ELSEIF(WIN32 AND NOT OVITO_BUILD_PYTHON_PACKAGE AND NOT OVITO_BUILD_CONDA)
 
 	# On Windows, the third-party library DLLs need to be installed in the OVITO directory.
