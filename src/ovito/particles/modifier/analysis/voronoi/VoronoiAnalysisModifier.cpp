@@ -399,7 +399,7 @@ void VoronoiAnalysisModifier::VoronoiAnalysisEngine::perform()
 				while(cl.inc());
 			}
 			if(count)
-				throw Exception(tr("Could not compute Voronoi cell for some particles."));
+				throw Exception(tr("Voro++ failed to compute Voronoi cell for one or more particles. The input point set may represent a pathological case that cannot be processed due to numerical precision issues. Please try displacing all particles by a small amount first using the Affine Transformation modifier as a workaround."));
 		}
 		else {
 			// Particles have non-uniform sizes -> Compute polydisperse Voronoi tessellation.
@@ -436,7 +436,7 @@ void VoronoiAnalysisModifier::VoronoiAnalysisEngine::perform()
 			}
 		}
 		if(count)
-			throw Exception(tr("Could not compute Voronoi cell for some particles."));
+			throw Exception(tr("Voro++ failed to compute Voronoi cell for one or more particles. The input point set may represent a pathological case that cannot be processed due to numerical precision issues. Please try displacing all particles by a small amount first using the Affine Transformation modifier as a workaround."));
 	}
 	else {
 		// Special code path for non-orthogonal simulation cells:
