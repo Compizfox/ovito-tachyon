@@ -33,11 +33,11 @@ static void index_to_permutation(int base, int n, uint64_t encoded, int8_t* perm
 		temp[i] = i;
 	}
 
-	for (int i=0;i<std::min(n, base - 1);i++) {
+	for (int i=0;i<std::min(n, base);i++) {
 		std::swap(temp[i], temp[i + code[i]]);
 	}
 
-	for (int i=0;i<std::min(n, base - 1);i++) {
+	for (int i=0;i<std::min(n, base);i++) {
 		permutation[i] = temp[i];
 	}
 }
@@ -75,7 +75,8 @@ static uint64_t permutation_to_index(int base, int n, int8_t* permutation)
 
 static bool is_single_shell(int type)
 {
-	if (type == PTM_MATCH_FCC
+	if (type == PTM_MATCH_NONE
+		|| type == PTM_MATCH_FCC
 		|| type == PTM_MATCH_HCP
 		|| type == PTM_MATCH_BCC
 		|| type == PTM_MATCH_ICO
@@ -117,10 +118,13 @@ void complete_correspondences(int n, int8_t* correspondences)
 	}
 }
 
-uint64_t encode_correspondences(int type, int8_t* correspondences, int best_template_index)
+uint64_t encode_correspondences(int type, int num, int8_t* correspondences, int best_template_index)
 {
-	int num_nbrs = ptm_num_nbrs[type];
 	int8_t transformed[PTM_MAX_INPUT_POINTS];
+	int num_nbrs = ptm_num_nbrs[type];
+	if (type == PTM_MATCH_NONE) {
+		num_nbrs = num;
+	}
 
 	if (is_single_shell(type)) {
 		complete_correspondences(num_nbrs + 1, correspondences);
@@ -192,9 +196,9 @@ void decode_correspondences(int type, uint64_t encoded, int8_t* correspondences,
 extern "C" {
 #endif
 
-uint64_t ptm_encode_correspondences(int type, int8_t* correspondences, int best_template_index)
+uint64_t ptm_encode_correspondences(int type, int num, int8_t* correspondences, int best_template_index)
 {
-	return ptm::encode_correspondences(type, correspondences, best_template_index);
+	return ptm::encode_correspondences(type, num, correspondences, best_template_index);
 }
 
 void ptm_decode_correspondences(int type, uint64_t encoded, int8_t* correspondences, int* p_best_template_index)
