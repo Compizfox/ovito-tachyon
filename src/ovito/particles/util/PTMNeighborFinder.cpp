@@ -46,7 +46,8 @@ bool PTMNeighborFinder::prepare(NearestNeighborFinder::Query<PTMAlgorithm::MAX_I
 	_structuresArray = structuresArray;
 	_orientationsArray = orientationsArray;
 	_correspondencesArray = correspondencesArray;
-    structureType = PTMAlgorithm::OTHER;
+	structureType = PTMAlgorithm::OTHER;
+	rmsd = std::numeric_limits<FloatType>::infinity();
 	_numNeighbors = 0;
 	_templateIndex = 0;
 	return true;

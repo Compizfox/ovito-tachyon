@@ -90,6 +90,7 @@ public:
 public:
 	PTMAlgorithm::StructureType structureType;
 	Quaternion orientation;
+	FloatType rmsd;
 
 	/// Contains information about a single neighbor of the central particle.
 	struct Neighbor
@@ -181,19 +182,67 @@ private:
 		return true;
 	}
 
+	void calculate_rmsd_scale(const double (*ptmTemplate)[3])
+	{
+		// get neighbor points
+		std::vector<Vector3> centered;
+		for (int i=0;i<_numNeighbors+1;i++) {
+			Vector3 v = *reinterpret_cast<const Vector_3<double>*>(_env.points[i]);
+			centered.push_back(v);
+		}
+
+		Vector3 barycenter = Vector_3<double>(0, 0, 0);
+		for (auto v: centered) {
+			barycenter += v;
+		}
+
+		barycenter /= centered.size();
+		for (int i=0;i<centered.size();i++) {
+			centered[i] -= barycenter;
+		}
+
+		// get template points
+		std::vector<Vector3> rotatedTemplate;
+		for (int i=0;i<_numNeighbors+1;i++) {
+			Vector3 v = *reinterpret_cast<const Vector_3<double>*>(ptmTemplate[i]);
+			rotatedTemplate.push_back(orientation * v);
+		}
+
+		// calculate scale
+		// (s.a - b)^2 = s^2.a^2 - 2.s.a.b + b^2
+		// d/ds (s^2.a^2 - 2.s.a.b + b^2) = 2.s.a^2 - 2.a.b
+		// s.a^2 = a.b
+		// s = a.b / (a.a)
+		FloatType numerator = 0, denominator = 0;
+		for (int i=0;i<centered.size();i++) {
+			numerator += centered[i].dot(rotatedTemplate[i]);
+			denominator += centered[i].squaredLength();
+		}
+		FloatType scale = numerator / denominator;
+
+		// calculate RMSD
+		rmsd = 0;
+		for (int i=0;i<centered.size();i++) {
+			auto delta = scale * centered[i] - rotatedTemplate[i];
+			rmsd += delta.squaredLength();
+		}
+		rmsd = sqrt(rmsd / centered.size());
+	}
+
 public:
 	void findNeighbors(size_t particleIndex)
 	{
 		structureType = _structuresArray[particleIndex];
 		orientation = _orientationsArray[particleIndex];
+		rmsd = std::numeric_limits<FloatType>::infinity();
 
 		int ptm_type = PTMAlgorithm::ovito_to_ptm_structure_type(structureType);
 		getNeighbors(particleIndex, ptm_type);
 		const double (*ptmTemplate)[3] = PTMAlgorithm::get_template(structureType, _templateIndex);;
 
-		// TODO:
-		// rmsd
-		// scale
+		if (structureType != PTMAlgorithm::OTHER) {
+			calculate_rmsd_scale(ptmTemplate);
+		}
 
 		_results.clear();
 		for (int i=0;i<_numNeighbors;i++) {
@@ -241,127 +290,21 @@ private:
 }	// End of namespace
 }	// End of namespace
 
-
-
 #if 0
 	if (_structureType != OTHER && qtarget != nullptr) {
-
 		//arrange orientation in PTM format
 		double qtarget_ptm[4] = { qtarget->w(), qtarget->x(), qtarget->y(), qtarget->z() };
-
+		double qmapped[4];
+		const double (*best_template)[3] = NULL;
 		double disorientation = 0;	//TODO: this is probably not needed
-		int template_index = ptm_remap_template(type, true, _bestTemplateIndex, qtarget_ptm, _q, &disorientation, _env.correspondences, &_bestTemplate);
-		if (template_index < 0)
-			return _structureType;
+		int _template_index = ptm_remap_template(type, true, input_template_index, qtarget_ptm, q, qmapped, &disorientation, correspondences, &best_template);
+		if (_template_index < 0)
+			return;
 
-		_bestTemplateIndex = template_index;
+		//arrange orientation in OVITO format
+		qres[0] = qmapped[1];	//qx
+		qres[1] = qmapped[2];	//qy
+		qres[2] = qmapped[3];	//qz
+		qres[3] = qmapped[0];	//qw
 	}
-#endif
-
-#if 0
-////--------replace this with saved PTM data--------------------
-
-//todo: when getting stored PTM data (when PTM is not called here), assert that output_conventional_orientations=true was used.
-
-	//TODO: don't hardcode input flags
-	int32_t flags = PTM_CHECK_FCC | PTM_CHECK_DCUB | PTM_CHECK_GRAPHENE;// | PTM_CHECK_HCP | PTM_CHECK_BCC;
-
-	// Call PTM library to identify local structure.
-	int32_t type = PTM_MATCH_NONE, alloy_type = PTM_ALLOY_NONE;
-	double scale, interatomic_distance;
-	double rmsd;
-	double q[4];
-	int8_t correspondences[PolyhedralTemplateMatchingModifier::MAX_NEIGHBORS+1];
-	ptm_index(handle, numNeighbors + 1, points, nullptr, flags, true,
-			&type, &alloy_type, &scale, &rmsd, q, nullptr, nullptr, nullptr, nullptr,
-			&interatomic_distance, nullptr, nullptr, nullptr, correspondences);
-	if (rmsd > 0.1) {	//TODO: don't hardcode threshold
-		type = PTM_MATCH_NONE;
-		rmsd = INFINITY;
-	}
-
-	if (type == PTM_MATCH_NONE)
-		return;
-////------------------------------------------------------------
-
-	double qmapped[4];
-	double qtarget[4] = {qw, qx, qy, qz};	//PTM quaterion ordering
-	const double (*best_template)[3] = NULL;
-	int _template_index = ptm_remap_template(type, true, input_template_index, qtarget, q, qmapped, &disorientation, correspondences, &best_template);
-	if (_template_index < 0)
-		return;
-
-	//arrange orientation in OVITO format
-	qres[0] = qmapped[1];	//qx
-	qres[1] = qmapped[2];	//qy
-	qres[2] = qmapped[3];	//qz
-	qres[3] = qmapped[0];	//qw
-
-	//structure_type = type;
-	template_index = _template_index;
-	for (int i=0;i<ptm_num_nbrs[type];i++) {
-
-		int index = correspondences[i+1] - 1;
-		auto r = neighQuery.results()[index];
-
-		Vector3 tcoords(best_template[i+1][0], best_template[i+1][1], best_template[i+1][2]);
-		result.emplace_back(r.delta, tcoords, r.distanceSq, r.index);
-	}
-#endif
-
-#if 0
-		/// Returns the number of neighbors for the PTM structure found for the current particle.
-		int numTemplateNeighbors() const;
-
-		/// Returns the number of nearest neighbors found for the current particle.
-		int numNearestNeighbors() const { return results().size(); }
-
-		/// Returns the neighbor information for the i-th nearest neighbor of the current particle.
-		const NearestNeighborFinder::Neighbor& getNearestNeighbor(int index) const {
-			OVITO_ASSERT(index >= 0 && index < results().size());
-			return results()[index];
-		}
-
-		/// Returns the neighbor information corresponding to the i-th neighbor in the PTM template
-		/// identified for the current particle.
-		const NearestNeighborFinder::Neighbor& getTemplateNeighbor(int index) const;
-
-		/// Returns the ideal vector corresponding to the i-th neighbor in the PTM template
-		/// identified for the current particle.
-		const Vector_3<double>& getIdealNeighborVector(int index) const;
-#endif
-
-
-#if 0
-/******************************************************************************
-* Returns the number of neighbors for the PTM structure found for the current particle.
-******************************************************************************/
-int PTMAlgorithm::Kernel::numTemplateNeighbors() const
-{
-	return ptm_num_nbrs[_structureType];
-}
-
-/******************************************************************************
-* Returns the neighbor information corresponding to the i-th neighbor in the
-* PTM template identified for the current particle.
-******************************************************************************/
-const NearestNeighborFinder::Neighbor& PTMAlgorithm::Kernel::getTemplateNeighbor(int index) const
-{
-	OVITO_ASSERT(_structureType != OTHER);
-	OVITO_ASSERT(index >= 0 && index < numTemplateNeighbors());
-	int mappedIndex = _env.correspondences[index + 1] - 1;
-	return getNearestNeighbor(mappedIndex);
-}
-
-/******************************************************************************
-* Returns the ideal vector corresponding to the i-th neighbor in the PTM template
-* identified for the current particle.
-******************************************************************************/
-const Vector_3<double>& PTMAlgorithm::Kernel::getIdealNeighborVector(int index) const
-{
-	OVITO_ASSERT(_structureType != OTHER);
-	OVITO_ASSERT(index >= 0 && index < numTemplateNeighbors());
-	OVITO_ASSERT(_bestTemplate != nullptr);
-	return *reinterpret_cast<const Vector_3<double>*>(_bestTemplate[index + 1]);
-}
 #endif
