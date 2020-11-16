@@ -130,7 +130,7 @@ bool GrainSegmentationEngine1::createNeighborBonds()
 				break;
 
 			// Get PTM information
-			ptmNeighQuery.findNeighbors(index);
+			ptmNeighQuery.findNeighbors(index, nullptr);
 			auto structureType = ptmNeighQuery.structureType;
 			int numNeighbors = ptmNeighQuery.results().size();
 			if (structureType == PTMAlgorithm::OTHER) {
@@ -293,7 +293,7 @@ bool GrainSegmentationEngine1::rotateHexagonalAtoms()
 		_adjustedOrientations[index] = rotated;
 
 		// find neighbors to add to the queue
-		ptmNeighQuery.findNeighbors(index);
+		ptmNeighQuery.findNeighbors(index, nullptr);
 		int numNeighbors = ptmNeighQuery.results().size();
 		for(int j = 0; j < numNeighbors; j++) {
 			size_t neighborIndex = ptmNeighQuery.results()[j].index;
