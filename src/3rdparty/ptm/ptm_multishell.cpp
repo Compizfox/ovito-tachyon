@@ -41,13 +41,21 @@ static bool atomorder_compare(atomorder_t const& a, atomorder_t const& b)
 
 static void filter_neighbours(ptm_atomicenv_t* env)
 {
+	ptm_atomicenv_t temp;
+	temp.num = 0;
+
 	for (int i=0;i<env->num;i++) {
-		if (env->correspondences[i] > MAX_MULTISHELL_NEIGHBOURS) {
-			env->correspondences[i] = env->correspondences[env->num - 1];
-			env->num--;
-			i--;
+		if (env->correspondences[i] <= MAX_MULTISHELL_NEIGHBOURS) {
+
+			temp.correspondences[temp.num] = env->correspondences[i];
+			temp.atom_indices[temp.num] = env->atom_indices[i];
+			temp.numbers[temp.num] = env->numbers[i];
+			memcpy(temp.points[temp.num], env->points[i], 3 * sizeof(double));
+			temp.num++;
 		}
 	}
+
+	memcpy(env, &temp, sizeof(ptm_atomicenv_t));
 }
 
 #define MAX_INNER 4
