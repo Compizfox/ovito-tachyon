@@ -186,26 +186,20 @@ private:
 	{
 		// get neighbor points
 		std::vector<Vector3> centered;
-		for (int i=0;i<_numNeighbors+1;i++) {
-			Vector3 v = *reinterpret_cast<const Vector_3<double>*>(_env.points[i]);
-			centered.push_back(v);
-		}
-
+		std::vector<Vector3> rotatedTemplate;
+		centered.push_back(Vector_3<double>(0, 0, 0));
+		rotatedTemplate.push_back(Vector_3<double>(0, 0, 0));
 		Vector3 barycenter = Vector_3<double>(0, 0, 0);
-		for (auto v: centered) {
-			barycenter += v;
+
+		for (auto nbr: _results) {
+			rotatedTemplate.push_back(orientation * nbr.idealVector);
+			centered.push_back(nbr.delta);
+			barycenter += nbr.delta;
 		}
 
 		barycenter /= centered.size();
 		for (int i=0;i<centered.size();i++) {
 			centered[i] -= barycenter;
-		}
-
-		// get template points
-		std::vector<Vector3> rotatedTemplate;
-		for (int i=0;i<_numNeighbors+1;i++) {
-			Vector3 v = *reinterpret_cast<const Vector_3<double>*>(ptmTemplate[i]);
-			rotatedTemplate.push_back(orientation * v);
 		}
 
 		// calculate scale
@@ -230,7 +224,7 @@ private:
 	}
 
 public:
-	void findNeighbors(size_t particleIndex)
+	void findNeighbors(size_t particleIndex, Quaternion* targetOrientation)
 	{
 		structureType = _structuresArray[particleIndex];
 		orientation = _orientationsArray[particleIndex];
@@ -238,35 +232,67 @@ public:
 
 		int ptm_type = PTMAlgorithm::ovito_to_ptm_structure_type(structureType);
 		getNeighbors(particleIndex, ptm_type);
-		const double (*ptmTemplate)[3] = PTMAlgorithm::get_template(structureType, _templateIndex);;
 
-		if (structureType != PTMAlgorithm::OTHER) {
-			calculate_rmsd_scale(ptmTemplate);
+		int8_t remap_permutation[PTM_MAX_INPUT_POINTS];
+		for (int i=0;i<PTM_MAX_INPUT_POINTS;i++) {
+			remap_permutation[i] = i;
 		}
 
+		if (structureType != PTMAlgorithm::OTHER && targetOrientation != nullptr) {
+			//arrange orientation in PTM format
+			double qtarget[4] = {targetOrientation->w(),
+								 targetOrientation->x(),
+								 targetOrientation->y(),
+								 targetOrientation->z()};
+			double qptm[4] = {orientation.w(),
+							  orientation.x(),
+							  orientation.y(),
+							  orientation.z()};
+			double dummy = 0;
+			_templateIndex = ptm_remap_template(ptm_type, true, _templateIndex,
+												qtarget, qptm, &dummy,
+												remap_permutation, nullptr);
+			//arrange orientation in OVITO format
+			orientation.w() = qptm[0];
+			orientation.x() = qptm[1];
+			orientation.y() = qptm[2];
+			orientation.z() = qptm[3];
+		}
+
+		const double (*ptmTemplate)[3] = PTMAlgorithm::get_template(structureType, _templateIndex);
 		_results.clear();
 		for (int i=0;i<_numNeighbors;i++) {
 			Neighbor n;
-			double* point = _env.points[i + 1];
-			n.delta = Vector3(point[0], point[1], point[2]);
+			int index = remap_permutation[i + 1];
+			n.index = _env.atom_indices[index];
+			double* p = _env.points[index];
+			n.delta = Vector3(p[0], p[1], p[2]);
 			n.distanceSq = n.delta.squaredLength();
-			n.index = _env.atom_indices[1 + i];
 
-			if (structureType == PTMAlgorithm::OTHER || !all_properties) {
-				n.disorientation = std::numeric_limits<FloatType>::max();
+			if (structureType == PTMAlgorithm::OTHER) {
 				n.idealVector = Vector_3<double>(0, 0, 0);
 			}
 			else {
+				const double* q = ptmTemplate[i + 1];
+				n.idealVector = Vector3(q[0], q[1], q[2]);
+			}
+
+			if (all_properties && structureType != PTMAlgorithm::OTHER) {
 				n.disorientation = PTMAlgorithm::calculate_disorientation(structureType,
 																		  _structuresArray[n.index],
 																		  orientation,
 																		  _orientationsArray[n.index]);
-				int index = _env.correspondences[i + 1] - 1;
-				n.idealVector = *reinterpret_cast<const Vector_3<double>*>(ptmTemplate[index + 1]);
+			}
+			else {
+				n.disorientation = std::numeric_limits<FloatType>::max();
 			}
 
 			//n.atom = atom;
 			_results.push_back(n);
+		}
+
+		if (structureType != PTMAlgorithm::OTHER) {
+			calculate_rmsd_scale(ptmTemplate);
 		}
 	}
 
@@ -290,21 +316,3 @@ private:
 }	// End of namespace
 }	// End of namespace
 
-#if 0
-	if (_structureType != OTHER && qtarget != nullptr) {
-		//arrange orientation in PTM format
-		double qtarget_ptm[4] = { qtarget->w(), qtarget->x(), qtarget->y(), qtarget->z() };
-		double qmapped[4];
-		const double (*best_template)[3] = NULL;
-		double disorientation = 0;	//TODO: this is probably not needed
-		int _template_index = ptm_remap_template(type, true, input_template_index, qtarget_ptm, q, qmapped, &disorientation, correspondences, &best_template);
-		if (_template_index < 0)
-			return;
-
-		//arrange orientation in OVITO format
-		qres[0] = qmapped[1];	//qx
-		qres[1] = qmapped[2];	//qy
-		qres[2] = qmapped[3];	//qz
-		qres[3] = qmapped[0];	//qw
-	}
-#endif
