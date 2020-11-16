@@ -131,7 +131,9 @@ uint64_t encode_correspondences(int type, int num, int8_t* correspondences, int 
 	if (is_single_shell(type)) {
 		complete_correspondences(num_nbrs + 1, correspondences);
 		vector_add(PTM_MAX_INPUT_POINTS - 1, &correspondences[1], transformed, -1);
-		return permutation_to_index(PTM_MAX_INPUT_POINTS - 1, PTM_MAX_INPUT_POINTS - 1, transformed);
+		uint64_t encoded = permutation_to_index(PTM_MAX_INPUT_POINTS - 1, PTM_MAX_INPUT_POINTS - 1, transformed);
+		encoded |= (uint64_t)(best_template_index) << 62;
+		return encoded;
 	}
 	else {
 		int num_inner = 4, num_outer = 3;   //diamond types
