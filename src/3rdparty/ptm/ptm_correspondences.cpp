@@ -17,6 +17,8 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 #include "ptm_multishell.h"
 
 
+#define BITMASK(x) (((uint64_t)1 << x) - 1)
+
 namespace ptm {
 
 static void index_to_permutation(int base, int n, uint64_t encoded, int8_t* permutation)
@@ -148,9 +150,9 @@ uint64_t encode_correspondences(int type, int num, int8_t* correspondences, int 
 		for (int i=0;i<num_inner;i++) {
 			uint64_t partial_encoded = permutation_to_index(MAX_MULTISHELL_NEIGHBOURS,
 															num_outer, &transformed[num_inner + i * num_outer]);
-			// log2(12*11*10*9) < 14
-			// log2(12*11*10) < 11
-			encoded |= partial_encoded << (14 + 11 * i);
+			// log2(13*12*11*10) < 15
+			// log2(13*12*11) < 11
+			encoded |= partial_encoded << (15 + 11 * i);
 		}
 
 		encoded |= (uint64_t)(best_template_index) << 62;
@@ -163,7 +165,7 @@ void decode_correspondences(int type, uint64_t encoded, int8_t* correspondences,
 	int8_t decoded[PTM_MAX_INPUT_POINTS];
 
 	*p_best_template_index = (int)(encoded >> 62);
-	encoded &= 0X3FFFFFFFFFFFFFFF;
+	encoded &= BITMASK(62);
 
 	if (is_single_shell(type)) {
 		index_to_permutation(PTM_MAX_INPUT_POINTS - 1, PTM_MAX_INPUT_POINTS - 1, encoded, decoded);
@@ -177,10 +179,10 @@ void decode_correspondences(int type, uint64_t encoded, int8_t* correspondences,
 			num_outer = 2;
 		}
 
-		uint64_t partial = encoded & 0x3FFF;
+		uint64_t partial = encoded & BITMASK(15);
 		index_to_permutation(MAX_MULTISHELL_NEIGHBOURS, num_inner, partial, decoded);
 		for (int i=0;i<num_inner;i++) {
-			partial = (encoded >> (14 + 11 * i)) & 0x7FF;
+			partial = (encoded >> (15 + 11 * i)) & BITMASK(11);
 			index_to_permutation(MAX_MULTISHELL_NEIGHBOURS, num_outer, partial, &decoded[num_inner + i * num_outer]);
 		}
 
