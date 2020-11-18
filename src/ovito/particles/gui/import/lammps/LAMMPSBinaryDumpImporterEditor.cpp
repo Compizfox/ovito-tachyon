@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Copyright 2016 Alexander Stukowski
+//  Copyright 2020 Alexander Stukowski
 //
 //  This file is part of OVITO (Open Visualization Tool).
 //
@@ -22,7 +22,7 @@
 
 #include <ovito/particles/gui/ParticlesGui.h>
 #include <ovito/particles/import/lammps/LAMMPSBinaryDumpImporter.h>
-#include <ovito/particles/gui/import/InputColumnMappingDialog.h>
+#include <ovito/stdobj/gui/properties/InputColumnMappingDialog.h>
 #include <ovito/gui/desktop/properties/BooleanParameterUI.h>
 #include <ovito/gui/desktop/mainwin/MainWindow.h>
 #include <ovito/core/dataset/DataSetContainer.h>
@@ -41,10 +41,10 @@ bool LAMMPSBinaryDumpImporterEditor::inspectNewFile(FileImporter* importer, cons
 {
 	// Retrieve column information of input file.
 	LAMMPSBinaryDumpImporter* lammpsImporter = static_object_cast<LAMMPSBinaryDumpImporter>(importer);
-	Future<InputColumnMapping> inspectFuture = lammpsImporter->inspectFileHeader(FileSourceImporter::Frame(sourceFile));
+	Future<ParticleInputColumnMapping> inspectFuture = lammpsImporter->inspectFileHeader(FileSourceImporter::Frame(sourceFile));
 	if(!importer->dataset()->taskManager().waitForFuture(inspectFuture))
 		return false;
-	InputColumnMapping mapping = inspectFuture.result();
+	ParticleInputColumnMapping mapping = inspectFuture.result();
 
 	if(lammpsImporter->columnMapping().size() != mapping.size()) {
 		// If this is a newly created file importer, load old mapping from application settings store.
@@ -53,8 +53,8 @@ bool LAMMPSBinaryDumpImporterEditor::inspectNewFile(FileImporter* importer, cons
 			settings.beginGroup("viz/importer/lammps_binary_dump/");
 			if(settings.contains("colmapping")) {
 				try {
-					InputColumnMapping storedMapping;
-					storedMapping.fromByteArray(settings.value("colmapping").toByteArray());
+					ParticleInputColumnMapping storedMapping;
+					storedMapping.fromByteArray(settings.value("colmapping").toByteArray(), importer->dataset()->taskManager());
 					std::copy_n(storedMapping.begin(), std::min(storedMapping.size(), mapping.size()), mapping.begin());
 				}
 				catch(Exception& ex) {
@@ -64,9 +64,14 @@ bool LAMMPSBinaryDumpImporterEditor::inspectNewFile(FileImporter* importer, cons
 			}
 		}
 
-		InputColumnMappingDialog dialog(mapping, parent);
+		InputColumnMappingDialog dialog(mapping, parent, importer->dataset()->taskManager());
 		if(dialog.exec() == QDialog::Accepted) {
 			lammpsImporter->setColumnMapping(dialog.mapping());
+			// Remember the user-defined mapping for the next time.
+			QSettings settings;
+			settings.beginGroup("viz/importer/lammps_binary_dump/");
+			settings.setValue("colmapping", dialog.mapping().toByteArray(importer->dataset()->taskManager()));
+			settings.endGroup();
 			return true;
 		}
 
@@ -74,7 +79,7 @@ bool LAMMPSBinaryDumpImporterEditor::inspectNewFile(FileImporter* importer, cons
 	}
 	else {
 		// If number of columns did not change since last time, only update the stored file excerpt.
-		InputColumnMapping newMapping = lammpsImporter->columnMapping();
+		ParticleInputColumnMapping newMapping = lammpsImporter->columnMapping();
 		newMapping.setFileExcerpt(mapping.fileExcerpt());
 		lammpsImporter->setColumnMapping(newMapping);
 		return true;
@@ -85,15 +90,15 @@ bool LAMMPSBinaryDumpImporterEditor::inspectNewFile(FileImporter* importer, cons
  * Displays a dialog box that allows the user to edit the custom file column to particle
  * property mapping.
  *****************************************************************************/
-bool LAMMPSBinaryDumpImporterEditor::showEditColumnMappingDialog(LAMMPSBinaryDumpImporter* importer, QWidget* parent)
+bool LAMMPSBinaryDumpImporterEditor::showEditColumnMappingDialog(LAMMPSBinaryDumpImporter* importer, MainWindow* mainWindow)
 {
-	InputColumnMappingDialog dialog(importer->columnMapping(), parent);
+	InputColumnMappingDialog dialog(importer->columnMapping(), mainWindow, importer->dataset()->taskManager());
 	if(dialog.exec() == QDialog::Accepted) {
 		importer->setColumnMapping(dialog.mapping());
 		// Remember the user-defined mapping for the next time.
 		QSettings settings;
 		settings.beginGroup("viz/importer/lammps_binary_dump/");
-		settings.setValue("colmapping", dialog.mapping().toByteArray());
+		settings.setValue("colmapping", dialog.mapping().toByteArray(importer->dataset()->taskManager()));
 		settings.endGroup();
 		return true;
 	}
@@ -123,8 +128,15 @@ void LAMMPSBinaryDumpImporterEditor::createUI(const RolloutInsertionParameters& 
 	// The following signal handler updates the parameter UI whenever the isMultiTimestepFile parameter of the current file source importer changes.
 	// It is needed, because target-changed messages are surpressed for this property field and the normal update mechanism for the parameter UI doesn't work.
 	connect(this, &PropertiesEditor::contentsReplaced, this, [con = QMetaObject::Connection(), multitimestepUI = multitimestepUI](RefTarget* editObject) mutable {
+#ifdef _MSC_VER
+	#pragma warning(push)
+	#pragma warning(disable : 4573)
+#endif
 		disconnect(con);
 		con = editObject ? connect(static_object_cast<FileSourceImporter>(editObject), &FileSourceImporter::isMultiTimestepFileChanged, multitimestepUI, &ParameterUI::updateUI) : QMetaObject::Connection();
+#ifdef _MSC_VER
+	#pragma warning(pop)
+#endif
 	});
 	sublayout->addWidget(multitimestepUI->checkBox());
 

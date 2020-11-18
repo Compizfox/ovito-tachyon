@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Copyright 2017 Alexander Stukowski
+//  Copyright 2020 Alexander Stukowski
 //
 //  This file is part of OVITO (Open Visualization Tool).
 //
@@ -26,6 +26,8 @@
 #include <ovito/stdobj/StdObj.h>
 #include <ovito/core/dataset/data/DataObject.h>
 #include <ovito/core/dataset/pipeline/PipelineFlowState.h>
+
+#include <boost/container/flat_map.hpp>
 
 namespace Ovito { namespace StdObj {
 
@@ -70,8 +72,17 @@ public:
 		return boost::dynamic_bitset<>{}; // Return empty set to indicate missing fence selection support.
 	}
 
+	/// This method is called by InputColumnMapping::validate() to let the container class perform custom checks
+	/// on the mapping of the file data columns to internal properties.
+	virtual void validateInputColumnMapping(const InputColumnMapping& mapping) const {}
+
 	/// Creates a new instace of the property object type.
 	OORef<PropertyObject> createFromStorage(DataSet* dataset, PropertyPtr storage) const;
+
+	/// Creates a new instace of the property object type.
+	OORef<PropertyObject> createFromStorage(DataSet* dataset, ConstPropertyPtr storage) const {
+		return createFromStorage(dataset, const_pointer_cast<PropertyStorage>(std::move(storage)));
+	}
 
 	/// Determines whether a standard property ID is defined for this property class.
 	bool isValidStandardPropertyId(int id) const {
@@ -87,32 +98,32 @@ public:
 
 	/// Returns the name of a standard property type.
 	const QString& standardPropertyName(int typeId) const {
-		OVITO_ASSERT(_standardPropertyNames.contains(typeId));
-		return _standardPropertyNames.find(typeId).value();
+		OVITO_ASSERT(isValidStandardPropertyId(typeId));
+		return _standardPropertyNames.find(typeId)->second;
 	}
 
 	/// Returns the display title used for a standard property type.
 	const QString& standardPropertyTitle(int typeId) const {
-		OVITO_ASSERT(_standardPropertyTitles.contains(typeId));
-		return _standardPropertyTitles.find(typeId).value();
+		OVITO_ASSERT(_standardPropertyTitles.find(typeId) != _standardPropertyTitles.end());
+		return _standardPropertyTitles.find(typeId)->second;
 	}
 
 	/// Returns the data type used by the given standard property type.
 	int standardPropertyDataType(int typeId) const {
-		OVITO_ASSERT(_standardPropertyDataTypes.contains(typeId));
-		return _standardPropertyDataTypes.find(typeId).value();
+		OVITO_ASSERT(_standardPropertyDataTypes.find(typeId) != _standardPropertyDataTypes.end());
+		return _standardPropertyDataTypes.find(typeId)->second;
 	}
 
 	/// Returns the number of vector components per element used by the given standard property type.
 	size_t standardPropertyComponentCount(int typeId) const {
-		OVITO_ASSERT(_standardPropertyComponents.contains(typeId));
-		return std::max(_standardPropertyComponents.find(typeId).value().size(), 1);
+		OVITO_ASSERT(_standardPropertyComponents.find(typeId) != _standardPropertyComponents.end());
+		return std::max(_standardPropertyComponents.find(typeId)->second.size(), 1);
 	}
 
 	/// Returns the list of component names for the given standard property type.
 	const QStringList& standardPropertyComponentNames(int typeId) const {
-		OVITO_ASSERT(_standardPropertyComponents.contains(typeId));
-		return _standardPropertyComponents.find(typeId).value();
+		OVITO_ASSERT(_standardPropertyComponents.find(typeId) != _standardPropertyComponents.end());
+		return _standardPropertyComponents.find(typeId)->second;
 	}
 
 	/// Returns the list of standard property type IDs.
@@ -125,10 +136,22 @@ public:
 		return _standardPropertyIds;
 	}
 
+	/// Returns whether the given standard property is a typed property.
+	bool isTypedProperty(int typeId) const {
+		return _standardPropertyElementTypes.find(typeId) != _standardPropertyElementTypes.end();
+	}
+
+	/// Returns the ElementType class that is used by the given typed property.
+	OvitoClassPtr typedPropertyElementClass(int typeId) const {
+		auto iter = _standardPropertyElementTypes.find(typeId);
+		if(iter == _standardPropertyElementTypes.end()) return {};
+		return iter->second;
+	}
+
 protected:
 
 	/// Registers a new standard property with this property meta class.
-	void registerStandardProperty(int typeId, QString name, int dataType, QStringList componentNames, QString title = QString());
+	void registerStandardProperty(int typeId, QString name, int dataType, QStringList componentNames, OvitoClassPtr typedPropertyElementClass = {}, QString title = QString());
 
 	/// Sets the human-readable name used for the property class in the user interface.
 	void setPropertyClassDisplayName(const QString& name) { _propertyClassDisplayName = name; }
@@ -161,16 +184,19 @@ private:
 	QMap<QString, int> _standardPropertyIds;
 
 	/// Mapping from standard property type ID to standard property names.
-	QMap<int, QString> _standardPropertyNames;
+	boost::container::flat_map<int, QString> _standardPropertyNames;
 
 	/// Mapping from standard property type ID to standard property title strings.
-	QMap<int, QString> _standardPropertyTitles;
+	boost::container::flat_map<int, QString> _standardPropertyTitles;
 
 	/// Mapping from standard property type ID to property component names.
-	QMap<int, QStringList> _standardPropertyComponents;
+	boost::container::flat_map<int, QStringList> _standardPropertyComponents;
 
 	/// Mapping from standard property type ID to property data type.
-	QMap<int, int> _standardPropertyDataTypes;
+	boost::container::flat_map<int, int> _standardPropertyDataTypes;
+
+	/// Stores the IDs of all typed standard properties and the corresponding ElementType class.
+	boost::container::flat_map<int, OvitoClassPtr> _standardPropertyElementTypes;
 };
 
 }	// End of namespace

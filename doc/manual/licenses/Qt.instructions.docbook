@@ -16,14 +16,14 @@
   <simplesect>
     <title>Windows</title>
     <para>
-      OVITO for Windows includes the original and unmodified binary DLLs of Qt 5.12.6 distributed by the Qt Company.
+      OVITO for Windows is built against the original, unmodified binary DLLs of Qt 5.15.1 (MSVC 2019 64-bit) distributed by the Qt Company.
     </para>
   </simplesect>
 
   <simplesect>
     <title>Linux</title>
     <para>
-      OVITO for Linux includes Qt libraries that have been built from the unmodified sources of Qt 5.12.6 distributed by the Qt Company.
+      OVITO for Linux includes Qt libraries that have been built from the unmodified sources of Qt 5.15.1 distributed by the Qt Company.
       The following commands have been used to generate them:
 <programlisting>
 # Build platform: CentOS 6.9
@@ -36,7 +36,8 @@
     -qt-libpng \
     -qt-libjpeg \
     -qt-pcre \
-    -qt-xcb \
+    -xcb \
+    -bundled-xcb-xinput \
     -xkbcommon \
     -no-cups \
     -pch \
@@ -83,7 +84,7 @@ make install
   <simplesect>
     <title>macOS</title>
     <para>
-      OVITO for macOS uses an installation of the original Qt 5.12.6 framework distributed by the Qt Company.
+      OVITO for macOS uses an installation of the original Qt 5.12.9 framework distributed by the Qt Company.
     </para>
   </simplesect>
 

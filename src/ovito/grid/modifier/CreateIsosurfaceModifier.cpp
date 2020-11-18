@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Copyright 2019 Alexander Stukowski
+//  Copyright 2020 Alexander Stukowski
 //
 //  This file is part of OVITO (Open Visualization Tool).
 //
@@ -28,6 +28,7 @@
 #include <ovito/core/dataset/DataSet.h>
 #include <ovito/core/app/Application.h>
 #include <ovito/core/dataset/pipeline/ModifierApplication.h>
+#include <ovito/core/utilities/concurrent/ParallelFor.h>
 #include "CreateIsosurfaceModifier.h"
 #include "MarchingCubes.h"
 
@@ -36,15 +37,18 @@ namespace Ovito { namespace Grid {
 IMPLEMENT_OVITO_CLASS(CreateIsosurfaceModifier);
 DEFINE_PROPERTY_FIELD(CreateIsosurfaceModifier, subject);
 DEFINE_PROPERTY_FIELD(CreateIsosurfaceModifier, sourceProperty);
+DEFINE_PROPERTY_FIELD(CreateIsosurfaceModifier, transferFieldValues);
 DEFINE_REFERENCE_FIELD(CreateIsosurfaceModifier, isolevelController);
 DEFINE_REFERENCE_FIELD(CreateIsosurfaceModifier, surfaceMeshVis);
 SET_PROPERTY_FIELD_LABEL(CreateIsosurfaceModifier, sourceProperty, "Source property");
 SET_PROPERTY_FIELD_LABEL(CreateIsosurfaceModifier, isolevelController, "Isolevel");
+SET_PROPERTY_FIELD_LABEL(CreateIsosurfaceModifier, transferFieldValues, "Transfer field values to surface");
 
 /******************************************************************************
 * Constructs the modifier object.
 ******************************************************************************/
-CreateIsosurfaceModifier::CreateIsosurfaceModifier(DataSet* dataset) : AsynchronousModifier(dataset)
+CreateIsosurfaceModifier::CreateIsosurfaceModifier(DataSet* dataset) : AsynchronousModifier(dataset),
+	_transferFieldValues(false)
 {
 	setIsolevelController(ControllerManager::createFloatController(dataset));
 
@@ -140,9 +144,17 @@ Future<AsynchronousModifier::EnginePtr> CreateIsosurfaceModifier::createEngine(c
 	TimeInterval validityInterval = input.stateValidity();
 	FloatType isolevel = isolevelController() ? isolevelController()->getFloatValue(request.time(), validityInterval) : 0;
 
+	// Collect the set of voxel grid properties that should be transferred over to the isosurface mesh vertices.
+	std::vector<ConstPropertyPtr> auxiliaryProperties;
+	if(transferFieldValues()) {
+		for(const PropertyObject* property : voxelGrid->properties()) {
+			auxiliaryProperties.push_back(property->storage());
+		}
+	}
+
 	// Create engine object. Pass all relevant modifier parameters to the engine as well as the input data.
 	return std::make_shared<ComputeIsosurfaceEngine>(validityInterval, voxelGrid->shape(), property->storage(),
-			sourceProperty().vectorComponent(), voxelGrid->domain()->data(), isolevel);
+			sourceProperty().vectorComponent(), voxelGrid->domain()->data(), isolevel, std::move(auxiliaryProperties));
 }
 
 /******************************************************************************
@@ -159,30 +171,69 @@ void CreateIsosurfaceModifier::ComputeIsosurfaceEngine::perform()
 	if(property()->size() != _gridShape[0] * _gridShape[1] * _gridShape[2])
 		throw Exception(tr("Input voxel property has wrong array size, which is incompatible with the grid's dimensions."));
 
+	// Set up callback function returning the field value, which will be passed to the marching cubes algorithm.
 	ConstPropertyAccess<FloatType, true> data(property());
-	MarchingCubes mc(_mesh, _gridShape[0], _gridShape[1], _gridShape[2], data.cbegin() + _vectorComponent, property()->componentCount(), false);
+    auto getFieldValue = [
+			_data = data.cbegin() + _vectorComponent,
+			_pbcFlags = cell().pbcFlags(),
+			_gridShape = _gridShape,
+			_dataStride = data.componentCount()
+			](int i, int j, int k) -> FloatType {
+        if(_pbcFlags[0]) {
+            if(i == _gridShape[0]) i = 0;
+        }
+        else {
+            if(i == 0 || i == _gridShape[0] + 1) return std::numeric_limits<FloatType>::lowest();
+            i--;
+        }
+        if(_pbcFlags[1]) {
+            if(j == _gridShape[1]) j = 0;
+        }
+        else {
+            if(j == 0 || j == _gridShape[1] + 1) return std::numeric_limits<FloatType>::lowest();
+            j--;
+        }
+        if(_pbcFlags[2]) {
+            if(k == _gridShape[2]) k = 0;
+        }
+        else {
+            if(k == 0 || k == _gridShape[2] + 1) return std::numeric_limits<FloatType>::lowest();
+            k--;
+        }
+        OVITO_ASSERT(i >= 0 && i < _gridShape[0]);
+        OVITO_ASSERT(j >= 0 && j < _gridShape[1]);
+        OVITO_ASSERT(k >= 0 && k < _gridShape[2]);
+        return _data[(i + j*_gridShape[0] + k*_gridShape[0]*_gridShape[1]) * _dataStride];
+    };
+
+	MarchingCubes mc(mesh(), _gridShape[0], _gridShape[1], _gridShape[2], false, std::move(getFieldValue));
 	if(!mc.generateIsosurface(_isolevel, *this))
+		return;
+
+	// Copy field values from voxel grid to surface mesh vertices.
+	if(!transferPropertiesFromGridToMesh(*this, mesh(), auxiliaryProperties(), cell(), _gridShape))
 		return;
 
 	// Transform mesh vertices from orthogonal grid space to world space.
 	const AffineTransformation tm = cell().matrix() * Matrix3(
-		FloatType(1) / (_gridShape[0] - (cell().hasPbc(0)?0:1)), 0, 0,
-		0, FloatType(1) / (_gridShape[1] - (cell().hasPbc(1)?0:1)), 0,
-		0, 0, FloatType(1) / (_gridShape[2] - (cell().hasPbc(2)?0:1)));
-	_mesh.transformVertices(tm);
+		FloatType(1) / _gridShape[0], 0, 0,
+		0, FloatType(1) / _gridShape[1], 0,
+		0, 0, FloatType(1) / _gridShape[2]) *
+		AffineTransformation::translation(Vector3(0.5, 0.5, 0.5));
+	mesh().transformVertices(tm);
 
 	// Flip surface orientation if cell matrix is a mirror transformation.
 	if(tm.determinant() < 0)
-		_mesh.flipFaces();
+		mesh().flipFaces();
 	if(isCanceled())
 		return;
 
-	if(!_mesh.connectOppositeHalfedges())
+	if(!mesh().connectOppositeHalfedges())
 		throw Exception(tr("Something went wrong. Isosurface mesh is not closed."));
 	if(isCanceled())
 		return;
 
-	// Determine range of input field values.
+	// Determine min-max range of input field values.
 	// Only used for informational purposes for the user.
 	for(FloatType v : data.componentRange(_vectorComponent)) {
 		updateMinMax(v);
@@ -199,6 +250,7 @@ void CreateIsosurfaceModifier::ComputeIsosurfaceEngine::perform()
 
 	// Release data that is no longer needed to reduce memory footprint.
 	_property.reset();
+	_auxiliaryProperties.clear();
 }
 
 /******************************************************************************
@@ -224,6 +276,88 @@ void CreateIsosurfaceModifier::ComputeIsosurfaceEngine::applyResults(TimePoint t
 	table->setIntervalEnd(maxValue());
 
 	state.setStatus(PipelineStatus(PipelineStatus::Success, tr("Field value range: [%1, %2]").arg(minValue()).arg(maxValue())));
+}
+
+/******************************************************************************
+* Transfers voxel grid properties to the vertices of a surfaces mesh.
+******************************************************************************/
+bool CreateIsosurfaceModifier::transferPropertiesFromGridToMesh(Task& task, SurfaceMeshData& mesh, const std::vector<ConstPropertyPtr>& fieldProperties, const SimulationCell& cell, VoxelGrid::GridDimensions gridShape)
+{
+	// Create destination properties for transferring voxel values to the surface vertices.
+	std::vector<std::pair<ConstPropertyAccess<void,true>, PropertyAccess<void,true>>> propertyMapping;
+	for(const ConstPropertyPtr& fieldProperty : fieldProperties) {
+		PropertyPtr vertexProperty;
+		if(SurfaceMeshVertices::OOClass().isValidStandardPropertyId(fieldProperty->type())) {
+			// Input voxel property is also a standard property for mesh vertices.
+			vertexProperty = mesh.createVertexProperty(static_cast<SurfaceMeshVertices::Type>(fieldProperty->type()), true);
+			OVITO_ASSERT(vertexProperty->dataType() == fieldProperty->dataType());
+			OVITO_ASSERT(vertexProperty->stride() == fieldProperty->stride());
+		}
+		else if(SurfaceMeshVertices::OOClass().standardPropertyTypeId(fieldProperty->name()) != 0) {
+			// Input property name is that of a standard property for mesh vertices.
+			// Must rename the property to avoid conflict, because user properties may not have a standard property name.
+			QString newPropertyName = fieldProperty->name() + tr("_field");
+			vertexProperty = mesh.createVertexProperty(fieldProperty->dataType(), fieldProperty->componentCount(), fieldProperty->stride(), newPropertyName, true, fieldProperty->componentNames());
+		}
+		else {
+			// Input property is a user property for mesh vertices.
+			vertexProperty = mesh.createVertexProperty(fieldProperty->dataType(), fieldProperty->componentCount(), fieldProperty->stride(), fieldProperty->name(), true, fieldProperty->componentNames());
+		}
+		propertyMapping.emplace_back(fieldProperty, std::move(vertexProperty));
+	}
+
+	// Transfer values of field properties to the created mesh vertices.
+	if(!propertyMapping.empty()) {
+		parallelFor(mesh.vertexCount(), task, [&](size_t vertexIndex) {
+			// Trilinear interpolation scheme.
+			size_t cornerIndices[8];
+			FloatType cornerWeights[8];
+			const Point3& p = mesh.vertexPosition(vertexIndex);
+			OVITO_ASSERT(mesh.firstVertexEdge(vertexIndex) != HalfEdgeMesh::InvalidIndex);
+			Vector3 x0, x1;
+			Vector3I x0_vc, x1_vc;
+			for(size_t dim = 0; dim < 3; dim++) {
+				OVITO_ASSERT(p[dim] >= -0.5-FLOATTYPE_EPSILON);
+				OVITO_ASSERT(p[dim] <= (FloatType)gridShape[dim] + FLOATTYPE_EPSILON + 0.5);
+				FloatType fl = std::floor(p[dim]);
+				x1[dim] = p[dim] - fl;
+				x0[dim] = FloatType(1) - x1[dim];
+				if(!cell.hasPbc(dim)) {
+					x0_vc[dim] = qBound(0, (int)fl, (int)gridShape[dim] - 1);
+					x1_vc[dim] = qBound(0, (int)fl + 1, (int)gridShape[dim] - 1);
+				}
+				else {
+					x0_vc[dim] = SimulationCell::modulo((int)fl, gridShape[dim]);
+					x1_vc[dim] = SimulationCell::modulo((int)fl + 1, gridShape[dim]);
+				}
+			}
+			cornerWeights[0] = x0.x() * x0.y() * x0.z();
+			cornerWeights[1] = x1.x() * x0.y() * x0.z();
+			cornerWeights[2] = x0.x() * x1.y() * x0.z();
+			cornerWeights[3] = x0.x() * x0.y() * x1.z();
+			cornerWeights[4] = x1.x() * x0.y() * x1.z();
+			cornerWeights[5] = x0.x() * x1.y() * x1.z();
+			cornerWeights[6] = x1.x() * x1.y() * x0.z();
+			cornerWeights[7] = x1.x() * x1.y() * x1.z();
+			cornerIndices[0] = x0_vc.x() + x0_vc.y() * gridShape[0] + x0_vc.z() * gridShape[0] * gridShape[1];
+			cornerIndices[1] = x1_vc.x() + x0_vc.y() * gridShape[0] + x0_vc.z() * gridShape[0] * gridShape[1];
+			cornerIndices[2] = x0_vc.x() + x1_vc.y() * gridShape[0] + x0_vc.z() * gridShape[0] * gridShape[1];
+			cornerIndices[3] = x0_vc.x() + x0_vc.y() * gridShape[0] + x1_vc.z() * gridShape[0] * gridShape[1];
+			cornerIndices[4] = x1_vc.x() + x0_vc.y() * gridShape[0] + x1_vc.z() * gridShape[0] * gridShape[1];
+			cornerIndices[5] = x0_vc.x() + x1_vc.y() * gridShape[0] + x1_vc.z() * gridShape[0] * gridShape[1];
+			cornerIndices[6] = x1_vc.x() + x1_vc.y() * gridShape[0] + x0_vc.z() * gridShape[0] * gridShape[1];
+			cornerIndices[7] = x1_vc.x() + x1_vc.y() * gridShape[0] + x1_vc.z() * gridShape[0] * gridShape[1];
+			for(auto& p : propertyMapping) {
+				for(size_t component = 0; component < p.first.componentCount(); component++) {
+					FloatType v = 0;
+					for(size_t i = 0; i < 8; i++)
+						v += cornerWeights[i] * p.first.get<FloatType>(cornerIndices[i], component);
+					p.second.set<FloatType>(vertexIndex, component, v);
+				}
+			}
+		});
+	}
+	return !task.isCanceled();
 }
 
 }	// End of namespace

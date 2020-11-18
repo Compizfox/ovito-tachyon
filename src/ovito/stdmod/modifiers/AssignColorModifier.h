@@ -85,6 +85,7 @@ public:
 
 	OVITO_CLASS_META(AssignColorModifier, AssignColorModifierClass)
 	Q_CLASSINFO("DisplayName", "Assign color");
+	Q_CLASSINFO("Description", "Assign a color to the currently selected elements.");
 	Q_CLASSINFO("ModifierCategory", "Coloring");
 	Q_OBJECT
 

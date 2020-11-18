@@ -43,6 +43,8 @@ DEFINE_PROPERTY_FIELD(VectorVis, arrowWidth);
 DEFINE_PROPERTY_FIELD(VectorVis, scalingFactor);
 DEFINE_PROPERTY_FIELD(VectorVis, shadingMode);
 DEFINE_PROPERTY_FIELD(VectorVis, renderingQuality);
+DEFINE_REFERENCE_FIELD(VectorVis, transparencyController);
+DEFINE_PROPERTY_FIELD(VectorVis, offset);
 SET_PROPERTY_FIELD_LABEL(VectorVis, arrowColor, "Arrow color");
 SET_PROPERTY_FIELD_LABEL(VectorVis, arrowWidth, "Arrow width");
 SET_PROPERTY_FIELD_LABEL(VectorVis, scalingFactor, "Scaling factor");
@@ -50,8 +52,12 @@ SET_PROPERTY_FIELD_LABEL(VectorVis, reverseArrowDirection, "Reverse direction");
 SET_PROPERTY_FIELD_LABEL(VectorVis, arrowPosition, "Position");
 SET_PROPERTY_FIELD_LABEL(VectorVis, shadingMode, "Shading mode");
 SET_PROPERTY_FIELD_LABEL(VectorVis, renderingQuality, "RenderingQuality");
+SET_PROPERTY_FIELD_LABEL(VectorVis, transparencyController, "Transparency");
+SET_PROPERTY_FIELD_LABEL(VectorVis, offset, "Offset");
 SET_PROPERTY_FIELD_UNITS_AND_MINIMUM(VectorVis, arrowWidth, WorldParameterUnit, 0);
 SET_PROPERTY_FIELD_UNITS_AND_MINIMUM(VectorVis, scalingFactor, FloatParameterUnit, 0);
+SET_PROPERTY_FIELD_UNITS_AND_RANGE(VectorVis, transparencyController, PercentParameterUnit, 0, 1);
+SET_PROPERTY_FIELD_UNITS(VectorVis, offset, WorldParameterUnit);
 
 /******************************************************************************
 * Constructor.
@@ -63,8 +69,10 @@ VectorVis::VectorVis(DataSet* dataset) : DataVis(dataset),
 	_arrowWidth(0.5),
 	_scalingFactor(1),
 	_shadingMode(FlatShading),
-	_renderingQuality(ArrowPrimitive::LowQuality)
+	_renderingQuality(ArrowPrimitive::LowQuality),
+	_offset(Vector3::Zero())
 {
+	setTransparencyController(ControllerManager::createFloatController(dataset));
 }
 
 /******************************************************************************
@@ -85,7 +93,8 @@ Box3 VectorVis::boundingBox(TimePoint time, const std::vector<const DataObject*>
 		VersionedDataObjectRef,		// Vector property + revision number
 		VersionedDataObjectRef,		// Particle position property + revision number
 		FloatType,					// Scaling factor
-		FloatType					// Arrow width
+		FloatType,					// Arrow width
+		Vector3						// Offset
 	>;
 
 	// Look up the bounding box in the vis cache.
@@ -93,7 +102,8 @@ Box3 VectorVis::boundingBox(TimePoint time, const std::vector<const DataObject*>
 			vectorProperty,
 			positionProperty,
 			scalingFactor(),
-			arrowWidth()));
+			arrowWidth(),
+			offset()));
 
 	// Check if the cached bounding box information is still up to date.
 	if(bbox.isEmpty()) {
@@ -133,6 +143,10 @@ Box3 VectorVis::arrowBoundingBox(const PropertyObject* vectorProperty, const Pro
 		if(m > maxMagnitude) maxMagnitude = m;
 	}
 
+	// Apply displacement offset.
+	bbox.minc += offset();
+	bbox.maxc += offset();
+
 	// Enlarge the bounding box by the largest vector magnitude + padding.
 	return bbox.padBox((sqrt(maxMagnitude) * std::abs(scalingFactor())) + arrowWidth());
 }
@@ -171,11 +185,18 @@ void VectorVis::render(TimePoint time, const std::vector<const DataObject*>& obj
 		VersionedDataObjectRef,		// Particle position property + revision number
 		FloatType,					// Scaling factor
 		FloatType,					// Arrow width
-		Color,						// Arrow color
+		ColorA,						// Arrow color + alpha
 		bool,						// Reverse arrow direction
 		ArrowPosition,				// Arrow position
 		VersionedDataObjectRef		// Vector color property + revision number
 	>;
+
+	// Determine effective color including alpha value.
+	FloatType transp = 0;
+	TimeInterval iv;
+	if(transparencyController()) 
+		transp = transparencyController()->getFloatValue(time, iv);
+	ColorA color(arrowColor(), FloatType(1) - transp);
 
 	// Lookup the rendering primitive in the vis cache.
 	auto& arrowPrimitive = dataset()->visCache().get<std::shared_ptr<ArrowPrimitive>>(CacheKey(
@@ -184,7 +205,7 @@ void VectorVis::render(TimePoint time, const std::vector<const DataObject*>& obj
 			positionProperty,
 			scalingFactor(),
 			arrowWidth(),
-			arrowColor(),
+			color,
 			reverseArrowDirection(),
 			arrowPosition(),
 			vectorColorProperty));
@@ -195,7 +216,7 @@ void VectorVis::render(TimePoint time, const std::vector<const DataObject*>& obj
 			|| !arrowPrimitive->setShadingMode(static_cast<ArrowPrimitive::ShadingMode>(shadingMode()))
 			|| !arrowPrimitive->setRenderingQuality(renderingQuality())) {
 
-		arrowPrimitive = renderer->createArrowPrimitive(ArrowPrimitive::ArrowShape, static_cast<ArrowPrimitive::ShadingMode>(shadingMode()), renderingQuality());
+		arrowPrimitive = renderer->createArrowPrimitive(ArrowPrimitive::ArrowShape, static_cast<ArrowPrimitive::ShadingMode>(shadingMode()), renderingQuality(), color.a() < 1.0);
 
 		// Determine number of non-zero vectors.
 		int vectorCount = 0;
@@ -212,7 +233,6 @@ void VectorVis::render(TimePoint time, const std::vector<const DataObject*>& obj
 			FloatType scalingFac = scalingFactor();
 			if(reverseArrowDirection())
 				scalingFac = -scalingFac;
-			ColorA color(arrowColor());
 			FloatType width = arrowWidth();
 			ArrowPrimitive* buffer = arrowPrimitive.get();
 			ConstPropertyAccess<Point3> positions(positionProperty);
@@ -229,7 +249,7 @@ void VectorVis::render(TimePoint time, const std::vector<const DataObject*>& obj
 					else if(arrowPosition() == Center)
 						base -= v * FloatType(0.5);
 					if(pcol)
-						color = *pcol;
+						color.rgb() = *pcol;
 					buffer->setElement(index++, base, v, color, width);
 				}
 				++pos;
@@ -246,7 +266,10 @@ void VectorVis::render(TimePoint time, const std::vector<const DataObject*>& obj
 		OORef<VectorPickInfo> pickInfo(new VectorPickInfo(this, flowState, vectorProperty));
 		renderer->beginPickObject(contextNode, pickInfo);
 	}
+	AffineTransformation oldTM = renderer->worldTransform();
+	renderer->setWorldTransform(AffineTransformation::translation(offset()) * oldTM);
 	arrowPrimitive->render(renderer);
+	renderer->setWorldTransform(oldTM);
 	if(renderer->isPicking()) {
 		renderer->endPickObject();
 	}
@@ -282,7 +305,6 @@ QString VectorPickInfo::infoString(PipelineSceneNode* objectNode, quint32 subobj
 	if(particleIndex == std::numeric_limits<size_t>::max()) return QString();
 	return ParticlePickInfo::particleInfoString(pipelineState(), particleIndex);
 }
-
 
 }	// End of namespace
 }	// End of namespace

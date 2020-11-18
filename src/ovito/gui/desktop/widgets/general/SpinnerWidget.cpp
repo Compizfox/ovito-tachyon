@@ -281,8 +281,9 @@ void SpinnerWidget::mouseReleaseEvent(QMouseEvent* event)
 		else {
 			FloatType newValue;
 			if(_upperBtnPressed) {
-				if(unit())
+				if(unit()) {
 					newValue = unit()->roundValue(floatValue() + unit()->stepSize(floatValue(), true));
+				}
 				else
 					newValue = floatValue() + FloatType(1);
 			}

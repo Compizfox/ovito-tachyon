@@ -113,7 +113,14 @@ void ViewportInputMode::mousePressEvent(ViewportWindowInterface* vpwin, QMouseEv
 		}
 	}
 	else if(event->button() == Qt::LeftButton) {
-		_lastMousePressEvent.reset(new QMouseEvent(event->type(), event->localPos(), event->windowPos(), event->screenPos(), event->button(), event->buttons(), event->modifiers()));
+		if(!(event->modifiers() & Qt::ShiftModifier)) {
+			_lastMousePressEvent.reset(new QMouseEvent(event->type(), event->localPos(), event->windowPos(), event->screenPos(), event->button(), event->buttons(), event->modifiers()));
+		}
+		else {
+			activateTemporaryNavigationMode(manager->panMode());
+			if(manager->activeMode() == manager->panMode())
+				manager->activeMode()->mousePressEvent(vpwin, event);
+		}
 	}
 	else if(event->button() == Qt::MidButton) {
 		activateTemporaryNavigationMode(manager->panMode());

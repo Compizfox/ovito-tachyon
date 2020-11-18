@@ -47,6 +47,66 @@ QListWidget* DataInspectionApplet::objectSelectionWidget()
 {
     if(!_objectSelectionWidget) {
         _objectSelectionWidget = new QListWidget();
+
+        class ItemDelegate : public QStyledItemDelegate 
+        {
+        public:
+            ItemDelegate() {
+                _font1 = QGuiApplication::font();
+                _font1.setBold(true);
+                _font2 = QGuiApplication::font();
+                _font2.setItalic(true);
+            }
+        protected:
+            QFont _font1, _font2;
+            virtual void paint(QPainter* painter, const QStyleOptionViewItem& option, const QModelIndex& index) const override {
+                QStyleOptionViewItem options = option;
+                initStyleOption(&options, index);
+#ifdef Q_OS_LINUX
+                options.state.setFlag(QStyle::State_HasFocus, false);
+#endif
+
+                // Draw list item without text content.
+                QString text = std::move(options.text);
+                options.text.clear();
+                options.widget->style()->drawControl(QStyle::CE_ItemViewItem, &options, painter, options.widget);
+
+                // Draw first line of text.
+                options.rect.adjust(0, 4, 0, -4);
+                options.backgroundBrush = {};
+#ifndef Q_OS_WIN
+                // Override text color for highlighted items.
+                if(options.state & QStyle::State_Selected)
+                    options.palette.setColor(QPalette::Text, options.palette.color(QPalette::Active, QPalette::HighlightedText));
+#endif
+                options.state.setFlag(QStyle::State_Selected, false);
+                options.state.setFlag(QStyle::State_MouseOver, false);
+                options.icon = {};
+                options.displayAlignment = Qt::AlignLeft | Qt::AlignTop;
+                options.font = _font1;
+                options.text = std::move(text);
+                options.widget->style()->drawControl(QStyle::CE_ItemViewItem, &options, painter, options.widget);
+
+                // Draw second line of text.
+                options.text = index.data(Qt::StatusTipRole).toString();
+                options.displayAlignment = Qt::AlignLeft | Qt::AlignBottom;
+                options.font = _font2;
+                options.widget->style()->drawControl(QStyle::CE_ItemViewItem, &options, painter, options.widget);
+            }
+
+            virtual QSize sizeHint(const QStyleOptionViewItem& option, const QModelIndex& index) const override {
+                QStyleOptionViewItem options = option;
+                initStyleOption(&options, index);
+                QSize size = options.widget->style()->sizeFromContents(QStyle::CT_ItemViewItem, &options, QSize(), options.widget);
+                QFontMetrics fm1(_font1);
+                QFontMetrics fm2(_font2);
+                size.setHeight(std::max(size.height(), fm1.height() + fm2.height() + 8));
+                return size;
+            }
+        };
+        _objectSelectionWidget->setUniformItemSizes(true);
+        _objectSelectionWidget->setItemDelegate(new ItemDelegate());
+
         updateDataObjectList();
         connect(_objectSelectionWidget, &QListWidget::currentRowChanged, this, [this]() {
             QListWidgetItem* item = _objectSelectionWidget->currentItem();
@@ -98,8 +158,6 @@ void DataInspectionApplet::updateDataObjectList()
             const DataObject* dataObj = path.back();
             QListWidgetItem* item;
             QString itemTitle = dataObj->objectTitle();
-            if(dataObj->dataSource())
-                itemTitle += QStringLiteral(" [%1]").arg(dataObj->dataSource()->objectTitle());
             if(_objectSelectionWidget->count() <= numItems) {
                 item = new QListWidgetItem(itemTitle, _objectSelectionWidget);
             }
@@ -108,6 +166,7 @@ void DataInspectionApplet::updateDataObjectList()
                 item->setText(itemTitle);
             }
             item->setToolTip(tr("Python identifier: \"%1\"").arg(dataObj->identifier()));
+            item->setStatusTip(dataObj->dataSource() ? dataObj->dataSource()->objectTitle() : QString());
             item->setData(Qt::UserRole, QVariant::fromValue(path));
 
             // Select again the previously selected data object.
@@ -180,7 +239,7 @@ void DataInspectionApplet::TableView::keyPressEvent(QKeyEvent* event)
             return;
 
         // QModelIndex::operator < sorts first by row, then by column. This is what we need.
-        qSort(indices);
+        std::sort(indices.begin(), indices.end());
 
         int lastRow = indices.first().row();
         int lastColumn = indices.first().column();

@@ -152,8 +152,8 @@ PipelineStatus ParticlesReplicateModifierDelegate::apply(Modifier* modifier, Pip
 													+  (newImage.z()-newImages.minc.z());
 								topologyArray[destinationIndex][0] += imageIndex1 * oldParticleCount;
 								topologyArray[destinationIndex][1] += imageIndex2 * oldParticleCount;
-								OVITO_ASSERT(topologyArray[destinationIndex][0] < newParticleCount);
-								OVITO_ASSERT(topologyArray[destinationIndex][1] < newParticleCount);
+								OVITO_ASSERT((size_t)topologyArray[destinationIndex][0] < newParticleCount);
+								OVITO_ASSERT((size_t)topologyArray[destinationIndex][1] < newParticleCount);
 							}
 						}
 					}
@@ -206,7 +206,7 @@ PipelineStatus ParticlesReplicateModifierDelegate::apply(Modifier* modifier, Pip
 								qlonglong referenceParticle = topologyArray[destinationIndex][1];
 								for(qlonglong& pindex : topologyArray[destinationIndex]) {
 									Point3I newImage = image;
-									if(pindex >= 0 && pindex < positionArray.size() && referenceParticle >= 0 && referenceParticle < positionArray.size()) {
+									if(pindex >= 0 && (size_t)pindex < positionArray.size() && referenceParticle >= 0 && (size_t)referenceParticle < positionArray.size()) {
 										Vector3 delta = positionArray[pindex] - positionArray[referenceParticle];
 										for(size_t dim = 0; dim < 3; dim++) {
 											if(cell.hasPbc(dim)) {
@@ -220,7 +220,7 @@ PipelineStatus ParticlesReplicateModifierDelegate::apply(Modifier* modifier, Pip
 													 + ((newImage.y() - newImages.minc.y()) * nPBC[2])
 													 +  (newImage.z() - newImages.minc.z());
 									pindex += imageIndex * oldParticleCount;
-									OVITO_ASSERT(pindex < newParticleCount);
+									OVITO_ASSERT((size_t)pindex < newParticleCount);
 								}
 							}
 						}
@@ -253,7 +253,7 @@ PipelineStatus ParticlesReplicateModifierDelegate::apply(Modifier* modifier, Pip
 								qlonglong referenceParticle = topologyArray[destinationIndex][1];
 								for(qlonglong& pindex : topologyArray[destinationIndex]) {
 									Point3I newImage = image;
-									if(pindex >= 0 && pindex < positionArray.size() && referenceParticle >= 0 && referenceParticle < positionArray.size()) {
+									if(pindex >= 0 && (size_t)pindex < positionArray.size() && referenceParticle >= 0 && (size_t)referenceParticle < positionArray.size()) {
 										Vector3 delta = positionArray[pindex] - positionArray[referenceParticle];
 										for(size_t dim = 0; dim < 3; dim++) {
 											if(cell.hasPbc(dim)) {
@@ -267,7 +267,7 @@ PipelineStatus ParticlesReplicateModifierDelegate::apply(Modifier* modifier, Pip
 													 + ((newImage.y() - newImages.minc.y()) * nPBC[2])
 													 +  (newImage.z() - newImages.minc.z());
 									pindex += imageIndex * oldParticleCount;
-									OVITO_ASSERT(pindex < newParticleCount);
+									OVITO_ASSERT((size_t)pindex < newParticleCount);
 								}
 							}
 						}
@@ -300,7 +300,7 @@ PipelineStatus ParticlesReplicateModifierDelegate::apply(Modifier* modifier, Pip
 								qlonglong referenceParticle = topologyArray[destinationIndex][1];
 								for(qlonglong& pindex : topologyArray[destinationIndex]) {
 									Point3I newImage = image;
-									if(pindex >= 0 && pindex < positionArray.size() && referenceParticle >= 0 && referenceParticle < positionArray.size()) {
+									if(pindex >= 0 && (size_t)pindex < positionArray.size() && referenceParticle >= 0 && (size_t)referenceParticle < positionArray.size()) {
 										Vector3 delta = positionArray[pindex] - positionArray[referenceParticle];
 										for(size_t dim = 0; dim < 3; dim++) {
 											if(cell.hasPbc(dim)) {
@@ -314,7 +314,7 @@ PipelineStatus ParticlesReplicateModifierDelegate::apply(Modifier* modifier, Pip
 													 + ((newImage.y() - newImages.minc.y()) * nPBC[2])
 													 +  (newImage.z() - newImages.minc.z());
 									pindex += imageIndex * oldParticleCount;
-									OVITO_ASSERT(pindex < newParticleCount);
+									OVITO_ASSERT((size_t)pindex < newParticleCount);
 								}
 							}
 						}

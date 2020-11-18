@@ -1,6 +1,6 @@
 #######################################################################################
 #
-#  Copyright 2019 Alexander Stukowski
+#  Copyright 2020 Alexander Stukowski
 #
 #  This file is part of OVITO (Open Visualization Tool).
 #
@@ -118,6 +118,7 @@ ELSEIF(WIN32 AND NOT OVITO_BUILD_CONDA)
 
 	# Create a qt.conf file.
 	# This is required to let Qt search for its plugin modules in the program directory.
+	FILE(WRITE "${OVITO_BINARY_DIRECTORY}/qt.conf" "[Paths]\nPlugins = plugins/")
 	INSTALL(CODE "
 	    FILE(WRITE \"\${CMAKE_INSTALL_PREFIX}/${OVITO_RELATIVE_BINARY_DIRECTORY}/qt.conf\" \"[Paths]\\nPlugins = plugins/\")
 		")
@@ -146,6 +147,7 @@ IF(OVITO_BUILD_PLUGIN_PYSCRIPT AND NOT OVITO_BUILD_BASIC)
 	FIND_PACKAGE(Python3 REQUIRED COMPONENTS Interpreter Development)
 	TARGET_LINK_LIBRARIES(Ovito PRIVATE Python3::Python)
 	TARGET_COMPILE_DEFINITIONS(Ovito PRIVATE "OVITO_BUILD_PLUGIN_PYSCRIPT=1")
+	TARGET_INCLUDE_DIRECTORIES(Ovito PRIVATE "${CMAKE_SOURCE_DIR}/proprietary")
 
 	IF(OVITO_REDISTRIBUTABLE_PACKAGE AND UNIX AND NOT APPLE)
 		# Uninstall Python packages from the embedded interpreter that should not be part of the official distribution.

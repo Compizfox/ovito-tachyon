@@ -51,6 +51,8 @@ void ViewportModeAction::onActionToggled(bool checked)
 	// Activate/deactivate the input mode.
 	if(checked && !_inputMode->isActive()) {
 		_viewportInputManager.pushInputMode(_inputMode);
+		// Give viewport windows the input focus.
+		static_cast<MainWindow*>(_viewportInputManager.mainWindow())->viewportsPanel()->setFocus(Qt::OtherFocusReason);
 	}
 	else if(!checked) {
 		if(_viewportInputManager.activeMode() == _inputMode && _inputMode->modeType() == ViewportInputMode::ExclusiveMode) {

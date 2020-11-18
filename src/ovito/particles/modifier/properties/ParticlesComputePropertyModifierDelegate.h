@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Copyright 2018 Alexander Stukowski
+//  Copyright 2020 Alexander Stukowski
 //
 //  This file is part of OVITO (Open Visualization Tool).
 //
@@ -97,7 +97,7 @@ public:
 	virtual std::shared_ptr<ComputePropertyModifierDelegate::PropertyComputeEngine> createEngine(
 				TimePoint time,
 				const PipelineFlowState& input,
-				const PropertyContainer* container,
+				const ConstDataObjectPath& containerPath,
 				PropertyPtr outputProperty,
 				ConstPropertyPtr selectionProperty,
 				QStringList expressions) override;
@@ -114,7 +114,7 @@ private:
 				const TimeInterval& validityInterval,
 				TimePoint time,
 				PropertyPtr outputProperty,
-				const PropertyContainer* container,
+				const ConstDataObjectPath& containerPath,
 				ConstPropertyPtr selectionProperty,
 				QStringList expressions,
 				int frameNumber,

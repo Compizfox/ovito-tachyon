@@ -194,7 +194,7 @@ void TextLabelOverlayEditor::updateEditorFields()
 			const PipelineFlowState& flowState = node->evaluatePipelineSynchronous(false);
 			str.append(tr("<p>Dynamic attributes that can be referenced in the label text:</b><ul>"));
 			if(flowState.data()) {
-				for(const QString& attrName : flowState.data()->buildAttributesMap().keys()) {
+				for(const QString& attrName : flowState.buildAttributesMap().keys()) {
 					str.append(QStringLiteral("<li>[%1]</li>").arg(attrName.toHtmlEscaped()));
 					variableNames.push_back(QStringLiteral("[") + attrName + QStringLiteral("]"));
 				}

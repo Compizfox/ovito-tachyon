@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Copyright 2019 Alexander Stukowski
+//  Copyright 2020 Alexander Stukowski
 //
 //  This file is part of OVITO (Open Visualization Tool).
 //
@@ -133,60 +133,48 @@ void VoxelGridVis::render(TimePoint time, const std::vector<const DataObject*>& 
 
 			// Helper function that creates the mesh vertices and faces for one side of the grid volume.
 			auto createFacesForSide = [&](size_t dim1, size_t dim2, int dim3, bool oppositeSide) {
+
+				// Number of grid lines between voxels:
 				int nx = gridDims[dim1] + 1;
 				int ny = gridDims[dim2] + 1;
-				size_t coords[3];
-				coords[dim3] = (oppositeSide && !pbcFlags[dim3]) ? (gridDims[dim3]-1) : 0;
-				int baseVertexCount = mesh.vertexCount();
-				int baseFaceCount = mesh.faceCount();
-				mesh.setVertexCount(baseVertexCount + nx * ny);
-				mesh.setFaceCount(baseFaceCount + 2 * (nx-1) * (ny-1));
+
+				// Edge vectors of one voxel face:
 				Vector3 dx = gridObj->domain()->cellMatrix().column(dim1) / gridDims[dim1];
 				Vector3 dy = gridObj->domain()->cellMatrix().column(dim2) / gridDims[dim2];
+
+				// The xyz voxel grid coordinates:
+				size_t coords[3];
+				coords[dim3] = oppositeSide ? (gridDims[dim3] - 1) : 0;
+				size_t coords_wrap[3];
+				coords_wrap[dim3] = oppositeSide ? 0 : (gridDims[dim3] - 1);
+
+				// The origin of the grid face in world space.
 				Point3 origin = Point3::Origin() + gridObj->domain()->cellMatrix().translation();
 				if(oppositeSide) origin += gridObj->domain()->cellMatrix().column(dim3);
-				auto vertex = mesh.vertices().begin() + baseVertexCount;
-				auto face = mesh.faces().begin() + baseFaceCount;
-				ColorA* faceColor = nullptr;
-				ColorA* vertexColor = nullptr;
-				if(colorArray) {
-					if(interpolateColors())
-						vertexColor = mesh.vertexColors().data() + baseVertexCount;
-					else
-						faceColor = mesh.faceColors().data() + baseFaceCount;
-				}
-				for(int iy = 0; iy < ny; iy++) {
-					for(int ix = 0; ix < nx; ix++) {
-						*vertex++ = origin + (ix * dx) + (iy * dy);
-						if(vertexColor) {
-							// Compute the color at the current vertex, which is the average from the
-							// colors of the four adjacent voxel facets.
-							Color interpolatedColor(0,0,0);
-							int numNeighbors = 0;
-							for(int niy = iy-1; niy <= iy; niy++) {
-								if(niy < 0) {
-									if(pbcFlags[dim2]) coords[dim2] = ny-2; else continue;
-								}
-								else if(niy > ny-2) {
-									if(pbcFlags[dim2]) coords[dim2] = 0; else continue;
-								}
-								else coords[dim2] = niy;
-								for(int nix = ix-1; nix <= ix; nix++) {
-									if(nix < 0) {
-										if(pbcFlags[dim1]) coords[dim1] = nx-2; else continue;
-									}
-									else if(nix > nx-2) {
-										if(pbcFlags[dim1]) coords[dim1] = 0; else continue;
-									}
-									else coords[dim1] = nix;
-									interpolatedColor += colorArray[gridObj->voxelIndex(coords[0], coords[1], coords[2])];
-									numNeighbors++;
-								}
-							}
-							OVITO_ASSERT(numNeighbors >= 1);
-							*vertexColor++ = ColorA((FloatType(1) / numNeighbors) * interpolatedColor, alpha);
+
+				int baseVertexCount = mesh.vertexCount();
+				int baseFaceCount = mesh.faceCount();
+
+				if(!interpolateColors() || !colorArray) {
+
+					// Create two triangles per voxel face. 
+					mesh.setVertexCount(baseVertexCount + nx * ny);
+					mesh.setFaceCount(baseFaceCount + 2 * (nx-1) * (ny-1));
+
+					// Create vertices.
+					auto vertex = mesh.vertices().begin() + baseVertexCount;
+					for(int iy = 0; iy < ny; iy++) {
+						for(int ix = 0; ix < nx; ix++) {
+							*vertex++ = origin + (ix * dx) + (iy * dy);
 						}
-						if(ix+1 < nx && iy+1 < ny) {
+					}
+					OVITO_ASSERT(vertex == mesh.vertices().end());
+
+					// Create triangles.
+					auto face = mesh.faces().begin() + baseFaceCount;
+					ColorA* faceColor = colorArray ? mesh.faceColors().data() + baseFaceCount : nullptr;
+					for(int iy = 0; iy < ny - 1; iy++) {
+						for(int ix = 0; ix < nx - 1; ix++) {
 							face->setVertices(baseVertexCount + iy * nx + ix, baseVertexCount + iy * nx + ix+1, baseVertexCount + (iy+1) * nx + ix+1);
 							face->setEdgeVisibility(true, true, false);
 							++face;
@@ -202,9 +190,161 @@ void VoxelGridVis::render(TimePoint time, const std::vector<const DataObject*>& 
 							}
 						}
 					}
+					OVITO_ASSERT(face == mesh.faces().end());
 				}
-				OVITO_ASSERT(vertex == mesh.vertices().end());
-				OVITO_ASSERT(face == mesh.faces().end());
+				else {
+					int verts_per_voxel = 4;
+					int verts_per_row = verts_per_voxel * (nx - 1) + 2;
+
+					// Generate 8 triangles per voxel cell face.
+					mesh.setVertexCount(baseVertexCount + verts_per_row * (ny-1) + (nx - 1) * 2 + 1);
+					mesh.setFaceCount(baseFaceCount + 8 * (nx-1) * (ny-1));
+
+					// Create vertices.
+					auto vertex = mesh.vertices().begin() + baseVertexCount;
+					for(int iy = 0; iy < ny; iy++) {
+						for(int ix = 0; ix < nx; ix++) {
+							// Create four vertices per voxel face.
+							Point3 corner = origin + (ix * dx) + (iy * dy);
+							*vertex++ = corner;
+							if(ix < nx - 1)
+								*vertex++ = corner + FloatType(0.5) * dx;
+							if(iy < ny - 1)
+								*vertex++ = corner + FloatType(0.5) * dy;
+							if(ix < nx - 1 && iy < ny - 1)
+								*vertex++ = corner + FloatType(0.5) * (dx + dy);
+						}
+					}
+					OVITO_ASSERT(vertex == mesh.vertices().end());
+
+					// Compute color of vertices located in the center of voxel faces.
+					ColorA* vertexColor = mesh.vertexColors().data() + baseVertexCount;
+					for(int iy = 0; iy < ny - 1; iy++, vertexColor += 2) {
+						for(int ix = 0; ix < nx - 1; ix++, vertexColor += 4) {
+							coords[dim1] = ix;
+							coords[dim2] = iy;
+							const Color& c1 = colorArray[gridObj->voxelIndex(coords[0], coords[1], coords[2])];
+							if(pbcFlags[dim3]) {
+								// Blend two colors if the grid is periodic.
+								coords_wrap[dim1] = ix;
+								coords_wrap[dim2] = iy;
+								const Color& c2 = colorArray[gridObj->voxelIndex(coords_wrap[0], coords_wrap[1], coords_wrap[2])];
+								vertexColor[3] = ColorA(FloatType(0.5) * (c1 + c2), alpha);
+							}
+							else {
+								vertexColor[3] = ColorA(c1, alpha);
+							}
+						}
+					}
+
+					// Compute color of vertices located on the horizontal grid lines of the voxel grid.
+					vertexColor = mesh.vertexColors().data() + baseVertexCount;
+					if(!pbcFlags[dim2]) {
+						for(int ix = 0; ix < nx - 1; ix++)
+							vertexColor[ix * verts_per_voxel + 1] = vertexColor[ix * verts_per_voxel + 3];
+					}
+					else {
+						for(int ix = 0; ix < nx - 1; ix++)
+							vertexColor[ix * verts_per_voxel + 1] = FloatType(0.5) * (vertexColor[ix * verts_per_voxel + 3] + vertexColor[(ny - 2) * verts_per_row + ix * verts_per_voxel + 3]);
+					}
+					for(int iy = 1; iy < ny - 1; iy++) {
+						for(int ix = 0; ix < nx - 1; ix++) {
+							vertexColor[iy * verts_per_row + ix * verts_per_voxel + 1] = FloatType(0.5) * (vertexColor[iy * verts_per_row + ix * verts_per_voxel + 3] + vertexColor[(iy-1) * verts_per_row + ix * verts_per_voxel + 3]);
+						}
+					}
+					if(!pbcFlags[dim2]) {
+						for(int ix = 0; ix < nx - 1; ix++)
+							vertexColor[(ny - 1) * verts_per_row + ix * 2 + 1] = vertexColor[(ny - 2) * verts_per_row + ix * verts_per_voxel + 3];
+					}
+					else {
+						for(int ix = 0; ix < nx - 1; ix++)
+							vertexColor[(ny - 1) * verts_per_row + ix * 2 + 1] = vertexColor[ix * verts_per_voxel + 1];
+					}
+
+					// Compute color of vertices located on the vertical grid lines of the voxel grid.
+					if(!pbcFlags[dim1]) {
+						for(int iy = 0; iy < ny - 1; iy++)
+							vertexColor[iy * verts_per_row + 2] = vertexColor[iy * verts_per_row + 3];
+					}
+					else {
+						for(int iy = 0; iy < ny - 1; iy++)
+							vertexColor[iy * verts_per_row + 2] = FloatType(0.5) * (vertexColor[iy * verts_per_row + 3] + vertexColor[(nx - 2) * verts_per_voxel + iy * verts_per_row + 3]);
+					}
+					for(int iy = 0; iy < ny - 1; iy++) {
+						for(int ix = 1; ix < nx - 1; ix++) {
+							vertexColor[iy * verts_per_row + ix * verts_per_voxel + 2] = FloatType(0.5) * (vertexColor[iy * verts_per_row + ix * verts_per_voxel + 3] + vertexColor[iy * verts_per_row + (ix-1) * verts_per_voxel + 3]);
+						}
+					}
+					if(!pbcFlags[dim1]) {
+						for(int iy = 0; iy < ny - 1; iy++)
+							vertexColor[iy * verts_per_row + (nx - 1) * verts_per_voxel + 1] = vertexColor[iy * verts_per_row + (nx - 2) * verts_per_voxel + 3];
+					}
+					else {
+						for(int iy = 0; iy < ny - 1; iy++)
+							vertexColor[iy * verts_per_row + (nx - 1) * verts_per_voxel + 1] = vertexColor[iy * verts_per_row + 2];
+					}
+
+					// Compute color of vertices located on the grid line intersections.
+					for(int iy = 0; iy < ny - 1; iy++) {
+						if(!pbcFlags[dim1])
+							vertexColor[iy * verts_per_row] = vertexColor[iy * verts_per_row + 1];
+						else
+							vertexColor[iy * verts_per_row] = FloatType(0.5) * (vertexColor[iy * verts_per_row + 1] + vertexColor[iy * verts_per_row + (nx - 2) * verts_per_voxel + 1]);
+						for(int ix = 1; ix < nx - 1; ix++) {
+							vertexColor[iy * verts_per_row + ix * verts_per_voxel] = FloatType(0.5) * (vertexColor[iy * verts_per_row + ix * verts_per_voxel + 1] + vertexColor[iy * verts_per_row + (ix-1) * verts_per_voxel + 1]);
+						}
+						if(!pbcFlags[dim1])
+							vertexColor[iy * verts_per_row + (nx - 1) * verts_per_voxel] = vertexColor[iy * verts_per_row + (nx - 2) * verts_per_voxel + 1];
+						else
+							vertexColor[iy * verts_per_row + (nx - 1) * verts_per_voxel] = vertexColor[iy * verts_per_row];
+					}
+					if(!pbcFlags[dim1])
+						vertexColor[(ny - 1) * verts_per_row] = vertexColor[(ny - 1) * verts_per_row + 1];
+					else
+						vertexColor[(ny - 1) * verts_per_row] = FloatType(0.5) * (vertexColor[(ny - 1) * verts_per_row + 1] + vertexColor[(ny - 1) * verts_per_row + (nx - 2) * 2 + 1]);
+					for(int ix = 1; ix < nx - 1; ix++) {
+						vertexColor[(ny - 1) * verts_per_row + ix * 2] = FloatType(0.5) * (vertexColor[(ny - 1) * verts_per_row + ix * 2 + 1] + vertexColor[(ny - 1) * verts_per_row + (ix - 1) * 2 + 1]);
+					}
+					if(!pbcFlags[dim1])
+						vertexColor[(ny - 1) * verts_per_row + (nx - 1) * 2] = vertexColor[(ny - 1) * verts_per_row + (nx - 2) * 2 + 1];
+					else
+						vertexColor[(ny - 1) * verts_per_row + (nx - 1) * 2] = vertexColor[(ny - 1) * verts_per_row];
+
+					// Create triangles.
+					auto face = mesh.faces().begin() + baseFaceCount;
+					for(int iy = 0; iy < ny - 1; iy++) {
+						for(int ix = 0; ix < nx - 1; ix++) {
+							bool is_x_border = (ix == nx - 2);
+							bool is_y_border = (iy == ny - 2);
+							int centerVertex = baseVertexCount + iy * verts_per_row + ix * verts_per_voxel + 3;
+							face->setVertices(baseVertexCount + iy * verts_per_row + ix * verts_per_voxel, baseVertexCount + iy * verts_per_row + ix * verts_per_voxel + 1, centerVertex);
+							face->setEdgeVisibility(true, false, false);
+							++face;
+							face->setVertices(baseVertexCount + iy * verts_per_row + ix * verts_per_voxel + 1, baseVertexCount + iy * verts_per_row + (ix+1) * verts_per_voxel, centerVertex);
+							face->setEdgeVisibility(true, false, false);
+							++face;
+							face->setVertices(baseVertexCount + iy * verts_per_row + (ix+1) * verts_per_voxel, baseVertexCount + iy * verts_per_row + (ix+1) * verts_per_voxel + (is_x_border ? 1 : 2), centerVertex);
+							face->setEdgeVisibility(true, false, false);
+							++face;
+							face->setVertices(baseVertexCount + iy * verts_per_row + (ix+1) * verts_per_voxel + (is_x_border ? 1 : 2), baseVertexCount + (iy+1) * verts_per_row + (ix+1) * (is_y_border ? 2 : verts_per_voxel), centerVertex);
+							face->setEdgeVisibility(true, false, false);
+							++face;
+							face->setVertices(baseVertexCount + (iy+1) * verts_per_row + (ix+1) * (is_y_border ? 2 : verts_per_voxel), baseVertexCount + (iy+1) * verts_per_row + ix * (is_y_border ? 2 : verts_per_voxel) + 1, centerVertex);
+							face->setEdgeVisibility(true, false, false);
+							++face;
+							face->setVertices(baseVertexCount + (iy+1) * verts_per_row + ix * (is_y_border ? 2 : verts_per_voxel) + 1, baseVertexCount + (iy+1) * verts_per_row + ix * (is_y_border ? 2 : verts_per_voxel), centerVertex);
+							face->setEdgeVisibility(true, false, false);
+							++face;
+							face->setVertices(baseVertexCount + (iy+1) * verts_per_row + ix * (is_y_border ? 2 : verts_per_voxel), baseVertexCount + iy * verts_per_row + ix * verts_per_voxel + 2, centerVertex);
+							face->setEdgeVisibility(true, false, false);
+							++face;
+							face->setVertices(baseVertexCount + iy * verts_per_row + ix * verts_per_voxel + 2, baseVertexCount + iy * verts_per_row + ix * verts_per_voxel, centerVertex);
+							face->setEdgeVisibility(true, false, false);
+							++face;
+						}
+					}
+					OVITO_ASSERT(face == mesh.faces().end());
+				}
 			};
 
 			createFacesForSide(0, 1, 2, false);

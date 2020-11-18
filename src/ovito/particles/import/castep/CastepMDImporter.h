@@ -38,7 +38,7 @@ class OVITO_PARTICLES_EXPORT CastepMDImporter : public ParticleImporter
 	{
 	public:
 		/// Inherit standard constructor from base meta class.
-		using ParticleImporter::OOMetaClass ::OOMetaClass;
+		using ParticleImporter::OOMetaClass::OOMetaClass;
 
 		/// Returns the file filter that specifies the files that can be imported by this service.
 		virtual QString fileFilter() const override { return QStringLiteral("*.md *.geom"); }
@@ -62,6 +62,9 @@ public:
 
 	/// Returns the title of this object.
 	virtual QString objectTitle() const override { return tr("CASTEP"); }
+
+	/// Indicates whether this file importer type loads particle trajectories.
+	virtual bool isTrajectoryFormat() const override { return true; } 
 
 	/// Creates an asynchronous loader object that loads the data for the given frame from the external file.
 	virtual std::shared_ptr<FileSourceImporter::FrameLoader> createFrameLoader(const Frame& frame, const FileHandle& file) override {

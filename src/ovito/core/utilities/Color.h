@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Copyright 2013 Alexander Stukowski
+//  Copyright 2020 Alexander Stukowski
 //
 //  This file is part of OVITO (Open Visualization Tool).
 //
@@ -420,6 +420,12 @@ public:
 
 	/// Returns a reference to the alpha component of this color.
 	T& a() { return (*this)[3]; }
+
+	/// Returns the value of the red, green and blue components of this color.
+	const ColorT<T>& rgb() const { return reinterpret_cast<const ColorT<T>&>(*this); }
+
+	/// Returns a reference to the red, green and blue components of this color.
+	ColorT<T>& rgb() { return reinterpret_cast<ColorT<T>&>(*this); }
 
 	////////////////////////////////// Comparison ////////////////////////////////
 

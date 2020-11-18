@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Copyright 2014 Alexander Stukowski
+//  Copyright 2020 Alexander Stukowski
 //
 //  This file is part of OVITO (Open Visualization Tool).
 //
@@ -37,7 +37,7 @@ AutocompleteLineEdit::AutocompleteLineEdit(QWidget* parent) : QLineEdit(parent),
 	_completer->setCaseSensitivity(Qt::CaseInsensitive);
 	_completer->setModel(_wordListModel);
 	_completer->setWidget(this);
-	connect(_completer, (void (QCompleter::*)(const QString&))&QCompleter::activated, this, &AutocompleteLineEdit::onComplete);
+	connect(_completer, qOverload<const QString&>(&QCompleter::activated), this, &AutocompleteLineEdit::onComplete);
 }
 
 /******************************************************************************

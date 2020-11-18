@@ -21,15 +21,12 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 
 #include <ovito/particles/Particles.h>
+#include <ovito/particles/objects/ParticlesObject.h>
+#include <ovito/particles/objects/ParticlesVis.h>
 #include <ovito/particles/objects/BondsObject.h>
 #include <ovito/particles/objects/BondsVis.h>
-#include <ovito/particles/objects/BondType.h>
-#include <ovito/particles/objects/ParticlesVis.h>
-#include <ovito/particles/objects/ParticleType.h>
-#include <ovito/particles/objects/ParticlesObject.h>
 #include <ovito/grid/objects/VoxelGrid.h>
 #include <ovito/grid/objects/VoxelGridVis.h>
-#include <ovito/mesh/tri/TriMeshObject.h>
 #include <ovito/stdobj/simcell/SimulationCellObject.h>
 #include <ovito/stdobj/simcell/SimulationCellVis.h>
 #include <ovito/stdobj/properties/PropertyStorage.h>
@@ -42,51 +39,17 @@
 namespace Ovito { namespace Particles {
 
 /******************************************************************************
-* Sorts the types w.r.t. their name. Reassigns the per-element type IDs too.
-* This method is used by file parsers that create particle/bond types on the
-* go while the read the data. In such a case, the assignment of IDs to types
-* depends on the storage order of particles/bonds in the file, which is not desirable.
+* Constructor.
 ******************************************************************************/
-void ParticleFrameData::TypeList::sortTypesByName(PropertyAccess<int>& typeProperty)
+ParticleFrameData::ParticleFrameData() 
 {
-	// Check if type IDs form a consecutive sequence starting at 1.
-	// If not, we leave the type order as it is.
-	for(size_t index = 0; index < _types.size(); index++) {
-		if(_types[index].id != index + 1)
-			return;
-	}
+	// Assume periodic boundary conditions by default.
+	_simulationCell.setPbcFlags(true, true, true);
 
-	// Check if types are already in the correct order.
-	auto compare = [](const TypeDefinition& a, const TypeDefinition& b) -> bool { return a.name.compare(b.name) < 0; };
-	if(std::is_sorted(_types.begin(), _types.end(), compare))
-		return;
-
-	// Reorder types by name.
-	std::sort(_types.begin(), _types.end(), compare);
-
-	// Build map of IDs.
-	std::vector<int> mapping(_types.size() + 1);
-	for(size_t index = 0; index < _types.size(); index++) {
-		mapping[_types[index].id] = index + 1;
-		_types[index].id = index + 1;
-	}
-
-	// Remap type IDs.
-	if(typeProperty) {
-		for(int& t : typeProperty) {
-			OVITO_ASSERT(t >= 1 && t < mapping.size());
-			t = mapping[t];
-		}
-	}
-}
-
-/******************************************************************************
-* Sorts particle/bond types according numeric identifier.
-******************************************************************************/
-void ParticleFrameData::TypeList::sortTypesById()
-{
-	auto compare = [](const TypeDefinition& a, const TypeDefinition& b) -> bool { return a.id < b.id; };
-	std::sort(_types.begin(), _types.end(), compare);
+	// Set the default visualization element types.
+	particles().setVisElementClass(&ParticlesVis::OOClass());
+	bonds().setVisElementClass(&BondsVis::OOClass());
+	voxels().setVisElementClass(&VoxelGridVis::OOClass());
 }
 
 /******************************************************************************
@@ -94,26 +57,27 @@ void ParticleFrameData::TypeList::sortTypesById()
 ******************************************************************************/
 void ParticleFrameData::generateBondPeriodicImageProperty()
 {
-	ConstPropertyAccess<Point3> posProperty = findStandardParticleProperty(ParticlesObject::PositionProperty);
+	ConstPropertyAccess<Point3> posProperty = particles().findStandardProperty(ParticlesObject::PositionProperty);
 	if(!posProperty) return;
 
-	ConstPropertyAccess<ParticleIndexPair> bondTopologyProperty = findStandardBondProperty(BondsObject::TopologyProperty);
+	ConstPropertyAccess<ParticleIndexPair> bondTopologyProperty = bonds().findStandardProperty(BondsObject::TopologyProperty);
 	if(!bondTopologyProperty) return;
 
-	OVITO_ASSERT(!findStandardBondProperty(BondsObject::PeriodicImageProperty));
-	PropertyAccess<Vector3I> bondPeriodicImageProperty = addBondProperty(BondsObject::OOClass().createStandardStorage(bondTopologyProperty.size(), BondsObject::PeriodicImageProperty, true));
+	OVITO_ASSERT(!bonds().findStandardProperty(BondsObject::PeriodicImageProperty));
+	PropertyAccess<Vector3I> bondPeriodicImageProperty = bonds().addProperty(BondsObject::OOClass().createStandardStorage(bondTopologyProperty.size(), BondsObject::PeriodicImageProperty, true));
 
 	if(!simulationCell().hasPbc())
 		return;
+	const AffineTransformation inverseCellMatrix = simulationCell().inverseMatrix();
 
 	for(size_t bondIndex = 0; bondIndex < bondTopologyProperty.size(); bondIndex++) {
 		size_t index1 = bondTopologyProperty[bondIndex][0];
 		size_t index2 = bondTopologyProperty[bondIndex][1];
 		OVITO_ASSERT(index1 < posProperty.size() && index2 < posProperty.size());
-		Vector3 delta = simulationCell().absoluteToReduced(posProperty[index2] - posProperty[index1]);
+		Vector3 delta = posProperty[index1] - posProperty[index2];
 		for(size_t dim = 0; dim < 3; dim++) {
 			if(simulationCell().hasPbc(dim))
-				bondPeriodicImageProperty[bondIndex][dim] = -(int)std::floor(delta[dim] + FloatType(0.5));
+				bondPeriodicImageProperty[bondIndex][dim] = std::lround(inverseCellMatrix.prodrow(delta, dim));
 		}
 	}
 }
@@ -159,39 +123,16 @@ OORef<DataCollection> ParticleFrameData::handOver(const DataCollection* existing
 		cell->setData(simulationCell(), isNewFile);
 	}
 
-	if(!_particleProperties.empty()) {
+	if(!particles().properties().empty() || !bonds().properties().empty() || !angles().properties().empty() || !dihedrals().properties().empty() || !impropers().properties().empty()) {
 
 		// Hand over particles.
 		const ParticlesObject* existingParticles = existing ? existing->getObject<ParticlesObject>() : nullptr;
-		ParticlesObject* particles = output->createObject<ParticlesObject>(fileSource);
-		if(!existingParticles) {
-			
-			// Create the custom vis element requested by the file importer.
-			if(_particleVisElementClass && (!particles->visElement() || _particleVisElementClass != &particles->visElement()->getOOMetaClass()))
-				particles->setVisElement(static_object_cast<DataVis>(_particleVisElementClass->createInstance(particles->dataset())));
-			else if(!_particleVisElementClass && particles->visElement())
-				particles->removeVisElement(0);
-
-			// Initialize the particles object and its vis element to default values.
-			if(Application::instance()->executionContext() == Application::ExecutionContext::Interactive)
-				particles->loadUserDefaults();
-		}
-		else {
-			// Adopt the existing particles vis element, or create the right vis element requested by the file importer.
-			if(_particleVisElementClass && (!existingParticles->visElement() || _particleVisElementClass != &existingParticles->visElement()->getOOMetaClass())) {
-				particles->setVisElement(static_object_cast<DataVis>(_particleVisElementClass->createInstance(particles->dataset())));
-				if(Application::instance()->executionContext() == Application::ExecutionContext::Interactive)
-					particles->visElement()->loadUserDefaults();
-			}
-			else if(!_particleVisElementClass && particles->visElement())
-				particles->removeVisElement(0);
-			else
-				particles->setVisElement(existingParticles->visElement());
-		}
+		ParticlesObject* targetParticles = output->createObject<ParticlesObject>(fileSource);
+		particles().transferToContainer(existingParticles, targetParticles, isNewFile, cloneHelper);
 
 		// Auto-adjust particle display radius.
 		if(isNewFile) {
-			if(ParticlesVis* particleVis = particles->visElement<ParticlesVis>()) {
+			if(ParticlesVis* particleVis = targetParticles->visElement<ParticlesVis>()) {
 				FloatType cellDiameter = (
 						simulationCell().matrix().column(0) +
 						simulationCell().matrix().column(1) +
@@ -204,180 +145,43 @@ OORef<DataCollection> ParticleFrameData::handOver(const DataCollection* existing
 			}
 		}
 
-		// Transfer particle properties.
-		for(auto& property : _particleProperties) {
-
-			// Look up existing property object.
-			const PropertyObject* existingPropertyObj = existingParticles ? 
-				((property->type() != 0) ? existingParticles->getProperty(property->type()) : existingParticles->getProperty(property->name())) 
-				: nullptr;
-
-			OORef<PropertyObject> propertyObj;
-			if(existingPropertyObj) {
-				propertyObj = cloneHelper.cloneObject(existingPropertyObj, false);
-				propertyObj->setStorage(std::move(property));
-				particles->addProperty(propertyObj);
-			}
-			else {
-				propertyObj = particles->createProperty(std::move(property));
-			}
-			// For backward compatibility with OVITO 2.9.0, attach the particles vis element
-			// to the 'Position' particle property object as well.
-			if(propertyObj->type() == ParticlesObject::PositionProperty)
-				propertyObj->setVisElement(particles->visElement<ParticlesVis>());
-
-			// Transfer particle types.
-			auto typeList = _typeLists.find(propertyObj->storage().get());
-			insertTypes(propertyObj, (typeList != _typeLists.end()) ? typeList->second.get() : nullptr, isNewFile, false);
-		}
-
 		// Hand over bonds.
-		if(!_bondProperties.empty()) {
-
+		if(!bonds().properties().empty()) {
 			const BondsObject* existingBonds = existingParticles ? existingParticles->bonds() : nullptr;
-			OORef<BondsObject> bonds = new BondsObject(fileSource->dataset());
-			particles->setBonds(bonds);
-			bonds->setDataSource(fileSource);
-			if(!existingBonds) {
-				// Initialize the bonds object and its vis element to default values.
-				if(Application::instance()->executionContext() == Application::ExecutionContext::Interactive)
-					bonds->loadUserDefaults();
-			}
-			else {
-				// Adopt the existing vis element.
-				bonds->setVisElements(existingBonds->visElements());
-			}
-
-			// Transfer bond properties.
-			for(auto& property : _bondProperties) {
-
-				// Look up existing property object.
-				const PropertyObject* existingPropertyObj = existingBonds ? 
-					((property->type() != 0) ? existingBonds->getProperty(property->type()) : existingBonds->getProperty(property->name())) 
-					: nullptr;
-
-				// Create property.
-				OORef<PropertyObject> propertyObj;
-				if(existingPropertyObj) {
-					propertyObj = cloneHelper.cloneObject(existingPropertyObj, false);
-					propertyObj->setStorage(std::move(property));
-					bonds->addProperty(propertyObj);
-				}
-				else {
-					propertyObj = bonds->createProperty(std::move(property));
-
-					// For backward compatibility with OVITO 2.9.0, attach the bonds vis element
-					// also to the 'Topology' bond property object.
-					if(propertyObj->type() == BondsObject::TopologyProperty)
-						propertyObj->setVisElement(bonds->visElement<BondsVis>());
-				}
-
-				// Transfer types list.
-				auto typeList = _typeLists.find(propertyObj->storage().get());
-				insertTypes(propertyObj, (typeList != _typeLists.end()) ? typeList->second.get() : nullptr, isNewFile, true);
-			}
+			OORef<BondsObject> targetBonds = new BondsObject(fileSource->dataset());
+			targetParticles->setBonds(targetBonds);
+			targetBonds->setDataSource(fileSource);
+			bonds().transferToContainer(existingBonds, targetBonds, isNewFile, cloneHelper);
 		}
 
 		// Hand over list of angles.
-		if(!_angleProperties.empty()) {
-
+		if(!angles().properties().empty()) {
 			const AnglesObject* existingAngles = existingParticles ? existingParticles->angles() : nullptr;
-			OORef<AnglesObject> angles = new AnglesObject(fileSource->dataset());
-			particles->setAngles(angles);
-			angles->setDataSource(fileSource);
-
-			// Transfer angle properties.
-			for(auto& property : _angleProperties) {
-
-				// Look up existing property object.
-				const PropertyObject* existingPropertyObj = existingAngles ? 
-					((property->type() != 0) ? existingAngles->getProperty(property->type()) : existingAngles->getProperty(property->name())) 
-					: nullptr;
-
-				// Create property.
-				OORef<PropertyObject> propertyObj;
-				if(existingPropertyObj) {
-					propertyObj = cloneHelper.cloneObject(existingPropertyObj, false);
-					propertyObj->setStorage(std::move(property));
-					angles->addProperty(propertyObj);
-				}
-				else {
-					propertyObj = angles->createProperty(std::move(property));
-				}
-
-				// Transfer types list.
-				auto typeList = _typeLists.find(propertyObj->storage().get());
-				insertTypes(propertyObj, (typeList != _typeLists.end()) ? typeList->second.get() : nullptr, isNewFile, false);
-			}
+			OORef<AnglesObject> targetAngles = new AnglesObject(fileSource->dataset());
+			targetParticles->setAngles(targetAngles);
+			targetAngles->setDataSource(fileSource);
+			angles().transferToContainer(existingAngles, targetAngles, isNewFile, cloneHelper);
 		}
 
-		// Hand over list of dihedrals.
-		if(!_dihedralProperties.empty()) {
-
+		// Hand over list of dihredrals.
+		if(!dihedrals().properties().empty()) {
 			const DihedralsObject* existingDihedrals = existingParticles ? existingParticles->dihedrals() : nullptr;
-			OORef<DihedralsObject> dihedrals = new DihedralsObject(fileSource->dataset());
-			particles->setDihedrals(dihedrals);
-			dihedrals->setDataSource(fileSource);
-
-			// Transfer dihedral properties.
-			for(auto& property : _dihedralProperties) {
-
-				// Look up existing property object.
-				const PropertyObject* existingPropertyObj = existingDihedrals ? 
-					((property->type() != 0) ? existingDihedrals->getProperty(property->type()) : existingDihedrals->getProperty(property->name())) 
-					: nullptr;
-
-				// Create property.
-				OORef<PropertyObject> propertyObj;
-				if(existingPropertyObj) {
-					propertyObj = cloneHelper.cloneObject(existingPropertyObj, false);
-					propertyObj->setStorage(std::move(property));
-					dihedrals->addProperty(propertyObj);
-				}
-				else {
-					propertyObj = dihedrals->createProperty(std::move(property));
-				}
-
-				// Transfer types list.
-				auto typeList = _typeLists.find(propertyObj->storage().get());
-				insertTypes(propertyObj, (typeList != _typeLists.end()) ? typeList->second.get() : nullptr, isNewFile, false);
-			}
+			OORef<DihedralsObject> targetDihedrals = new DihedralsObject(fileSource->dataset());
+			targetParticles->setDihedrals(targetDihedrals);
+			targetDihedrals->setDataSource(fileSource);
+			dihedrals().transferToContainer(existingDihedrals, targetDihedrals, isNewFile, cloneHelper);
 		}
 
 		// Hand over list of impropers.
-		if(!_improperProperties.empty()) {
-
+		if(!impropers().properties().empty()) {
 			const ImpropersObject* existingImpropers = existingParticles ? existingParticles->impropers() : nullptr;
-			OORef<ImpropersObject> impropers = new ImpropersObject(fileSource->dataset());
-			particles->setImpropers(impropers);
-			impropers->setDataSource(fileSource);
-
-			// Transfer improper properties.
-			for(auto& property : _improperProperties) {
-
-				// Look up existing property object.
-				const PropertyObject* existingPropertyObj = existingImpropers ? 
-					((property->type() != 0) ? existingImpropers->getProperty(property->type()) : existingImpropers->getProperty(property->name())) 
-					: nullptr;
-
-				// Create property.
-				OORef<PropertyObject> propertyObj;
-				if(existingPropertyObj) {
-					propertyObj = cloneHelper.cloneObject(existingPropertyObj, false);
-					propertyObj->setStorage(std::move(property));
-					impropers->addProperty(propertyObj);
-				}
-				else {
-					propertyObj = impropers->createProperty(std::move(property));
-				}
-
-				// Transfer types list.
-				auto typeList = _typeLists.find(propertyObj->storage().get());
-				insertTypes(propertyObj, (typeList != _typeLists.end()) ? typeList->second.get() : nullptr, isNewFile, false);
-			}
+			OORef<ImpropersObject> targetImpropers = new ImpropersObject(fileSource->dataset());
+			targetParticles->setImpropers(targetImpropers);
+			targetImpropers->setDataSource(fileSource);
+			impropers().transferToContainer(existingImpropers, targetImpropers, isNewFile, cloneHelper);
 		}
 
-		particles->verifyIntegrity();
+		targetParticles->verifyIntegrity();
 	}
 
 	// Transfer voxel data.
@@ -398,41 +202,15 @@ OORef<DataCollection> ParticleFrameData::handOver(const DataCollection* existing
 		voxelGrid->setShape(voxelGridShape());
 		voxelGrid->setDomain(output->getObject<SimulationCellObject>());
 
-		// Create a visualization element for the voxel grid.
-		if(!existingVoxelGrid) {
-			voxelGrid->setVisElement(new VoxelGridVis(voxelGrid->dataset()));
-			// Initialize the vis element to default values.
-			if(Application::instance()->executionContext() == Application::ExecutionContext::Interactive)
-				voxelGrid->visElement()->loadUserDefaults();
-			voxelGrid->visElement()->setEnabled(false);
-		}
-		else {
-			// Adopt the existing vis element.
-			voxelGrid->setVisElements(existingVoxelGrid->visElements());
-		}
+		voxels().transferToContainer(existingVoxelGrid, voxelGrid, isNewFile, cloneHelper);
 
-		// Give the vis element an expressive title.
+		// Turn off display of voxel grid by default.
+		if(isNewFile && voxelGrid->visElement())
+			voxelGrid->visElement()->setEnabled(false);
+
+		// Give the vis element of the grid a more specific title.
 		if(VoxelGridVis* gridVis = voxelGrid->visElement<VoxelGridVis>())
 			gridVis->setTitle(voxelGridTitle());
-
-		for(auto& property : voxelProperties()) {
-
-			// Look up existing property object.
-			const PropertyObject* existingPropertyObj = existingVoxelGrid ? 
-				((property->type() != 0) ? existingVoxelGrid->getProperty(property->type()) : existingVoxelGrid->getProperty(property->name())) 
-				: nullptr;
-
-			// Create field property.
-			OORef<PropertyObject> propertyObj;
-			if(propertyObj) {
-				propertyObj = cloneHelper.cloneObject(existingPropertyObj, false);
-				propertyObj->setStorage(std::move(property));
-				voxelGrid->addProperty(propertyObj);
-			}
-			else {
-				propertyObj = voxelGrid->createProperty(std::move(property));
-			}
-		}
 	}
 
 	// Hand over timestep information and other metadata as global attributes.
@@ -453,209 +231,51 @@ OORef<DataCollection> ParticleFrameData::handOver(const DataCollection* existing
 }
 
 /******************************************************************************
-* Inserts the particle or bond types into the given destination property object.
-******************************************************************************/
-void ParticleFrameData::insertTypes(PropertyObject* typeProperty, TypeList* typeList, bool isNewFile, bool isBondProperty)
-{
-	QSet<ElementType*> activeTypes;
-	std::vector<std::pair<int,int>> typeRemapping;
-
-	if(typeList) {
-		// Add the new element types one by one to the property object.
-		for(auto& item : typeList->types()) {
-			// Look up existing element type.
-			OORef<ElementType> elementType;
-			if(item.name.isEmpty()) {
-				elementType = typeProperty->elementType(item.id);
-			}
-			else {
-				elementType = typeProperty->elementType(item.name);
-				if(elementType) {
-					if(item.id != elementType->numericId()) {
-						typeRemapping.push_back({item.id, elementType->numericId()});
-					}
-				}
-				else {
-					elementType = typeProperty->elementType(item.id);
-					if(elementType && elementType->name() != item.name) {
-						elementType = nullptr;
-						if(!isNewFile) {
-							int mappedId = typeProperty->generateUniqueElementTypeId(item.id + typeList->types().size());
-							typeRemapping.push_back({item.id, mappedId});
-							item.id = mappedId;
-						}
-					}
-				}
-			}
-			// Create element type if it doesn't exist yet.
-			if(!elementType) {
-				if(!isBondProperty) {
-					elementType = static_object_cast<ElementType>(typeList->elementClass().createInstance(typeProperty->dataset()));
-					if(Application::instance()->executionContext() == Application::ExecutionContext::Interactive)
-						elementType->loadUserDefaults();
-					elementType->setNumericId(item.id);
-					elementType->setName(item.name);
-					if(item.radius == 0 && ParticleType::OOClass().isMember(elementType)) {
-						static_object_cast<ParticleType>(elementType)->setRadius(ParticleType::getDefaultParticleRadius((ParticlesObject::Type)typeProperty->type(), elementType->nameOrNumericId(), elementType->numericId()));
-					}
-				}
-				else {
-					OVITO_ASSERT(typeList->elementClass().isDerivedFrom(BondType::OOClass()));
-					elementType = new BondType(typeProperty->dataset());
-					if(Application::instance()->executionContext() == Application::ExecutionContext::Interactive)
-						elementType->loadUserDefaults();
-					elementType->setNumericId(item.id);
-					elementType->setName(item.name);
-					if(item.radius == 0)
-						static_object_cast<BondType>(elementType)->setRadius(BondType::getDefaultBondRadius((BondsObject::Type)typeProperty->type(), elementType->nameOrNumericId(), elementType->numericId()));
-				}
-
-				if(item.color != Color(0,0,0))
-					elementType->setColor(item.color);
-				else if(!isBondProperty) {
-					if(ParticleType::OOClass().isMember(elementType))
-						elementType->setColor(ParticleType::getDefaultParticleColor((ParticlesObject::Type)typeProperty->type(), elementType->nameOrNumericId(), elementType->numericId()));
-					else
-						elementType->setColor(ElementType::getDefaultColor(PropertyStorage::GenericTypeProperty, elementType->nameOrNumericId(), elementType->numericId()));
-				}
-				else {
-					elementType->setColor(BondType::getDefaultBondColor((BondsObject::Type)typeProperty->type(), elementType->nameOrNumericId(), elementType->numericId()));
-				}
-
-				typeProperty->addElementType(elementType);
-			}
-			else {
-				if(item.color != Color(0,0,0) && item.color != elementType->color()) {
-					elementType = typeProperty->makeMutable<ElementType>(elementType);
-					elementType->setColor(item.color);
-				}
-
-				if(item.radius != 0) {
-					if(ParticleType* particleType = dynamic_object_cast<ParticleType>(elementType)) {
-						if(item.radius != particleType->radius()) {
-							particleType = typeProperty->makeMutable(particleType);
-							particleType->setRadius(item.radius);
-						}
-					}
-					else if(BondType* bondType = dynamic_object_cast<BondType>(elementType)) {
-						if(item.radius != bondType->radius()) {
-							bondType = typeProperty->makeMutable(bondType);
-							bondType->setRadius(item.radius);
-						}
-					}
-				}
-			}
-			activeTypes.insert(elementType);
-
-			if(item.mass != 0) {
-				if(ParticleType* particleType = dynamic_object_cast<ParticleType>(elementType)) {
-					if(item.mass != particleType->mass()) {
-						particleType = typeProperty->makeMutable(particleType);
-						particleType->setMass(item.mass);
-					}
-				}
-			}
-			if(ParticleType* particleType = dynamic_object_cast<ParticleType>(elementType)) {
-				if(item.shapeMesh) {
-					TriMeshObject* shapeObject = new TriMeshObject(typeProperty->dataset());
-					shapeObject->setMesh(item.shapeMesh);
-					
-					particleType = typeProperty->makeMutable(particleType);
-					particleType->setShapeMesh(shapeObject);
-				}
-				else {
-					// Note: Do not automatically reset shape, because we don't want to loose
-					// a shape manually assigned by the user to this particle type.
-					//static_object_cast<ParticleType>(ptype)->setShapeMesh(nullptr);
-				}
-			}
-		}
-	}
-
-	if(isNewFile) {
-		// Remove existing types that are no longer needed.
-		for(int index = typeProperty->elementTypes().size() - 1; index >= 0; index--) {
-			if(!activeTypes.contains(typeProperty->elementTypes()[index]))
-				typeProperty->removeElementType(index);
-		}
-	}
-
-	// Remap type IDs.
-	if(!typeRemapping.empty()) {
-		for(int& t : PropertyAccess<int>(typeProperty)) {
-			for(const auto& mapping : typeRemapping) {
-				if(t == mapping.first) {
-					t = mapping.second;
-					break;
-				}
-			}
-		}
-	}
-}
-
-/******************************************************************************
 * Sorts the particles list with respect to particle IDs.
 * Does nothing if particles do not have IDs.
 ******************************************************************************/
 void ParticleFrameData::sortParticlesById()
 {
-	ConstPropertyAccess<qlonglong> ids = findStandardParticleProperty(ParticlesObject::IdentifierProperty);
-	if(!ids) return;
+	std::vector<size_t> invertedPermutation = particles().sortElementsById();
+	if(!invertedPermutation.empty()) {
 
-	// Determine new permutation of particles where they are sorted by ascending ID.
-	std::vector<size_t> permutation(ids.size());
-	std::iota(permutation.begin(), permutation.end(), (size_t)0);
-	std::sort(permutation.begin(), permutation.end(), [&](size_t a, size_t b) { return ids[a] < ids[b]; });
-	std::vector<size_t> invertedPermutation(ids.size());
-	bool isAlreadySorted = true;
-	for(size_t i = 0; i < permutation.size(); i++) {
-		invertedPermutation[permutation[i]] = i;
-		if(permutation[i] != i) isAlreadySorted = false;
-	}
-	if(isAlreadySorted) return;
-
-	// Re-order all values in the particle property arrays.
-	for(const PropertyPtr& prop : particleProperties()) {
-		PropertyStorage copy(*prop);
-		prop->mappedCopyFrom(copy, invertedPermutation);
-	}
-
-	// Update bond topology data to match new particle ordering.
-	if(PropertyAccess<ParticleIndexPair> bondTopology = findStandardBondProperty(BondsObject::TopologyProperty)) {
-		for(ParticleIndexPair& bond : bondTopology) {
-			for(qlonglong& idx : bond) {
-				if(idx >= 0 && idx < invertedPermutation.size())
-					idx = invertedPermutation[idx];
+		// Update bond topology data to match new particle ordering.
+		if(PropertyAccess<ParticleIndexPair> bondTopology = bonds().findStandardProperty(BondsObject::TopologyProperty)) {
+			for(ParticleIndexPair& bond : bondTopology) {
+				for(qlonglong& idx : bond) {
+					if(idx >= 0 && idx < (qlonglong)invertedPermutation.size())
+						idx = invertedPermutation[idx];
+				}
 			}
 		}
-	}
 
-	// Update angle topology data to match new particle ordering.
-	if(PropertyAccess<ParticleIndexTriplet> angleTopology = findStandardAngleProperty(AnglesObject::TopologyProperty)) {
-		for(ParticleIndexTriplet& angle : angleTopology) {
-			for(qlonglong& idx : angle) {
-				if(idx >= 0 && idx < invertedPermutation.size())
-					idx = invertedPermutation[idx];
+		// Update angle topology data to match new particle ordering.
+		if(PropertyAccess<ParticleIndexTriplet> angleTopology = angles().findStandardProperty(AnglesObject::TopologyProperty)) {
+			for(ParticleIndexTriplet& angle : angleTopology) {
+				for(qlonglong& idx : angle) {
+					if(idx >= 0 && idx < (qlonglong)invertedPermutation.size())
+						idx = invertedPermutation[idx];
+				}
 			}
 		}
-	}
 
-	// Update dihedral topology data to match new particle ordering.
-	if(PropertyAccess<ParticleIndexQuadruplet> dihedralTopology = findStandardDihedralProperty(DihedralsObject::TopologyProperty)) {
-		for(ParticleIndexQuadruplet& dihedral : dihedralTopology) {
-			for(qlonglong& idx : dihedral) {
-				if(idx >= 0 && idx < invertedPermutation.size())
-					idx = invertedPermutation[idx];
+		// Update dihedral topology data to match new particle ordering.
+		if(PropertyAccess<ParticleIndexQuadruplet> dihedralTopology = dihedrals().findStandardProperty(DihedralsObject::TopologyProperty)) {
+			for(ParticleIndexQuadruplet& dihedral : dihedralTopology) {
+				for(qlonglong& idx : dihedral) {
+					if(idx >= 0 && idx < (qlonglong)invertedPermutation.size())
+						idx = invertedPermutation[idx];
+				}
 			}
 		}
-	}
 
-	// Update improper topology data to match new particle ordering.
-	if(PropertyAccess<ParticleIndexQuadruplet> improperTopology = findStandardImproperProperty(ImpropersObject::TopologyProperty)) {
-		for(ParticleIndexQuadruplet& improper : improperTopology) {
-			for(qlonglong& idx : improper) {
-				if(idx >= 0 && idx < invertedPermutation.size())
-					idx = invertedPermutation[idx];
+		// Update improper topology data to match new particle ordering.
+		if(PropertyAccess<ParticleIndexQuadruplet> improperTopology = impropers().findStandardProperty(ImpropersObject::TopologyProperty)) {
+			for(ParticleIndexQuadruplet& improper : improperTopology) {
+				for(qlonglong& idx : improper) {
+					if(idx >= 0 && idx < (qlonglong)invertedPermutation.size())
+						idx = invertedPermutation[idx];
+				}
 			}
 		}
 	}

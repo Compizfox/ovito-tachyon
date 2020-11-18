@@ -433,7 +433,7 @@ bool voronoicell_base::nplane(vc_class &vc,double x,double y,double z,double rsq
                         complicated_setup=true;
                 }
         }
-        catch(bool except) {
+        catch(bool) {
                 // This routine is a fall-back, in case floating point errors
                 // cause the usual search routine to fail. In the fall-back
                 // routine, we just test every edge to find one straddling

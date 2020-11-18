@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Copyright 2017 Alexander Stukowski
+//  Copyright 2020 Alexander Stukowski
 //
 //  This file is part of OVITO (Open Visualization Tool).
 //
@@ -26,7 +26,8 @@
 #include <ovito/particles/Particles.h>
 #include <ovito/particles/import/ParticleImporter.h>
 #include <ovito/particles/import/ParticleFrameData.h>
-#include <ovito/particles/import/InputColumnMapping.h>
+#include <ovito/particles/objects/ParticlesObject.h>
+#include <ovito/stdobj/properties/InputColumnMapping.h>
 
 namespace Ovito { namespace Particles {
 
@@ -40,7 +41,7 @@ class OVITO_NETCDFPLUGIN_EXPORT AMBERNetCDFImporter : public ParticleImporter
 	{
 	public:
 		/// Inherit standard constructor from base meta class.
-		using ParticleImporter::OOMetaClass ::OOMetaClass;
+		using ParticleImporter::OOMetaClass::OOMetaClass;
 
 		/// Returns the file filter that specifies the files that can be imported by this service.
 		virtual QString fileFilter() const override { return QStringLiteral("*"); }
@@ -65,14 +66,6 @@ public:
 	/// Returns the title of this object.
 	virtual QString objectTitle() const override { return tr("NetCDF"); }
 
-	/// \brief Returns the user-defined mapping between data columns in the input file and
-	///        the internal particle properties.
-	const InputColumnMapping& customColumnMapping() const { return _customColumnMapping; }
-
-	/// \brief Sets the user-defined mapping between data columns in the input file and
-	///        the internal particle properties.
-	void setCustomColumnMapping(const InputColumnMapping& mapping);
-
 	/// Creates an asynchronous loader object that loads the data for the given frame from the external file.
 	virtual std::shared_ptr<FileSourceImporter::FrameLoader> createFrameLoader(const Frame& frame, const FileHandle& file) override {
 		return std::make_shared<FrameLoader>(frame, file, sortParticles(), useCustomColumnMapping(), customColumnMapping());
@@ -84,7 +77,7 @@ public:
 	}
 
 	/// Inspects the header of the given file and returns the number of file columns.
-	Future<InputColumnMapping> inspectFileHeader(const Frame& frame);
+	Future<ParticleInputColumnMapping> inspectFileHeader(const Frame& frame);
 
 private:
 
@@ -96,11 +89,11 @@ private:
 		using ParticleFrameData::ParticleFrameData;
 
 		/// Returns the file column mapping generated from the information in the file header.
-		InputColumnMapping& detectedColumnMapping() { return _detectedColumnMapping; }
+		ParticleInputColumnMapping& detectedColumnMapping() { return _detectedColumnMapping; }
 
 	private:
 
-		InputColumnMapping _detectedColumnMapping;
+		ParticleInputColumnMapping _detectedColumnMapping;
 	};
 
 	/// The format-specific task object that is responsible for reading an input file in a separate thread.
@@ -111,7 +104,7 @@ private:
 		/// Normal constructor.
 		FrameLoader(const FileSourceImporter::Frame& frame, const FileHandle& file,
 				bool sortParticles,
-				bool useCustomColumnMapping, const InputColumnMapping& customColumnMapping)
+				bool useCustomColumnMapping, const ParticleInputColumnMapping& customColumnMapping)
 			: FileSourceImporter::FrameLoader(frame, file), _parseFileHeaderOnly(false), _sortParticles(sortParticles), _useCustomColumnMapping(useCustomColumnMapping), _customColumnMapping(customColumnMapping) {}
 
 		/// Constructor used when reading only the file header information.
@@ -119,7 +112,7 @@ private:
 			: FileSourceImporter::FrameLoader(frame, file), _parseFileHeaderOnly(true), _useCustomColumnMapping(false) {}
 
 		/// Returns the file column mapping used to load the file.
-		const InputColumnMapping& columnMapping() const { return _customColumnMapping; }
+		const ParticleInputColumnMapping& columnMapping() const { return _customColumnMapping; }
 
 	protected:
 
@@ -150,7 +143,7 @@ private:
 		bool _parseFileHeaderOnly;
 		bool _sortParticles;
 		bool _useCustomColumnMapping;
-		InputColumnMapping _customColumnMapping;
+		ParticleInputColumnMapping _customColumnMapping;
 	};
 
 	/// The format-specific task object that is responsible for scanning the input file for animation frames.
@@ -175,9 +168,6 @@ protected:
 	/// \brief Loads the class' contents from the given stream.
 	virtual void loadFromStream(ObjectLoadStream& stream) override;
 
-	/// \brief Creates a copy of this object.
-	virtual OORef<RefTarget> clone(bool deepCopy, CloneHelper& cloneHelper) const override;
-
 	/// \brief Guesses the mapping of an input file field to one of OVITO's internal particle properties.
 	static InputColumnInfo mapVariableToColumn(const QString& name, int dataType, size_t componentCount);
 
@@ -187,12 +177,9 @@ private:
 	/// properties is done automatically or by the user.
 	DECLARE_MODIFIABLE_PROPERTY_FIELD(bool, useCustomColumnMapping, setUseCustomColumnMapping);
 
-	/// Stores the user-defined mapping between data columns in the input file and
-	/// the internal particle properties.
-	InputColumnMapping _customColumnMapping;
+	/// The user-defined mapping of input file columns to OVITO's particle properties.
+	DECLARE_MODIFIABLE_PROPERTY_FIELD(ParticleInputColumnMapping, customColumnMapping, setCustomColumnMapping);
 };
 
 }	// End of namespace
 }	// End of namespace
-
-

@@ -61,8 +61,12 @@ const PropertyObject* PropertyContainer::expectProperty(int typeId) const
 	if(!getOOMetaClass().isValidStandardPropertyId(typeId))
 		throwException(tr("Selections are not supported for %1.").arg(getOOMetaClass().propertyClassDisplayName()));
 	const PropertyObject* property = getProperty(typeId);
-	if(!property)
-		throwException(tr("Required property '%1' does not exist in the input dataset.").arg(getOOMetaClass().standardPropertyName(typeId)));
+	if(!property) {
+		if(typeId == PropertyStorage::GenericSelectionProperty)
+			throwException(tr("The operation requires an input %1 selection.").arg(getOOMetaClass().elementDescriptionName()));
+		else
+			throwException(tr("Required %2 property '%1' does not exist in the input dataset.").arg(getOOMetaClass().standardPropertyName(typeId), getOOMetaClass().elementDescriptionName()));
+	}
 	if(property->size() != elementCount())
 		throwException(tr("Property array '%1' has wrong length. It does not match the number of elements in the parent container.").arg(property->name()));
 	return property;
@@ -283,7 +287,8 @@ PropertyObject* PropertyContainer::createProperty(PropertyPtr storage)
 
 /******************************************************************************
 * Replaces the property arrays in this property container with a new set of
-* properties.
+* properties. Existing element types of typed properties will be preserved by 
+* the method. 
 ******************************************************************************/
 void PropertyContainer::setContent(size_t newElementCount, const std::vector<PropertyPtr>& newProperties)
 {
@@ -318,6 +323,47 @@ void PropertyContainer::setContent(size_t newElementCount, const std::vector<Pro
 		else {
 			OORef<PropertyObject> newProperty = getOOMetaClass().createFromStorage(dataset(), property);
 			addProperty(newProperty);
+		}
+	}
+}
+
+/******************************************************************************
+* Replaces the property arrays in this property container with a new set of
+* properties. Existing element types of typed properties will be preserved by 
+* the method. 
+******************************************************************************/
+void PropertyContainer::setContent(size_t newElementCount, const QVector<PropertyObject*>& newProperties)
+{
+	OVITO_ASSERT(!dataset()->undoStack().isRecording());
+
+	// Removal phase:
+	for(int i = properties().size() - 1; i >= 0; i--) {
+		PropertyObject* property = properties()[i];
+		if(boost::algorithm::none_of(newProperties, [property](const auto& newProperty) {
+				return (newProperty->type() == property->type() && newProperty->name() == property->name());
+			}))
+		{
+			removeProperty(property);
+		}
+	}
+
+	// Update internal element counter.
+	_elementCount.set(this, PROPERTY_FIELD(elementCount), newElementCount);
+
+	// Insertion phase:
+	for(const auto& property : newProperties) {
+		// Lengths of new property arrays must be consistent.
+		if(property->size() != newElementCount) {
+			OVITO_ASSERT(false);
+			throwException(tr("Cannot add new %1 property '%2': Array length does not match number of elements in the parent container.").arg(getOOMetaClass().propertyClassDisplayName()).arg(property->name()));
+		}
+
+		const PropertyObject* propertyObj = (property->type() != 0) ? getProperty(property->type()) : getProperty(property->name());
+		if(propertyObj) {
+			makeMutable(propertyObj)->setStorage(property->storage());
+		}
+		else {
+			addProperty(property);
 		}
 	}
 }

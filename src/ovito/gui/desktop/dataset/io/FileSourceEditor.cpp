@@ -217,9 +217,13 @@ void FileSourceEditor::onPickLocalInputFile()
 			auto importerClasses = PluginManager::instance().metaclassMembers<FileImporter>(FileSourceImporter::OOClass());
 
 			// Let the user select a file.
-			ImportFileDialog dialog(importerClasses, dataset(), container()->window(), tr("Pick input file"));
-			if(!fileSource->sourceUrls().empty() && fileSource->sourceUrls().front().isLocalFile())
-				dialog.selectFile(fileSource->sourceUrls().front().toLocalFile());
+			ImportFileDialog dialog(importerClasses, dataset(), container()->window(), tr("Pick input file"), false);
+			if(fileSource->dataCollectionFrame() >= 0 && fileSource->dataCollectionFrame() < fileSource->frames().size()) {
+				const QUrl& url = fileSource->frames()[fileSource->dataCollectionFrame()].sourceFile;
+				if(url.isLocalFile())
+					dialog.selectFile(url.toLocalFile());
+
+			}
 			if(dialog.exec() != QDialog::Accepted)
 				return;
 

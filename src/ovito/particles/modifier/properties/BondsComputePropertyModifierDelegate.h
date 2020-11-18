@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Copyright 2018 Alexander Stukowski
+//  Copyright 2020 Alexander Stukowski
 //
 //  This file is part of OVITO (Open Visualization Tool).
 //
@@ -70,7 +70,7 @@ public:
 	virtual std::shared_ptr<ComputePropertyModifierDelegate::PropertyComputeEngine> createEngine(
 				TimePoint time,
 				const PipelineFlowState& input,
-				const PropertyContainer* container,
+				const ConstDataObjectPath& containerPath,
 				PropertyPtr outputProperty,
 				ConstPropertyPtr selectionProperty,
 				QStringList expressions) override;
@@ -87,7 +87,7 @@ private:
 				const TimeInterval& validityInterval,
 				TimePoint time,
 				PropertyPtr outputProperty,
-				const PropertyContainer* container,
+				const ConstDataObjectPath& containerPath,
 				ConstPropertyPtr selectionProperty,
 				QStringList expressions,
 				int frameNumber,
@@ -96,16 +96,12 @@ private:
 		/// Computes the modifier's results.
 		virtual void perform() override;
 
-		/// Returns a human-readable text listing the input variables.
-		virtual QString inputVariableTable() const override;
-
 		/// Injects the computed results into the data pipeline.
 		virtual void applyResults(TimePoint time, ModifierApplication* modApp, PipelineFlowState& state) override;
 
 	private:
 
 		ParticleOrderingFingerprint _inputFingerprint;
-		ConstPropertyPtr _topology;
 	};
 };
 

@@ -24,15 +24,10 @@
 
 
 #include <ovito/particles/Particles.h>
-#include <ovito/particles/objects/ParticlesObject.h>
-#include <ovito/particles/objects/ParticlesVis.h>
-#include <ovito/particles/objects/BondsObject.h>
-#include <ovito/particles/objects/ParticleType.h>
 #include <ovito/grid/objects/VoxelGrid.h>
 #include <ovito/core/dataset/io/FileSourceImporter.h>
-#include <ovito/stdobj/properties/PropertyStorage.h>
-#include <ovito/stdobj/properties/PropertyAccess.h>
 #include <ovito/stdobj/simcell/SimulationCell.h>
+#include <ovito/stdobj/properties/PropertyContainerImportData.h>
 
 namespace Ovito { namespace Particles {
 
@@ -43,152 +38,8 @@ class OVITO_PARTICLES_EXPORT ParticleFrameData : public FileSourceImporter::Fram
 {
 public:
 
-	/// Used to describe particle and bond types.
-	struct TypeDefinition {
-		int id;
-		QString name;
-		std::string name8bit;
-		Color color;
-		FloatType radius;
-		FloatType mass;
-		std::shared_ptr<TriMesh> shapeMesh;
-	};
-
-	/// Used to store the lists of particle/bond types.
-	class OVITO_PARTICLES_EXPORT TypeList
-	{
-	public:
-
-		/// Constructor, which takes the class of type elements defined by this list.
-		explicit TypeList(const OvitoClass& elementClass = ParticleType::OOClass()) : _elementClass(elementClass) {}
-
-		/// Returns the class of element types defined in this list.
-		const OvitoClass& elementClass() const { return _elementClass; }
-
-		/// Defines a new particle/bond type with the given id.
-		void addTypeId(int id) {
-			for(const auto& type : _types) {
-				if(type.id == id)
-					return;
-			}
-			_types.push_back({ id, QString(), std::string(), Color(0,0,0), 0.0, 0.0 });
-		}
-
-		/// Defines a new type with the given id.
-		void addTypeId(int id, const QString& name, const Color& color = Color(0,0,0), FloatType radius = 0, FloatType mass = 0) {
-			for(const auto& type : _types) {
-				if(type.id == id)
-					return;
-			}
-			_types.push_back({ id, name, name.toStdString(), color, radius, mass });
-		}
-
-		/// Changes the name of an existing type.
-		void setTypeName(int id, const QString& name) {
-			for(auto& type : _types) {
-				if(type.id == id) {
-					type.name = name;
-					type.name8bit = name.toStdString();
-					break;
-				}
-			}
-		}
-
-		/// Changes the mass of an existing type.
-		void setTypeMass(int id, FloatType mass) {
-			for(auto& type : _types) {
-				if(type.id == id) {
-					type.mass = mass;
-					break;
-				}
-			}
-		}
-
-		/// Changes the radius of an existing type.
-		void setTypeRadius(int id, FloatType radius) {
-			for(auto& type : _types) {
-				if(type.id == id) {
-					type.radius = radius;
-					break;
-				}
-			}
-		}
-
-		/// Assigns a user-defined shape to an existing type.
-		void setTypeShape(int id, std::shared_ptr<TriMesh> shape) {
-			for(auto& type : _types) {
-				if(type.id == id) {
-					type.shapeMesh = std::move(shape);
-					break;
-				}
-			}
-		}
-
-		/// Defines a new type with the given name.
-		inline int addTypeName(const char* name, const char* name_end = nullptr) {
-			size_t nameLen = (name_end ? (name_end - name) : qstrlen(name));
-			for(const auto& type : _types) {
-				if(type.name8bit.compare(0, type.name8bit.size(), name, nameLen) == 0)
-					return type.id;
-			}
-			int id = _types.size() + 1;
-			_types.push_back({ id, QString::fromLocal8Bit(name, nameLen), std::string(name, nameLen), Color(0,0,0), 0.0, 0.0 });
-			return id;
-		}
-
-		/// Defines a new type with the given name.
-		inline int addTypeName(const QString& name) {
-			for(const auto& type : _types) {
-				if(type.name == name)
-					return type.id;
-			}
-			int id = _types.size() + 1;
-			_types.push_back({ id, name, name.toStdString(), Color(0,0,0), 0.0, 0.0 });
-			return id;
-		}
-
-		/// Defines a new type with the given name, color, and radius.
-		int addTypeName(const char* name, const char* name_end, const Color& color, FloatType radius = 0, FloatType mass = 0) {
-			size_t nameLen = (name_end ? (name_end - name) : qstrlen(name));
-			for(const auto& type : _types) {
-				if(type.name8bit.compare(0, type.name8bit.size(), name, nameLen) == 0)
-					return type.id;
-			}
-			int id = _types.size() + 1;
-			_types.push_back({ id, QString::fromLocal8Bit(name, nameLen), std::string(name, nameLen), color, radius, mass });
-			return id;
-		}
-
-		/// Returns the list of particle or bond types.
-		const std::vector<TypeDefinition>& types() const { return _types; }
-
-		/// Returns the list of particle or bond types.
-		std::vector<TypeDefinition>& types() { return _types; }
-
-		/// Sorts the types w.r.t. their name. Reassigns the per-element type IDs.
-		/// This method is used by file parsers that create particle/bond types on the go while the read the data.
-		/// In such a case, the assignment of IDs to types depends on the storage order of particles/bonds in the file, which is not desirable.
-		void sortTypesByName(PropertyAccess<int>& typeProperty);
-
-		/// Sorts types according to numeric identifier.
-		void sortTypesById();
-
-	private:
-
-		/// The list of defined types.
-		std::vector<TypeDefinition> _types;
-
-		/// The kind of type elements defined in this list (particles types, bond types, etc.).
-		const OvitoClass& _elementClass; 
-	};
-
-public:
-
 	/// Constructor.
-	ParticleFrameData() {
-		// Assume periodic boundary conditions by default.
-		_simulationCell.setPbcFlags(true, true, true);
-	}
+	ParticleFrameData();
 
 	/// Inserts the loaded data into the provided pipeline state structure. This function is
 	/// called by the system from the main thread after the asynchronous loading task has finished.
@@ -200,179 +51,26 @@ public:
 	/// Returns a reference to the simulation cell.
 	SimulationCell& simulationCell() { return _simulationCell; }
 
-	/// Returns the list of particle properties.
-	const std::vector<PropertyPtr>& particleProperties() const { return _particleProperties; }
+	/// Returns the per-particle data.
+	PropertyContainerImportData& particles() { return _particleData; }
 
-	/// Returns a standard particle property if already defined.
-	PropertyPtr findStandardParticleProperty(ParticlesObject::Type which) const {
-		OVITO_ASSERT(which != ParticlesObject::UserProperty);
-		for(const auto& prop : _particleProperties)
-			if(prop->type() == which)
-				return prop;
-		return {};
-	}
-
-	/// Finds a particle property by name.
-	PropertyPtr findParticleProperty(const QString& name) const {
-		for(const auto& prop : _particleProperties)
-			if(prop->name() == name)
-				return prop;
-		return {};
-	}
-
-	/// Adds a new particle property.
-	PropertyStorage* addParticleProperty(PropertyPtr property) {
-		_particleProperties.push_back(std::move(property));
-		return _particleProperties.back().get();
-	}
-
-	/// Removes a particle property from the list.
-	void removeParticleProperty(int index) {
-		OVITO_ASSERT(index >= 0 && index < _particleProperties.size());
-		_typeLists.erase(_particleProperties[index].get());
-		_particleProperties.erase(_particleProperties.begin() + index);
-	}
-
-	/// Removes a particle property from the list.
-	void removeParticleProperty(const PropertyPtr& property) {
-		auto iter = std::find(_particleProperties.begin(), _particleProperties.end(), property);
-		OVITO_ASSERT(iter != _particleProperties.end());
-		_typeLists.erase(property.get());
-		_particleProperties.erase(iter);
-	}
-
-	/// Returns the list of types defined for a particle or bond property.
-	TypeList* propertyTypesList(const PropertyStorage* property) {
-		auto typeList = _typeLists.find(property);
-		if(typeList == _typeLists.end())
-			return nullptr;
-		return typeList->second.get();
-	}
-
-	/// Returns the list of types defined for a particle or bond property.
-	TypeList* propertyTypesList(const PropertyPtr& property) {
-		return propertyTypesList(property.get());
-	}
-
-	/// Returns the list of types defined for a particle or bond property.
-	TypeList* propertyTypesList(const PropertyAccess<int>& property) {
-		return propertyTypesList(property.storage());
-	}
-
-	/// Creates a types list for a particle or bond property.
-	TypeList* createPropertyTypesList(const PropertyStorage* property, const OvitoClass& elementClass = ParticleType::OOClass()) {
-		auto typeList = _typeLists.find(property);
-		if(typeList == _typeLists.end())
-			typeList = _typeLists.emplace(property, std::make_unique<TypeList>(elementClass)).first;
-		return typeList->second.get();
-	}
-
-	/// Creates a types list for a particle or bond property.
-	TypeList* createPropertyTypesList(const PropertyPtr& property, const OvitoClass& elementClass = ParticleType::OOClass()) {
-		return createPropertyTypesList(property.get(), elementClass);
-	}
-
-	/// Creates a types list for a particle or bond property.
-	TypeList* createPropertyTypesList(const PropertyAccess<int>& property, const OvitoClass& elementClass = ParticleType::OOClass()) {
-		return createPropertyTypesList(property.storage(), elementClass);
-	}	
-
-	/// Sets the list of types defined for a particle or bond property.
-	void setPropertyTypesList(const PropertyStorage* property, std::unique_ptr<TypeList> list) {
-		_typeLists.emplace(property, std::move(list));
-	}
-
-	/// Sets the list of types defined for a particle or bond property.
-	void setPropertyTypesList(const PropertyPtr& property, std::unique_ptr<TypeList> list) {
-		setPropertyTypesList(property.get(), std::move(list));
-	}
-
-	/// Sets the list of types defined for a particle or bond property.
-	void setPropertyTypesList(const PropertyAccess<int>& property, std::unique_ptr<TypeList> list) {
-		setPropertyTypesList(property.storage(), std::move(list));
-	}
-
-	/// Returns the list of bond properties.
-	const std::vector<PropertyPtr>& bondProperties() const { return _bondProperties; }
-
-	/// Returns a standard bond property if already defined.
-	PropertyPtr findStandardBondProperty(BondsObject::Type which) const {
-		OVITO_ASSERT(which != BondsObject::UserProperty);
-		for(const auto& prop : _bondProperties)
-			if(prop->type() == which)
-				return prop;
-		return {};
-	}
-
-	/// Adds a new bond property.
-	PropertyStorage* addBondProperty(PropertyPtr property) {
-		_bondProperties.push_back(std::move(property));
-		return _bondProperties.back().get();
-	}
-
-	/// Removes a bond property from the list.
-	void removeBondProperty(int index) {
-		OVITO_ASSERT(index >= 0 && index < _bondProperties.size());
-		_typeLists.erase(_bondProperties[index].get());
-		_bondProperties.erase(_bondProperties.begin() + index);
-	}
+	/// Returns the per-bond data.
+	PropertyContainerImportData& bonds() { return _bondData; }
 
 	/// Determines the PBC shift vectors for bonds using the minimum image convention.
 	void generateBondPeriodicImageProperty();
 
-	/// Returns the list of angle properties.
-	const std::vector<PropertyPtr>& angleProperties() const { return _angleProperties; }
+	/// Returns the per-angle data.
+	PropertyContainerImportData& angles() { return _angleData; }
 
-	/// Returns the list of dihedral properties.
-	const std::vector<PropertyPtr>& dihedralProperties() const { return _dihedralProperties; }
+	/// Returns the per-dihedral data.
+	PropertyContainerImportData& dihedrals() { return _dihedralData; }
 
-	/// Returns the list of improper properties.
-	const std::vector<PropertyPtr>& improperProperties() const { return _improperProperties; }
+	/// Returns the per-improper data.
+	PropertyContainerImportData& impropers() { return _improperData; }
 
-	/// Adds a new angle property.
-	PropertyStorage* addAngleProperty(PropertyPtr property) {
-		_angleProperties.push_back(std::move(property));
-		return _angleProperties.back().get();
-	}
-
-	/// Adds a new dihedral property.
-	PropertyStorage* addDihedralProperty(PropertyPtr property) {
-		_dihedralProperties.push_back(std::move(property));
-		return _dihedralProperties.back().get();
-	}
-
-	/// Adds a new improper property.
-	PropertyStorage* addImproperProperty(PropertyPtr property) {
-		_improperProperties.push_back(std::move(property));
-		return _improperProperties.back().get();
-	}
-
-	/// Returns a standard angle property if already defined.
-	PropertyPtr findStandardAngleProperty(AnglesObject::Type which) const {
-		OVITO_ASSERT(which != AnglesObject::UserProperty);
-		for(const auto& prop : _angleProperties)
-			if(prop->type() == which)
-				return prop;
-		return {};
-	}
-
-	/// Returns a standard dihedral property if already defined.
-	PropertyPtr findStandardDihedralProperty(DihedralsObject::Type which) const {
-		OVITO_ASSERT(which != DihedralsObject::UserProperty);
-		for(const auto& prop : _dihedralProperties)
-			if(prop->type() == which)
-				return prop;
-		return {};
-	}
-
-	/// Returns a standard improper property if already defined.
-	PropertyPtr findStandardImproperProperty(ImpropersObject::Type which) const {
-		OVITO_ASSERT(which != ImpropersObject::UserProperty);
-		for(const auto& prop : _improperProperties)
-			if(prop->type() == which)
-				return prop;
-		return {};
-	}
+	/// Returns the per-voxel data.
+	PropertyContainerImportData& voxels() { return _voxelData; }
 
 	/// Returns the shape of the voxel grid.
 	const VoxelGrid::GridDimensions& voxelGridShape() const { return _voxelGridShape; }
@@ -392,21 +90,6 @@ public:
 	/// Sets the unique data object ID that will be assigned to the voxel grid.
 	void setVoxelGridId(const QString& id) { _voxelGridId = id; }
 
-	/// Returns the list of voxel properties.
-	const std::vector<PropertyPtr>& voxelProperties() const { return _voxelProperties; }
-
-	/// Adds a new voxel grid property.
-	PropertyStorage* addVoxelProperty(PropertyPtr quantity) {
-		_voxelProperties.push_back(std::move(quantity));
-		return _voxelProperties.back().get();
-	}
-
-	/// Removes a voxel grid property from the list.
-	void removeVoxelProperty(int index) {
-		OVITO_ASSERT(index >= 0 && index < _voxelProperties.size());
-		_voxelProperties.erase(_voxelProperties.begin() + index);
-	}
-
 	/// Returns the metadata read from the file header.
 	QVariantMap& attributes() { return _attributes; }
 
@@ -418,36 +101,28 @@ public:
 	/// Does nothing if particles do not have IDs.
 	void sortParticlesById();
 
-	/// Selects the type of visual element to create for rendering the particles.
-	void setParticleVisElementClass(OvitoClassPtr visElementClass) { _particleVisElementClass = visElementClass; }
-
-private:
-
-	/// Inserts the stored particle or bond types into the given property object.
-	void insertTypes(PropertyObject* propertyObj, TypeList* typeList, bool isNewFile, bool isBondProperty);
-
 private:
 
 	/// The simulation cell.
 	SimulationCell _simulationCell;
 
 	/// Particle properties.
-	std::vector<PropertyPtr> _particleProperties;
+	PropertyContainerImportData _particleData;
 
 	/// Bond properties.
-	std::vector<PropertyPtr> _bondProperties;
+	PropertyContainerImportData _bondData;
 
 	/// Angle properties.
-	std::vector<PropertyPtr> _angleProperties;
+	PropertyContainerImportData _angleData;
 
 	/// Dihedral properties.
-	std::vector<PropertyPtr> _dihedralProperties;
+	PropertyContainerImportData _dihedralData;
 
 	/// Improper properties.
-	std::vector<PropertyPtr> _improperProperties;
+	PropertyContainerImportData _improperData;
 
 	/// Voxel grid properties.
-	std::vector<PropertyPtr> _voxelProperties;
+	PropertyContainerImportData _voxelData;
 
 	/// The dimensions of the voxel grid.
 	VoxelGrid::GridDimensions _voxelGridShape{{0,0,0}};
@@ -458,24 +133,11 @@ private:
 	/// The ID to assign to the voxel grid data object.
 	QString _voxelGridId;
 	
-#if defined(Q_CC_MSVC) && _MSC_VER <= 1916
-	/// Needed as a workaround for a compiler bug in MVSC 2017.
-	/// See https://stackoverflow.com/questions/21056872/c-stdunique-ptr-wont-compile-in-map
-	/// Problem seems to be fixed in MSVC 2019.
-	std::unique_ptr<TypeList> _dummyWorkaroundForMVSCCompilerBug;
-#endif
-
-	/// Stores the lists of types for typed properties (particle/bond/angle/dihedral/improper properties).
-	std::map<const PropertyStorage*, std::unique_ptr<TypeList>> _typeLists;
-
 	/// The metadata read from the file header.
 	QVariantMap _attributes;
 
 	/// Flag that is set by the parser to indicate that the input file contains more than one frame.
 	bool _detectedAdditionalFrames = false;
-
-	/// The type of visual element to create for rendering the particles.
-	OvitoClassPtr _particleVisElementClass = &ParticlesVis::OOClass();
 };
 
 }	// End of namespace

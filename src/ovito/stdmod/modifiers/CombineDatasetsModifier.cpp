@@ -167,7 +167,9 @@ void CombineDatasetsModifierDelegate::mergeElementTypes(PropertyObject* property
 	std::map<int,int> typeMap;
 	for(const ElementType* type2 : property2->elementTypes()) {
 		if(!type2->name().isEmpty()) {
-			const ElementType* type1 = property1->elementType(type2->name());
+			const ElementType* type1 = property1->elementType(type2->numericId());
+			if(!type1 || type1->name() != type2->name())
+				type1 = property1->elementType(type2->name());
 			if(type1 == nullptr) {
 				OORef<ElementType> type2clone = cloneHelper.cloneObject(type2, false);
 				type2clone->setNumericId(property1->generateUniqueElementTypeId());

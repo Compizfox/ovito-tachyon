@@ -225,8 +225,8 @@ inline El find_element(const char* symbol) {
   char second = symbol[1] & ~0x20;
   if (first == '\0')
     return impl::find_single_letter_element(second);
-  // To handle symbol being "S\n" we have the condition below.
-  // In addition to \t, \v, \r and \n it catches also !"3$%&'()*+,- and
+  // To handle symbol being "X\n" we have the condition below.
+  // In addition to \t, \v, \r and \n it catches also !"#$%&'()*+,- and
   // some control characters - inconsistent but not necessarily bad.
   if (second < 14)
     return impl::find_single_letter_element(first);
@@ -250,11 +250,12 @@ struct Element {
   bool operator==(El e) const { return elem == e; }
   bool operator!=(El e) const { return elem != e; }
 
-  int atomic_number() const {
-    return elem == El::D ? 1 : static_cast<int>(elem);
-  }
+  int ordinal() const { return static_cast<int>(elem); }
+  int atomic_number() const { return elem == El::D ? 1 : ordinal(); }
+  bool is_hydrogen() const { return gemmi::is_hydrogen(elem); }
   double weight() const { return molecular_weight(elem); }
   float covalent_r() const { return covalent_radius(elem); }
+  bool is_metal() const { return gemmi::is_metal(elem); }
   // return name such as Mg (not MG)
   const char* name() const { return element_name(elem); }
   // return uppercase name such as MG

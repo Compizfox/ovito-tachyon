@@ -70,8 +70,10 @@ private:
 	QComboBox* playbackSpeedBox;
 	QCheckBox* loopPlaybackBox;
 	QGroupBox* animIntervalBox;
+
+	bool ticksPerFrameModified = false;
+	bool playbackSpeedModified = false;
+	bool loopPlaybackModified = false;
 };
 
 }	// End of namespace
-
-

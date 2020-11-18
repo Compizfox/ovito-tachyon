@@ -47,8 +47,9 @@ public:
 	/// \brief Constructs the object.
 	/// \param destination The Qt data stream to which the objects will be written. This must be a
 	///                    stream that supports random access.
+	/// \param operation The task handle that allows to cancel the save process.
 	/// \throw Exception if the underlying data stream only supports sequential access.
-	ObjectSaveStream(QDataStream& destination) : SaveStream(destination) {}
+	ObjectSaveStream(QDataStream& destination, SynchronousOperation operation) : SaveStream(destination, std::move(operation)) {}
 
 	/// Calls close() to close the ObjectSaveStream.
 	virtual ~ObjectSaveStream();

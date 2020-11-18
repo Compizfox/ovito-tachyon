@@ -73,6 +73,9 @@ public:
 	/// \brief Constructs a new particle type.
 	Q_INVOKABLE ParticleType(DataSet* dataset);
 
+	/// \brief Initializes the element type from a variable list of attributes delivered by a file importer.
+	virtual bool initialize(bool isNewlyCreated, const QString& name, const QVariantMap& attributes, int typePropertyId) override;
+
 	//////////////////////////////////// Utility methods ////////////////////////////////
 
 	/// Builds a map from type identifiers to particle radii.
@@ -81,6 +84,15 @@ public:
 		for(const ElementType* type : typeProperty->elementTypes())
 			if(const ParticleType* particleType = dynamic_object_cast<ParticleType>(type))
 				m.insert({ type->numericId(), particleType->radius() });
+		return m;
+	}
+
+	/// Builds a map from type identifiers to particle masses.
+	static std::map<int,FloatType> typeMassMap(const PropertyObject* typeProperty) {
+		std::map<int,FloatType> m;
+		for(const ElementType* type : typeProperty->elementTypes())
+			if(const ParticleType* particleType = dynamic_object_cast<ParticleType>(type))
+				m.insert({ type->numericId(), particleType->mass() });
 		return m;
 	}
 

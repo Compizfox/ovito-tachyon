@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Copyright 2016 Alexander Stukowski
+//  Copyright 2020 Alexander Stukowski
 //
 //  This file is part of OVITO (Open Visualization Tool).
 //
@@ -48,7 +48,7 @@ public:
 protected:
 
 	/// Displays a dialog box that allows the user to edit the custom file column to particle property mapping.
-	bool showEditColumnMappingDialog(LAMMPSBinaryDumpImporter* importer, QWidget* parent);
+	bool showEditColumnMappingDialog(LAMMPSBinaryDumpImporter* importer, MainWindow* mainWindow);
 
 	/// Creates the user interface controls for the editor.
 	virtual void createUI(const RolloutInsertionParameters& rolloutParams) override;
@@ -61,5 +61,3 @@ protected Q_SLOTS:
 
 }	// End of namespace
 }	// End of namespace
-
-

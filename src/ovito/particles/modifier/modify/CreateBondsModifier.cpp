@@ -133,17 +133,18 @@ void CreateBondsModifier::initializeModifier(ModifierApplication* modApp)
 	int bondTypeId = 1;
 	const PipelineFlowState& input = modApp->evaluateInputSynchronous(dataset()->animationSettings()->time());
 	if(const ParticlesObject* particles = input.getObject<ParticlesObject>()) {
-		if(particles->bonds()) {
-			if(BondsVis* bondsVis = particles->bonds()->visElement<BondsVis>()) {
+		if(const BondsObject* bonds = particles->bonds()) {
+			if(BondsVis* bondsVis = bonds->visElement<BondsVis>()) {
 				setBondsVis(bondsVis);
 			}
-			if(const PropertyObject* bondTypeProperty = particles->bonds()->getProperty(BondsObject::TypeProperty)) {
+			if(const PropertyObject* bondTypeProperty = bonds->getProperty(BondsObject::TypeProperty)) {
 				bondTypeId = bondTypeProperty->generateUniqueElementTypeId();
 			}
 		}
 	}
 	if(bondType() && bondType()->numericId() == 0) {
 		bondType()->setNumericId(bondTypeId);
+		bondType()->setColor(BondType::getDefaultBondColorForId(BondsObject::TypeProperty, bondTypeId));
 	}
 }
 
@@ -315,6 +316,24 @@ void CreateBondsModifier::BondsEngine::applyResults(TimePoint time, ModifierAppl
 	else {
 		state.setStatus(PipelineStatus(PipelineStatus::Success, tr("Created %1 bonds.").arg(bondsCount)));
 	}
+}
+
+/******************************************************************************
+* This function is called from AsynchronousModifier::evaluateSynchronous() to 
+* apply the results from the last asycnhronous compute engine during a 
+* synchronous pipeline evaluation.
+******************************************************************************/
+bool CreateBondsModifier::applyCachedResultsSynchronous(TimePoint time, ModifierApplication* modApp, PipelineFlowState& state)
+{
+	// If results are still available from the last pipeline evaluation, apply them to the input data.
+	if(AsynchronousModifier::applyCachedResultsSynchronous(time, modApp, state))
+		return true;
+
+	// Bonds have not been computed yet, but still add the empty BondsObject to the pipeline output
+	// so that subsequent modifiers in the pipeline see it.
+	state.expectMutableObject<ParticlesObject>()->addBonds({}, bondsVis(), {}, bondType());
+
+	return false;
 }
 
 }	// End of namespace

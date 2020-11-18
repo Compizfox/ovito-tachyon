@@ -325,6 +325,7 @@ public:
 
 	OVITO_CLASS_META(ColorCodingModifier, ColorCodingModifierClass)
 	Q_CLASSINFO("DisplayName", "Color coding");
+	Q_CLASSINFO("Description", "Colors elements based on property values.");
 	Q_CLASSINFO("ModifierCategory", "Coloring");
 	Q_OBJECT
 

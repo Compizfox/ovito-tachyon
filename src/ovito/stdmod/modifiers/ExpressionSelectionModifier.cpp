@@ -111,5 +111,15 @@ PipelineStatus ExpressionSelectionModifierDelegate::apply(Modifier* modifier, Pi
 	return PipelineStatus(PipelineStatus::Success, std::move(statusMessage));
 }
 
+/******************************************************************************
+* Creates and initializes the expression evaluator object.
+******************************************************************************/
+std::unique_ptr<PropertyExpressionEvaluator> ExpressionSelectionModifierDelegate::initializeExpressionEvaluator(const QStringList& expressions, const PipelineFlowState& inputState, const ConstDataObjectPath& containerPath, int animationFrame)
+{
+	std::unique_ptr<PropertyExpressionEvaluator> evaluator = std::make_unique<PropertyExpressionEvaluator>();
+	evaluator->initialize(expressions, inputState, containerPath, animationFrame);
+	return evaluator;
+}
+
 }	// End of namespace
 }	// End of namespace

@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Copyright 2019 Alexander Stukowski
+//  Copyright 2020 Alexander Stukowski
 //
 //  This file is part of OVITO (Open Visualization Tool).
 //
@@ -41,31 +41,6 @@ QVector<DataObjectReference> VoxelGridComputePropertyModifierDelegate::OOMetaCla
 		objects.push_back(path);
 	}
 	return objects;
-}
-
-/******************************************************************************
-* Creates and initializes a computation engine that will compute the
-* modifier's results.
-******************************************************************************/
-std::shared_ptr<ComputePropertyModifierDelegate::PropertyComputeEngine> VoxelGridComputePropertyModifierDelegate::createEngine(
-				TimePoint time,
-				const PipelineFlowState& input,
-				const PropertyContainer* container,
-				PropertyPtr outputProperty,
-				ConstPropertyPtr selectionProperty,
-				QStringList expressions)
-{
-	// Create engine object. Pass all relevant modifier parameters to the engine as well as the input data.
-	return std::make_shared<ComputePropertyModifierDelegate::PropertyComputeEngine>(
-			input.stateValidity(),
-			time,
-			input,
-			container,
-			std::move(outputProperty),
-			std::move(selectionProperty),
-			std::move(expressions),
-			dataset()->animationSettings()->timeToFrame(time),
-			std::make_unique<PropertyExpressionEvaluator>());
 }
 
 }	// End of namespace

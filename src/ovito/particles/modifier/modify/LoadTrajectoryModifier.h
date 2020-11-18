@@ -50,6 +50,7 @@ class OVITO_PARTICLES_EXPORT LoadTrajectoryModifier : public Modifier
 	OVITO_CLASS_META(LoadTrajectoryModifier, LoadTrajectoryModifierClass)
 
 	Q_CLASSINFO("DisplayName", "Load trajectory");
+	Q_CLASSINFO("Description", "Load atomic trajectories or dynamic bonds from a trajectory file.");
 #ifndef OVITO_BUILD_WEBGUI
 	Q_CLASSINFO("ModifierCategory", "Modification");
 #else
@@ -83,6 +84,13 @@ public:
 	/// Given a source frame index, returns the animation time at which it is shown.
 	virtual TimePoint sourceFrameToAnimationTime(int frame, TimePoint inputTime) const override {
 		return trajectorySource() ? trajectorySource()->sourceFrameToAnimationTime(frame) : inputTime;
+	}
+
+	/// Returns the human-readable labels associated with the animation frames (e.g. the simulation timestep numbers).
+	virtual QMap<int, QString> animationFrameLabels(QMap<int, QString> inputLabels) const override {
+		if(trajectorySource())
+			inputLabels.unite(trajectorySource()->animationFrameLabels());
+		return std::move(inputLabels);
 	}
 
 protected:

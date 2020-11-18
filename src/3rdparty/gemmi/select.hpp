@@ -10,6 +10,7 @@
 #include <cctype>    // for isalpha
 #include <climits>   // for INT_MIN, INT_MAX
 #include "fail.hpp"  // for fail
+#include "util.hpp"  // for is_in_list
 #include "model.hpp" // for Model, Chain, etc
 #include "iterator.hpp" // for FilterProxy
 
@@ -33,6 +34,24 @@ struct Selection {
       if (all)
         return "*";
       return inverted ? "!" + list : list;
+    }
+
+    bool has(const std::string& name) const {
+      if (all)
+        return true;
+      bool found = is_in_list(name, list);
+      return inverted ? !found : found;
+    }
+  };
+
+  struct FlagList {
+    std::string pattern;
+    bool has(char flag) const {
+      if (pattern.empty())
+        return true;
+      bool invert = (pattern[0] == '!');
+      bool found = (pattern.find(flag, invert ? 1 : 0) != std::string::npos);
+      return invert ? !found : found;
     }
   };
 
@@ -69,6 +88,8 @@ struct Selection {
   List atom_names;
   List elements;
   List altlocs;
+  FlagList residue_flags;
+  FlagList atom_flags;
 
   std::string to_cid() const {
     std::string cid(1, '/');
@@ -93,40 +114,23 @@ struct Selection {
     return cid;
   }
 
-  static bool find_in_comma_separated_string(const std::string& name,
-                                             const std::string& str) {
-    if (name.length() >= str.length())
-      return name == str;
-    for (size_t start=0, end=0; end != std::string::npos; start=end+1) {
-      end = str.find(',', start);
-      if (str.compare(start, end - start, name) == 0)
-        return true;
-    }
-    return false;
-  }
-
-  // assumes that list.all is checked before this function is called
-  static bool find_in_list(const std::string& name, const List& list) {
-    bool found = find_in_comma_separated_string(name, list.list);
-    return list.inverted ? !found : found;
-  }
-
   bool matches(const gemmi::Model& model) const {
     return mdl == 0 || std::to_string(mdl) == model.name;
   }
   bool matches(const gemmi::Chain& chain) const {
-    return chain_ids.all || find_in_list(chain.name, chain_ids);
+    return chain_ids.has(chain.name);
   }
   bool matches(const gemmi::Residue& res) const {
-    return (residue_names.all || find_in_list(res.name, residue_names)) &&
-            from_seqid.compare(res.seqid) <= 0 &&
-            to_seqid.compare(res.seqid) >= 0;
+    return residue_names.has(res.name) &&
+           from_seqid.compare(res.seqid) <= 0 &&
+           to_seqid.compare(res.seqid) >= 0 &&
+           residue_flags.has(res.flag);
   }
   bool matches(const gemmi::Atom& a) const {
-    return (atom_names.all || find_in_list(a.name, atom_names)) &&
-           (elements.all || find_in_list(a.element.uname(), elements)) &&
-           (altlocs.all ||
-            find_in_list(std::string(a.altloc ? 0 : 1, a.altloc), altlocs));
+    return atom_names.has(a.name) &&
+           (elements.all || elements.has(a.element.uname())) &&
+           (altlocs.all || altlocs.has(std::string(a.altloc ? 1 : 0, a.altloc))) &&
+           atom_flags.has(a.flag);
   }
   bool matches(const gemmi::CRA& cra) const {
     return (cra.chain == nullptr || matches(*cra.chain)) &&
@@ -135,16 +139,66 @@ struct Selection {
   }
 
   FilterProxy<Selection, Model> models(Structure& st) const {
-    return FilterProxy<Selection, Model>{*this, st.models};
+    return {*this, st.models};
   }
   FilterProxy<Selection, Chain> chains(Model& model) const {
-    return FilterProxy<Selection, Chain>{*this, model.chains};
+    return {*this, model.chains};
   }
   FilterProxy<Selection, Residue> residues(Chain& chain) const {
-    return FilterProxy<Selection, Residue>{*this, chain.residues};
+    return {*this, chain.residues};
   }
   FilterProxy<Selection, Atom> atoms(Residue& residue) const {
-    return FilterProxy<Selection, Atom>{*this, residue.atoms};
+    return {*this, residue.atoms};
+  }
+
+  CRA first_in_model(Model& model) const {
+    if (matches(model))
+      for (Chain& chain : model.chains) {
+        if (matches(chain))
+          for (Residue& res : chain.residues) {
+            if (matches(res))
+              for (Atom& atom : res.atoms) {
+                if (matches(atom))
+                  return {&chain, &res, &atom};
+              }
+          }
+      }
+    return {nullptr, nullptr, nullptr};
+  }
+
+  std::pair<Model*, CRA> first(Structure& st) const {
+    for (Model& model : st.models) {
+      CRA cra = first_in_model(model);
+      if (cra.chain)
+        return {&model, cra};
+    }
+    return {nullptr, {nullptr, nullptr, nullptr}};
+  }
+
+  template<typename T>
+  void add_matching_children(const T& orig, T& target) {
+    for (const auto& orig_child : orig.children())
+      if (matches(orig_child)) {
+        target.children().push_back(orig_child.empty_copy());
+        add_matching_children(orig_child, target.children().back());
+      }
+  }
+  void add_matching_children(const Atom&, Atom&) {}
+
+  Selection& set_residue_flags(const std::string& pattern) {
+    residue_flags.pattern = pattern;
+    return *this;
+  }
+  Selection& set_atom_flags(const std::string& pattern) {
+    atom_flags.pattern = pattern;
+    return *this;
+  }
+
+  template<typename T>
+  T copy_selection(const T& orig) {
+    T copied = orig.empty_copy();
+    add_matching_children(orig, copied);
+    return copied;
   }
 };
 

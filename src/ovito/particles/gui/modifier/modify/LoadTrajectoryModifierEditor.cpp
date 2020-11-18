@@ -44,7 +44,6 @@ void LoadTrajectoryModifierEditor::createUI(const RolloutInsertionParameters& ro
 	layout->setSpacing(4);
 
 	// Status label.
-	layout->addSpacing(6);
 	layout->addWidget(statusLabel());
 
 	// Open a sub-editor for the source object.

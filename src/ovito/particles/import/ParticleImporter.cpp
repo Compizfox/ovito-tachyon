@@ -21,6 +21,10 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 
 #include <ovito/particles/Particles.h>
+#include <ovito/particles/modifier/modify/LoadTrajectoryModifier.h>
+#include <ovito/core/dataset/scene/PipelineSceneNode.h>
+#include <ovito/core/app/Application.h>
+#include <ovito/core/dataset/io/FileSource.h>
 #include "ParticleImporter.h"
 
 namespace Ovito { namespace Particles {
@@ -41,6 +45,48 @@ void ParticleImporter::propertyChanged(const PropertyFieldDescriptor& field)
 		// But no need to refetch the files from the remote location. Reparsing the cached files is sufficient.
 		requestReload();
 	}
+}
+
+/******************************************************************************
+* Is called when importing multiple files of different formats.
+******************************************************************************/
+bool ParticleImporter::importFurtherFiles(std::vector<std::pair<QUrl, OORef<FileImporter>>> sourceUrlsAndImporters, ImportMode importMode, bool autodetectFileSequences, PipelineSceneNode* pipeline)
+{
+	OVITO_ASSERT(!sourceUrlsAndImporters.empty());
+	OORef<ParticleImporter> nextImporter = dynamic_object_cast<ParticleImporter>(sourceUrlsAndImporters.front().second);
+	if(this->isTrajectoryFormat() == false && nextImporter->isTrajectoryFormat() == true) {
+
+		// Create a new file source for loading the trajectory.
+		OORef<FileSource> fileSource = new FileSource(dataset());
+		// Load user-defined default settings.
+		if(Application::instance()->executionContext() == Application::ExecutionContext::Interactive)
+			fileSource->loadUserDefaults();
+
+		// Concatenate all files from the input list having the same file format into one sequence,
+		// which gets handled by the trajectory importer.
+		std::vector<QUrl> sourceUrls;
+		sourceUrls.push_back(std::move(sourceUrlsAndImporters.front().first));
+		auto iter = std::next(sourceUrlsAndImporters.begin());
+		for(; iter != sourceUrlsAndImporters.end(); ++iter) {
+			if(iter->second->getOOClass() != nextImporter->getOOClass())
+				break;
+			sourceUrls.push_back(std::move(iter->first));		
+		}
+		sourceUrlsAndImporters.erase(sourceUrlsAndImporters.begin(), iter);
+
+		// Set the input file location(s) and importer.
+		if(!fileSource->setSource(std::move(sourceUrls), nextImporter, autodetectFileSequences))
+			return {};
+
+		// Create a modifier for injecting the trajectory data into the existing pipeline.
+		OORef<LoadTrajectoryModifier> loadTrjMod = new LoadTrajectoryModifier(dataset());
+		loadTrjMod->setTrajectorySource(std::move(fileSource));
+		pipeline->applyModifier(loadTrjMod);
+
+		if(sourceUrlsAndImporters.empty())
+			return true;
+	}
+	return FileSourceImporter::importFurtherFiles(std::move(sourceUrlsAndImporters), importMode, autodetectFileSequences, pipeline);
 }
 
 }	// End of namespace

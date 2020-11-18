@@ -10,10 +10,10 @@
   <title>Importing data</title>
 
   <para>
-    To load a simulation file from your local computer in OVITO, select
+    To load a simulation file from your local computer, select
     <menuchoice><guimenu>File</guimenu><guimenuitem>Load File</guimenuitem></menuchoice> from the menu or use the corresponding button in the toolbar.
     OVITO detects the format of the file automatically (see <link linkend="file_formats.input">list of supported formats</link>).
-    Compressed text-based files having a <filename>.gz</filename> suffix can directly be read by OVITO.
+    Compressed text-based files with a <filename>.gz</filename> suffix can be read directly by OVITO.
   </para>
   <para>
     <informalfigure>
@@ -21,65 +21,98 @@
         <imagedata fileref="images/scene_objects/file_wildcard_pattern.png" format="PNG" scale="50" />
         </imageobject></mediaobject></screenshot>
     </informalfigure>
-    The imported dataset will appear in the viewports as a new object
-    and is also represented by the first item under the "Data source" section of the <link linkend="usage.modification_pipeline.pipeline_listbox">pipeline editor</link>, as highlighted in the screenshot on the right.
+    The imported dataset will appear in the viewports as a new three-dimensional object
+    and also as an entry in the "Data source" section of the <link linkend="usage.modification_pipeline.pipeline_listbox">pipeline editor</link>, as indicated in the screenshot on the right.
   </para>
   <para>
-    Select this list item to open the <link linkend="scene_objects.file_source">"External File"</link> panel below the pipeline editor, which is also visible in the screenshot.
-    The tool buttons at the top of the panel allow you to reload
-    the input file in case has been changed outside of OVITO, or to pick a different file as data source of the <link linkend="usage.modification_pipeline">pipeline</link>.
-    Replacing the input dataset can be helpful if you have set up a data analysis pipeline and want
-    to apply it on a different simulation dataset.
+    If you select this item in the list, the <link linkend="scene_objects.file_source">"External File"</link> panel appears below the pipeline editor.
+    The tool buttons at the top of that panel let you reload
+    the imported input file in case it has been changed or rewritten outside of OVITO, or you can pick a different file as data source of the <link linkend="usage.modification_pipeline">data pipeline</link>.
+    Switching the data source file can be useful if you have set up a data analysis pipeline and now would like to apply it to a different simulation dataset.
   </para>
 
   <simplesect xml:id="usage.import.command_line">
-    <title>Command line operation</title>
+    <title>Command line</title>
     <para>
       When launching OVITO from a terminal, you can directly specify a file to load. This works for local and remote files:
       <screen>
     <command>ovito /path/filename</command>
     <command>ovito sftp://hostname/path/filename</command>
-    <command>ovito https://www.website.org/path/filename</command>
-      </screen>
+    <command>ovito https://www.website.org/path/filename</command></screen>
+      You can import several files at once by specifying multiple filenames on the command line. 
+      If they all have the same file format, they will be concatenated into a sequence forming an animatable trajectory.
+      If they have different formats, OVITO will detect whether they represent a pair of topology/trajectory files (see next section).
+      If not, they will be inserted as several independent objects into the scene. 
     </para>
   </simplesect>
 
   <simplesect xml:id="usage.import.sequence">
-    <title>Simulation sequences</title>
+    <title>Simulation trajectories</title>
     <para>
        OVITO can load trajectories consisting of a series of simulation snapshots.
-       The following scenarios are supported by the software:
+       Various scenarios are supported by the software:
        <variablelist>
-         <varlistentry><term>A series of files:</term><listitem>
+         <varlistentry><term>A series of snapshot files:</term><listitem>
            <para>
-		       When you import a simulation file, OVITO tries to detect if it is part of a numbered sequence of files
-           with similar names in the same directory. To this end, the last number (if any) in the filename you picked is replaced with the wildcard
-           character <literal>*</literal> to generate a search pattern, which is subsequently used to look for other files belonging to the same sequence.
-		       For instance, if you imported a file named <filename>anim1c_5000.dump</filename>, OVITO will generate the search pattern
-		       <filename>anim1c_*.dump</filename> to find the other snapshots (e.g. <filename>anim1c_0.dump</filename>,
-		       <filename>anim1c_1000.dump</filename>, <filename>anim1c_2000.dump</filename>, etc). It is possible to
-		       manually override the generated file pattern in the input field highlighted in the screenshot.
+            By default, whenever you import a new simulation file, OVITO tries to detect if the file is part of a numbered sequence of files
+            with similar names in the same directory. To this end, the last number (if any) in the filename you've picked is replaced with the wildcard
+            character <literal>*</literal> to generate a search pattern, which will subsequently be used to look in the directory for more files belonging to the sequence.
+            For instance, if you imported a file named <filename>anim1c_5000.dump</filename>, OVITO will generate the search pattern
+            <filename>anim1c_*.dump</filename> to find more snapshots (e.g. <filename>anim1c_0.dump</filename>,
+            <filename>anim1c_1000.dump</filename>, <filename>anim1c_2000.dump</filename>, etc). It is possible to
+            manually override the generated file pattern in the input field highlighted in the screenshot or to turn off the 
+            automatic search by unchecking the "auto-generate" box.
            </para>
          </listitem></varlistentry>
 
-         <varlistentry><term>One file containing multiple frames:</term><listitem>
+         <varlistentry><term>One file containing all trajectory frames:</term><listitem>
            <para>
-		       OVITO automatically detects when the imported file contains more than one frame and loads them as an animation sequence.
+		       OVITO automatically detects whether the imported file contains more than one simulation frame and loads all of them as an animation sequence.
            For some file types, e.g. XYZ and LAMMPS dump, this is indicated by the <emphasis>Contains multiple timesteps</emphasis>
            checkbox highlighted in the screenshot. Note that OVITO typically keeps only the data of a single frame in memory at a time.
            Subsequent frames are loaded into memory only when needed, for example if you play back the animation or move the time slider.
            </para>
          </listitem></varlistentry>
 
-    		 <varlistentry><term>Separate files for topology and trajectories:</term><listitem>
+    		 <varlistentry><term>A pair of topology and trajectory files:</term><listitem>
            <para>
-            Some MD simulation codes work with separate topology and trajectory files. The topology file contains the static definition of
-            atoms, bonds, etc. while the trajectory file contains the computed trajectories and other time-dependent data generated by the simulation.
-            In such cases you should open the topology file first (e.g. a LAMMPS <emphasis>data</emphasis> file).
-            Then apply the <link linkend="particles.modifiers.load_trajectory">Load trajectory</link> modifier to load the time-dependent atomic positions
-            from the trajectory file (e.g. a LAMMPS <emphasis>dump</emphasis> file). This modifier will
-            combine both pieces of information -the static topology and the dynamic trajectory data- into a single animatable
-            dataset.
+            Some MD simulation codes use separate files for the topology and the trajectory of a molecular structure. The topology file contains the static definition of
+            atoms, bonds, etc. while the trajectory file contains the computed trajectories and other time-dependent data generated in the MD simulation.
+            In such a case you should pick both files in the file selection dialog and import them simultaneously. OVITO recognizes automatically which 
+            of the file is the topology file and which one is the trajectory file based on the following table:
+            <informaltable>
+              <tgroup cols="2">
+                <colspec colname='topology'/>
+                <colspec colname='trajectory'/>
+                <thead>
+                  <row>
+                    <entry>Topology file format</entry>
+                    <entry>Trajectory file format</entry>
+                  </row>
+                </thead>
+                <tbody>
+                  <row>
+                    <entry>LAMMPS&#xA0;data</entry>
+                    <entry>LAMMPS&#xA0;dump</entry>
+                  </row>
+                  <row>
+                    <entry>Gromacs&#xA0;GRO</entry>
+                    <entry>Gromacs&#xA0;XTC</entry>
+                  </row>
+                  <row>
+                    <entry>CASTEP&#xA0;cell</entry>
+                    <entry>CASTEP&#xA0;md/geom</entry>
+                  </row>
+                  <row>
+                    <entry><emphasis>any other supported format</emphasis></entry>
+                    <entry>XYZ</entry>
+                  </row>
+                </tbody>
+              </tgroup>
+            </informaltable>
+            The topology file will be loaded first (e.g. a LAMMPS <emphasis>data</emphasis> file) and a <link linkend="particles.modifiers.load_trajectory">Load trajectory</link> modifier 
+            will be inserted into the data pipeline to load the time-dependent atomic positions
+            from the trajectory file (e.g. a LAMMPS <emphasis>dump</emphasis> file). This modifier merges both pieces of information -the static topology and the dynamic trajectory data- into a single animated dataset.
            </para>
          </listitem></varlistentry>
 
@@ -87,7 +120,7 @@
     </para>
 
     <para>
-       OVITO will display a timeline and a time slider at the bottom of main window when a simulation sequence with more than one frame
+       OVITO will display a timeline and a time slider at the bottom of main window if a simulation sequence with more than one frame
        was loaded. Learn more about OVITO's animation functions in <link linkend="usage.animation">this section</link> of the manual.
     </para>
 

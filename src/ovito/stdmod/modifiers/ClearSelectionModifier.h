@@ -36,6 +36,7 @@ class OVITO_STDMOD_EXPORT ClearSelectionModifier : public GenericPropertyModifie
 	Q_OBJECT
 	OVITO_CLASS(ClearSelectionModifier)
 	Q_CLASSINFO("DisplayName", "Clear selection");
+	Q_CLASSINFO("Description", "Reset the selection state of all elements.");
 	Q_CLASSINFO("ModifierCategory", "Selection");
 
 public:

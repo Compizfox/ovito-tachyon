@@ -84,7 +84,7 @@ void PropertyInspectionApplet::onCurrentContainerChanged()
 	if(selectedContainerObject() && currentState()) {
 		try {
 			auto evaluator = createExpressionEvaluator();
-			evaluator->initialize(QStringList(), currentState(), selectedContainerObject());
+			evaluator->initialize(QStringList(), currentState(), selectedDataObjectPath());
 			_filterExpressionEdit->setWordList(evaluator->inputVariableNames());
 		}
 		catch(const Exception&) {}
@@ -124,8 +124,12 @@ void PropertyInspectionApplet::PropertyTableModel::setContents(const PropertyCon
 	// Generate the new list of properties.
 	std::vector<OORef<PropertyObject>> newProperties;
 	if(container) {
-		for(const PropertyObject* property : container->properties())
-			newProperties.push_back(property);
+		// Let the sub-class insert an extra ad-hoc column. 
+		// This option is used for DataTables, for example, which compute the x-axis dynamically.
+		if(OORef<PropertyObject> headerColumn = _applet->createHeaderColumnProperty(container))
+			newProperties.push_back(std::move(headerColumn));
+		// Insert regular properties of the container.
+		newProperties.insert(newProperties.end(), container->properties().begin(), container->properties().end());
 	}
 	int oldRowCount = rowCount();
 	int newRowCount = 0;
@@ -135,10 +139,7 @@ void PropertyInspectionApplet::PropertyTableModel::setContents(const PropertyCon
 	// Try to preserve the columns of the model as far as possible.
 	auto iter_pair = std::mismatch(_properties.begin(), _properties.end(), newProperties.begin(), newProperties.end(),
 		[](PropertyObject* prop1, PropertyObject* prop2) {
-			if(prop1->type() == PropertyStorage::GenericUserProperty)
-				return prop1->name() == prop2->name();
-			else
-				return prop1->type() == prop2->type();
+			return prop1->type() == prop2->type() && prop1->name() == prop2->name();
 		});
 
 	if(iter_pair.first != _properties.end()) {
@@ -202,13 +203,13 @@ void PropertyInspectionApplet::PropertyFilterModel::setupEvaluator()
 	if(_filterExpression.isEmpty() == false && _applet->currentState()) {
 		if(const PropertyContainer* container = _applet->selectedContainerObject()) {
 			try {
-				// Check if expression contain an assignment ('=' operator).
+				// Check if expression contains an assignment ('=' operator).
 				// This should be considered an error, because the user is probably referring to the comparison operator '=='.
 				if(_filterExpression.contains(QRegExp("[^=!><]=(?!=)")))
 					throw Exception(tr("The entered expression contains the assignment operator '='. Please use the correct comparison operator '==' instead."));
 
 				_evaluator = _applet->createExpressionEvaluator();
-				_evaluator->initialize(QStringList(_filterExpression), _applet->currentState(), container);
+				_evaluator->initialize(QStringList(_filterExpression), _applet->currentState(), _applet->selectedDataObjectPath());
 				_evaluatorWorker = std::make_unique<PropertyExpressionEvaluator::Worker>(*_evaluator);
 			}
 			catch(const Exception& ex) {

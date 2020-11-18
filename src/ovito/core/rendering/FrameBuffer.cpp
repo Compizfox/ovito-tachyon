@@ -161,7 +161,7 @@ void FrameBuffer::autoCrop()
 					break;
 				}
 			}
-			if(significant || y1 > y2)
+			if(significant || y1 >= y2)
 				break;
 		}
 		for(; y2 >= y1; y2--) {

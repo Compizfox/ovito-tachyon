@@ -20,6 +20,9 @@
 //
 ////////////////////////////////////////////////////////////////////////////////////////
 
+#pragma once
+
+
 #include <ovito/gui/desktop/GUI.h>
 #include <ovito/core/viewport/Viewport.h>
 #include "ViewportWindow.h"

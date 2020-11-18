@@ -26,7 +26,6 @@ QT5_ADD_RESOURCES(ResourceFiles resources/gui.qrc)
 # Define plugin module.
 OVITO_STANDARD_PLUGIN(Gui
 	SOURCES
-		GUI.cpp
 		mainwin/MainWindow.cpp
 		mainwin/ViewportsPanel.cpp
 		mainwin/TaskDisplayWidget.cpp
@@ -35,8 +34,9 @@ OVITO_STANDARD_PLUGIN(Gui
 		mainwin/cmdpanel/ModifyCommandPage.cpp
 		mainwin/cmdpanel/PipelineListModel.cpp
 		mainwin/cmdpanel/PipelineListItem.cpp
-		mainwin/cmdpanel/ModifierListBox.cpp
+		mainwin/cmdpanel/ModifierListModel.cpp
 		mainwin/cmdpanel/OverlayCommandPage.cpp
+		mainwin/cmdpanel/OverlayTypesModel.cpp
 		mainwin/cmdpanel/OverlayListModel.cpp
 		mainwin/cmdpanel/OverlayListItem.cpp
 		mainwin/data_inspector/DataInspectorPanel.cpp
@@ -64,6 +64,7 @@ OVITO_STANDARD_PLUGIN(Gui
 		actions/ViewportActions.cpp
 		actions/AnimationActions.cpp
 		actions/RenderActions.cpp
+		actions/SearchActions.cpp
 		actions/ViewportModeAction.cpp
 		dataset/GuiDataSetContainer.cpp
 		dataset/io/FileSourceEditor.cpp
@@ -109,7 +110,8 @@ OVITO_STANDARD_PLUGIN(Gui
 		properties/IntegerCheckBoxParameterUI.cpp
 		properties/ModifierPropertiesEditor.cpp
 		properties/ModifierDelegateParameterUI.cpp
-		properties/ModifierDelegateListParameterUI.cpp
+		properties/ModifierDelegateFixedListParameterUI.cpp
+		properties/ModifierDelegateVariableListParameterUI.cpp
 		properties/RefTargetListParameterUI.cpp
 		properties/StringParameterUI.cpp
 		properties/SubObjectParameterUI.cpp
@@ -134,6 +136,8 @@ OVITO_STANDARD_PLUGIN(Gui
 	LIB_DEPENDENCIES
 		Qt5::Widgets 
 		Qt5::Network
+	PRECOMPILED_HEADERS
+		GUI.h
 )
 
 # Inject copyright notice text into the source code.
@@ -145,10 +149,9 @@ SET_PROPERTY(SOURCE actions/FileActions.cpp
 FILE(RELATIVE_PATH OVITO_DOCUMENTATION_PATH "${OVITO_BINARY_DIRECTORY}" "${OVITO_SHARE_DIRECTORY}/doc/manual/html/")
 TARGET_COMPILE_DEFINITIONS(Gui PRIVATE "OVITO_DOCUMENTATION_PATH=\"${OVITO_DOCUMENTATION_PATH}\"")
 
-# Speed up compilation by using precompiled headers.
-IF(OVITO_USE_PRECOMPILED_HEADERS)
-	ADD_PRECOMPILED_HEADER(Gui ovito/gui/desktop/GUI.h)
-ENDIF()
+# Compute the relative path where the Python extension scripts get installed relative to the executable. 
+FILE(RELATIVE_PATH OVITO_SCRIPT_EXTENSIONS_RELATIVE_PATH "${OVITO_BINARY_DIRECTORY}" "${OVITO_SHARE_DIRECTORY}/scripts/")
+TARGET_COMPILE_DEFINITIONS(Gui PRIVATE "OVITO_SCRIPT_EXTENSIONS_RELATIVE_PATH=\"${OVITO_SCRIPT_EXTENSIONS_RELATIVE_PATH}\"")
 
 # Propagate list of plugins to parent scope.
 SET(OVITO_PLUGIN_LIST ${OVITO_PLUGIN_LIST} PARENT_SCOPE)

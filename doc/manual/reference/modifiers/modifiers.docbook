@@ -11,9 +11,9 @@
 
   <para>
 
-    Modifiers are your basic building blocks for creating a <link linkend="usage.modification_pipeline">data pipeline</link> in OVITO.
-    Like tools in a toolbox, each modifier implements a specific, well-defined type of operation or computation, and typically one needs to
-    combine several modifiers in a sequence to accomplish more complex tasks.
+    Modifiers are the basic building blocks for creating a <link linkend="usage.modification_pipeline">data pipeline</link> in OVITO.
+    Like tools in a toolbox, each modifier implements a very specific, well-defined type of operation or computation, and typically you will need to
+    combine several modifiers to accomplish more complex tasks.
 
     <informaltable>
         <tgroup cols="2">
@@ -35,6 +35,10 @@
             <row>
               <entry><link linkend="particles.modifiers.atomic_strain">Atomic&#xA0;strain</link></entry>
               <entry>Calculates local strain tensors based on the relative motion of neighboring particles. </entry>
+            </row>
+            <row>
+              <entry><link linkend="particles.modifiers.bond_analysis">Bond&#xA0;analysis</link><ovito-pro/></entry>
+              <entry>Computes bond angle and bond length distributions.</entry>
             </row>
             <row>
               <entry><link linkend="particles.modifiers.cluster_analysis">Cluster&#xA0;analysis</link></entry>
@@ -79,6 +83,10 @@
             <row>
               <entry><link linkend="particles.modifiers.time_averaging">Time&#xA0;averaging</link><ovito-pro/></entry>
               <entry>Computes the average of some time-dependent input quantity over the entire trajectory.</entry>
+            </row>
+            <row>
+              <entry><link linkend="particles.modifiers.time_series">Time&#xA0;series</link><ovito-pro/></entry>
+              <entry>Plots the value of a global attribute as function of simulation time.</entry>
             </row>
             <row>
               <entry><link linkend="particles.modifiers.voronoi_analysis">Voronoi&#xA0;analysis</link></entry>
@@ -245,6 +253,10 @@
               <entry><link linkend="particles.modifiers.generate_trajectory_lines">Generate&#xA0;trajectory&#xA0;lines</link></entry>
               <entry>Generates trajectory lines from the time-dependent particle positions.</entry>
             </row>
+            <row>
+              <entry><link linkend="particles.modifiers.interactive_molecular_dynamics">Interactive&#xA0;molecular&#xA0;dynamics</link></entry>
+              <entry>Visualize live atomic trajectories from a running MD simulation as they are being calculated.</entry>
+            </row>
 
           </tbody>
         </tgroup>
@@ -260,6 +272,8 @@
   <xi:include href="particles/assign_color.docbook"/>
 
   <xi:include href="particles/atomic_strain.docbook"/>
+
+  <xi:include href="particles/bond_analysis.docbook"/>
 
   <xi:include href="particles/centrosymmetry.docbook"/>
 
@@ -311,6 +325,8 @@
 
   <xi:include href="particles/identify_diamond.docbook"/>
 
+  <xi:include href="particles/interactive_molecular_dynamics.docbook"/>
+
   <xi:include href="particles/invert_selection.docbook"/>
 
   <xi:include href="particles/load_trajectory.docbook"/>
@@ -334,6 +350,8 @@
   <xi:include href="particles/smooth_trajectory.docbook"/>
 
   <xi:include href="particles/time_averaging.docbook"/>
+
+  <xi:include href="particles/time_series.docbook"/>
 
   <xi:include href="particles/unwrap_trajectories.docbook"/>
 

@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Copyright 2019 Alexander Stukowski
+//  Copyright 2020 Alexander Stukowski
 //
 //  This file is part of OVITO (Open Visualization Tool).
 //
@@ -217,7 +217,7 @@ bool CutoffNeighborFinder::prepare(FloatType cutoffRadius, ConstPropertyAccess<P
 CutoffNeighborFinder::Query::Query(const CutoffNeighborFinder& finder, size_t particleIndex)
 	: _builder(finder), _centerIndex(particleIndex)
 {
-	OVITO_ASSERT(particleIndex < _builder.particles.size());
+	OVITO_ASSERT(particleIndex < _builder.particleCount());
 
 	_stencilIter = _builder.stencil.begin();
 	_center = _builder.particles[particleIndex].pos;

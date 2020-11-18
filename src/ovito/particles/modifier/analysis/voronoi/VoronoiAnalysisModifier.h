@@ -57,6 +57,7 @@ class OVITO_PARTICLES_EXPORT VoronoiAnalysisModifier : public AsynchronousModifi
 	OVITO_CLASS_META(VoronoiAnalysisModifier, VoronoiAnalysisModifierClass)
 
 	Q_CLASSINFO("DisplayName", "Voronoi analysis");
+	Q_CLASSINFO("Description", "Determine nearest particle neighbors, atomic volume and Voronoi indices.");
 	Q_CLASSINFO("ModifierCategory", "Analysis");
 
 public:

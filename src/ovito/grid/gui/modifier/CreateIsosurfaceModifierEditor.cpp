@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Copyright 2017 Alexander Stukowski
+//  Copyright 2020 Alexander Stukowski
 //
 //  This file is part of OVITO (Open Visualization Tool).
 //
@@ -32,6 +32,8 @@
 #include "CreateIsosurfaceModifierEditor.h"
 
 #include <qwt/qwt_plot_marker.h>
+#include <qwt/qwt_plot_picker.h>
+#include <qwt/qwt_picker_machine.h>
 
 namespace Ovito { namespace Grid {
 
@@ -80,6 +82,10 @@ void CreateIsosurfaceModifierEditor::createUI(const RolloutInsertionParameters& 
 	layout2->addWidget(isolevelPUI->label(), 2, 0);
 	layout2->addLayout(isolevelPUI->createFieldLayout(), 2, 1);
 
+	// Transfer field values.
+	BooleanParameterUI* transferFieldValuesUI = new BooleanParameterUI(this, PROPERTY_FIELD(CreateIsosurfaceModifier::transferFieldValues));
+	layout2->addWidget(transferFieldValuesUI->checkBox(), 3, 0, 1, 2);
+
 	_plotWidget = new StdObj::DataTablePlotWidget();
 	_plotWidget->setMinimumHeight(200);
 	_plotWidget->setMaximumHeight(200);
@@ -89,9 +95,18 @@ void CreateIsosurfaceModifierEditor::createUI(const RolloutInsertionParameters& 
 	_isoLevelIndicator->setZ(1);
 	_isoLevelIndicator->attach(_plotWidget);
 	_isoLevelIndicator->hide();
+	_plotWidget->setMouseNavigationEnabled(false);
+	QwtPlotPicker* picker = new QwtPlotPicker(_plotWidget->canvas());
+	OVITO_ASSERT(picker->isEnabled());
+	picker->setTrackerMode(QwtPlotPicker::AlwaysOff);
+	picker->setStateMachine(new QwtPickerDragPointMachine());
+	connect(picker, qOverload<const QPointF&>(&QwtPlotPicker::appended), this, &CreateIsosurfaceModifierEditor::onPickerPoint);
+	connect(picker, qOverload<const QPointF&>(&QwtPlotPicker::moved), this, &CreateIsosurfaceModifierEditor::onPickerPoint);
+	connect(picker, &QwtPicker::activated, this, &CreateIsosurfaceModifierEditor::onPickerActivated);
+	connect(this, &PropertiesEditor::contentsReplaced, this, [this]() { onPickerActivated(false); });
 
-	layout2->addWidget(new QLabel(tr("Histogram:")), 3, 0, 1, 2);
-	layout2->addWidget(_plotWidget, 4, 0, 1, 2);
+	layout2->addWidget(new QLabel(tr("Histogram:")), 4, 0, 1, 2);
+	layout2->addWidget(_plotWidget, 5, 0, 1, 2);
 
 	// Status label.
 	layout1->addSpacing(8);
@@ -128,6 +143,37 @@ void CreateIsosurfaceModifierEditor::plotHistogram()
 	else {
 		_isoLevelIndicator->hide();
 		_plotWidget->reset();
+	}
+}
+
+/******************************************************************************
+* Is called when the user starts or stops picking a location in the plot widget.
+******************************************************************************/
+void CreateIsosurfaceModifierEditor::onPickerActivated(bool on)
+{
+	if(on) {
+		if(CreateIsosurfaceModifier* modifier = static_object_cast<CreateIsosurfaceModifier>(editObject())) {
+			dataset()->undoStack().beginCompoundOperation(tr("Change iso-value"));
+			_interactionInProgress = true;
+		}
+	}
+	else {
+		if(_interactionInProgress) {
+			dataset()->undoStack().endCompoundOperation(true);
+			_interactionInProgress = false;
+		}
+	}
+}
+
+/******************************************************************************
+* Is called when the user picks a location in the plot widget.
+******************************************************************************/
+void CreateIsosurfaceModifierEditor::onPickerPoint(const QPointF& pt)
+{
+	if(CreateIsosurfaceModifier* modifier = static_object_cast<CreateIsosurfaceModifier>(editObject())) {
+		OVITO_ASSERT(_interactionInProgress);
+		dataset()->undoStack().resetCurrentCompoundOperation();
+		modifier->setIsolevel(pt.x());
 	}
 }
 

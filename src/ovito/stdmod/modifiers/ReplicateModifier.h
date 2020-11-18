@@ -67,6 +67,7 @@ public:
 
 	OVITO_CLASS_META(ReplicateModifier, OOMetaClass)
 	Q_CLASSINFO("DisplayName", "Replicate");
+	Q_CLASSINFO("Description", "Duplicate the dataset to visualize periodic images of the system.");
 	Q_CLASSINFO("ModifierCategory", "Modification");
 	Q_OBJECT
 

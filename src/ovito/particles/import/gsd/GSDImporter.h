@@ -45,7 +45,7 @@ class OVITO_PARTICLES_EXPORT GSDImporter : public ParticleImporter
 	{
 	public:
 		/// Inherit standard constructor from base meta class.
-		using ParticleImporter::OOMetaClass ::OOMetaClass;
+		using ParticleImporter::OOMetaClass::OOMetaClass;
 
 		/// Returns the file filter that specifies the files that can be imported by this service.
 		virtual QString fileFilter() const override { return QStringLiteral("*"); }
@@ -123,25 +123,25 @@ private:
 		PropertyStorage* readOptionalProperty(GSDFile& gsd, const char* chunkName, uint64_t frameNumber, uint32_t numElements, int propertyType, bool isBondProperty, const std::shared_ptr<ParticleFrameData>& frameData);
 
 		/// Parse the JSON string containing a particle shape definition.
-		void parseParticleShape(int typeId, ParticleFrameData::TypeList* typeList, size_t numParticles, ParticleFrameData* frameData, const QByteArray& shapeSpecString);
+		void parseParticleShape(int typeId, PropertyContainerImportData::TypeList* typeList, size_t numParticles, ParticleFrameData* frameData, const QByteArray& shapeSpecString);
 
 		/// Parsing routine for 'Sphere' particle shape definitions.
-		void parseSphereShape(int typeId, ParticleFrameData::TypeList* typeList, QJsonObject definition);
+		void parseSphereShape(int typeId, PropertyContainerImportData::TypeList* typeList, QJsonObject definition);
 
 		/// Parsing routine for 'Ellipsoid' particle shape definitions.
-		void parseEllipsoidShape(int typeId, ParticleFrameData::TypeList* typeList, size_t numParticles, ParticleFrameData* frameData, QJsonObject definition);
+		void parseEllipsoidShape(int typeId, PropertyContainerImportData::TypeList* typeList, size_t numParticles, ParticleFrameData* frameData, QJsonObject definition);
 
 		/// Parsing routine for 'Polygon' particle shape definitions.
-		void parsePolygonShape(int typeId, ParticleFrameData::TypeList* typeList, QJsonObject definition, const QByteArray& shapeSpecString);
+		void parsePolygonShape(int typeId, PropertyContainerImportData::TypeList* typeList, QJsonObject definition, const QByteArray& shapeSpecString);
 
 		/// Parsing routine for 'ConvexPolyhedron' particle shape definitions.
-		void parseConvexPolyhedronShape(int typeId, ParticleFrameData::TypeList* typeList, QJsonObject definition, const QByteArray& shapeSpecString);
+		void parseConvexPolyhedronShape(int typeId, PropertyContainerImportData::TypeList* typeList, QJsonObject definition, const QByteArray& shapeSpecString);
 
 		/// Parsing routine for 'Mesh' particle shape definitions.
-		void parseMeshShape(int typeId, ParticleFrameData::TypeList* typeList, QJsonObject definition, const QByteArray& shapeSpecString);
+		void parseMeshShape(int typeId, PropertyContainerImportData::TypeList* typeList, QJsonObject definition, const QByteArray& shapeSpecString);
 
 		/// Parsing routine for 'SphereUnion' particle shape definitions.
-		void parseSphereUnionShape(int typeId, ParticleFrameData::TypeList* typeList, QJsonObject definition, const QByteArray& shapeSpecString);
+		void parseSphereUnionShape(int typeId, PropertyContainerImportData::TypeList* typeList, QJsonObject definition, const QByteArray& shapeSpecString);
 
 	private:
 

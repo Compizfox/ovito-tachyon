@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Copyright 2019 Alexander Stukowski
+//  Copyright 2020 Alexander Stukowski
 //
 //  This file is part of OVITO (Open Visualization Tool).
 //
@@ -187,6 +187,10 @@ private:
 
 	/// Controls the transparency of the surface cap mesh.
 	DECLARE_MODIFIABLE_REFERENCE_FIELD(Controller, capTransparencyController, setCapTransparencyController);
+
+	/// Internal field indicating whether the surface meshes rendered by this viz element are closed or not.
+	/// Depending on this setting, the UI will show the cap polygon option to the user.
+	DECLARE_MODIFIABLE_PROPERTY_FIELD(bool, surfaceIsClosed, setSurfaceIsClosed);
 };
 
 

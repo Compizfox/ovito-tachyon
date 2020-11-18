@@ -99,6 +99,7 @@ public:
 
 	OVITO_CLASS_META(AffineTransformationModifier, OOMetaClass)
 	Q_CLASSINFO("DisplayName", "Affine transformation");
+	Q_CLASSINFO("Description", "Apply an affine transformation to the dataset.");
 	Q_CLASSINFO("ModifierCategory", "Modification");
 	Q_OBJECT
 

@@ -25,6 +25,7 @@
 
 #include <ovito/particles/Particles.h>
 #include <ovito/stdobj/properties/PropertyContainer.h>
+#include <ovito/stdobj/properties/InputColumnMapping.h>
 #include "BondsObject.h"
 #include "AnglesObject.h"
 #include "DihedralsObject.h"
@@ -62,6 +63,10 @@ class OVITO_PARTICLES_EXPORT ParticlesObject : public PropertyContainer
 
 		/// Generates a human-readable string representation of the data object reference.
 		virtual QString formatDataObjectPath(const ConstDataObjectPath& path) const override { return this->displayName(); }
+
+		/// This method is called by InputColumnMapping::validate() to let the container class perform custom checks
+		/// on the mapping of the file data columns to internal properties.
+		virtual void validateInputColumnMapping(const InputColumnMapping& mapping) const override;
 
 	protected:
 
@@ -187,13 +192,18 @@ private:
 	DECLARE_MODIFIABLE_REFERENCE_FIELD(ImpropersObject, impropers, setImpropers);
 };
 
-
 /**
  * Encapsulates a reference to a particle property.
  */
 using ParticlePropertyReference = TypedPropertyReference<ParticlesObject>;
 
+/**
+ * Encapsulates a mapping of input file columns to particle properties.
+ */
+using ParticleInputColumnMapping = TypedInputColumnMapping<ParticlesObject>;
+
 }	// End of namespace
 }	// End of namespace
 
 Q_DECLARE_METATYPE(Ovito::Particles::ParticlePropertyReference);
+Q_DECLARE_METATYPE(Ovito::Particles::ParticleInputColumnMapping);

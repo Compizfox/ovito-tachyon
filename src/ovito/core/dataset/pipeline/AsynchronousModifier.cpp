@@ -35,7 +35,7 @@ namespace Ovito {
 IMPLEMENT_OVITO_CLASS(AsynchronousModifier);
 
 // Export this class template specialization from the DLL under Windows.
-template class Future<AsynchronousModifier::EnginePtr>;
+template class OVITO_CORE_EXPORT Future<AsynchronousModifier::EnginePtr>;
 
 /******************************************************************************
 * Constructs the modifier object.
@@ -182,15 +182,32 @@ Future<PipelineFlowState> AsynchronousModifier::evaluate(const PipelineEvaluatio
 ******************************************************************************/
 void AsynchronousModifier::evaluateSynchronous(TimePoint time, ModifierApplication* modApp, PipelineFlowState& state)
 {
+	OVITO_ASSERT(!dataset()->undoStack().isRecording());
+
+	// If results are still available from the last pipeline evaluation, apply them to the input data.
+	applyCachedResultsSynchronous(time, modApp, state);
+	
+	// Call base implementation.
+	Modifier::evaluateSynchronous(time, modApp, state);
+}
+
+/******************************************************************************
+* This function is called from AsynchronousModifier::evaluateSynchronous() to 
+* apply the results from the last asycnhronous compute engine during a 
+* synchronous pipeline evaluation.
+******************************************************************************/
+bool AsynchronousModifier::applyCachedResultsSynchronous(TimePoint time, ModifierApplication* modApp, PipelineFlowState& state)
+{
 	// If results are still available from the last pipeline evaluation, apply them to the input data.
 	if(AsynchronousModifierApplication* asyncModApp = dynamic_object_cast<AsynchronousModifierApplication>(modApp)) {
 		if(const AsynchronousModifier::EnginePtr& engine = asyncModApp->completedEngine()) {
 			UndoSuspender noUndo(this);
 			engine->applyResults(time, modApp, state);
 			state.intersectStateValidity(engine->validityInterval());
+			return true;
 		}
 	}
-	Modifier::evaluateSynchronous(time, modApp, state);
+	return false;
 }
 
 /******************************************************************************

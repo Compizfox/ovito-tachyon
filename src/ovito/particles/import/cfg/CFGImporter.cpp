@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Copyright 2019 Alexander Stukowski
+//  Copyright 2020 Alexander Stukowski
 //
 //  This file is part of OVITO (Open Visualization Tool).
 //
@@ -22,10 +22,11 @@
 
 #include <ovito/particles/Particles.h>
 #include <ovito/particles/import/ParticleFrameData.h>
+#include <ovito/particles/objects/ParticlesObject.h>
+#include <ovito/particles/objects/ParticleType.h>
+#include <ovito/stdobj/properties/InputColumnMapping.h>
 #include <ovito/core/utilities/io/CompressedTextReader.h>
 #include "CFGImporter.h"
-
-#include <boost/algorithm/string.hpp>
 
 namespace Ovito { namespace Particles {
 
@@ -59,7 +60,7 @@ bool CFGImporter::OOMetaClass::checkFileFormat(const FileHandle& file) const
 		const char* line = stream.readLineTrimLeft(1024);
 
 		// CFG files start with the string "Number of particles".
-		if(boost::algorithm::starts_with(line, "Number of particles"))
+		if(stream.lineStartsWith("Number of particles"))
 			return true;
 
 		// Terminate early if line is non-empty and contains anything else than a comment (#).
@@ -180,27 +181,27 @@ FileSourceImporter::FrameDataPtr CFGImporter::FrameLoader::loadFile()
 	// Create the destination container for loaded data.
 	auto frameData = std::make_shared<ParticleFrameData>();
 
-	InputColumnMapping cfgMapping;
+	ParticleInputColumnMapping cfgMapping;
 	if(header.isExtendedFormat == false) {
 		cfgMapping.resize(8);
-		cfgMapping[0].mapStandardColumn(ParticlesObject::MassProperty);
-		cfgMapping[1].mapStandardColumn(ParticlesObject::TypeProperty);
-		cfgMapping[2].mapStandardColumn(ParticlesObject::PositionProperty, 0);
-		cfgMapping[3].mapStandardColumn(ParticlesObject::PositionProperty, 1);
-		cfgMapping[4].mapStandardColumn(ParticlesObject::PositionProperty, 2);
-		cfgMapping[5].mapStandardColumn(ParticlesObject::VelocityProperty, 0);
-		cfgMapping[6].mapStandardColumn(ParticlesObject::VelocityProperty, 1);
-		cfgMapping[7].mapStandardColumn(ParticlesObject::VelocityProperty, 2);
+		cfgMapping.mapStandardColumn(0, ParticlesObject::MassProperty);
+		cfgMapping.mapStandardColumn(1, ParticlesObject::TypeProperty);
+		cfgMapping.mapStandardColumn(2, ParticlesObject::PositionProperty, 0);
+		cfgMapping.mapStandardColumn(3, ParticlesObject::PositionProperty, 1);
+		cfgMapping.mapStandardColumn(4, ParticlesObject::PositionProperty, 2);
+		cfgMapping.mapStandardColumn(5, ParticlesObject::VelocityProperty, 0);
+		cfgMapping.mapStandardColumn(6, ParticlesObject::VelocityProperty, 1);
+		cfgMapping.mapStandardColumn(7, ParticlesObject::VelocityProperty, 2);
 	}
 	else {
 		cfgMapping.resize(header.containsVelocities ? 6 : 3);
-		cfgMapping[0].mapStandardColumn(ParticlesObject::PositionProperty, 0);
-		cfgMapping[1].mapStandardColumn(ParticlesObject::PositionProperty, 1);
-		cfgMapping[2].mapStandardColumn(ParticlesObject::PositionProperty, 2);
+		cfgMapping.mapStandardColumn(0, ParticlesObject::PositionProperty, 0);
+		cfgMapping.mapStandardColumn(1, ParticlesObject::PositionProperty, 1);
+		cfgMapping.mapStandardColumn(2, ParticlesObject::PositionProperty, 2);
 		if(header.containsVelocities) {
-			cfgMapping[3].mapStandardColumn(ParticlesObject::VelocityProperty, 0);
-			cfgMapping[4].mapStandardColumn(ParticlesObject::VelocityProperty, 1);
-			cfgMapping[5].mapStandardColumn(ParticlesObject::VelocityProperty, 2);
+			cfgMapping.mapStandardColumn(3, ParticlesObject::VelocityProperty, 0);
+			cfgMapping.mapStandardColumn(4, ParticlesObject::VelocityProperty, 1);
+			cfgMapping.mapStandardColumn(5, ParticlesObject::VelocityProperty, 2);
 		}
 		generateAutomaticColumnMapping(cfgMapping, header.auxiliaryFields);
 	}
@@ -208,18 +209,18 @@ FileSourceImporter::FrameDataPtr CFGImporter::FrameLoader::loadFile()
 	setProgressMaximum(header.numParticles);
 
 	// Prepare the mapping between input file columns and particle properties.
-	InputColumnReader columnParser(cfgMapping, *frameData, header.numParticles);
+	InputColumnReader columnParser(cfgMapping, frameData->particles(), header.numParticles);
 
 	// Create particle mass and type properties.
 	int currentAtomType = 0;
 	FloatType currentMass = 0;
 	PropertyAccess<int> typeProperty;
 	PropertyAccess<FloatType> massProperty;
-	ParticleFrameData::TypeList* typeList = nullptr;
+	PropertyContainerImportData::TypeList* typeList = nullptr;
 	if(header.isExtendedFormat) {
-		typeProperty = frameData->addParticleProperty(ParticlesObject::OOClass().createStandardStorage(header.numParticles, ParticlesObject::TypeProperty, false));
-		typeList = frameData->createPropertyTypesList(typeProperty);
-		massProperty = frameData->addParticleProperty(ParticlesObject::OOClass().createStandardStorage(header.numParticles, ParticlesObject::MassProperty, false));
+		typeProperty = frameData->particles().createStandardProperty<ParticlesObject>(header.numParticles, ParticlesObject::TypeProperty, false);
+		typeList = frameData->particles().createPropertyTypesList(typeProperty, ParticleType::OOClass());
+		massProperty = frameData->particles().createStandardProperty<ParticlesObject>(header.numParticles, ParticlesObject::MassProperty, false);
 	}
 
 	// Read per-particle data.
@@ -266,7 +267,7 @@ FileSourceImporter::FrameDataPtr CFGImporter::FrameLoader::loadFile()
 		}
 
 		try {
-			columnParser.readParticle(particleIndex, stream.line());
+			columnParser.readElement(particleIndex, stream.line());
 			particleIndex++;
 		}
 		catch(Exception& ex) {
@@ -277,7 +278,7 @@ FileSourceImporter::FrameDataPtr CFGImporter::FrameLoader::loadFile()
 	// Since we created particle types on the go while reading the particles, the assigned particle type IDs
 	// depend on the storage order of particles in the file. We rather want a well-defined particle type ordering, that's
 	// why we sort them now.
-	columnParser.sortParticleTypes();
+	columnParser.sortElementTypes();
 	if(header.isExtendedFormat)
 		typeList->sortTypesByName(typeProperty);
 
@@ -288,7 +289,7 @@ FileSourceImporter::FrameDataPtr CFGImporter::FrameLoader::loadFile()
 	// The CFG file stores particle positions in reduced coordinates.
 	// Rescale them now to absolute (Cartesian) coordinates.
 	// However, do this only if no absolute coordinates have been read from the extra data columns in the CFG file.
-	if(PropertyAccess<Point3> posProperty = frameData->findStandardParticleProperty(ParticlesObject::PositionProperty)) {
+	if(PropertyAccess<Point3> posProperty = frameData->particles().findStandardProperty(ParticlesObject::PositionProperty)) {
 		for(Point3& p : posProperty)
 			p = H * p;
 	}
@@ -304,7 +305,7 @@ FileSourceImporter::FrameDataPtr CFGImporter::FrameLoader::loadFile()
 /******************************************************************************
  * Guesses the mapping of input file columns to internal particle properties.
  *****************************************************************************/
-void CFGImporter::generateAutomaticColumnMapping(InputColumnMapping& columnMapping, const QStringList& columnNames)
+void CFGImporter::generateAutomaticColumnMapping(ParticleInputColumnMapping& columnMapping, const QStringList& columnNames)
 {
 	int i = columnMapping.size();
 	columnMapping.resize(columnMapping.size() + columnNames.size());

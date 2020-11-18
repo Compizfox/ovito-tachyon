@@ -365,7 +365,11 @@ void RefMaker::loadFromStream(ObjectLoadStream& stream)
 
 	// Read property field values from the stream.
 	for(const RefMakerClass::SerializedClassInfo::PropertyFieldInfo& fieldEntry : classInfo->propertyFields) {
-		if(fieldEntry.isReferenceField) {
+		if(fieldEntry.customDeserializationFunction) {
+			// The class has installed its own custom deserialization function for this property field.
+			fieldEntry.customDeserializationFunction(fieldEntry, stream, *this);
+		}
+		else if(fieldEntry.isReferenceField) {
 			OVITO_ASSERT(fieldEntry.targetClass != nullptr);
 
 			// Parse target object(s).

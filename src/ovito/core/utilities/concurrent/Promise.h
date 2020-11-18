@@ -381,6 +381,7 @@ public:
 		OVITO_ASSERT(!isFinished());
 
 		if(registerAsNewTask) {
+			OVITO_ASSERT(task()->taskManager());
 
 			// Create the task object for the child operation.
 			SynchronousOperation subOperation = SynchronousOperation::create(*task()->taskManager(), true);

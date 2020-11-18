@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Copyright 2019 Alexander Stukowski
+//  Copyright 2020 Alexander Stukowski
 //
 //  This file is part of OVITO (Open Visualization Tool).
 //
@@ -26,6 +26,7 @@
 #include <ovito/particles/Particles.h>
 #include <ovito/particles/import/ParticleImporter.h>
 #include <ovito/particles/import/ParticleFrameData.h>
+#include <ovito/particles/objects/ParticlesObject.h>
 #include <ovito/core/dataset/DataSetContainer.h>
 
 namespace Ovito { namespace Particles {
@@ -40,7 +41,7 @@ class OVITO_PARTICLES_EXPORT LAMMPSDataImporter : public ParticleImporter
 	{
 	public:
 		/// Inherit standard constructor from base meta class.
-		using ParticleImporter::OOMetaClass ::OOMetaClass;
+		using ParticleImporter::OOMetaClass::OOMetaClass;
 
 		/// Returns the file filter that specifies the files that can be imported by this service.
 		virtual QString fileFilter() const override { return QStringLiteral("*"); }
@@ -156,7 +157,7 @@ private:
 		virtual FrameDataPtr loadFile() override;
 
 		/// Sets up the mapping of data file columns to internal particle properties based on the selected LAMMPS atom style.
-		static InputColumnMapping createColumnMapping(LAMMPSAtomStyle atomStyle, bool includeImageFlags);
+		static ParticleInputColumnMapping createColumnMapping(LAMMPSAtomStyle atomStyle, bool includeImageFlags);
 
 		/// Parses a hint string for the LAMMPS atom style.
 		static LAMMPSAtomStyle parseAtomStyleHint(const QString& atomStyleHint);

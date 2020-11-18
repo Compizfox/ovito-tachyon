@@ -105,27 +105,38 @@ void RefMakerClass::loadClassInfo(LoadStream& stream, OvitoClass::SerializedClas
 			throw Exception(RefMaker::tr("File format is invalid. Failed to load property fields of class %1.").arg(classInfo->clazz->name()));
 
 		SerializedClassInfo::PropertyFieldInfo fieldInfo;
+
+		// Read serialized property field definition from input stream.
 		stream >> fieldInfo.identifier;
 		OvitoClassPtr definingClass = OvitoClass::deserializeRTTI(stream);
 		OVITO_ASSERT(definingClass->isDerivedFrom(RefMaker::OOClass()));
 		fieldInfo.definingClass = static_cast<const RefMakerClass*>(definingClass);
-		if(!classInfo->clazz->isDerivedFrom(*fieldInfo.definingClass)) {
-			qDebug() << "WARNING:" << classInfo->clazz->name() << "is not derived from" << fieldInfo.definingClass->name();
-			throw Exception(RefMaker::tr("The class hierarchy stored in the file differs from the class hierarchy of the program."));
-		}
 		stream >> fieldInfo.flags;
 		stream >> fieldInfo.isReferenceField;
 		fieldInfo.targetClass = fieldInfo.isReferenceField ? OvitoClass::deserializeRTTI(stream) : nullptr;
 		stream.closeChunk();
 
-		fieldInfo.field = fieldInfo.definingClass->findPropertyField(fieldInfo.identifier.constData(), true);
-		if(fieldInfo.field) {
-			if(fieldInfo.field->isReferenceField() != fieldInfo.isReferenceField ||
-					fieldInfo.field->isVector() != ((fieldInfo.flags & PROPERTY_FIELD_VECTOR) != 0) ||
-					(fieldInfo.isReferenceField && !fieldInfo.targetClass->isDerivedFrom(*fieldInfo.field->targetClass())))
-				throw Exception(RefMaker::tr("File format error: The type of the property field '%1' in class %2 has changed.").arg(fieldInfo.identifier, fieldInfo.definingClass->name()));
+		// Give object class the chance to override deserialization behavior for this property field.
+		fieldInfo.customDeserializationFunction = overrideFieldDeserialization(fieldInfo);
+		if(!fieldInfo.customDeserializationFunction) {
+
+			// Verify consistency of serialized and runtime class hierarchy.
+			if(!classInfo->clazz->isDerivedFrom(*fieldInfo.definingClass)) {
+				qDebug() << "WARNING:" << classInfo->clazz->name() << "is not derived from" << fieldInfo.definingClass->name();
+				throw Exception(RefMaker::tr("The class hierarchy stored in the file differs from the class hierarchy of the program."));
+			}
+
+			// Verify consistency  of serialized and runtime property field definition.
+			fieldInfo.field = fieldInfo.definingClass->findPropertyField(fieldInfo.identifier.constData(), true);
+			if(fieldInfo.field) {
+				if(fieldInfo.field->isReferenceField() != fieldInfo.isReferenceField ||
+						fieldInfo.field->isVector() != ((fieldInfo.flags & PROPERTY_FIELD_VECTOR) != 0) ||
+						(fieldInfo.isReferenceField && !fieldInfo.targetClass->isDerivedFrom(*fieldInfo.field->targetClass())))
+					throw Exception(RefMaker::tr("The type of stored property field '%1' in class %2 has changed.").arg(fieldInfo.identifier, fieldInfo.definingClass->name()));
+			}
 		}
 
+		// Add property field to list of fields that will be deserialized for each instance of the object class. 
 		static_cast<RefMakerClass::SerializedClassInfo*>(classInfo)->propertyFields.push_back(std::move(fieldInfo));
 	}
 }

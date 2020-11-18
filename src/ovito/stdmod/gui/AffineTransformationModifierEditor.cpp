@@ -24,7 +24,7 @@
 #include <ovito/gui/desktop/properties/BooleanParameterUI.h>
 #include <ovito/gui/desktop/properties/BooleanRadioButtonParameterUI.h>
 #include <ovito/gui/desktop/properties/AffineTransformationParameterUI.h>
-#include <ovito/gui/desktop/properties/ModifierDelegateListParameterUI.h>
+#include <ovito/gui/desktop/properties/ModifierDelegateFixedListParameterUI.h>
 #include <ovito/stdmod/modifiers/AffineTransformationModifier.h>
 #include "AffineTransformationModifierEditor.h"
 
@@ -149,7 +149,7 @@ void AffineTransformationModifierEditor::createUI(const RolloutInsertionParamete
 	topLayout->setContentsMargins(4,4,4,4);
 	topLayout->setSpacing(12);
 
-	ModifierDelegateListParameterUI* delegatesPUI = new ModifierDelegateListParameterUI(this, rolloutParams.after(rollout));
+	ModifierDelegateFixedListParameterUI* delegatesPUI = new ModifierDelegateFixedListParameterUI(this, rolloutParams.after(rollout));
 	topLayout->addWidget(delegatesPUI->listWidget(138));
 
 	BooleanParameterUI* selectionUI = new BooleanParameterUI(this, PROPERTY_FIELD(AffineTransformationModifier::selectionOnly));

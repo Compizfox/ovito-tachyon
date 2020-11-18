@@ -93,28 +93,27 @@ void CentroSymmetryModifier::CentroSymmetryEngine::perform()
 
 	// Prepare the neighbor list.
 	NearestNeighborFinder neighFinder(_nneighbors);
-	if(!neighFinder.prepare(positions(), cell(), {}, this)) {
+	if(!neighFinder.prepare(positions(), cell(), {}, this))
 		return;
-	}
 
-	// Output storage.
-	PropertyAccess<FloatType> output(csp());
+	// Access output array.
+	PropertyAccess<FloatType> cspArray(csp());
 
 	// Perform analysis on each particle.
 	parallelFor(positions()->size(), *this, [&](size_t index) {
-		output[index] = computeCSP(neighFinder, index, _mode);
+		cspArray[index] = computeCSP(neighFinder, index, _mode);
 	});
+	if(isCanceled())
+		return;
 
-	PropertyAccess<FloatType> cspArray(csp());
-
-	// Determine histogram bin size based on maximum RMSD value.
+	// Determine histogram bin size based on maximum CSP value.
 	const size_t numHistogramBins = 100;
 	_cspHistogram = std::make_shared<PropertyStorage>(numHistogramBins, PropertyStorage::Int64, 1, 0, tr("Count"), true, DataTable::YProperty);
 	FloatType cspHistogramBinSize = (cspArray.size() != 0) ? (FloatType(1.01) * *boost::max_element(cspArray) / numHistogramBins) : 0;
 	if(cspHistogramBinSize <= 0) cspHistogramBinSize = 1;
 	_cspHistogramRange = cspHistogramBinSize * numHistogramBins;
 
-	// Perform binning of RMSD values.
+	// Perform binning of CSP values.
 	PropertyAccess<qlonglong> histogramCounts(_cspHistogram);
 	for(FloatType cspValue : cspArray) {
 		OVITO_ASSERT(cspValue >= 0);
@@ -169,6 +168,7 @@ FloatType CentroSymmetryModifier::computeCSP(NearestNeighborFinder& neighFinder,
 
 		csp = (FloatType)calculate_mwm_csp(numNN, P);
 	}
+	OVITO_ASSERT(std::isfinite(csp));
 
 	return csp;
 }

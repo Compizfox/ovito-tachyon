@@ -38,7 +38,7 @@ class OVITO_PARTICLES_EXPORT CastepCellImporter : public ParticleImporter
 	{
 	public:
 		/// Inherit standard constructor from base meta class.
-		using ParticleImporter::OOMetaClass ::OOMetaClass;
+		using ParticleImporter::OOMetaClass::OOMetaClass;
 
 		/// Returns the file filter that specifies the files that can be imported by this service.
 		virtual QString fileFilter() const override { return QStringLiteral("*.cell"); }
@@ -82,9 +82,9 @@ private:
 		/// Reads the frame data from the external file.
 		virtual FrameDataPtr loadFile() override;
 	};
+
+	static const char* chemical_symbols[];
 };
 
 }	// End of namespace
 }	// End of namespace
-
-

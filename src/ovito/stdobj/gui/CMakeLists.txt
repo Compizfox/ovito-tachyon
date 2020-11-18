@@ -1,6 +1,6 @@
 #######################################################################################
 #
-#  Copyright 2019 Alexander Stukowski
+#  Copyright 2020 Alexander Stukowski
 #
 #  This file is part of OVITO (Open Visualization Tool).
 #
@@ -26,13 +26,13 @@ QT5_ADD_RESOURCES(ResourceFiles resources/stdobj_gui.qrc)
 # Define the GUI module, which provides the user interface for the parent module.
 OVITO_STANDARD_PLUGIN(StdObjGui
 	SOURCES
-		StdObjGui.cpp
 		camera/CameraObjectEditor.cpp
 		io/DataTablePlotExporter.cpp
 		io/DataTablePlotExporterEditor.cpp
 		properties/PropertyInspectionApplet.cpp
 		properties/PropertyObjectEditor.cpp
 		properties/ElementTypeEditor.cpp
+		properties/InputColumnMappingDialog.cpp
 		simcell/SimulationCellObjectEditor.cpp
 		simcell/SimulationCellVisEditor.cpp
 		table/DataTableInspectionApplet.cpp
@@ -43,13 +43,9 @@ OVITO_STANDARD_PLUGIN(StdObjGui
 		${ResourceFiles}
 	PLUGIN_DEPENDENCIES StdObj
 	LIB_DEPENDENCIES Qwt
+	PRECOMPILED_HEADERS StdObjGui.h
 	GUI_PLUGIN
 )
-
-# Speed up compilation by using precompiled headers.
-IF(OVITO_USE_PRECOMPILED_HEADERS)
-	ADD_PRECOMPILED_HEADER(StdObjGui ovito/stdobj/gui/StdObjGui.h)
-ENDIF()
 
 # Propagate list of plugins to parent scope.
 SET(OVITO_PLUGIN_LIST ${OVITO_PLUGIN_LIST} PARENT_SCOPE)

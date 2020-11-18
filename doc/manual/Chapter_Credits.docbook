@@ -25,10 +25,6 @@
     The <code>ovito</code> Python module, distributed as PyPI and Anaconda packages, is made available by OVITO GmbH under the <link xlink:href="https://gitlab.com/stuko/ovito/-/blob/master/LICENSE.MIT.txt">MIT License</link>.
   </para>
 
-  <para>
-    Any preview development builds of <emphasis>OVITO Pro</emphasis> and <emphasis>OVITO Basic</emphasis> ("3.0.0-dev") are licensed on an as-is basis under the terms of the <link linkend="appendix.license.ovito_pro">MIT license</link>.
-  </para>
-
   <simplesect>
     <title>Third-party software</title>
     <para><emphasis>OVITO Pro</emphasis> and <emphasis>OVITO Basic</emphasis> are based on the following third-party software 
@@ -177,7 +173,7 @@
               <entry></entry>
             </row>
             <row>
-              <entry><link xlink:href="https://github.com/ospray/ospcommon">OSPRay common support library</link></entry>
+              <entry><link xlink:href="https://github.com/ospray/rkcommon">Intel RenderKit common C++/CMake infrastructure</link></entry>
               <entry>Apache 2.0</entry>
               <entry></entry>
             </row>
@@ -194,6 +190,11 @@
             <row>
               <entry><link xlink:href="https://github.com/taocpp/PEGTL/">Parsing Expression Grammar Template Library (PEGTL)</link></entry>
               <entry><link linkend="appendix.license.pegtl">license</link></entry>
+              <entry></entry>
+            </row>
+            <row>
+              <entry>XTC/XDR file I/O routines</entry>
+              <entry><link linkend="appendix.license.xdrfile">license</link></entry>
               <entry></entry>
             </row>
           </tbody>
@@ -415,5 +416,7 @@
   <xi:include href="licenses/pegtl.docbook"/>
 
   <xi:include href="licenses/PySide2.instructions.docbook"/>
+
+  <xi:include href="licenses/xdrfile.docbook"/>
 
 </chapter>

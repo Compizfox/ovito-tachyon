@@ -83,6 +83,21 @@ void RolloutContainer::updateRollouts()
 			static_cast<QWidget*>(child)->updateGeometry();
 		}
 	}
+	widget()->updateGeometry();
+}
+
+/******************************************************************************
+* Updates the size of all rollouts soon.
+******************************************************************************/
+void RolloutContainer::updateRolloutsLater() 
+{
+	// Update widget layout once immediately.
+	updateRollouts();
+
+	// Update layout a second time after some delay in case 
+	// the widgets are not up to date yet. 
+	if(!_updateGeometryTimer)
+		_updateGeometryTimer = startTimer(80); // 80 millisecs
 }
 
 /******************************************************************************

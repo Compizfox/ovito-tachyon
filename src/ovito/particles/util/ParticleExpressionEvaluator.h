@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Copyright 2019 Alexander Stukowski
+//  Copyright 2020 Alexander Stukowski
 //
 //  This file is part of OVITO (Open Visualization Tool).
 //
@@ -44,13 +44,6 @@ public:
 		setIndexVarName("ParticleIndex");
 	}
 
-	using PropertyExpressionEvaluator::initialize;
-
-	/// Specifies the expressions to be evaluated for each particle and creates the input variables.
-	void initialize(const QStringList& expressions, const PipelineFlowState& inputState, int animationFrame = 0) {
-		PropertyExpressionEvaluator::initialize(expressions, inputState, inputState.expectObject<ParticlesObject>(), animationFrame);
-	}
-
 protected:
 
 	/// Initializes the list of input variables from the given input state.
@@ -69,12 +62,21 @@ public:
 		setIndexVarName("BondIndex");
 	}
 
-	using PropertyExpressionEvaluator::initialize;
-
 	/// Specifies the expressions to be evaluated for each bond and creates the input variables.
-	void initialize(const QStringList& expressions, const PipelineFlowState& inputState, int animationFrame = 0) {
-		PropertyExpressionEvaluator::initialize(expressions, inputState, inputState.expectObject<ParticlesObject>()->expectBonds(), animationFrame);
-	}
+	void initialize(const QStringList& expressions, const PipelineFlowState& state, const ConstDataObjectPath& containerPath, int animationFrame) override;
+
+	/// Returns a human-readable text listing the input variables.
+	virtual QString inputVariableTable() const override;
+
+protected:
+
+	/// Updates the stored value of variables that depends on the current element index.
+	virtual void updateVariables(Worker& worker, size_t elementIndex) override;
+
+private:
+
+	/// Holds a reference to the bond topology property.
+	ConstPropertyAccessAndRef<ParticleIndexPair> _topologyArray;
 };
 
 }	// End of namespace

@@ -1,6 +1,6 @@
 #######################################################################################
 #
-#  Copyright 2019 Alexander Stukowski
+#  Copyright 2020 Alexander Stukowski
 #
 #  This file is part of OVITO (Open Visualization Tool).
 #
@@ -55,16 +55,16 @@ SET(GLUSourceFiles
 # Define the plugin module.
 OVITO_STANDARD_PLUGIN(Mesh
 	SOURCES
-		Mesh.cpp
 		${SourceFiles}
 		${GLUSourceFiles}
 	PLUGIN_DEPENDENCIES StdObj
+	PRECOMPILED_HEADERS Mesh.h
 )
 
-# Speed up compilation by using precompiled headers.
-IF(OVITO_USE_PRECOMPILED_HEADERS)
-	ADD_PRECOMPILED_HEADER(Mesh ovito/mesh/Mesh.h)
-ENDIF()
+# Polytess code does not support unity build. Need to turn it off.
+FOREACH(file ${GLUSourceFiles})
+	SET_SOURCE_FILES_PROPERTIES(${file} PROPERTIES SKIP_UNITY_BUILD_INCLUSION ON)
+ENDFOREACH()
 
 # Build corresponding GUI plugin.
 IF(OVITO_BUILD_GUI)

@@ -24,10 +24,9 @@
 #include <ovito/gui/desktop/app/GuiApplication.h>
 
 #if defined(OVITO_BUILD_PLUGIN_PYSCRIPT) && !defined(OVITO_BUILD_BASIC)
-	// Qt defines the 'slots' and 'signals' keyword macros. They are in conflict with identifiers used in the Python headers.
-	#undef slots
-	#undef signals
-	#include <Python.h>
+	// Explicitly build 'ovito' executable against Python library.
+	// The following include directive will pull in the Python headers.
+	#include <ovito/pyscript/PyScript.h>
 #endif
 
 /**

@@ -176,6 +176,9 @@ public:
 	/// \throw Exception if an I/O error has occurred.
 	void munmap();
 
+	/// Reads the entire file contents into memory.
+	QByteArray readAll();
+
 private:
 
 	/// The name of the input file (if known).

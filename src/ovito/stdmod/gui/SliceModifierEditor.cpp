@@ -37,7 +37,7 @@
 #include <ovito/gui/desktop/properties/FloatParameterUI.h>
 #include <ovito/gui/desktop/properties/Vector3ParameterUI.h>
 #include <ovito/gui/desktop/properties/BooleanParameterUI.h>
-#include <ovito/gui/desktop/properties/ModifierDelegateListParameterUI.h>
+#include <ovito/gui/desktop/properties/ModifierDelegateFixedListParameterUI.h>
 #include <ovito/gui/base/rendering/ViewportSceneRenderer.h>
 #include <ovito/core/viewport/ViewportWindowInterface.h>
 #include "SliceModifierEditor.h"
@@ -139,7 +139,7 @@ void SliceModifierEditor::createUI(const RolloutInsertionParameters& rolloutPara
 	layout->setContentsMargins(4,4,4,4);
 	layout->setSpacing(4);
 
-	ModifierDelegateListParameterUI* delegatesPUI = new ModifierDelegateListParameterUI(this, rolloutParams.after(rollout));
+	ModifierDelegateFixedListParameterUI* delegatesPUI = new ModifierDelegateFixedListParameterUI(this, rolloutParams.after(rollout));
 	layout->addWidget(delegatesPUI->listWidget());
 }
 

@@ -46,8 +46,10 @@ public:
 	virtual void insertSettingsDialogPage(ApplicationSettingsDialog* settingsDialog, QTabWidget* tabWidget) override;
 
 	/// \brief Lets the settings page to save all values entered by the user.
-	/// \param settingsDialog The settings dialog box.
 	virtual bool saveValues(ApplicationSettingsDialog* settingsDialog, QTabWidget* tabWidget) override;
+
+	/// \brief Lets the settings page restore the original values of changed settings when the user presses the Cancel button.
+	virtual void restoreValues(ApplicationSettingsDialog* settingsDialog, QTabWidget* tabWidget) override;
 
 	/// \brief Returns an integer value that is used to sort the dialog pages in ascending order.
 	virtual int pageSortingKey() const override { return 3; }
@@ -71,7 +73,6 @@ private Q_SLOTS:
 
 private:
 
-	ModifierTemplates _templates;
 	QListView* _listWidget;
 	ApplicationSettingsDialog* _settingsDialog;
 	bool _dirtyFlag = false;

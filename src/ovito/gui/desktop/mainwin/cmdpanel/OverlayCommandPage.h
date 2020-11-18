@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Copyright 2018 Alexander Stukowski
+//  Copyright 2020 Alexander Stukowski
 //
 //  This file is part of OVITO (Open Visualization Tool).
 //
@@ -59,14 +59,14 @@ protected Q_SLOTS:
 	/// Is called when a new layer has been selected in the list box.
 	void onItemSelectionChanged();
 
-	/// This inserts a new viewport layer.
-	void onNewLayer(int index);
-
 	/// This deletes the selected viewport layer.
 	void onDeleteLayer();
 
 	/// This called when the user double clicks an item in the list.
 	void onLayerDoubleClicked(const QModelIndex& index);
+
+	/// Handles the ACTION_VIEWPORT_LAYER_TOGGLE_STATE command, which toggles the enabled/disable state of the selected layer.
+	void onLayerToggleState(bool newState);
 
 	/// Action handler moving the selected layer up in the stack.
 	void onLayerMoveUp();
@@ -81,6 +81,9 @@ private:
 
 	/// The container of the current dataset being edited.
 	DataSetContainer& _datasetContainer;
+
+	/// The action manager of the main window.
+	ActionManager* _actionManager;
 
 	/// Contains the list of available layer types.
 	QComboBox* _newLayerBox;
@@ -105,6 +108,9 @@ private:
 
 	/// The GUI action that moves the currently selected viewport layer down in the stack.
 	QAction* _moveLayerDownAction;
+
+	/// The GUI action that turns the currently selected viewport layer on or off.
+	QAction* _toggleLayerStateAction;
 };
 
 }	// End of namespace

@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Copyright 2013 Alexander Stukowski
+//  Copyright 2020 Alexander Stukowski
 //
 //  This file is part of OVITO (Open Visualization Tool).
 //
@@ -29,6 +29,7 @@
 
 
 #include <ovito/core/Core.h>
+#include <ovito/core/utilities/concurrent/Promise.h>
 
 namespace Ovito {
 
@@ -64,8 +65,9 @@ public:
 
 	/// \brief Constructs the stream wrapper.
 	/// \param destination The sink that will receive the data. This Qt output stream must support random access.
+	/// \param operation The task handle that allows to cancel the save process.
 	/// \throw Exception if the given data stream supports only sequential access or if an I/O error occured while writing the file header.
-	SaveStream(QDataStream& destination);
+	SaveStream(QDataStream& destination, SynchronousOperation operation);
 
 	/// \brief Automatically closes the stream by calling close().
 	virtual ~SaveStream() { SaveStream::close(); }
@@ -129,6 +131,9 @@ public:
 	/// Provides direct access to the underlying Qt data stream.
 	QDataStream& dataStream() { return _os; }
 
+	/// Returns the task object that represent the save operation.
+	SynchronousOperation& operation() { return _operation; }
+
 private:
 
 	/// Checks the status of the underlying output stream and throws an exception if an error has occurred.
@@ -154,10 +159,13 @@ private:
 private:
 
 	/// Indicates the output stream is still open.
-	bool _isOpen;
+	bool _isOpen = false;
 
 	/// The output stream.
 	QDataStream& _os;
+
+	/// The task object.
+	SynchronousOperation _operation;
 
 	/// The stack of open chunks.
 	std::stack<qint64> _chunks;

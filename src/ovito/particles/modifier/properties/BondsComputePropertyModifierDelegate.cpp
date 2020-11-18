@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Copyright 2019 Alexander Stukowski
+//  Copyright 2020 Alexander Stukowski
 //
 //  This file is part of OVITO (Open Visualization Tool).
 //
@@ -53,7 +53,7 @@ QVector<DataObjectReference> BondsComputePropertyModifierDelegate::OOMetaClass::
 std::shared_ptr<ComputePropertyModifierDelegate::PropertyComputeEngine> BondsComputePropertyModifierDelegate::createEngine(
 				TimePoint time,
 				const PipelineFlowState& input,
-				const PropertyContainer* container,
+				const ConstDataObjectPath& containerPath,
 				PropertyPtr outputProperty,
 				ConstPropertyPtr selectionProperty,
 				QStringList expressions)
@@ -63,7 +63,7 @@ std::shared_ptr<ComputePropertyModifierDelegate::PropertyComputeEngine> BondsCom
 			input.stateValidity(),
 			time,
 			std::move(outputProperty),
-			container,
+			containerPath,
 			std::move(selectionProperty),
 			std::move(expressions),
 			dataset()->animationSettings()->timeToFrame(time),
@@ -77,7 +77,7 @@ BondsComputePropertyModifierDelegate::Engine::Engine(
 		const TimeInterval& validityInterval,
 		TimePoint time,
 		PropertyPtr outputProperty,
-		const PropertyContainer* container,
+		const ConstDataObjectPath& containerPath,
 		ConstPropertyPtr selectionProperty,
 		QStringList expressions,
 		int frameNumber,
@@ -86,7 +86,7 @@ BondsComputePropertyModifierDelegate::Engine::Engine(
 			validityInterval,
 			time,
 			input,
-			container,
+			containerPath,
 			std::move(outputProperty),
 			std::move(selectionProperty),
 			std::move(expressions),
@@ -94,60 +94,6 @@ BondsComputePropertyModifierDelegate::Engine::Engine(
 			std::make_unique<BondExpressionEvaluator>()),
 	_inputFingerprint(input.expectObject<ParticlesObject>())
 {
-	const ParticlesObject* particles = input.expectObject<ParticlesObject>();
-	const BondsObject* bonds = particles->expectBonds();
-	_topology = bonds->getPropertyStorage(BondsObject::TopologyProperty);
-
-	// Define 'BondLength' computed variable which yields the length of the current bond.
-	if(ConstPropertyAccessAndRef<Point3> positions = particles->getProperty(ParticlesObject::PositionProperty)) {
-		if(ConstPropertyAccessAndRef<ParticleIndexPair> topology = bonds->getProperty(BondsObject::TopologyProperty)) {
-			ConstPropertyAccessAndRef<Vector3I> periodicImages = bonds->getProperty(BondsObject::PeriodicImageProperty);
-			SimulationCell simCell;
-			if(const SimulationCellObject* simCellObj = input.getObject<SimulationCellObject>())
-				simCell = simCellObj->data();
-			else
-				periodicImages.reset();
-
-			_evaluator->registerComputedVariable("BondLength", [positions=std::move(positions),topology=std::move(topology),periodicImages=std::move(periodicImages),simCell](size_t bondIndex) -> double {
-				size_t index1 = topology[bondIndex][0];
-				size_t index2 = topology[bondIndex][1];
-				if(positions.size() > index1 && positions.size() > index2) {
-					const Point3& p1 = positions[index1];
-					const Point3& p2 = positions[index2];
-					Vector3 delta = p2 - p1;
-					if(periodicImages) {
-						if(int dx = periodicImages[bondIndex][0]) delta += simCell.matrix().column(0) * (FloatType)dx;
-						if(int dy = periodicImages[bondIndex][1]) delta += simCell.matrix().column(1) * (FloatType)dy;
-						if(int dz = periodicImages[bondIndex][2]) delta += simCell.matrix().column(2) * (FloatType)dz;
-					}
-					return delta.length();
-				}
-				else return 0;
-			},
-			tr("dynamically calculated"));
-		}
-	}
-
-	// Build list of particle properties that will be made available as expression variables.
-	std::vector<ConstPropertyPtr> inputParticleProperties;
-	for(const PropertyObject* prop : particles->properties()) {
-		inputParticleProperties.push_back(prop->storage());
-	}
-	_evaluator->registerPropertyVariables(inputParticleProperties, 1, "@1.");
-	_evaluator->registerPropertyVariables(inputParticleProperties, 2, "@2.");
-}
-
-/********************************§**********************************************
-* Returns a human-readable text listing the input variables.
-******************************************************************************/
-QString BondsComputePropertyModifierDelegate::Engine::inputVariableTable() const
-{
-	QString table = ComputePropertyModifierDelegate::PropertyComputeEngine::inputVariableTable();
-	table.append(QStringLiteral("<p><b>Accessing particle properties:</b><ul>"));
-	table.append(QStringLiteral("<li>@1... (<i style=\"color: #555;\">property of first particle</i>)</li>"));
-	table.append(QStringLiteral("<li>@2... (<i style=\"color: #555;\">property of second particle</i>)</li>"));
-	table.append(QStringLiteral("</ul></p>"));
-	return table;
 }
 
 /******************************************************************************
@@ -161,8 +107,7 @@ void BondsComputePropertyModifierDelegate::Engine::perform()
 
 	// Parallelized loop over all bonds.
 	parallelForChunks(outputProperty()->size(), *this, [this](size_t startIndex, size_t count, Task& promise) {
-		ParticleExpressionEvaluator::Worker worker(*_evaluator);
-		ConstPropertyAccess<ParticleIndexPair> topologyArray(_topology);
+		BondExpressionEvaluator::Worker worker(*_evaluator);
 
 		size_t endIndex = startIndex + count;
 		size_t componentCount = outputProperty()->componentCount();
@@ -180,14 +125,6 @@ void BondsComputePropertyModifierDelegate::Engine::perform()
 			if(selectionArray() && !selectionArray()[bondIndex])
 				continue;
 
-			// Update values of particle property variables.
-			if(topologyArray) {
-				size_t particleIndex1 = topologyArray[bondIndex][0];
-				size_t particleIndex2 = topologyArray[bondIndex][1];
-				worker.updateVariables(1, particleIndex1);
-				worker.updateVariables(2, particleIndex2);
-			}
-
 			for(size_t component = 0; component < componentCount; component++) {
 
 				// Compute expression value.
@@ -201,7 +138,6 @@ void BondsComputePropertyModifierDelegate::Engine::perform()
 
 	// Release data that is no longer needed to reduce memory footprint.
 	releaseWorkingData();
-	_topology.reset();
 }
 
 /******************************************************************************

@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Copyright 2017 Alexander Stukowski
+//  Copyright 2020 Alexander Stukowski
 //
 //  This file is part of OVITO (Open Visualization Tool).
 //
@@ -32,7 +32,7 @@ namespace Ovito {
 /******************************************************************************
 * Opens the stream for reading.
 ******************************************************************************/
-ObjectLoadStream::ObjectLoadStream(QDataStream& source) : LoadStream(source)
+ObjectLoadStream::ObjectLoadStream(QDataStream& source, SynchronousOperation operation) : LoadStream(source, std::move(operation))
 {
 	qint64 oldPos = filePosition();
 
@@ -175,7 +175,7 @@ void ObjectLoadStream::close()
 		// Now that all references are in place call post-processing function on each loaded object.
 		for(const ObjectRecord& record : _objects) {
 			if(record.object)
-				record.object->loadFromStreamComplete();
+				record.object->loadFromStreamComplete(*this);
 		}
 	}
 	LoadStream::close();

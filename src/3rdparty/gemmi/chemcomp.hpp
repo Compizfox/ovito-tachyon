@@ -141,13 +141,24 @@ struct Restraints {
   const Bond& get_bond(const AtomId& a1, const AtomId& a2) const {
     auto it = find_bond(a1, a2);
     if (it == bonds.end())
-      fail("Bond restraint not found: " + a1.atom + "-" + a2.atom);
+      fail("Bond restraint not found: ", a1.atom, '-', a2.atom);
     return *it;
   }
 
   template<typename T>
   bool are_bonded(const T& a1, const T& a2) const {
     return find_bond(a1, a2) != bonds.end();
+  }
+
+  template<typename T>
+  const AtomId* first_bonded_atom(const T& a) const {
+    for (const Bond& bond : bonds) {
+      if (bond.id1 == a)
+        return &bond.id2;
+      if (bond.id2.atom == a)
+        return &bond.id1;
+    }
+    return nullptr;
   }
 
   template<typename A, typename T>
@@ -203,7 +214,7 @@ struct Restraints {
                                                                         const {
     auto it = const_cast<Restraints*>(this)->find_angle(a, b, c);
     if (it == angles.end())
-      fail("Angle restraint not found: " + a.atom + "-" + b.atom + "-"+c.atom);
+      fail("Angle restraint not found: ", a.atom, '-', b.atom, '-', c.atom);
     return *it;
   }
 
@@ -316,8 +327,8 @@ struct ChemComp {
   int get_atom_index(const std::string& atom_id) const {
     auto it = find_atom(atom_id);
     if (it == atoms.end())
-      fail("Chemical componenent " + name + " has no atom " + atom_id);
-    return it - atoms.begin();
+      fail("Chemical componenent ", name, " has no atom ", atom_id);
+    return int(it - atoms.begin());
   }
 
   const Atom& get_atom(const std::string& atom_id) const {
@@ -375,6 +386,9 @@ inline BondType bond_type_from_string(const std::string& s) {
   if (istarts_with(s, "delo") || s == "1.5")
     return BondType::Deloc;
   if (cif::is_null(s))
+    return BondType::Unspec;
+  // program PDB2TNT produces a restraint file with bond type 'coval'
+  if (s == "coval")
     return BondType::Unspec;
   throw std::out_of_range("Unexpected bond type: " + s);
 }

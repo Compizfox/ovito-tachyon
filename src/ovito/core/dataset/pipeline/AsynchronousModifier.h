@@ -111,9 +111,13 @@ protected:
 
 	/// Creates a computation engine that will compute the modifier's results.
 	virtual Future<EnginePtr> createEngine(const PipelineEvaluationRequest& request, ModifierApplication* modApp, const PipelineFlowState& input) = 0;
+
+	/// This function is called from AsynchronousModifier::evaluateSynchronous() to apply the results from the last 
+	/// asycnhronous compute engine during a synchronous pipeline evaluation.
+	virtual bool applyCachedResultsSynchronous(TimePoint time, ModifierApplication* modApp, PipelineFlowState& state);
 };
 
 // Export this class template specialization from the DLL under Windows.
-extern template class OVITO_CORE_EXPORT Future<AsynchronousModifier::EnginePtr>;
+extern template class OVITO_CORE_EXPORT_TEMPLATE Future<AsynchronousModifier::EnginePtr>;
 
 }	// End of namespace

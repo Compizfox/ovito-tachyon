@@ -276,8 +276,8 @@ FileSourceImporter::FrameDataPtr DislocImporter::FrameLoader::loadFile()
 		auto burgersVector = burgersVectors.cbegin();
 		if(fileConvention == CONVENTION_1_1) {
 			for(const auto& seg : dislocationSegments2) {
-				OVITO_ASSERT(seg[0] >= 0 && seg[0] < vertexMap.size());
-				OVITO_ASSERT(seg[1] >= 0 && seg[1] < vertexMap.size());
+				OVITO_ASSERT(seg[0] >= 0 && seg[0] < (qlonglong)vertexMap.size());
+				OVITO_ASSERT(seg[1] >= 0 && seg[1] < (qlonglong)vertexMap.size());
 				MicrostructureData::vertex_index vertex1 = vertexMap[seg[0]];
 				MicrostructureData::vertex_index vertex2 = vertexMap[seg[1]];
 				microstructure.createDislocationSegment(vertex1, vertex2, Vector3(*burgersVector++), crystalRegion);

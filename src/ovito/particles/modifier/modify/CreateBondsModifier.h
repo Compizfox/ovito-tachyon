@@ -53,6 +53,7 @@ class OVITO_PARTICLES_EXPORT CreateBondsModifier : public AsynchronousModifier
 	OVITO_CLASS_META(CreateBondsModifier, CreateBondsModifierClass)
 
 	Q_CLASSINFO("DisplayName", "Create bonds");
+	Q_CLASSINFO("Description", "Creates bonds between particles.");
 	Q_CLASSINFO("ModifierCategory", "Visualization");
 
 public:
@@ -138,6 +139,10 @@ protected:
 
 	/// Creates a computation engine that will compute the modifier's results.
 	virtual Future<EnginePtr> createEngine(const PipelineEvaluationRequest& request, ModifierApplication* modApp, const PipelineFlowState& input) override;
+
+	/// This function is called from AsynchronousModifier::evaluateSynchronous() to apply the results from the last 
+	/// asycnhronous compute engine during a synchronous pipeline evaluation.
+	virtual bool applyCachedResultsSynchronous(TimePoint time, ModifierApplication* modApp, PipelineFlowState& state) override;
 
 	/// Looks up a particle type in the type list based on the name or the numeric ID.
 	static const ElementType* lookupParticleType(const PropertyObject* typeProperty, const QVariant& typeSpecification);

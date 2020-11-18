@@ -72,25 +72,50 @@ void DefaultPropertiesEditor::updateSubEditors()
 			for(auto fieldIter = editObject()->getOOMetaClass().propertyFields().crbegin(); fieldIter != editObject()->getOOMetaClass().propertyFields().crend(); ++fieldIter) {
 				const PropertyFieldDescriptor* field = *fieldIter;
 				if(!field->isReferenceField()) continue;
-				if(field->isVector()) continue;
 				if(!field->flags().testFlag(PROPERTY_FIELD_OPEN_SUBEDITOR)) continue;
-				if(RefTarget* subobject = editObject()->getReferenceField(*field)) {
-					// Open editor for this sub-object.
-					if(subEditorIter != _subEditors.end() && (*subEditorIter)->editObject() != nullptr
-							&& (*subEditorIter)->editObject()->getOOClass() == subobject->getOOClass()) {
-						// Re-use existing editor.
-						(*subEditorIter)->setEditObject(subobject);
-						++subEditorIter;
+				if(!field->isVector()) {
+					if(RefTarget* subobject = editObject()->getReferenceField(*field)) {
+						// Open editor for this sub-object.
+						if(subEditorIter != _subEditors.end() && (*subEditorIter)->editObject() != nullptr
+								&& (*subEditorIter)->editObject()->getOOClass() == subobject->getOOClass()) {
+							// Re-use existing editor.
+							(*subEditorIter)->setEditObject(subobject);
+							++subEditorIter;
+						}
+						else {
+							// Create a new sub-editor for this sub-object.
+							OORef<PropertiesEditor> editor = PropertiesEditor::create(subobject);
+							if(editor) {
+								editor->initialize(container(), mainWindow(), _rolloutParams, this);
+								editor->setEditObject(subobject);
+								_subEditors.erase(subEditorIter, _subEditors.end());
+								_subEditors.push_back(std::move(editor));
+								subEditorIter = _subEditors.end();
+							}
+						}
 					}
-					else {
-						// Create a new sub-editor for this sub-object.
-						OORef<PropertiesEditor> editor = PropertiesEditor::create(subobject);
-						if(editor) {
-							editor->initialize(container(), mainWindow(), _rolloutParams, this);
-							editor->setEditObject(subobject);
-							_subEditors.erase(subEditorIter, _subEditors.end());
-							_subEditors.push_back(std::move(editor));
-							subEditorIter = _subEditors.end();
+				}
+				else {
+					for(RefTarget* subobject : editObject()->getVectorReferenceField(*field).targets()) {
+						if(subobject) {
+							// Open editor for this sub-object.
+							if(subEditorIter != _subEditors.end() && (*subEditorIter)->editObject() != nullptr
+									&& (*subEditorIter)->editObject()->getOOClass() == subobject->getOOClass()) {
+								// Re-use existing editor.
+								(*subEditorIter)->setEditObject(subobject);
+								++subEditorIter;
+							}
+							else {
+								// Create a new sub-editor for this sub-object.
+								OORef<PropertiesEditor> editor = PropertiesEditor::create(subobject);
+								if(editor) {
+									editor->initialize(container(), mainWindow(), _rolloutParams, this);
+									editor->setEditObject(subobject);
+									_subEditors.erase(subEditorIter, _subEditors.end());
+									_subEditors.push_back(std::move(editor));
+									subEditorIter = _subEditors.end();
+								}
+							}
 						}
 					}
 				}

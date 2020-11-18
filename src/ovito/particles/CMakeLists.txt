@@ -1,6 +1,6 @@
 #######################################################################################
 #
-#  Copyright 2019 Alexander Stukowski
+#  Copyright 2020 Alexander Stukowski
 #
 #  This file is part of OVITO (Open Visualization Tool).
 #
@@ -60,12 +60,13 @@ SET(SourceFiles
 	modifier/selection/ExpandSelectionModifier.cpp
 	modifier/properties/SmoothTrajectoryModifier.cpp
 	modifier/properties/GenerateTrajectoryLinesModifier.cpp
+	modifier/properties/InteractiveMolecularDynamicsModifier.cpp
 	import/ParticleImporter.cpp
 	import/ParticleFrameData.cpp
-	import/InputColumnMapping.cpp
 	import/lammps/LAMMPSTextDumpImporter.cpp
 	import/lammps/LAMMPSBinaryDumpImporter.cpp
 	import/lammps/LAMMPSDataImporter.cpp
+	import/lammps/LAMMPSDumpLocalImporter.cpp
 	import/vasp/POSCARImporter.cpp
 	import/xyz/XYZImporter.cpp
 	import/imd/IMDImporter.cpp
@@ -83,6 +84,9 @@ SET(SourceFiles
 	import/dl_poly/DLPOLYImporter.cpp
 	import/quantumespresso/QuantumEspressoImporter.cpp
 	import/cif/CIFImporter.cpp
+	import/cif/mmCIFImporter.cpp
+	import/gromacs/GroImporter.cpp
+	import/gromacs/XTCImporter.cpp
 	export/ParticleExporter.cpp
 	export/FileColumnParticleExporter.cpp
 	export/vasp/POSCARExporter.cpp
@@ -115,18 +119,12 @@ ENDIF()
 
 # Define the plugin module.
 OVITO_STANDARD_PLUGIN(Particles
-	SOURCES
-		Particles.cpp
-		${SourceFiles}
+	SOURCES ${SourceFiles}
 	PLUGIN_DEPENDENCIES Mesh Grid StdObj Delaunay
-	PRIVATE_LIB_DEPENDENCIES VoroPlusPlus OpenGLRenderer PolyhedralTemplateMatching MinimumWeightMatchingCentrosymmetry
+	PRIVATE_LIB_DEPENDENCIES VoroPlusPlus OpenGLRenderer PolyhedralTemplateMatching MinimumWeightMatchingCentrosymmetry xdrfile
 	OPTIONAL_PLUGIN_DEPENDENCIES StdMod
+	PRECOMPILED_HEADERS Particles.h
 )
-
-# Speed up compilation by using precompiled headers.
-IF(OVITO_USE_PRECOMPILED_HEADERS)
-	ADD_PRECOMPILED_HEADER(Particles ovito/particles/Particles.h)
-ENDIF()
 
 # Build corresponding GUI plugin.
 IF(OVITO_BUILD_GUI)

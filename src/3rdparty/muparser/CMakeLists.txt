@@ -42,6 +42,13 @@ ELSE()
 	TARGET_COMPILE_DEFINITIONS(muParser PUBLIC "MUPARSER_EXPORT=")
 ENDIF()
 
+IF(MSVC)
+	# Do not warn about missing dll-interface of members of an exported class.
+	TARGET_COMPILE_OPTIONS(muParser PRIVATE "/wd4251")
+	# Do not warn about missing dll-interface of base class of an exported class.
+	TARGET_COMPILE_OPTIONS(muParser PRIVATE "/wd4275")
+ENDIF()
+
 # Set visibility of symbols in this shared library to hidden by default, except those exported in the source code.
 IF(NOT BUILD_SHARED_LIBS)
 	SET_TARGET_PROPERTIES(muParser PROPERTIES CXX_VISIBILITY_PRESET "hidden")

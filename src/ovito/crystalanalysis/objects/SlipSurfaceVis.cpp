@@ -43,6 +43,7 @@ SlipSurfaceVis::SlipSurfaceVis(DataSet* dataset) : SurfaceMeshVis(dataset)
 {
     // Do not interpolate facet normals by default.
     setSmoothShading(false);
+    setSurfaceIsClosed(false);
 }
 
 /******************************************************************************

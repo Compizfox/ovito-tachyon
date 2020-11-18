@@ -64,6 +64,27 @@ void NavigationMode::deactivated(bool temporary)
 }
 
 /******************************************************************************
+* Applies a step-wise change of the view orientation.
+******************************************************************************/
+void NavigationMode::discreteStep(ViewportWindowInterface* vpwin, QPointF delta)
+{
+	Viewport* vp = vpwin->viewport();
+	if(_viewport == nullptr) {
+		std::swap(_viewport, vp);
+		_startPoint = QPointF(0,0);
+		_oldCameraTM = _viewport->cameraTransformation();
+		_oldCameraPosition = _viewport->cameraPosition();
+		_oldCameraDirection = _viewport->cameraDirection();
+		_oldFieldOfView = _viewport->fieldOfView();
+		_oldViewMatrix = _viewport->projectionParams().viewMatrix;
+		_oldInverseViewMatrix = _viewport->projectionParams().inverseViewMatrix;
+		_currentOrbitCenter = _viewport->orbitCenter();
+	}
+	modifyView(vpwin, vpwin->viewport(), delta, true);
+	std::swap(_viewport, vp);
+}
+
+/******************************************************************************
 * Handles the mouse down event for the given viewport.
 ******************************************************************************/
 void NavigationMode::mousePressEvent(ViewportWindowInterface* vpwin, QMouseEvent* event)
@@ -122,7 +143,7 @@ void NavigationMode::mouseMoveEvent(ViewportWindowInterface* vpwin, QMouseEvent*
 		QPointF pos = event->localPos();
 
 		_viewport->dataset()->undoStack().resetCurrentCompoundOperation();
-		modifyView(vpwin, _viewport, pos - _startPoint);
+		modifyView(vpwin, _viewport, pos - _startPoint, false);
 
 		// Force immediate viewport repaint.
 		_viewport->dataset()->viewportConfig()->processViewportUpdates();
@@ -146,13 +167,14 @@ AbstractCameraObject* NavigationMode::getViewportCamera(Viewport* vp)
 /******************************************************************************
 * Computes the new view matrix based on the new mouse position.
 ******************************************************************************/
-void PanMode::modifyView(ViewportWindowInterface* vpwin, Viewport* vp, QPointF delta)
+void PanMode::modifyView(ViewportWindowInterface* vpwin, Viewport* vp, QPointF delta, bool discreteStep)
 {
 	FloatType scaling;
+	FloatType normalization = discreteStep ? 20.0 : vpwin->viewportWindowDeviceIndependentSize().height();
 	if(vp->isPerspectiveProjection())
-		scaling = FloatType(10) * vp->nonScalingSize(_currentOrbitCenter) / vpwin->viewportWindowDeviceIndependentSize().height();
+		scaling = FloatType(10) * vp->nonScalingSize(_currentOrbitCenter) / normalization;
 	else
-		scaling = FloatType(2) * _oldFieldOfView / vpwin->viewportWindowDeviceIndependentSize().height();
+		scaling = FloatType(2) * _oldFieldOfView / normalization;
 	FloatType deltaX = -scaling * delta.x();
 	FloatType deltaY =  scaling * delta.y();
 	Vector3 displacement = _oldInverseViewMatrix * Vector3(deltaX, deltaY, 0);
@@ -183,7 +205,7 @@ void PanMode::modifyView(ViewportWindowInterface* vpwin, Viewport* vp, QPointF d
 /******************************************************************************
 * Computes the new view matrix based on the new mouse position.
 ******************************************************************************/
-void ZoomMode::modifyView(ViewportWindowInterface* vpwin, Viewport* vp, QPointF delta)
+void ZoomMode::modifyView(ViewportWindowInterface* vpwin, Viewport* vp, QPointF delta, bool discreteStep)
 {
 	if(vp->isPerspectiveProjection()) {
 		FloatType amount =  FloatType(-5) * sceneSizeFactor(vp) * delta.y();
@@ -268,7 +290,7 @@ void ZoomMode::zoom(Viewport* vp, FloatType steps)
 /******************************************************************************
 * Computes the new field of view based on the new mouse position.
 ******************************************************************************/
-void FOVMode::modifyView(ViewportWindowInterface* vpwin, Viewport* vp, QPointF delta)
+void FOVMode::modifyView(ViewportWindowInterface* vpwin, Viewport* vp, QPointF delta, bool discreteStep)
 {
 	FloatType oldFOV = _oldFieldOfView;
 	if(AbstractCameraObject* cameraObj = getViewportCamera(vp)) {
@@ -300,12 +322,12 @@ void FOVMode::modifyView(ViewportWindowInterface* vpwin, Viewport* vp, QPointF d
 /******************************************************************************
 * Computes the new view matrix based on the new mouse position.
 ******************************************************************************/
-void OrbitMode::modifyView(ViewportWindowInterface* vpwin, Viewport* vp, QPointF delta)
+void OrbitMode::modifyView(ViewportWindowInterface* vpwin, Viewport* vp, QPointF delta, bool discreteStep)
 {
 	if(vp->viewType() < Viewport::VIEW_ORTHO)
 		vp->setViewType(Viewport::VIEW_ORTHO, true);
 
-	FloatType speed = FloatType(5.0) / vp->windowSize().height();
+	FloatType speed = discreteStep ? 0.05 : (5.0 / vp->windowSize().height());
 	FloatType deltaTheta = speed * delta.x();
 	FloatType deltaPhi = -speed * delta.y();
 

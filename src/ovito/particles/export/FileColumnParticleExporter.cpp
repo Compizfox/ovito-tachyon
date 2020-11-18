@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Copyright 2016 Alexander Stukowski
+//  Copyright 2020 Alexander Stukowski
 //
 //  This file is part of OVITO (Open Visualization Tool).
 //
@@ -21,6 +21,7 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 
 #include <ovito/particles/Particles.h>
+#include <ovito/core/dataset/DataSet.h>
 #include "FileColumnParticleExporter.h"
 
 namespace Ovito { namespace Particles {
@@ -40,7 +41,7 @@ void FileColumnParticleExporter::loadUserDefaults()
 	settings.beginGroup("exporter/particles/");
 	if(settings.contains("columnmapping")) {
 		try {
-			_columnMapping.fromByteArray(settings.value("columnmapping").toByteArray());
+			_columnMapping.fromByteArray(settings.value("columnmapping").toByteArray(), dataset()->taskManager());
 		}
 		catch(Exception& ex) {
 			ex.setContext(dataset());

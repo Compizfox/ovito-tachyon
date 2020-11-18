@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Copyright 2017 Alexander Stukowski
+//  Copyright 2020 Alexander Stukowski
 //
 //  This file is part of OVITO (Open Visualization Tool).
 //
@@ -36,10 +36,15 @@ class OVITO_CORE_EXPORT ModifierTemplates : public QAbstractListModel
 {
 	Q_OBJECT
 
-public:
+private:
 
 	/// \brief Constructor.
 	ModifierTemplates(QObject* parent = nullptr);
+
+public:
+
+	/// \brief Returns the singleton instance of this class. 
+	static ModifierTemplates* get();
 
 	/// \brief Returns the names of the stored modifier templates.
 	const QStringList& templateList() const { return _templateNames; }
@@ -90,6 +95,15 @@ public:
 
 	/// \brief Loads a template list from the given settings store.
 	int load(QSettings& settings);
+
+	/// \brief Reloads the in-memory template list from the given settings store.
+	void restore() {
+		QSettings settings;
+		restore(settings);
+	}
+
+	/// \brief Reloads the in-memory template list from the given settings store.
+	void restore(QSettings& settings);
 
 private:
 

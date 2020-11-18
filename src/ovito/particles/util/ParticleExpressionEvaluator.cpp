@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Copyright 2019 Alexander Stukowski
+//  Copyright 2020 Alexander Stukowski
 //
 //  This file is part of OVITO (Open Visualization Tool).
 //
@@ -54,6 +54,89 @@ void ParticleExpressionEvaluator::createInputVariables(const std::vector<ConstPr
 			});
 		}
 	}
+}
+
+/******************************************************************************
+* Specifies the expressions to be evaluated for each bond and creates the input variables.
+******************************************************************************/
+void BondExpressionEvaluator::initialize(const QStringList& expressions, const PipelineFlowState& state, const ConstDataObjectPath& containerPath, int animationFrame) 
+{
+	PropertyExpressionEvaluator::initialize(expressions, state, containerPath, animationFrame);
+
+	// Look for the particles object, which is the parent of the bonds object.
+	if(containerPath.size() >= 2) { 
+		if(const ParticlesObject* particles = dynamic_object_cast<ParticlesObject>(containerPath[containerPath.size() - 2])) {
+			const BondsObject* bonds = static_object_cast<BondsObject>(containerPath.back());
+			_topologyArray = bonds->getPropertyStorage(BondsObject::TopologyProperty);
+
+			// Define computed variable 'BondLength', which yields the length of the bonds.
+			if(ConstPropertyAccessAndRef<Point3> positions = particles->getProperty(ParticlesObject::PositionProperty)) {
+				if(ConstPropertyAccessAndRef<ParticleIndexPair> topology = bonds->getProperty(BondsObject::TopologyProperty)) {
+					ConstPropertyAccessAndRef<Vector3I> periodicImages = bonds->getProperty(BondsObject::PeriodicImageProperty);
+					SimulationCell simCell;
+					if(const SimulationCellObject* simCellObj = state.getObject<SimulationCellObject>())
+						simCell = simCellObj->data();
+					else
+						periodicImages.reset();
+
+					registerComputedVariable("BondLength", [positions=std::move(positions),topology=std::move(topology),periodicImages=std::move(periodicImages),simCell](size_t bondIndex) -> double {
+						size_t index1 = topology[bondIndex][0];
+						size_t index2 = topology[bondIndex][1];
+						if(positions.size() > index1 && positions.size() > index2) {
+							const Point3& p1 = positions[index1];
+							const Point3& p2 = positions[index2];
+							Vector3 delta = p2 - p1;
+							if(periodicImages) {
+								if(int dx = periodicImages[bondIndex][0]) delta += simCell.matrix().column(0) * (FloatType)dx;
+								if(int dy = periodicImages[bondIndex][1]) delta += simCell.matrix().column(1) * (FloatType)dy;
+								if(int dz = periodicImages[bondIndex][2]) delta += simCell.matrix().column(2) * (FloatType)dz;
+							}
+							return delta.length();
+						}
+						else return 0;
+					},
+					tr("dynamically calculated"));
+				}
+			}
+
+			// Build list of particle properties that will be made available as expression variables.
+			std::vector<ConstPropertyPtr> inputParticleProperties;
+			for(const PropertyObject* prop : particles->properties()) {
+				inputParticleProperties.push_back(prop->storage());
+			}
+			registerPropertyVariables(inputParticleProperties, 1, "@1.");
+			registerPropertyVariables(inputParticleProperties, 2, "@2.");
+		}
+	}
+}
+
+/******************************************************************************
+* Updates the stored value of variables that depends on the current element index.
+******************************************************************************/
+void BondExpressionEvaluator::updateVariables(Worker& worker, size_t elementIndex)
+{
+	PropertyExpressionEvaluator::updateVariables(worker, elementIndex);
+
+	// Update values of variables referring to particle properties.
+	if(_topologyArray) {
+		size_t particleIndex1 = _topologyArray[elementIndex][0];
+		size_t particleIndex2 = _topologyArray[elementIndex][1];
+		worker.updateVariables(1, particleIndex1);
+		worker.updateVariables(2, particleIndex2);
+	}
+}
+
+/********************************§**********************************************
+* Returns a human-readable text listing the input variables.
+******************************************************************************/
+QString BondExpressionEvaluator::inputVariableTable() const
+{
+	QString table = PropertyExpressionEvaluator::inputVariableTable();
+	table.append(QStringLiteral("<p><b>Particle properties:</b><ul>"));
+	table.append(QStringLiteral("<li>@1... (<i style=\"color: #555;\">property of first particle</i>)</li>"));
+	table.append(QStringLiteral("<li>@2... (<i style=\"color: #555;\">property of second particle</i>)</li>"));
+	table.append(QStringLiteral("</ul></p>"));
+	return table;
 }
 
 }	// End of namespace

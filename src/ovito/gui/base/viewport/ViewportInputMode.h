@@ -115,6 +115,9 @@ public:
 	/// \param event The focus event.
 	virtual void focusOutEvent(ViewportWindowInterface* vpwin, QFocusEvent* event);
 
+	/// \brief Handles key-press events in a viewport window.
+	virtual bool keyPressEvent(ViewportWindowInterface* vpwin, QKeyEvent* event) { return false; }
+
 	/// \brief Return the mouse cursor shown in the viewport windows
 	///        while this input handler is active.
 	const QCursor& cursor() { return _cursor; }

@@ -194,6 +194,3 @@ public:
 };
 
 }	// End of namespace
-
-
-

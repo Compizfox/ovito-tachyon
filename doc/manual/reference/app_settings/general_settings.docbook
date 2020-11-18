@@ -32,10 +32,11 @@
           </listitem>
         </varlistentry>
         <varlistentry>
-          <term>Modifier list: Only show most recently used modifiers</term>
+          <term>Modifiers list: Sort by category</term>
           <listitem>
-            <para>This option restricts the drop-down list of available modifiers to the 8 most recently used ones.
-            This can be useful on small computer screens that do not fit the complete list of available modifiers.
+            <para>If this option is turned on, the <link linkend="particles.modifiers">list of available modifiers</link> 
+            will be divided into several categories. If turned off, the modifiers will be shown as
+            one contiguous, alphabetically ordered list.  
             </para>
           </listitem>
         </varlistentry>

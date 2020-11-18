@@ -1,6 +1,6 @@
 #######################################################################################
 #
-#  Copyright 2019 Alexander Stukowski
+#  Copyright 2020 Alexander Stukowski
 #
 #  This file is part of OVITO (Open Visualization Tool).
 #
@@ -167,6 +167,14 @@ IF(UNIX AND NOT APPLE AND OVITO_REDISTRIBUTABLE_PACKAGE)
 	OVITO_INSTALL_SHARED_LIB("${OVITO_XKBCOMMONX11_DEP}" "./lib")
 	UNSET(OVITO_XKBCOMMONX11_DEP CACHE)
 
+	# Distribute libxcb-xinerama.so with Ovito, which is a dependency of the Qt XCB plugin that might not be present on all systems.
+	FIND_LIBRARY(OVITO_XINERAMA_DEP NAMES libxcb-xinerama.so.0 PATHS /usr/lib /usr/local/lib /usr/lib/x86_64-linux-gnu /usr/lib64 NO_DEFAULT_PATH)
+	IF(NOT OVITO_XINERAMA_DEP)
+		MESSAGE(FATAL_ERROR "Could not find shared library libxcb-xinerama.so.0 in system path.")
+	ENDIF()
+	OVITO_INSTALL_SHARED_LIB("${OVITO_XINERAMA_DEP}" "./lib")
+	UNSET(OVITO_XINERAMA_DEP CACHE)
+	
 ELSEIF(WIN32 AND NOT OVITO_BUILD_PYTHON_PACKAGE AND NOT OVITO_BUILD_CONDA)
 
 	# On Windows, the third-party library DLLs need to be installed in the OVITO directory.
@@ -176,27 +184,25 @@ ELSEIF(WIN32 AND NOT OVITO_BUILD_PYTHON_PACKAGE AND NOT OVITO_BUILD_CONDA)
 		OVITO_INSTALL_SHARED_LIB("${dll}" ".")
 		IF(${component} MATCHES "Core")
 			GET_FILENAME_COMPONENT(QtBinaryPath ${dll} PATH)
-			IF(Qt5Core_VERSION VERSION_LESS "5.7")
-				OVITO_INSTALL_SHARED_LIB("${QtBinaryPath}/icudt54.dll" ".")
-				OVITO_INSTALL_SHARED_LIB("${QtBinaryPath}/icuin54.dll" ".")
-				OVITO_INSTALL_SHARED_LIB("${QtBinaryPath}/icuuc54.dll" ".")
+			IF(dll MATCHES "Cored.dll$")
+				SET(_using_qt_debug_build TRUE)
 			ENDIF()
 		ENDIF()
 	ENDFOREACH()
 
 	# Install Qt plugins.
-	IF(CMAKE_BUILD_TYPE STREQUAL "Debug")
-		INSTALL(FILES "${QtBinaryPath}/../plugins/platforms/qwindowsd.dll" DESTINATION "${OVITO_RELATIVE_BINARY_DIRECTORY}/plugins/platforms/")
-		INSTALL(FILES "${QtBinaryPath}/../plugins/imageformats/qjpegd.dll" DESTINATION "${OVITO_RELATIVE_BINARY_DIRECTORY}/plugins/imageformats/")
-		INSTALL(FILES "${QtBinaryPath}/../plugins/imageformats/qgifd.dll" DESTINATION "${OVITO_RELATIVE_BINARY_DIRECTORY}/plugins/imageformats/")
-		INSTALL(FILES "${QtBinaryPath}/../plugins/iconengines/qsvgicond.dll" DESTINATION "${OVITO_RELATIVE_BINARY_DIRECTORY}/plugins/iconengines/")
-		INSTALL(FILES "${QtBinaryPath}/../plugins/styles/qwindowsvistastyled.dll" DESTINATION "${OVITO_RELATIVE_BINARY_DIRECTORY}/plugins/styles/")
+	IF(_using_qt_debug_build)
+		OVITO_INSTALL_SHARED_LIB("${QtBinaryPath}/../plugins/platforms/qwindowsd.dll" "plugins/platforms/")
+		OVITO_INSTALL_SHARED_LIB("${QtBinaryPath}/../plugins/imageformats/qjpegd.dll" "plugins/imageformats/")
+		OVITO_INSTALL_SHARED_LIB("${QtBinaryPath}/../plugins/imageformats/qgifd.dll" "plugins/imageformats/")
+		OVITO_INSTALL_SHARED_LIB("${QtBinaryPath}/../plugins/iconengines/qsvgicond.dll" "plugins/iconengines/")
+		OVITO_INSTALL_SHARED_LIB("${QtBinaryPath}/../plugins/styles/qwindowsvistastyled.dll" "plugins/styles/")
 	ELSE()
-		INSTALL(FILES "${QtBinaryPath}/../plugins/platforms/qwindows.dll" DESTINATION "${OVITO_RELATIVE_BINARY_DIRECTORY}/plugins/platforms/")
-		INSTALL(FILES "${QtBinaryPath}/../plugins/imageformats/qjpeg.dll" DESTINATION "${OVITO_RELATIVE_BINARY_DIRECTORY}/plugins/imageformats/")
-		INSTALL(FILES "${QtBinaryPath}/../plugins/imageformats/qgif.dll" DESTINATION "${OVITO_RELATIVE_BINARY_DIRECTORY}/plugins/imageformats/")
-		INSTALL(FILES "${QtBinaryPath}/../plugins/iconengines/qsvgicon.dll" DESTINATION "${OVITO_RELATIVE_BINARY_DIRECTORY}/plugins/iconengines/")
-		INSTALL(FILES "${QtBinaryPath}/../plugins/styles/qwindowsvistastyle.dll" DESTINATION "${OVITO_RELATIVE_BINARY_DIRECTORY}/plugins/styles/")
+		OVITO_INSTALL_SHARED_LIB("${QtBinaryPath}/../plugins/platforms/qwindows.dll" "plugins/platforms/")
+		OVITO_INSTALL_SHARED_LIB("${QtBinaryPath}/../plugins/imageformats/qjpeg.dll" "plugins/imageformats/")
+		OVITO_INSTALL_SHARED_LIB("${QtBinaryPath}/../plugins/imageformats/qgif.dll" "plugins/imageformats/")
+		OVITO_INSTALL_SHARED_LIB("${QtBinaryPath}/../plugins/iconengines/qsvgicon.dll" "plugins/iconengines/")
+		OVITO_INSTALL_SHARED_LIB("${QtBinaryPath}/../plugins/styles/qwindowsvistastyle.dll" "plugins/styles/")
 	ENDIF()
 
 ENDIF()

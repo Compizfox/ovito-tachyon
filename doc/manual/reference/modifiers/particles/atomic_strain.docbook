@@ -93,7 +93,7 @@
           </thead>
           <tbody>
             <row>
-              <entry>Deformation gradient <mathphrase>F</mathphrase></entry>
+              <entry valign="middle">Deformation gradient <mathphrase>F</mathphrase>:</entry>
               <entry><screen>
                 <mathphrase>F<subscript>xx</subscript></mathphrase> <mathphrase>F<subscript>xy</subscript></mathphrase> <mathphrase>F<subscript>xz</subscript></mathphrase>
                 <mathphrase>F<subscript>yx</subscript></mathphrase> <mathphrase>F<subscript>yy</subscript></mathphrase> <mathphrase>F<subscript>yz</subscript></mathphrase>
@@ -281,8 +281,8 @@
         OVITO assumes that particle trajectories are all continuous. On the other hand, if you work with
         <emphasis>wrapped</emphasis> particle coordinates, this option should be turned on. The minimum image convention
         ensures that displacements are calculated correctly even when particles cross a periodic boundary of the cell
-        and were mapped back into the cell by the simulation code. On the other hand, if you intend to analyze system where particles have moved by
-        more than half of the simulation box size, then the minimum imagine convention cannot be used. You <emphasis>must</emphasis>
+        and were mapped back into the cell by the simulation code. On the other hand, if you intend to analyze a system where particles have moved by
+        more than half of the simulation box size, then the minimum image convention cannot be used. You <emphasis>must</emphasis>
         use unwrapped coordinates in this case, because large displacements would otherwise be folded back into the periodic cell thanks to
         the minimum image convention.
       </para>

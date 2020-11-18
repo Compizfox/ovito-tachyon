@@ -34,9 +34,20 @@ ENDIF()
 # Enable Geogram's support for 64-bit indices.
 TARGET_COMPILE_DEFINITIONS(geogram PUBLIC "GARGANTUA=1")
 
-# Disable atomics, because OVITO doesn't make use of Geogram's multi-threading support.
-IF(NOT WIN32)
+IF(NOT WIN32 AND NOT APPLE)
+	# Disable atomics, because OVITO doesn't make use of Geogram's multi-threading support.
 	TARGET_COMPILE_DEFINITIONS(geogram PUBLIC "GEO_USE_DUMMY_ATOMICS=1")
+ENDIF()
+
+IF(MSVC)
+	# Do not warn about use of unsafe CRT Library functions.
+	TARGET_COMPILE_DEFINITIONS(geogram PRIVATE "_CRT_SECURE_NO_WARNINGS=")
+	# Do not warn about missing dll-interface of members of an exported class.
+	TARGET_COMPILE_OPTIONS(geogram PRIVATE "/wd4251")
+	# Do not warn about missing dll-interface of base class of an exported class.
+	TARGET_COMPILE_OPTIONS(geogram PRIVATE "/wd4275")
+	# Suppress warning on conversion from size_t to int, possible loss of data.
+	TARGET_COMPILE_OPTIONS(geogram PRIVATE "/wd4267" "/wd4244" "/wd4334")
 ENDIF()
 
 IF(BUILD_SHARED_LIBS)

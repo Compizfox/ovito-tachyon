@@ -23,14 +23,13 @@ inline cif::Document read_cif_or_mmjson_gz(const std::string& path) {
   return read_cif_gz(path);
 }
 
-Structure make_structure(const cif::Document& doc);
-
 Structure read_structure_gz(const std::string& path,
                             CoorFormat format=CoorFormat::Unknown);
 
-Structure read_pdb_gz(const std::string& path);
+Structure read_pdb_gz(const std::string& path,
+                      PdbReadOptions options=PdbReadOptions());
 
-CoorFormat coordinate_format_from_extension_gz(const std::string& path);
+CoorFormat coor_format_from_ext_gz(const std::string& path);
 
 } // namespace gemmi
 

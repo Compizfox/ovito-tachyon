@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Copyright 2016 Alexander Stukowski
+//  Copyright 2020 Alexander Stukowski
 //
 //  This file is part of OVITO (Open Visualization Tool).
 //
@@ -22,7 +22,7 @@
 
 #include <ovito/particles/gui/ParticlesGui.h>
 #include <ovito/particles/import/xyz/XYZImporter.h>
-#include <ovito/particles/gui/import/InputColumnMappingDialog.h>
+#include <ovito/stdobj/gui/properties/InputColumnMappingDialog.h>
 #include <ovito/gui/desktop/properties/BooleanParameterUI.h>
 #include <ovito/gui/desktop/mainwin/MainWindow.h>
 #include <ovito/core/dataset/io/FileSource.h>
@@ -40,10 +40,10 @@ SET_OVITO_OBJECT_EDITOR(XYZImporter, XYZImporterEditor);
 bool XYZImporterEditor::inspectNewFile(FileImporter* importer, const QUrl& sourceFile, QWidget* parent)
 {
 	XYZImporter* xyzImporter = static_object_cast<XYZImporter>(importer);
-	Future<InputColumnMapping> inspectFuture = xyzImporter->inspectFileHeader(FileSourceImporter::Frame(sourceFile));
+	Future<ParticleInputColumnMapping> inspectFuture = xyzImporter->inspectFileHeader(FileSourceImporter::Frame(sourceFile));
 	if(!importer->dataset()->taskManager().waitForFuture(inspectFuture))
 		return false;
-	InputColumnMapping mapping = inspectFuture.result();
+	ParticleInputColumnMapping mapping = inspectFuture.result();
 
 	// If column names were given in the XYZ file, use them rather than popping up a dialog.
 	if(mapping.hasFileColumnNames()) {
@@ -56,8 +56,8 @@ bool XYZImporterEditor::inspectNewFile(FileImporter* importer, const QUrl& sourc
 		settings.beginGroup("viz/importer/xyz/");
 		if(settings.contains("columnmapping")) {
 			try {
-				InputColumnMapping storedMapping;
-				storedMapping.fromByteArray(settings.value("columnmapping").toByteArray());
+				ParticleInputColumnMapping storedMapping;
+				storedMapping.fromByteArray(settings.value("columnmapping").toByteArray(), importer->dataset()->taskManager());
 				std::copy_n(storedMapping.begin(), std::min(storedMapping.size(), mapping.size()), mapping.begin());
 			}
 			catch(Exception& ex) {
@@ -69,14 +69,14 @@ bool XYZImporterEditor::inspectNewFile(FileImporter* importer, const QUrl& sourc
 		}
 	}
 
-	InputColumnMappingDialog dialog(mapping, parent);
+	InputColumnMappingDialog dialog(mapping, parent, importer->dataset()->taskManager());
 	if(dialog.exec() == QDialog::Accepted) {
 		xyzImporter->setColumnMapping(dialog.mapping());
 
 		// Remember the user-defined mapping for the next time.
 		QSettings settings;
 		settings.beginGroup("viz/importer/xyz/");
-		settings.setValue("columnmapping", dialog.mapping().toByteArray());
+		settings.setValue("columnmapping", dialog.mapping().toByteArray(importer->dataset()->taskManager()));
 		settings.endGroup();
 
 		return true;
@@ -89,28 +89,28 @@ bool XYZImporterEditor::inspectNewFile(FileImporter* importer, const QUrl& sourc
  * Displays a dialog box that allows the user to edit the custom file column to particle
  * property mapping.
  *****************************************************************************/
-bool XYZImporterEditor::showEditColumnMappingDialog(XYZImporter* importer, const QUrl& sourceFile, QWidget* parent)
+bool XYZImporterEditor::showEditColumnMappingDialog(XYZImporter* importer, const FileSourceImporter::Frame& frame, MainWindow* mainWindow)
 {
-	Future<InputColumnMapping> inspectFuture = importer->inspectFileHeader(FileSourceImporter::Frame(sourceFile));
+	Future<ParticleInputColumnMapping> inspectFuture = importer->inspectFileHeader(frame);
 	if(!importer->dataset()->taskManager().waitForFuture(inspectFuture))
 		return false;
-	InputColumnMapping mapping = inspectFuture.result();
+	ParticleInputColumnMapping mapping = inspectFuture.result();
 
 	if(!importer->columnMapping().empty()) {
-		InputColumnMapping customMapping = importer->columnMapping();
+		ParticleInputColumnMapping customMapping = importer->columnMapping();
 		customMapping.resize(mapping.size());
 		for(size_t i = 0; i < customMapping.size(); i++)
 			customMapping[i].columnName = mapping[i].columnName;
 		mapping = customMapping;
 	}
 
-	InputColumnMappingDialog dialog(mapping, parent);
+	InputColumnMappingDialog dialog(mapping, mainWindow, importer->dataset()->taskManager());
 	if(dialog.exec() == QDialog::Accepted) {
 		importer->setColumnMapping(dialog.mapping());
 		// Remember the user-defined mapping for the next time.
 		QSettings settings;
 		settings.beginGroup("viz/importer/xyz/");
-		settings.setValue("columnmapping", dialog.mapping().toByteArray());
+		settings.setValue("columnmapping", dialog.mapping().toByteArray(importer->dataset()->taskManager()));
 		settings.endGroup();
 		return true;
 	}
@@ -142,8 +142,15 @@ void XYZImporterEditor::createUI(const RolloutInsertionParameters& rolloutParams
 	// The following signal handler updates the parameter UI whenever the isMultiTimestepFile parameter of the current file source importer changes.
 	// It is needed, because target-changed messages are surpressed for this property field and the normal update mechanism for the parameter UI doesn't work.
 	connect(this, &PropertiesEditor::contentsReplaced, this, [con = QMetaObject::Connection(), multitimestepUI = multitimestepUI](RefTarget* editObject) mutable {
+#ifdef _MSC_VER
+	#pragma warning(push)
+	#pragma warning(disable : 4573)
+#endif
 		disconnect(con);
 		con = editObject ? connect(static_object_cast<FileSourceImporter>(editObject), &FileSourceImporter::isMultiTimestepFileChanged, multitimestepUI, &ParameterUI::updateUI) : QMetaObject::Connection();
+#ifdef _MSC_VER
+	#pragma warning(pop)
+#endif
 	});
 	sublayout->addWidget(multitimestepUI->checkBox());
 
@@ -171,23 +178,15 @@ void XYZImporterEditor::createUI(const RolloutInsertionParameters& rolloutParams
 void XYZImporterEditor::onEditColumnMapping()
 {
 	if(XYZImporter* importer = static_object_cast<XYZImporter>(editObject())) {
+		UndoableTransaction::handleExceptions(importer->dataset()->undoStack(), tr("Change file column mapping"), [this, importer]() {
 
-		// Determine URL of current input file.
-		FileSource* fileSource = nullptr;
-		for(RefMaker* refmaker : importer->dependents()) {
-			fileSource = dynamic_object_cast<FileSource>(refmaker);
-			if(fileSource) break;
-		}
-		if(!fileSource || fileSource->frames().empty()) return;
+			// Determine the currently loaded data file of the FileSource.
+			FileSource* fileSource = importer->fileSource();
+			if(!fileSource || fileSource->frames().empty()) return;
+			int frameIndex = qBound(0, fileSource->dataCollectionFrame(), fileSource->frames().size()-1);
 
-		QUrl sourceUrl;
-		if(fileSource->dataCollectionFrame() >= 0)
-			sourceUrl = fileSource->frames()[fileSource->dataCollectionFrame()].sourceFile;
-		else
-			sourceUrl = fileSource->frames().front().sourceFile;
-
-		UndoableTransaction::handleExceptions(importer->dataset()->undoStack(), tr("Change file column mapping"), [this, &sourceUrl, importer]() {
-			if(showEditColumnMappingDialog(importer, sourceUrl, mainWindow())) {
+			// Show the dialog box, which lets the user modify the file column mapping.
+			if(showEditColumnMappingDialog(importer, fileSource->frames()[frameIndex], mainWindow())) {
 				importer->requestReload();
 			}
 		});

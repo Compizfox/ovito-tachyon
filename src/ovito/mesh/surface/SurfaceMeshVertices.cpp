@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Copyright 2019 Alexander Stukowski
+//  Copyright 2020 Alexander Stukowski
 //
 //  This file is part of OVITO (Open Visualization Tool).
 //
@@ -105,8 +105,8 @@ void SurfaceMeshVertices::OOMetaClass::initialize()
 	const QStringList rgbList = QStringList() << "R" << "G" << "B";
 
 	registerStandardProperty(SelectionProperty, tr("Selection"), PropertyStorage::Int, emptyList);
-	registerStandardProperty(ColorProperty, tr("Color"), PropertyStorage::Float, rgbList, tr("Vertex colors"));
-	registerStandardProperty(PositionProperty, tr("Position"), PropertyStorage::Float, xyzList, tr("Vertex positions"));
+	registerStandardProperty(ColorProperty, tr("Color"), PropertyStorage::Float, rgbList, nullptr, tr("Vertex colors"));
+	registerStandardProperty(PositionProperty, tr("Position"), PropertyStorage::Float, xyzList, nullptr, tr("Vertex positions"));
 }
 
 /******************************************************************************

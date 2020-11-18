@@ -22,6 +22,8 @@
 
 #include <ovito/particles/Particles.h>
 #include <ovito/particles/import/ParticleFrameData.h>
+#include <ovito/particles/objects/ParticlesObject.h>
+#include <ovito/particles/objects/ParticleType.h>
 #include <ovito/core/utilities/io/CompressedTextReader.h>
 #include "FHIAimsImporter.h"
 
@@ -107,9 +109,9 @@ FileSourceImporter::FrameDataPtr FHIAimsImporter::FrameLoader::loadFile()
 		throw Exception(tr("Invalid FHI-aims file: No atoms found."));
 
 	// Create the particle properties.
-	PropertyAccess<Point3> posProperty = frameData->addParticleProperty(ParticlesObject::OOClass().createStandardStorage(totalAtomCount, ParticlesObject::PositionProperty, false));
-	PropertyAccess<int> typeProperty = frameData->addParticleProperty(ParticlesObject::OOClass().createStandardStorage(totalAtomCount, ParticlesObject::TypeProperty, false));
-	ParticleFrameData::TypeList* typeList = frameData->createPropertyTypesList(typeProperty);
+	PropertyAccess<Point3> posProperty = frameData->particles().createStandardProperty<ParticlesObject>(totalAtomCount, ParticlesObject::PositionProperty, false);
+	PropertyAccess<int> typeProperty = frameData->particles().createStandardProperty<ParticlesObject>(totalAtomCount, ParticlesObject::TypeProperty, false);
+	PropertyContainerImportData::TypeList* typeList = frameData->particles().createPropertyTypesList(typeProperty, ParticleType::OOClass());
 
 	// Return to file beginning.
 	stream.seek(0);

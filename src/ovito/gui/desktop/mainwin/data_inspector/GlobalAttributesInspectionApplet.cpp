@@ -97,7 +97,11 @@ bool GlobalAttributesInspectionApplet::selectDataObject(PipelineObject* dataSour
 		const auto& attr = _tableModel->attributes()[i];
 		if(attr->dataSource() == dataSource) {
 			if(objectIdentifierHint.isEmpty() || attr->identifier().startsWith(objectIdentifierHint)) {
-				_tableView->selectRow(i);
+				// Note: Defer selecting the table row to a somewhat later time, because QTableView only accepts
+				// selection calls when it's visible and after the parent widget has been enabled.
+				QTimer::singleShot(0, this, [this,i]() {
+					_tableView->selectRow(i);
+				});
 				return true;
 			}
 		}
@@ -120,7 +124,6 @@ void GlobalAttributesInspectionApplet::exportToFile()
 	dialog.setOption(QFileDialog::DontUseNativeDialog);
 	dialog.setAcceptMode(QFileDialog::AcceptSave);
 	dialog.setFileMode(QFileDialog::AnyFile);
-	dialog.setConfirmOverwrite(true);
 
 	// Go to the last directory used.
 	QSettings settings;

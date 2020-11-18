@@ -42,6 +42,8 @@ public:
 		/// of a RefMaker-derived class that was serialized.
 		struct PropertyFieldInfo
 		{
+			using CustomDeserializationFunctionPtr = void (*)(const PropertyFieldInfo& field, ObjectLoadStream& stream, RefMaker& owner);
+
 			/// The identifier of the property field.
 			QByteArray identifier;
 
@@ -60,6 +62,10 @@ public:
 			/// The property field of the defining class that matches the
 			/// stored field. Can be NULL if the property field no longer exists.
 			const PropertyFieldDescriptor* field;
+
+			/// An optional pointer to a custom function that takes are of the deserialization
+			/// of this property field.
+			CustomDeserializationFunctionPtr customDeserializationFunction;
 		};
 
 		/// The list of property fields defined for the class when it was serialized.
@@ -92,6 +98,9 @@ public:
 	virtual std::unique_ptr<OvitoClass::SerializedClassInfo> createClassInfoStructure() const override {
 		return std::make_unique<RefMakerClass::SerializedClassInfo>();
 	}
+
+	/// Lets the object class provide a custom function that takes are of the deserialization of a serialized property field. 
+	virtual SerializedClassInfo::PropertyFieldInfo::CustomDeserializationFunctionPtr overrideFieldDeserialization(const SerializedClassInfo::PropertyFieldInfo& field) const { return nullptr; }
 
 protected:
 

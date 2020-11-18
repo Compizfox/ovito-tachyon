@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Copyright 2013 Alexander Stukowski
+//  Copyright 2020 Alexander Stukowski
 //
 //  This file is part of OVITO (Open Visualization Tool).
 //
@@ -29,7 +29,7 @@
 namespace Ovito { namespace Particles {
 
 /**
- * \brief Base class for file parsers that read particle-position data.
+ * \brief Base class for file parsers that read particle datasets.
  */
 class OVITO_PARTICLES_EXPORT ParticleImporter : public FileSourceImporter
 {
@@ -41,10 +41,25 @@ public:
 	/// \brief Constructs a new instance of this class.
 	ParticleImporter(DataSet* dataset) : FileSourceImporter(dataset), _sortParticles(false) {}
 
+	/// Indicates whether this file importer type loads particle trajectories.
+	virtual bool isTrajectoryFormat() const { return false; } 
+
+	/// \brief Returns the priority level of this importer, which is used to order multiple files that are imported simultaneously.
+	virtual int importerPriority() const override {
+		// When importing multiple files at once, make sure trajectory importers are called after 
+		// non-trajectory (i.e. topology) importers by giving them a lower priority. 
+		// The topology importer's importFurtherFiles() method will then be called first and can insert a "Load Trajectory" modifier
+		// into the pipeline for loading the trajectory data file(s).
+		return isTrajectoryFormat() ? -1 : FileSourceImporter::importerPriority(); 
+	}
+
 protected:
 
 	/// \brief Is called when the value of a property of this object has changed.
 	virtual void propertyChanged(const PropertyFieldDescriptor& field) override;
+
+	/// Is called when importing multiple files of different formats.
+	virtual bool importFurtherFiles(std::vector<std::pair<QUrl, OORef<FileImporter>>> sourceUrlsAndImporters, ImportMode importMode, bool autodetectFileSequences, PipelineSceneNode* pipeline) override;
 
 private:
 

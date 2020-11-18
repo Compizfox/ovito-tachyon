@@ -46,6 +46,9 @@ FUNCTION(OVITO_PLUGIN plugin_name)
     # The build tree target should have rpath of install tree target.
     SET_TARGET_PROPERTIES(${plugin_name} PROPERTIES BUILD_WITH_INSTALL_RPATH TRUE)
 
+	# On macOS, the build tree target should use install_name of install tree target.
+	SET_TARGET_PROPERTIES(${plugin_name} PROPERTIES BUILD_WITH_INSTALL_NAME_DIR TRUE)
+
     # Auto-generate plugin manifest.
 	SET(PLUGIN_MANIFEST "@OVITO_PLUGINS_DIRECTORY@/${plugin_name}.json")
 	FILE(WRITE "${PLUGIN_MANIFEST}" "{\n  \"plugin-id\" : \"${plugin_name}\",\n")

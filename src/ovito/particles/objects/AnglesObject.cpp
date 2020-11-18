@@ -91,7 +91,7 @@ void AnglesObject::OOMetaClass::initialize()
 	const QStringList emptyList;
 	const QStringList abcList = QStringList() << "A" << "B" << "C";
 
-	registerStandardProperty(TypeProperty, tr("Angle Type"), PropertyStorage::Int, emptyList, tr("Angle types"));
+	registerStandardProperty(TypeProperty, tr("Angle Type"), PropertyStorage::Int, emptyList, &ElementType::OOClass(), tr("Angle types"));
 	registerStandardProperty(TopologyProperty, tr("Topology"), PropertyStorage::Int64, abcList);
 }
 

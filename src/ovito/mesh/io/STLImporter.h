@@ -39,7 +39,7 @@ class OVITO_MESH_EXPORT STLImporter : public FileSourceImporter
 	{
 	public:
 		/// Inherit standard constructor from base meta class.
-		using FileSourceImporter::OOMetaClass ::OOMetaClass;
+		using FileSourceImporter::OOMetaClass::OOMetaClass;
 
 		/// Returns the file filter that specifies the files that can be imported by this service.
 		virtual QString fileFilter() const override { return QStringLiteral("*.stl"); }

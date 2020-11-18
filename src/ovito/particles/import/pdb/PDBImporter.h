@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Copyright 2019 Alexander Stukowski
+//  Copyright 2020 Alexander Stukowski
 //
 //  This file is part of OVITO (Open Visualization Tool).
 //
@@ -39,10 +39,10 @@ class OVITO_PARTICLES_EXPORT PDBImporter : public ParticleImporter
 	{
 	public:
 		/// Inherit standard constructor from base meta class.
-		using ParticleImporter::OOMetaClass ::OOMetaClass;
+		using ParticleImporter::OOMetaClass::OOMetaClass;
 
 		/// Returns the file filter that specifies the files that can be imported by this service.
-		virtual QString fileFilter() const override { return QStringLiteral("*.pdb"); }
+		virtual QString fileFilter() const override { return QStringLiteral("*.pdb *.pdb.gz"); }
 
 		/// Returns the filter description that is displayed in the drop-down box of the file dialog.
 		virtual QString fileFilterDescription() const override { return tr("PDB Files"); }

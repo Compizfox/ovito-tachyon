@@ -46,6 +46,11 @@ public:
 		setPicking(true);
 		_offscreenSurface.setFormat(OpenGLSceneRenderer::getDefaultSurfaceFormat());
 		_offscreenSurface.create();
+
+		// Initialize OpenGL in main thread if it hasn't already been initialized.
+		// This call is a workaround for an access vialotion that otherwise occurs on Windows
+		// when creating the first OpenGL context from a worker thread when running in headless mode. 
+		OpenGLSceneRenderer::determineOpenGLInfo();
 	}
 
 	/// Prepares the renderer for rendering and sets the data set that is being rendered.

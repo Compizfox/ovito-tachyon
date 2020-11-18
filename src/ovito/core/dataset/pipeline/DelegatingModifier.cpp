@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Copyright 2019 Alexander Stukowski
+//  Copyright 2020 Alexander Stukowski
 //
 //  This file is part of OVITO (Open Visualization Tool).
 //
@@ -24,6 +24,7 @@
 #include <ovito/core/app/PluginManager.h>
 #include <ovito/core/dataset/DataSet.h>
 #include "DelegatingModifier.h"
+#include "AsynchronousDelegatingModifier.h"
 
 namespace Ovito {
 
@@ -50,6 +51,9 @@ Modifier* ModifierDelegate::modifier() const
 		}
 		else if(MultiDelegatingModifier* modifier = dynamic_object_cast<MultiDelegatingModifier>(dependent)) {
 			if(modifier->delegates().contains(const_cast<ModifierDelegate*>(this))) return modifier;
+		}
+		else if(AsynchronousDelegatingModifier* modifier = dynamic_object_cast<AsynchronousDelegatingModifier>(dependent)) {
+			if(modifier->delegate() == this) return modifier;
 		}
 	}
 	return nullptr;
@@ -162,7 +166,7 @@ TimeInterval MultiDelegatingModifier::validityInterval(const PipelineEvaluationR
 	TimeInterval iv = Modifier::validityInterval(request, modApp);
 
 	for(const ModifierDelegate* delegate : delegates()) {
-		if(delegate->isEnabled()) {
+		if(delegate && delegate->isEnabled()) {
 			iv.intersect(delegate->validityInterval(request, modApp));
 		}
 	}
@@ -217,7 +221,7 @@ void MultiDelegatingModifier::applyDelegates(PipelineFlowState& state, TimePoint
 	for(ModifierDelegate* delegate : delegates()) {
 
 		// Skip function if not applicable.
-		if(!state.data() || !delegate->isEnabled() || delegate->getOOMetaClass().getApplicableObjects(*state.data()).empty())
+		if(!state.data() || !delegate || !delegate->isEnabled() || delegate->getOOMetaClass().getApplicableObjects(*state.data()).empty())
 			continue;
 
 		// Call the delegate function.

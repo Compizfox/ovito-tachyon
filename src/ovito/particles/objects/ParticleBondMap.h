@@ -33,6 +33,15 @@
 namespace Ovito { namespace Particles {
 
 /**
+ * A helper data structure describing a single bond between two particles.
+ */
+struct BondWithIndex : public Bond
+{
+	/// The index of this bond in the bonds list.
+	size_t bondIndex;
+};
+
+/**
  * \brief Helper class that allows to efficiently iterate over the bonds that are adjacent to a particle.
  */
 class OVITO_PARTICLES_EXPORT ParticleBondMap
@@ -41,12 +50,12 @@ public:
 
 	class bond_index_iterator : public boost::iterator_facade<bond_index_iterator, size_t const, boost::forward_traversal_tag, size_t> {
 	public:
-		bond_index_iterator() : _bondMap(nullptr), _currentIndex(0) {}
+		bond_index_iterator() = default;
 		bond_index_iterator(const ParticleBondMap* map, size_t startIndex) :
 			_bondMap(map), _currentIndex(startIndex) {}
 	private:
-		size_t _currentIndex;
-		const ParticleBondMap* _bondMap;
+		size_t _currentIndex = 0;
+		const ParticleBondMap* _bondMap = nullptr;
 
 		friend class boost::iterator_core_access;
 
@@ -65,14 +74,14 @@ public:
 		}
 	};
 
-	class bond_iterator : public boost::iterator_facade<bond_iterator, Bond const, boost::forward_traversal_tag, Bond> {
+	class bond_iterator : public boost::iterator_facade<bond_iterator, BondWithIndex const, boost::forward_traversal_tag, BondWithIndex> {
 	public:
-		bond_iterator() : _bondMap(nullptr), _currentIndex(0) {}
+		bond_iterator() = default;
 		bond_iterator(const ParticleBondMap* map, size_t startIndex) :
 			_bondMap(map), _currentIndex(startIndex) {}
 	private:
-		size_t _currentIndex;
-		const ParticleBondMap* _bondMap;
+		size_t _currentIndex = 0;
+		const ParticleBondMap* _bondMap = nullptr;
 
 		friend class boost::iterator_core_access;
 
@@ -85,11 +94,14 @@ public:
 			return this->_currentIndex == other._currentIndex;
 		}
 
-		Bond dereference() const {
+		BondWithIndex dereference() const {
 			OVITO_ASSERT(_currentIndex < _bondMap->_nextBond.size());
 			size_t bindex = _currentIndex / 2;
-			Bond bond = { (size_t)_bondMap->_bondTopology[bindex][0], (size_t)_bondMap->_bondTopology[bindex][1],
-								_bondMap->_bondPeriodicImages ? _bondMap->_bondPeriodicImages[bindex] : Vector3I::Zero() };
+			BondWithIndex bond;
+			bond.index1 = (size_t)_bondMap->_bondTopology[bindex][0];
+			bond.index2 = (size_t)_bondMap->_bondTopology[bindex][1];
+			bond.pbcShift = _bondMap->_bondPeriodicImages ? _bondMap->_bondPeriodicImages[bindex] : Vector3I::Zero();
+			bond.bondIndex = bindex;
 			if(_currentIndex & 1) {
 				std::swap(bond.index1, bond.index2);
 				bond.pbcShift = -bond.pbcShift;

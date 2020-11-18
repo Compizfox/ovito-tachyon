@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Copyright 2019 Alexander Stukowski
+//  Copyright 2020 Alexander Stukowski
 //
 //  This file is part of OVITO (Open Visualization Tool).
 //
@@ -22,6 +22,8 @@
 
 #include <ovito/particles/Particles.h>
 #include <ovito/particles/import/ParticleFrameData.h>
+#include <ovito/particles/objects/ParticlesObject.h>
+#include <ovito/particles/objects/ParticleType.h>
 #include <ovito/core/utilities/io/CompressedTextReader.h>
 #include "CastepMDImporter.h"
 
@@ -113,7 +115,7 @@ FileSourceImporter::FrameDataPtr CastepMDImporter::FrameLoader::loadFile()
 	std::vector<int> types;
 	std::vector<Vector3> velocities;
 	std::vector<Vector3> forces;
-	std::unique_ptr<ParticleFrameData::TypeList> typeList = std::make_unique<ParticleFrameData::TypeList>();
+	std::unique_ptr<PropertyContainerImportData::TypeList> typeList = std::make_unique<PropertyContainerImportData::TypeList>(ParticleType::OOClass());
 
 	// Create the destination container for loaded data.
 	auto frameData = std::make_shared<ParticleFrameData>();
@@ -166,24 +168,24 @@ FileSourceImporter::FrameDataPtr CastepMDImporter::FrameLoader::loadFile()
 	frameData->simulationCell().setMatrix(cell);
 
 	// Create the particle properties.
-	PropertyAccess<Point3> posProperty = frameData->addParticleProperty(ParticlesObject::OOClass().createStandardStorage(coords.size(), ParticlesObject::PositionProperty, false));
+	PropertyAccess<Point3> posProperty = frameData->particles().createStandardProperty<ParticlesObject>(coords.size(), ParticlesObject::PositionProperty, false);
 	boost::copy(coords, posProperty.begin());
 
-	PropertyAccess<int> typeProperty = frameData->addParticleProperty(ParticlesObject::OOClass().createStandardStorage(types.size(), ParticlesObject::TypeProperty, false));
+	PropertyAccess<int> typeProperty = frameData->particles().createStandardProperty<ParticlesObject>(types.size(), ParticlesObject::TypeProperty, false);
 	boost::copy(types, typeProperty.begin());
 
 	// Since we created particle types on the go while reading the particles, the assigned particle type IDs
 	// depend on the storage order of particles in the file. We rather want a well-defined particle type ordering, that's
 	// why we sort them now.
 	typeList->sortTypesByName(typeProperty);
-	frameData->setPropertyTypesList(typeProperty, std::move(typeList));
+	frameData->particles().setPropertyTypesList(typeProperty, std::move(typeList));
 
 	if(velocities.size() == coords.size()) {
-		PropertyAccess<Vector3> velocityProperty = frameData->addParticleProperty(ParticlesObject::OOClass().createStandardStorage(velocities.size(), ParticlesObject::VelocityProperty, false));
+		PropertyAccess<Vector3> velocityProperty = frameData->particles().createStandardProperty<ParticlesObject>(velocities.size(), ParticlesObject::VelocityProperty, false);
 		boost::copy(velocities, velocityProperty.begin());
 	}
 	if(forces.size() == coords.size()) {
-		PropertyAccess<Vector3> forceProperty = frameData->addParticleProperty(ParticlesObject::OOClass().createStandardStorage(forces.size(), ParticlesObject::ForceProperty, false));
+		PropertyAccess<Vector3> forceProperty = frameData->particles().createStandardProperty<ParticlesObject>(forces.size(), ParticlesObject::ForceProperty, false);
 		boost::copy(forces, forceProperty.begin());
 	}
 

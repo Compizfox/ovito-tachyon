@@ -219,6 +219,9 @@ void AnimationSettings::setAnimationPlayback(bool on)
 ******************************************************************************/
 void AnimationSettings::startAnimationPlayback(FloatType playbackRate)
 {
+	if(isSingleFrame())
+		playbackRate = 0;
+		
 	if(_activePlaybackRate != playbackRate) {
 		_activePlaybackRate = playbackRate;
 		Q_EMIT playbackChanged(_activePlaybackRate != 0);

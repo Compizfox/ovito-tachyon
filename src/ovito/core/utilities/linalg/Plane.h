@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Copyright 2014 Alexander Stukowski
+//  Copyright 2020 Alexander Stukowski
 //
 //  This file is part of OVITO (Open Visualization Tool).
 //
@@ -228,8 +228,8 @@ public:
 template<typename T>
 inline Plane_3<T> operator*(const AffineTransformationT<T>& tm, const Plane_3<T>& plane) {
 	Plane_3<T> p2;
-	p2.normal = (tm * plane.normal);
-	p2.normal.normalizeSafely();
+	Matrix_3<T> normalTM = tm.linear().inverse().transposed();
+	p2.normal = (normalTM * plane.normal).safelyNormalized();
 	Point_3<T> base = tm * (typename Point_3<T>::Origin() + plane.normal * plane.dist);
 	p2.dist = p2.normal.dot(base - typename Point_3<T>::Origin());
 	return p2;

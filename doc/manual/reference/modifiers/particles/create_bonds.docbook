@@ -37,10 +37,6 @@
       </informaltable>
     </informalfigure>
 
-    <informalfigure><screenshot><mediaobject><imageobject>
-       <imagedata fileref="images/modifiers/create_bonds_panel.png" format="PNG" scale="50" />
-    </imageobject></mediaobject></screenshot></informalfigure>
-
 	  This modifier generates new <link linkend="scene_objects.bonds">bonds</link> between pairs of particles using a distance-based criterion.
     Optionally, the generation can be further restricted to certain pairs of particle types.
   </para>
@@ -70,6 +66,9 @@
   </para>
 
   <para>
+    <informalfigure><screenshot><mediaobject><imageobject>
+       <imagedata fileref="images/modifiers/create_bonds_panel.png" format="PNG" scale="50" />
+    </imageobject></mediaobject></screenshot></informalfigure>
     The <emphasis>Suppress inter-molecular bonds</emphasis> option restricts generation of bonds to particles that
     are part of the same molecule, i.e. which have matching values of the <literal>Molecule Identifier</literal> property.
     If the <literal>Molecule Identifier</literal> particle property is not defined, this option has no effect.

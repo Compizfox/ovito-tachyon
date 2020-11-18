@@ -140,7 +140,7 @@ private:
 	DECLARE_MODIFIABLE_REFERENCE_FIELD_FLAGS(Modifier, modifier, setModifier, PROPERTY_FIELD_NEVER_CLONE_TARGET | PROPERTY_FIELD_OPEN_SUBEDITOR);
 };
 
-/// This macro assigns a ModifierApplication-derived class to a Modifier-derived class.
+/// This macro registers some ModifierApplication-derived class as the pipeline application type of some Modifier-derived class.
 #define SET_MODIFIER_APPLICATION_TYPE(ModifierClass, ModifierApplicationClass) \
 	static const int __modAppSetter##ModifierClass = (Ovito::ModifierApplication::registry().registerModAppClass(&ModifierClass::OOClass(), &ModifierApplicationClass::OOClass()), 0);
 

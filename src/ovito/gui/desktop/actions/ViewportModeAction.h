@@ -75,5 +75,3 @@ private:
 };
 
 }	// End of namespace
-
-

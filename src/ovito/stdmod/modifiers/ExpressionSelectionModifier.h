@@ -60,7 +60,7 @@ protected:
 	using ModifierDelegate::ModifierDelegate;
 
 	/// Creates and initializes the expression evaluator object.
-	virtual std::unique_ptr<PropertyExpressionEvaluator> initializeExpressionEvaluator(const QStringList& expressions, const PipelineFlowState& inputState, const DataObjectPath& objectPath, int animationFrame) = 0;
+	virtual std::unique_ptr<PropertyExpressionEvaluator> initializeExpressionEvaluator(const QStringList& expressions, const PipelineFlowState& inputState, const ConstDataObjectPath& containerPath, int animationFrame);
 };
 
 /**
@@ -83,6 +83,7 @@ class OVITO_STDMOD_EXPORT ExpressionSelectionModifier : public DelegatingModifie
 	Q_OBJECT
 	OVITO_CLASS_META(ExpressionSelectionModifier, ExpressionSelectionModifierClass)
 	Q_CLASSINFO("DisplayName", "Expression selection");
+	Q_CLASSINFO("Description", "Select particles or other elements using a user-defined criterion.");
 	Q_CLASSINFO("ModifierCategory", "Selection");
 
 public:

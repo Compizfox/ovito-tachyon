@@ -12,7 +12,7 @@
 
   <para>
     <informalfigure><screenshot><mediaobject><imageobject>
-      <imagedata fileref="images/scene_objects/data_source_and_data_objects.svg" format="SVG" scale="50" />
+      <imagedata fileref="images/scene_objects/data_source_and_data_objects.png" format="PNG" scale="50" />
     </imageobject></mediaobject></screenshot></informalfigure>
 
     A <emphasis>data source</emphasis> is an essential part of every <link linkend="usage.modification_pipeline">pipeline</link> as it provides the input data that is passed to the modifiers. 
@@ -67,7 +67,7 @@
 
     <para>
     <informalfigure role="inline"><screenshot><mediaobject><imageobject>
-      <imagedata fileref="images/scene_objects/file_source_toolbar.svg" format="SVG" />
+      <imagedata fileref="images/scene_objects/file_source_toolbar.svg" format="SVG" contentwidth="388" />
     </imageobject></mediaobject></screenshot></informalfigure>
 
     <variablelist>

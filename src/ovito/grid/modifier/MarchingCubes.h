@@ -37,37 +37,7 @@ class OVITO_GRID_EXPORT MarchingCubes
 public:
 
     // Constructor
-    MarchingCubes(SurfaceMeshData& outputMesh, int size_x, int size_y, int size_z, const FloatType* fielddata, size_t stride, bool lowerIsSolid);
-
-    /// Returns the field value in a specific cube of the grid.
-    /// Takes into account periodic boundary conditions.
-    inline FloatType getFieldValue(int i, int j, int k) const {
-        if(_pbcFlags[0]) {
-            if(i == _size_x) i = 0;
-        }
-        else {
-            if(i == 0 || i == _size_x) return std::numeric_limits<FloatType>::lowest();
-            i--;
-        }
-        if(_pbcFlags[1]) {
-            if(j == _size_y) j = 0;
-        }
-        else {
-            if(j == 0 || j == _size_y) return std::numeric_limits<FloatType>::lowest();
-            j--;
-        }
-        if(_pbcFlags[2]) {
-            if(k == _size_z) k = 0;
-        }
-        else {
-            if(k == 0 || k == _size_z) return std::numeric_limits<FloatType>::lowest();
-            k--;
-        }
-        OVITO_ASSERT(i >= 0 && i < _data_size_x);
-        OVITO_ASSERT(j >= 0 && j < _data_size_y);
-        OVITO_ASSERT(k >= 0 && k < _data_size_z);
-        return _data[(i + j*_data_size_x + k*_data_size_x*_data_size_y) * _dataStride];
-    }
+    MarchingCubes(SurfaceMeshData& outputMesh, int size_x, int size_y, int size_z, bool lowerIsSolid, std::function<FloatType(int i, int j, int k)> field, bool infiniteDomain = false);
 
     bool generateIsosurface(FloatType iso, Task& task);
 
@@ -141,15 +111,15 @@ private:
 private:
 
 	const std::array<bool,3> _pbcFlags; ///< PBC flags
-    int _data_size_x;  ///< width  of the input data grid
-    int _data_size_y;  ///< depth  of the input data grid
-    int _data_size_z;  ///< height of the input data grid
     int _size_x;  ///< width  of the grid
     int _size_y;  ///< depth  of the grid
     int _size_z;  ///< height of the grid
-    const FloatType* _data;  ///< implicit function values sampled on the grid
-    size_t _dataStride;
+    std::function<FloatType(int i, int j, int k)> getFieldValue;
+
     bool _lowerIsSolid; ///< Controls the inward/outward orientation of the created triangle surface.
+    bool _infiniteDomain; ///< Controls whether the volumetric domain is infinite extended. 
+                          ///< Setting this to true will result in an isosource that is not closed.  
+                          ///< This option is used by the VoxelGridSliceModifierDelegate to construct the slice plane.
 
     /// Vertices created along cube edges.
     std::vector<HalfEdgeMesh::vertex_index> _cubeVerts;

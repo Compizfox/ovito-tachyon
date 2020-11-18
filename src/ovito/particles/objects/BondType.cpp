@@ -21,6 +21,7 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 
 #include <ovito/particles/Particles.h>
+#include <ovito/core/app/Application.h>
 #include <ovito/core/utilities/units/UnitsManager.h>
 #include "BondType.h"
 
@@ -36,6 +37,40 @@ SET_PROPERTY_FIELD_UNITS_AND_MINIMUM(BondType, radius, WorldParameterUnit, 0);
 ******************************************************************************/
 BondType::BondType(DataSet* dataset) : ElementType(dataset), _radius(0)
 {
+}
+
+/******************************************************************************
+* Initializes the element type from a variable list of attributes delivered by a file importer.
+******************************************************************************/
+bool BondType::initialize(bool isNewlyCreated, const QString& name, const QVariantMap& attributes, int typePropertyId)
+{
+	if(!ElementType::initialize(isNewlyCreated, name, attributes, typePropertyId))
+		return false;
+
+	// Initialize color value.
+	if(isNewlyCreated && !attributes.contains(QStringLiteral("color"))) {
+		setColor(getDefaultBondColor(static_cast<BondsObject::Type>(typePropertyId), nameOrNumericId(), numericId()));
+	}
+
+	// Initialize radius value.
+	if(isNewlyCreated) {
+		if(attributes.contains(QStringLiteral("radius"))) {
+			setRadius(attributes.value(QStringLiteral("radius")).value<FloatType>());
+		}
+		else {
+			setRadius(getDefaultBondRadius(static_cast<BondsObject::Type>(typePropertyId), nameOrNumericId(), numericId()));
+		}
+	}
+	else {
+		FloatType r = attributes.value(QStringLiteral("radius"), QVariant::fromValue(radius())).value<FloatType>();
+		if(r != radius()) {
+			if(!isSafeToModify())
+				return false;
+			setRadius(r);
+		}
+	}
+
+	return true;
 }
 
 /******************************************************************************

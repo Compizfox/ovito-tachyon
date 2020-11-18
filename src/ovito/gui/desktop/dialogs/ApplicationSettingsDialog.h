@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Copyright 2013 Alexander Stukowski
+//  Copyright 2020 Alexander Stukowski
 //
 //  This file is part of OVITO (Open Visualization Tool).
 //
@@ -55,6 +55,10 @@ public:
 	/// \return true if the settings are valid; false if settings need to be corrected by the user and the dialog should not be closed.
 	virtual bool saveValues(ApplicationSettingsDialog* settingsDialog, QTabWidget* tabWidget) { return true; }
 
+	/// \brief Lets the settings page restore the original values of changed settings.
+	/// \param settingsDialog The settings dialog box.
+	virtual void restoreValues(ApplicationSettingsDialog* settingsDialog, QTabWidget* tabWidget) {}
+
 	/// \brief Returns an integer value that is used to sort the dialog pages in ascending order.
 	virtual int pageSortingKey() const { return 1000; }
 };
@@ -83,6 +87,9 @@ protected Q_SLOTS:
 	/// Validates and saves all settings made by the user and closes the dialog box.
 	void onOk();
 
+	/// This is called when the user closes the dialog box using the Cancel button.
+	void onCancel();
+
 	/// This is called when the user has pressed the help button of the settings dialog.
 	void onHelp();
 
@@ -93,5 +100,3 @@ private:
 };
 
 }	// End of namespace
-
-

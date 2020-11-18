@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Copyright 2017 Alexander Stukowski
+//  Copyright 2020 Alexander Stukowski
 //
 //  This file is part of OVITO (Open Visualization Tool).
 //
@@ -41,6 +41,10 @@ namespace Ovito {
         using ConstPropertyPtr = std::shared_ptr<const PropertyStorage>;
         class PropertyReference;
         template<class PropertyContainerType> class TypedPropertyReference;
+        class InputColumnMapping;
+        template<class PropertyContainerType> class TypedInputColumnMapping;
+        class InputColumnReader;
+        class PropertyContainerImportData;
         class SimulationCell;
         class SimulationCellObject;
         class SimulationCellVis;

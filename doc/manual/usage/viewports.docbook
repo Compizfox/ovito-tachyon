@@ -31,14 +31,15 @@
         Left-click and drag to rotate the camera around the current orbit center, which is located in the center of the simulation box by default.
       </para></listitem>
       <listitem><para>
-        Right-click and drag to move the camera parallel to the projection plane. You can also use the middle mouse button for this.
+        Right-click and drag the mouse in order to move the camera parallel to the projection plane. You can also use the middle mouse button 
+        or the shift key + left mouse button for this.
       </para></listitem>
       <listitem><para>
         Use the mouse wheel to zoom in or out.
       </para></listitem>
       <listitem><para>
-        Double-click on an object to reposition the orbit center. From now on, the camera will rotate around that new location in space,
-        which is marked by a three-dimensional cross.
+        Double-click an object to reposition the orbit center to the point under the mouse cursor. 
+        From now on the camera will rotate around that new location in 3d space marked with a three-dimensional cross.
       </para></listitem>
       <listitem><para>
         Double-click in an empty region of a viewport to reset the orbit center to the center of the active dataset.
@@ -46,8 +47,10 @@
     </itemizedlist>
 
      Note that the <emphasis>z</emphasis>-axis is considered the "up" (vertical) direction, and OVITO
-     constrains the camera orientation such that this axis is always pointing upward in the viewports by default.
-     You can change this behavior in the <link linkend="application_settings.viewports">application settings</link> of OVITO.
+     constrains the camera orientation such that this axis always points upward in the viewports.
+     You turn this default behavior off in the <link linkend="usage.viewports.menu">viewport context menu</link> or
+     choose a different constraint axis in the <link linkend="application_settings.viewports">application settings</link> 
+     dialog of OVITO.
   </para>
   </simplesect>
 
@@ -87,8 +90,8 @@
             <imagedata fileref="images/viewport_control_toolbar/viewport_menu_screenshot.png" format="png" scale="64" />
        </imageobject></mediaobject></screenshot>
      </informalfigure>
-     Clicking the text label in the upper left corner of a viewport (e.g. <emphasis>Perspective</emphasis>, <emphasis>Top</emphasis>, etc.)
-     opens the <emphasis>viewport menu</emphasis> as shown in the screenshot.
+     Click the caption label in the upper left corner of a viewport (e.g. <emphasis>Perspective</emphasis>, <emphasis>Top</emphasis>, etc.)
+     to open the <emphasis>viewport menu</emphasis> as shown in the screenshot.
    </para>
    <para>
      The <menuchoice><guimenuitem>View Type</guimenuitem></menuchoice> menu lets you switch to one of the standard

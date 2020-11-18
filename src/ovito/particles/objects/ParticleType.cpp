@@ -22,6 +22,7 @@
 
 #include <ovito/particles/Particles.h>
 #include <ovito/core/dataset/io/FileSource.h>
+#include <ovito/core/app/Application.h>
 #include <ovito/core/utilities/units/UnitsManager.h>
 #include "ParticleType.h"
 
@@ -52,6 +53,70 @@ ParticleType::ParticleType(DataSet* dataset) : ElementType(dataset),
 	_shapeUseMeshColor(false),
 	_mass(0)
 {
+}
+
+/******************************************************************************
+* Initializes the element type from a variable list of attributes delivered by a file importer.
+******************************************************************************/
+bool ParticleType::initialize(bool isNewlyCreated, const QString& name, const QVariantMap& attributes, int typePropertyId)
+{
+	if(!ElementType::initialize(isNewlyCreated, name, attributes, typePropertyId))
+		return false;
+
+	// Initialize color value.
+	if(isNewlyCreated && !attributes.contains(QStringLiteral("color"))) {
+		setColor(getDefaultParticleColor(static_cast<ParticlesObject::Type>(typePropertyId), nameOrNumericId(), numericId()));
+	}
+
+	// Initialize radius value.
+	if(isNewlyCreated) {
+		if(attributes.contains(QStringLiteral("radius"))) {
+			setRadius(attributes.value(QStringLiteral("radius")).value<FloatType>());
+		}
+		else {
+			setRadius(getDefaultParticleRadius(static_cast<ParticlesObject::Type>(typePropertyId), nameOrNumericId(), numericId()));
+		}
+	}
+	else {
+		FloatType r = attributes.value(QStringLiteral("radius"), QVariant::fromValue(radius())).value<FloatType>();
+		if(r != radius()) {
+			if(!isSafeToModify())
+				return false;
+			setRadius(r);
+		}
+	}
+
+	// Initialize mass value.
+	if(isNewlyCreated) {
+		if(attributes.contains(QStringLiteral("mass"))) {
+			setMass(attributes.value(QStringLiteral("mass")).value<FloatType>());
+		}
+	}
+	else {
+		FloatType m = attributes.value(QStringLiteral("mass"), QVariant::fromValue(mass())).value<FloatType>();
+		if(m != mass()) {
+			if(!isSafeToModify())
+				return false;
+			setMass(m);
+		}
+	}	
+
+	// Initialize particle shape.
+	if(attributes.contains(QStringLiteral("shape"))) {
+		if(!isSafeToModify())
+			return false;
+
+		TriMeshObject* shapeObject = new TriMeshObject(dataset());
+		shapeObject->setMesh(attributes.value(QStringLiteral("shape")).value<std::shared_ptr<TriMesh>>());
+		setShapeMesh(shapeObject);
+	}
+	else {
+		// Note: Do not automatically reset shape, because we don't want to loose
+		// a shape manually assigned by the user to this particle type.
+		//setShapeMesh(nullptr);
+	}
+	
+	return true;
 }
 
 /******************************************************************************
@@ -195,7 +260,7 @@ Color ParticleType::getDefaultParticleColor(ParticlesObject::Type typeClass, con
 		}
 
 		// Sometimes atom type names have additional letters/numbers appended.
-		if(particleTypeName.length() > 1 && particleTypeName.length() <= 3) {
+		if(particleTypeName.length() > 1 && particleTypeName.length() <= 5) {
 			return getDefaultParticleColor(typeClass, particleTypeName.left(particleTypeName.length() - 1), particleTypeId, userDefaults);
 		}
 	}
@@ -239,7 +304,7 @@ FloatType ParticleType::getDefaultParticleRadius(ParticlesObject::Type typeClass
 		}
 
 		// Sometimes atom type names have additional letters/numbers appended.
-		if(particleTypeName.length() > 1 && particleTypeName.length() <= 3) {
+		if(particleTypeName.length() > 1 && particleTypeName.length() <= 5) {
 			return getDefaultParticleRadius(typeClass, particleTypeName.left(particleTypeName.length() - 1), particleTypeId, userDefaults);
 		}
 	}

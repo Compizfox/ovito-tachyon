@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Copyright 2018 Alexander Stukowski
+//  Copyright 2020 Alexander Stukowski
 //
 //  This file is part of OVITO (Open Visualization Tool).
 //
@@ -141,6 +141,11 @@ inline OVITO_CORE_EXPORT LoadStream& operator>>(LoadStream& stream, DataObjectRe
 	if(!r._dataClass)
 		r._dataPath.clear();
 	stream.closeChunk();
+	// For backward compatibility with OVITO 3.2.1: The SpatialBinningModifier used to generate a VoxelGrid
+	// with ID of the form "binning[<PROPERTY>]", but now the grid's ID is just "binning". We automatically
+	// update references to the voxel grid when loading an OVITO file written by an old program version.
+	if(stream.formatVersion() < 30006 && r._dataPath.startsWith(QStringLiteral("binning[")))
+		r._dataPath = QStringLiteral("binning");
 	return stream;
 }
 

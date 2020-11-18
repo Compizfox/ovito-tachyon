@@ -240,7 +240,7 @@ JOM: Vol. 66, Issue 3 (2014), 399-407</link></literallayout>
     <para>
       <informalfigure>
         <screenshot><mediaobject><imageobject>
-          <imagedata fileref="images/modifiers/construct_surface_mesh_regions.svg" format="SVG" scale="65" />
+          <imagedata fileref="images/modifiers/construct_surface_mesh_regions.png" format="PNG" scale="65" />
           </imageobject></mediaobject>
         </screenshot>
         <caption><para>

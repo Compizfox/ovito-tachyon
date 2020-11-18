@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Copyright 2019 Alexander Stukowski
+//  Copyright 2020 Alexander Stukowski
 //
 //  This file is part of OVITO (Open Visualization Tool).
 //
@@ -45,10 +45,10 @@ QVector<DataObjectReference> ParticlesExpressionSelectionModifierDelegate::OOMet
 /******************************************************************************
 * Creates and initializes the expression evaluator object.
 ******************************************************************************/
-std::unique_ptr<PropertyExpressionEvaluator> ParticlesExpressionSelectionModifierDelegate::initializeExpressionEvaluator(const QStringList& expressions, const PipelineFlowState& inputState, const DataObjectPath& objectPath, int animationFrame)
+std::unique_ptr<PropertyExpressionEvaluator> ParticlesExpressionSelectionModifierDelegate::initializeExpressionEvaluator(const QStringList& expressions, const PipelineFlowState& inputState, const ConstDataObjectPath& containerPath, int animationFrame)
 {
 	std::unique_ptr<ParticleExpressionEvaluator> evaluator = std::make_unique<ParticleExpressionEvaluator>();
-	evaluator->initialize(expressions, inputState, animationFrame);
+	evaluator->initialize(expressions, inputState, containerPath, animationFrame);
 	return evaluator;
 }
 
@@ -68,10 +68,10 @@ QVector<DataObjectReference> BondsExpressionSelectionModifierDelegate::OOMetaCla
 /******************************************************************************
 * Creates and initializes the expression evaluator object.
 ******************************************************************************/
-std::unique_ptr<PropertyExpressionEvaluator> BondsExpressionSelectionModifierDelegate::initializeExpressionEvaluator(const QStringList& expressions, const PipelineFlowState& inputState, const DataObjectPath& objectPath, int animationFrame)
+std::unique_ptr<PropertyExpressionEvaluator> BondsExpressionSelectionModifierDelegate::initializeExpressionEvaluator(const QStringList& expressions, const PipelineFlowState& inputState, const ConstDataObjectPath& containerPath, int animationFrame)
 {
 	std::unique_ptr<BondExpressionEvaluator> evaluator = std::make_unique<BondExpressionEvaluator>();
-	evaluator->initialize(expressions, inputState, animationFrame);
+	evaluator->initialize(expressions, inputState, containerPath, animationFrame);
 	return evaluator;
 }
 

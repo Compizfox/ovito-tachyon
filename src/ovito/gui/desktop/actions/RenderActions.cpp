@@ -41,15 +41,15 @@ void ActionManager::on_RenderActiveViewport_triggered()
 		mainWindow()->setFocus();
 
 		// Stop animation playback.
-		_dataset->animationSettings()->stopAnimationPlayback();
+		dataset()->animationSettings()->stopAnimationPlayback();
 
 		// Get the current render settings.
-		RenderSettings* settings = _dataset->renderSettings();
+		RenderSettings* settings = dataset()->renderSettings();
 
 		// Get viewport to be rendered.
-		Viewport* viewport = _dataset->viewportConfig()->activeViewport();
+		Viewport* viewport = dataset()->viewportConfig()->activeViewport();
 		if(!viewport)
-			throw Exception(tr("There is no active viewport to render."), _dataset);
+			throw Exception(tr("There is no active viewport to render."), dataset());
 
 		// Get frame buffer and window.
 		FrameBufferWindow* frameBufferWindow = mainWindow()->frameBufferWindow();
@@ -61,14 +61,14 @@ void ActionManager::on_RenderActiveViewport_triggered()
 		frameBufferWindow->showAndActivateWindow();
 
 		// Show progress dialog.
-		ProgressDialog progressDialog(frameBufferWindow, _dataset->taskManager(), tr("Rendering"));
+		ProgressDialog progressDialog(frameBufferWindow, dataset()->taskManager(), tr("Rendering"));
 
 		// Display modal progress dialog immediately (not after a time delay) to prevent the user from 
 		// pressing the render button a second time.
 		progressDialog.show();
 
 		// Call high-level rendering function, which will take care of the rest.
-		_dataset->renderScene(settings, viewport, frameBuffer.get(), progressDialog.createOperation());
+		dataset()->renderScene(settings, viewport, frameBuffer.get(), progressDialog.createOperation());
 	}
 	catch(const Exception& ex) {
 		ex.logError();

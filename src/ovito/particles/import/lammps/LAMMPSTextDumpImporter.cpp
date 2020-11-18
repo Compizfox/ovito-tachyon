@@ -33,17 +33,9 @@ namespace Ovito { namespace Particles {
 
 IMPLEMENT_OVITO_CLASS(LAMMPSTextDumpImporter);
 DEFINE_PROPERTY_FIELD(LAMMPSTextDumpImporter, useCustomColumnMapping);
+DEFINE_PROPERTY_FIELD(LAMMPSTextDumpImporter, customColumnMapping);
 SET_PROPERTY_FIELD_LABEL(LAMMPSTextDumpImporter, useCustomColumnMapping, "Custom file column mapping");
-
-/******************************************************************************
- * Sets the user-defined mapping between data columns in the input file and
- * the internal particle properties.
- *****************************************************************************/
-void LAMMPSTextDumpImporter::setCustomColumnMapping(const InputColumnMapping& mapping)
-{
-	_customColumnMapping = mapping;
-	notifyTargetChanged();
-}
+SET_PROPERTY_FIELD_LABEL(LAMMPSTextDumpImporter, customColumnMapping, "File column mapping");
 
 /******************************************************************************
 * Checks if the given file has format that can be read by this importer.
@@ -55,8 +47,19 @@ bool LAMMPSTextDumpImporter::OOMetaClass::checkFileFormat(const FileHandle& file
 
 	// Read first line.
 	stream.readLine(15);
-	if(stream.lineStartsWith("ITEM: TIMESTEP"))
-		return true;
+
+	// Dump files written by LAMMPS start with one of the following keywords: TIMESTEP, UNITS or TIME.  
+	if(!stream.lineStartsWith("ITEM: TIMESTEP") && !stream.lineStartsWith("ITEM: UNITS") && !stream.lineStartsWith("ITEM: TIME"))
+		return false;
+
+	// Continue reading until "ITEM: NUMBER OF ATOMS" line is encountered.
+	for(int i = 0; i < 20; i++) {
+		if(stream.eof())
+			return false;
+		stream.readLine();
+		if(stream.lineStartsWith("ITEM: NUMBER OF ATOMS"))
+			return true;
+	}
 
 	return false;
 }
@@ -64,7 +67,7 @@ bool LAMMPSTextDumpImporter::OOMetaClass::checkFileFormat(const FileHandle& file
 /******************************************************************************
 * Inspects the header of the given file and returns the number of file columns.
 ******************************************************************************/
-Future<InputColumnMapping> LAMMPSTextDumpImporter::inspectFileHeader(const Frame& frame)
+Future<ParticleInputColumnMapping> LAMMPSTextDumpImporter::inspectFileHeader(const Frame& frame)
 {
 	// Retrieve file.
 	return Application::instance()->fileManager()->fetchUrl(dataset()->taskManager(), frame.sourceFile)
@@ -92,7 +95,7 @@ void LAMMPSTextDumpImporter::FrameFinder::discoverFramesInFile(QVector<FileSourc
 	// Regular expression for whitespace characters.
 	QRegularExpression ws_re(QStringLiteral("\\s+"));
 
-	int timestep = 0;
+	unsigned long long timestep = 0;
 	size_t numParticles = 0;
 	Frame frame(fileHandle());
 
@@ -105,13 +108,17 @@ void LAMMPSTextDumpImporter::FrameFinder::discoverFramesInFile(QVector<FileSourc
 
 		do {
 			if(stream.lineStartsWith("ITEM: TIMESTEP")) {
-				if(sscanf(stream.readLine(), "%i", &timestep) != 1)
-					throw Exception(tr("LAMMPS dump file parsing error. Invalid timestep number (line %1):\n%2").arg(stream.lineNumber()).arg(QString::fromLocal8Bit(stream.line())));
+				if(sscanf(stream.readLine(), "%llu", &timestep) != 1)
+					throw Exception(tr("LAMMPS dump file parsing error. Invalid timestep number (line %1):\n%2").arg(stream.lineNumber()).arg(stream.lineString()));
 				frame.byteOffset = byteOffset;
 				frame.lineNumber = lineNumber;
 				frame.label = QString("Timestep %1").arg(timestep);
 				frames.push_back(frame);
 				break;
+			}
+			else if(stream.lineStartsWithToken("ITEM: TIME")) {
+				stream.readLine();
+				stream.readLine();
 			}
 			else if(stream.lineStartsWith("ITEM: NUMBER OF ATOMS")) {
 				// Parse number of atoms.
@@ -167,7 +174,7 @@ FileSourceImporter::FrameDataPtr LAMMPSTextDumpImporter::FrameLoader::loadFile()
 	// Regular expression for whitespace characters.
 	QRegularExpression ws_re(QStringLiteral("\\s+"));
 
-	int timestep;
+	unsigned long long timestep;
 	size_t numParticles = 0;
 
 	while(!stream.eof()) {
@@ -177,9 +184,16 @@ FileSourceImporter::FrameDataPtr LAMMPSTextDumpImporter::FrameLoader::loadFile()
 
 		do {
 			if(stream.lineStartsWith("ITEM: TIMESTEP")) {
-				if(sscanf(stream.readLine(), "%i", &timestep) != 1)
+				if(sscanf(stream.readLine(), "%llu", &timestep) != 1)
 					throw Exception(tr("LAMMPS dump file parsing error. Invalid timestep number (line %1):\n%2").arg(stream.lineNumber()).arg(stream.lineString()));
 				frameData->attributes().insert(QStringLiteral("Timestep"), QVariant::fromValue(timestep));
+				break;
+			}
+			else if(stream.lineStartsWithToken("ITEM: TIME")) {
+				FloatType simulationTime;
+				if(sscanf(stream.readLine(), FLOATTYPE_SCANF_STRING, &simulationTime) != 1)
+					throw Exception(tr("LAMMPS dump file parsing error. Invalid time value (line %1):\n%2").arg(stream.lineNumber()).arg(stream.lineString()));
+				frameData->attributes().insert(QStringLiteral("Time"), QVariant::fromValue(simulationTime));
 				break;
 			}
 			else if(stream.lineStartsWith("ITEM: NUMBER OF ATOMS")) {
@@ -265,14 +279,23 @@ FileSourceImporter::FrameDataPtr LAMMPSTextDumpImporter::FrameLoader::loadFile()
 				}
 
 				// Set up column-to-property mapping.
-				InputColumnMapping columnMapping;
+				ParticleInputColumnMapping columnMapping;
 				if(_useCustomColumnMapping)
 					columnMapping = _customColumnMapping;
 				else
 					columnMapping = generateAutomaticColumnMapping(fileColumnNames);
 
 				// Parse data columns.
-				InputColumnReader columnParser(columnMapping, *frameData, numParticles);
+				InputColumnReader columnParser(columnMapping, frameData->particles(), numParticles);
+
+				// Check if there is an 'element' file column containing the atom type names.
+				int elementColumn = fileColumnNames.indexOf(QStringLiteral("element"));
+				if(elementColumn != -1) {
+					int typeColumn = fileColumnNames.indexOf(QStringLiteral("type"));
+					if(typeColumn != -1 && columnMapping[typeColumn].isMapped()) {
+						columnParser.readTypeNamesFromColumn(elementColumn, typeColumn);
+					}
+				}
 
 				// If possible, use memory-mapped file access for best performance.
 				const char* s_start;
@@ -284,9 +307,9 @@ FileSourceImporter::FrameDataPtr LAMMPSTextDumpImporter::FrameLoader::loadFile()
 					for(size_t i = 0; i < numParticles; i++, lineNumber++) {
 						if(!setProgressValueIntermittent(i)) return {};
 						if(!s)
-							columnParser.readParticle(i, stream.readLine());
+							columnParser.readElement(i, stream.readLine());
 						else
-							s = columnParser.readParticle(i, s, s_end);
+							s = columnParser.readElement(i, s, s_end);
 					}
 				}
 				catch(Exception& ex) {
@@ -298,7 +321,7 @@ FileSourceImporter::FrameDataPtr LAMMPSTextDumpImporter::FrameLoader::loadFile()
 				}
 
 				// Sort the particle type list since we created particles on the go and their order depends on the occurrence of types in the file.
-				columnParser.sortParticleTypes();
+				columnParser.sortElementTypes();
 
 				// Determine if particle coordinates are given in reduced form and need to be rescaled to absolute form.
 				bool reducedCoordinates = false;
@@ -323,7 +346,7 @@ FileSourceImporter::FrameDataPtr LAMMPSTextDumpImporter::FrameLoader::loadFile()
 					// Assume reduced coordinates if all particle coordinates are within the [-0.02,1.02] interval.
 					// We allow coordinates to be slightly outside the [0,1] interval, because LAMMPS
 					// wraps around particles at the periodic boundaries only occasionally.
-					if(ConstPropertyAccess<Point3> posProperty = frameData->findStandardParticleProperty(ParticlesObject::PositionProperty)) {
+					if(ConstPropertyAccess<Point3> posProperty = frameData->particles().findStandardProperty(ParticlesObject::PositionProperty)) {
 						// Compute bound box of particle positions.
 						Box3 boundingBox;
 						boundingBox.addPoints(posProperty);
@@ -335,7 +358,7 @@ FileSourceImporter::FrameDataPtr LAMMPSTextDumpImporter::FrameLoader::loadFile()
 
 				if(reducedCoordinates) {
 					// Convert all atom coordinates from reduced to absolute (Cartesian) format.
-					if(PropertyAccess<Point3> posProperty = frameData->findStandardParticleProperty(ParticlesObject::PositionProperty)) {
+					if(PropertyAccess<Point3> posProperty = frameData->particles().findStandardProperty(ParticlesObject::PositionProperty)) {
 						const AffineTransformation simCell = frameData->simulationCell().matrix();
 						for(Point3& p : posProperty)
 							p = simCell * p;
@@ -347,7 +370,7 @@ FileSourceImporter::FrameDataPtr LAMMPSTextDumpImporter::FrameLoader::loadFile()
 				if(!fileColumnNames.empty()) {
 					for(int i = 0; i < (int)columnMapping.size() && i < fileColumnNames.size(); i++) {
 						if(columnMapping[i].property.type() == ParticlesObject::RadiusProperty && fileColumnNames[i] == "diameter") {
-							if(PropertyAccess<FloatType> radiusProperty = frameData->findStandardParticleProperty(ParticlesObject::RadiusProperty)) {
+							if(PropertyAccess<FloatType> radiusProperty = frameData->particles().findStandardProperty(ParticlesObject::RadiusProperty)) {
 								for(FloatType& r : radiusProperty)
 									r /= 2;
 							}
@@ -356,13 +379,15 @@ FileSourceImporter::FrameDataPtr LAMMPSTextDumpImporter::FrameLoader::loadFile()
 					}
 				}
 
-				// Detect dimensionality of system.
-				frameData->simulationCell().set2D(!columnMapping.hasZCoordinates());
+				// Detect dimensionality of system. It's a 2D system if no file column has been mapped to the Position.Z particle property.
+				frameData->simulationCell().set2D(std::none_of(columnMapping.begin(), columnMapping.end(), [](const InputColumnInfo& column) {
+					return column.property.type() == ParticlesObject::PositionProperty && column.property.vectorComponent() == 2;
+				}));
 
 				// Detect if there are more simulation frames following in the file.
 				if(!stream.eof()) {
 					stream.readLine();
-					if(stream.lineStartsWith("ITEM: TIMESTEP"))
+					if(stream.lineStartsWith("ITEM: TIMESTEP") || stream.lineStartsWith("ITEM: TIME"))
 						frameData->signalAdditionalFrames();
 				}
 
@@ -395,9 +420,9 @@ FileSourceImporter::FrameDataPtr LAMMPSTextDumpImporter::FrameLoader::loadFile()
 /******************************************************************************
  * Guesses the mapping of input file columns to internal particle properties.
  *****************************************************************************/
-InputColumnMapping LAMMPSTextDumpImporter::generateAutomaticColumnMapping(const QStringList& columnNames)
+ParticleInputColumnMapping LAMMPSTextDumpImporter::generateAutomaticColumnMapping(const QStringList& columnNames)
 {
-	InputColumnMapping columnMapping;
+	ParticleInputColumnMapping columnMapping;
 	columnMapping.resize(columnNames.size());
 	for(int i = 0; i < columnNames.size(); i++) {
 		QString name = columnNames[i].toLower();
@@ -412,7 +437,19 @@ InputColumnMapping LAMMPSTextDumpImporter::generateAutomaticColumnMapping(const 
 		else if(name == "vy") columnMapping.mapStandardColumn(i, ParticlesObject::VelocityProperty, 1);
 		else if(name == "vz") columnMapping.mapStandardColumn(i, ParticlesObject::VelocityProperty, 2);
 		else if(name == "id") columnMapping.mapStandardColumn(i, ParticlesObject::IdentifierProperty);
-		else if(name == "type" || name == "element" || name == "atom_types") columnMapping.mapStandardColumn(i, ParticlesObject::TypeProperty);
+		else if(name == "element") columnMapping.mapStandardColumn(i, ParticlesObject::TypeProperty);
+		else if(name == "type") {
+			if(!columnMapping.mapStandardColumn(i, ParticlesObject::TypeProperty)) {
+				// Give precedence of the 'type' column over the 'element' column.
+				for(int j = 0; j < i; j++) {
+					if(columnNames[j].compare(QStringLiteral("element"), Qt::CaseInsensitive) == 0) {
+						columnMapping[j].unmap();
+						columnMapping.mapStandardColumn(i, ParticlesObject::TypeProperty);
+						break;
+					}
+				}
+			}
+		}
 		else if(name == "mass") columnMapping.mapStandardColumn(i, ParticlesObject::MassProperty);
 		else if(name == "radius" || name == "diameter") columnMapping.mapStandardColumn(i, ParticlesObject::RadiusProperty);
 		else if(name == "mol") columnMapping.mapStandardColumn(i, ParticlesObject::MoleculeProperty);
@@ -468,8 +505,7 @@ void LAMMPSTextDumpImporter::saveToStream(ObjectSaveStream& stream, bool exclude
 {
 	ParticleImporter::saveToStream(stream, excludeRecomputableData);
 
-	stream.beginChunk(0x01);
-	_customColumnMapping.saveToStream(stream);
+	stream.beginChunk(0x02);
 	stream.endChunk();
 }
 
@@ -480,22 +516,12 @@ void LAMMPSTextDumpImporter::loadFromStream(ObjectLoadStream& stream)
 {
 	ParticleImporter::loadFromStream(stream);
 
-	stream.expectChunk(0x01);
-	_customColumnMapping.loadFromStream(stream);
+	// For backward compatibility with OVITO 3.1:
+	if(stream.expectChunkRange(0x00, 0x02) == 0x01) {
+		stream >> _customColumnMapping.mutableValue();
+	}
 	stream.closeChunk();
 }
-
-/******************************************************************************
- * Creates a copy of this object.
- *****************************************************************************/
-OORef<RefTarget> LAMMPSTextDumpImporter::clone(bool deepCopy, CloneHelper& cloneHelper) const
-{
-	// Let the base class create an instance of this class.
-	OORef<LAMMPSTextDumpImporter> clone = static_object_cast<LAMMPSTextDumpImporter>(ParticleImporter::clone(deepCopy, cloneHelper));
-	clone->_customColumnMapping = this->_customColumnMapping;
-	return clone;
-}
-
 
 }	// End of namespace
 }	// End of namespace

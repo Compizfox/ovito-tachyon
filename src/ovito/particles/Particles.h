@@ -51,8 +51,7 @@ namespace Ovito {
 
 		class ParticleFrameData;
 		class ParticleImporter;
-		class InputColumnMapping;
-		
+
 		class NearestNeighborFinder;
 		class CutoffNeighborFinder;
 	}

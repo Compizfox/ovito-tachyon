@@ -191,6 +191,9 @@ QVariant OverlayListModel::data(const QModelIndex& index, int role) const
 			default: return QVariant::fromValue(_statusNoneIcon);
 			}
 		}
+		else if(item->itemType() == OverlayListItem::SceneLayer) {
+			return QVariant::fromValue(_statusNoneIcon);
+		}
 	}
 	else if(role == Qt::ToolTipRole) {
 		return QVariant::fromValue(item->status().text());

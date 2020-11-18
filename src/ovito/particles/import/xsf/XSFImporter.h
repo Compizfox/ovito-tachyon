@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Copyright 2017 Alexander Stukowski
+//  Copyright 2020 Alexander Stukowski
 //
 //  This file is part of OVITO (Open Visualization Tool).
 //
@@ -39,7 +39,7 @@ class OVITO_PARTICLES_EXPORT XSFImporter : public ParticleImporter
 	{
 	public:
 		/// Inherit standard constructor from base meta class.
-		using ParticleImporter::OOMetaClass ::OOMetaClass;
+		using ParticleImporter::OOMetaClass::OOMetaClass;
 
 		/// Returns the file filter that specifies the files that can be imported by this service.
 		virtual QString fileFilter() const override { return QStringLiteral("*"); }
@@ -105,9 +105,9 @@ private:
 		/// Scans the data file and builds a list of source frames.
 		virtual void discoverFramesInFile(QVector<FileSourceImporter::Frame>& frames) override;
 	};
+
+	static const char* chemical_symbols[];
 };
 
 }	// End of namespace
 }	// End of namespace
-
-

@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Copyright 2013 Alexander Stukowski
+//  Copyright 2020 Alexander Stukowski
 //
 //  This file is part of OVITO (Open Visualization Tool).
 //
@@ -29,6 +29,7 @@
 
 
 #include <ovito/core/Core.h>
+#include <ovito/core/utilities/concurrent/Promise.h>
 
 namespace Ovito {
 
@@ -49,8 +50,9 @@ public:
 	/// \brief Opens the stream for reading.
 	/// \param source The data stream from which the binary data will be read. This must be
 	///               stream that supports random access.
+	/// \param operation The task handle that allows to cancel the load process.
 	/// \throw Exception if the QDataStream supports only sequential access or if an I/O error occurs.
-	LoadStream(QDataStream& source);
+	LoadStream(QDataStream& source, SynchronousOperation operation);
 
 	/// Automatically calls close() to close the LoadStream.
 	/// \sa close()
@@ -112,7 +114,12 @@ public:
 	/// \brief Reads a platform dependent value (32 or 64 bit, depending on your compiler settings) from the stream.
 	/// \param[out] value The value read from the stream.
 	/// \throw Exception if an I/O error has occurred.
-	void readSizeT(size_t& value) { quint64 temp; _is >> temp; value = (size_t)temp; checkErrorCondition(); }
+	void readSizeT(size_t& value) { quint64 temp; _is >> temp; value = static_cast<size_t>(temp); checkErrorCondition(); }
+
+	/// \brief Reads a platform dependent value (32 or 64 bit, depending on your compiler settings) from the stream.
+	/// \return The value read from the stream.
+	/// \throw Exception if an I/O error has occurred.
+	size_t readSizeT() { quint64 temp; _is >> temp; checkErrorCondition(); return static_cast<size_t>(temp); }
 
 	/// \brief Reads a pointer to an object of type \c T from the input stream.
 	/// \param patchPointer The address of the pointer variable.
@@ -165,6 +172,9 @@ public:
 	/// \brief Returns the revision version number of the program that wrote the current file.
 	quint32 applicationRevisionVersion() const { return _applicationRevisionVersion; }
 
+	/// Returns the task object that represent the load operation.
+	SynchronousOperation& operation() { return _operation; }
+
 private:
 
 	/// Checks the status of the underlying input stream and throws an exception if an error has occurred.
@@ -196,6 +206,9 @@ private:
 
 	/// The internal input stream.
 	QDataStream& _is;
+
+	/// The task object.
+	SynchronousOperation _operation;
 
 	/// The version of the file format.
 	quint32 _fileFormat;
@@ -389,5 +402,3 @@ auto operator>>(LoadStream& stream, OvitoSubclass const*& clazz)
 }
 
 }	// End of namespace
-
-

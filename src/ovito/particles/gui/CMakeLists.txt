@@ -1,6 +1,6 @@
 #######################################################################################
 #
-#  Copyright 2019 Alexander Stukowski
+#  Copyright 2020 Alexander Stukowski
 #
 #  This file is part of OVITO (Open Visualization Tool).
 #
@@ -26,7 +26,6 @@ QT5_ADD_RESOURCES(ResourceFiles resources/particles_gui.qrc)
 # Define the GUI module, which provides the user interface for the parent module.
 OVITO_STANDARD_PLUGIN(ParticlesGui
 	SOURCES
-		ParticlesGui.cpp
 		objects/ParticlesVisEditor.cpp
 		objects/ParticleTypeEditor.cpp
 		objects/BondTypeEditor.cpp
@@ -55,6 +54,7 @@ OVITO_STANDARD_PLUGIN(ParticlesGui
 		modifier/properties/SmoothTrajectoryModifierEditor.cpp
 		modifier/properties/GenerateTrajectoryLinesModifierEditor.cpp
 		modifier/properties/ParticlesComputePropertyModifierDelegateEditor.cpp
+		modifier/properties/InteractiveMolecularDynamicsModifierEditor.cpp
 		util/CutoffRadiusPresetsUI.cpp
 		util/ParticlePickingHelper.cpp
 		util/ParticleSettingsPage.cpp
@@ -64,10 +64,10 @@ OVITO_STANDARD_PLUGIN(ParticlesGui
 		util/AngleInspectionApplet.cpp
 		util/DihedralInspectionApplet.cpp
 		util/ImproperInspectionApplet.cpp
-		import/InputColumnMappingDialog.cpp
 		import/lammps/LAMMPSTextDumpImporterEditor.cpp
 		import/lammps/LAMMPSBinaryDumpImporterEditor.cpp
 		import/lammps/LAMMPSDataImporterEditor.cpp
+		import/lammps/LAMMPSDumpLocalImporterEditor.cpp
 		import/parcas/ParcasFileImporterEditor.cpp
 		import/imd/IMDImporterEditor.cpp
 		import/cfg/CFGImporterEditor.cpp
@@ -81,10 +81,6 @@ OVITO_STANDARD_PLUGIN(ParticlesGui
 		${ResourceFiles}
 	PRIVATE_LIB_DEPENDENCIES Qwt PolyhedralTemplateMatching
 	PLUGIN_DEPENDENCIES Particles StdObjGui 
+	PRECOMPILED_HEADERS ParticlesGui.h
 	GUI_PLUGIN
 )
-
-# Speed up compilation by using precompiled headers.
-IF(OVITO_USE_PRECOMPILED_HEADERS)
-	ADD_PRECOMPILED_HEADER(ParticlesGui ovito/particles/gui/ParticlesGui.h)
-ENDIF()

@@ -26,6 +26,7 @@
 #include <ovito/particles/Particles.h>
 #include <ovito/stdobj/properties/PropertyContainer.h>
 #include <ovito/stdobj/properties/PropertyReference.h>
+#include <ovito/stdobj/properties/InputColumnMapping.h>
 
 namespace Ovito { namespace Particles {
 
@@ -93,12 +94,20 @@ public:
 
 	/// Convinience method that returns the bond topology property.
 	const PropertyObject* getTopology() const { return getProperty(TopologyProperty); }
+
+	/// Determines the PBC shift vectors for bonds using the minimum image convention.
+	void generatePeriodicImageProperty(const ParticlesObject* particles, const SimulationCellObject* simulationCellObject);
 };
 
 /**
  * Encapsulates a reference to a bond property.
  */
 using BondPropertyReference = TypedPropertyReference<BondsObject>;
+
+/**
+ * Encapsulates a mapping of input file columns to bond properties.
+ */
+using BondInputColumnMapping = TypedInputColumnMapping<BondsObject>;
 
 /**
  * The data type used for the 'Topology' bond property: two indices into the particles list.
@@ -143,3 +152,4 @@ struct Bond
 }	// End of namespace
 
 Q_DECLARE_METATYPE(Ovito::Particles::BondPropertyReference);
+Q_DECLARE_METATYPE(Ovito::Particles::BondInputColumnMapping);

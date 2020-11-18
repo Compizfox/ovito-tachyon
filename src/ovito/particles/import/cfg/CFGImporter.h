@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Copyright 2017 Alexander Stukowski
+//  Copyright 2020 Alexander Stukowski
 //
 //  This file is part of OVITO (Open Visualization Tool).
 //
@@ -25,7 +25,7 @@
 
 #include <ovito/particles/Particles.h>
 #include <ovito/particles/import/ParticleImporter.h>
-#include <ovito/particles/import/InputColumnMapping.h>
+#include <ovito/particles/objects/ParticlesObject.h>
 #include <ovito/core/dataset/DataSetContainer.h>
 
 namespace Ovito { namespace Particles {
@@ -40,7 +40,7 @@ class OVITO_PARTICLES_EXPORT CFGImporter : public ParticleImporter
 	{
 	public:
 		/// Inherit standard constructor from base meta class.
-		using ParticleImporter::OOMetaClass ::OOMetaClass;
+		using ParticleImporter::OOMetaClass::OOMetaClass;
 
 		/// Returns the file filter that specifies the files that can be imported by this service.
 		virtual QString fileFilter() const override { return QStringLiteral("*"); }
@@ -93,10 +93,8 @@ private:
 protected:
 
 	/// Guesses the mapping of input file columns to internal particle properties.
-	static void generateAutomaticColumnMapping(InputColumnMapping& mapping, const QStringList& columnNames);
+	static void generateAutomaticColumnMapping(ParticleInputColumnMapping& mapping, const QStringList& columnNames);
 };
 
 }	// End of namespace
 }	// End of namespace
-
-

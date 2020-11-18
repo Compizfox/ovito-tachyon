@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Copyright 2013 Alexander Stukowski
+//  Copyright 2020 Alexander Stukowski
 //
 //  This file is part of OVITO (Open Visualization Tool).
 //
@@ -33,7 +33,7 @@ namespace Ovito {
 ******************************************************************************/
 void ActionManager::on_AnimationGotoStart_triggered()
 {
-	_dataset->animationSettings()->jumpToAnimationStart();
+	dataset()->animationSettings()->jumpToAnimationStart();
 }
 
 /******************************************************************************
@@ -41,7 +41,7 @@ void ActionManager::on_AnimationGotoStart_triggered()
 ******************************************************************************/
 void ActionManager::on_AnimationGotoEnd_triggered()
 {
-	_dataset->animationSettings()->jumpToAnimationEnd();
+	dataset()->animationSettings()->jumpToAnimationEnd();
 }
 
 /******************************************************************************
@@ -49,7 +49,7 @@ void ActionManager::on_AnimationGotoEnd_triggered()
 ******************************************************************************/
 void ActionManager::on_AnimationGotoPreviousFrame_triggered()
 {
-	_dataset->animationSettings()->jumpToPreviousFrame();
+	dataset()->animationSettings()->jumpToPreviousFrame();
 }
 
 /******************************************************************************
@@ -57,7 +57,7 @@ void ActionManager::on_AnimationGotoPreviousFrame_triggered()
 ******************************************************************************/
 void ActionManager::on_AnimationGotoNextFrame_triggered()
 {
-	_dataset->animationSettings()->jumpToNextFrame();
+	dataset()->animationSettings()->jumpToNextFrame();
 }
 
 /******************************************************************************
@@ -83,7 +83,7 @@ void ActionManager::on_AnimationStopPlayback_triggered()
 ******************************************************************************/
 void ActionManager::on_AnimationSettings_triggered()
 {
-	AnimationSettingsDialog(_dataset->animationSettings(), mainWindow()).exec();
+	AnimationSettingsDialog(dataset()->animationSettings(), mainWindow()).exec();
 }
 
 }	// End of namespace

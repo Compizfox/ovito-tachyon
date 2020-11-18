@@ -49,7 +49,7 @@ void VoxelGrid::OOMetaClass::initialize()
 	const QStringList emptyList;
 	const QStringList rgbList = QStringList() << "R" << "G" << "B";
 
-	registerStandardProperty(ColorProperty, tr("Color"), PropertyStorage::Float, rgbList, tr("Voxel colors"));
+	registerStandardProperty(ColorProperty, tr("Color"), PropertyStorage::Float, rgbList, nullptr, tr("Voxel colors"));
 }
 
 /******************************************************************************
@@ -118,8 +118,7 @@ void VoxelGrid::loadFromStream(ObjectLoadStream& stream)
 
 	stream.expectChunk(0x01);
 
-	size_t ndim;
-	stream.readSizeT(ndim);
+	size_t ndim = stream.readSizeT();
 	if(ndim != _shape.get().size()) throwException(tr("Invalid voxel grid dimensionality."));
 
 	for(size_t& d : _shape.mutableValue())

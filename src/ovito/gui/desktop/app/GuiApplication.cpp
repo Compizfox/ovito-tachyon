@@ -92,6 +92,10 @@ void GuiApplication::createQtApplication(int& argc, char** argv)
 	else {
 		// Enable high-resolution toolbar icons on hi-dpi screens.
 		QApplication::setAttribute(Qt::AA_UseHighDpiPixmaps);
+		QApplication::setAttribute(Qt::AA_EnableHighDpiScaling);
+#if QT_VERSION >= QT_VERSION_CHECK(5, 14, 0) && !defined(Q_OS_MAC)
+		QGuiApplication::setHighDpiScaleFactorRoundingPolicy(Qt::HighDpiScaleFactorRoundingPolicy::RoundPreferFloor);
+#endif
 
 #if defined(Q_OS_LINUX)
 		// Enforce Fusion UI style on Linux.
@@ -159,7 +163,7 @@ bool GuiApplication::startupApplication()
 			msgbox.setText(tr("<p>This is a preview version of %1 with a limited life span, which did expire on %2.</p>"
 				"<p>Please obtain the final program release, which is now available on our website "
 				"<a href=\"https://www.ovito.org/\">www.ovito.org</a>.</p>"
-				"<p>This pre-release build of %2 can no longer be used and will quit now.</p>")
+				"<p>This pre-release build of %1 can no longer be used and will quit now.</p>")
 					.arg(Application::applicationName())
 					.arg(expirationDate.toString(Qt::SystemLocaleLongDate)));
 			msgbox.setTextInteractionFlags(Qt::TextBrowserInteraction);
@@ -185,8 +189,8 @@ void GuiApplication::postStartupInitialization()
 {
 	GuiDataSetContainer* container = static_object_cast<GuiDataSetContainer>(datasetContainer());
 
-	// Load state file specified on the command line.
-	if(cmdLineParser().positionalArguments().empty() == false) {
+	// Load session state file specified on the command line.
+	if(!cmdLineParser().positionalArguments().empty()) {
 		QString startupFilename = cmdLineParser().positionalArguments().front();
 		if(startupFilename.endsWith(".ovito", Qt::CaseInsensitive)) {
 			try {
@@ -202,20 +206,30 @@ void GuiApplication::postStartupInitialization()
 	if(container->currentSet() == nullptr)
 		container->fileNew();
 
-	// Import data file specified on the command line.
-	if(cmdLineParser().positionalArguments().empty() == false) {
-		QString importFilename = cmdLineParser().positionalArguments().front();
-		if(!importFilename.endsWith(".ovito", Qt::CaseInsensitive)) {
-			QUrl importURL = Application::instance()->fileManager()->urlFromUserInput(importFilename);
-			try {
-				container->importFile(importURL);
-			}
-			catch(const Exception& ex) {
-				ex.reportError();
-			}
-			if(container->currentSet())
-				container->currentSet()->undoStack().setClean();
+	// Import data file(s) specified on the command line.
+	if(!cmdLineParser().positionalArguments().empty()) {
+		std::vector<QUrl> importUrls;
+		int numSessionFiles = 0;
+		for(const QString& importFilename : cmdLineParser().positionalArguments()) {
+			if(importFilename.endsWith(".ovito", Qt::CaseInsensitive))
+				numSessionFiles++;
+			else
+				importUrls.push_back(Application::instance()->fileManager()->urlFromUserInput(importFilename));
 		}
+		try {
+			if(!importUrls.empty()) {
+				if(numSessionFiles)
+					throw Exception(tr("Detected multiple command line arguments: Cannot open a session state file and a simulation data file at the same time."));
+				container->importFiles(std::move(importUrls));
+			}
+			if(numSessionFiles > 1)
+				throw Exception(tr("Detected multiple command line arguments: Cannot open multiple session state files at the same time."));
+		}
+		catch(const Exception& ex) {
+			ex.reportError();
+		}
+		if(container->currentSet())
+			container->currentSet()->undoStack().setClean();
 	}
 
 	StandaloneApplication::postStartupInitialization();
@@ -234,7 +248,7 @@ bool GuiApplication::eventFilter(QObject* watched, QEvent* event)
 				container->fileLoad(openEvent->file());
 			}
 			else {
-				container->importFile(openEvent->url());
+				container->importFiles({openEvent->url()});
 				container->currentSet()->undoStack().setClean();
 			}
 		}

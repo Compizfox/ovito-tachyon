@@ -64,7 +64,7 @@ struct SymImage {
   std::string pdb_symbol(bool underscore) const {
     char nnn[4] = "555";
     for (int i = 0; i < 3; ++i)
-      nnn[i] += box[0];
+      nnn[i] -= box[i];
     return std::to_string(sym_id + 1) + (underscore ? "_" : "") + nnn;
   }
 };
@@ -79,6 +79,10 @@ struct FTransform : Transform {
     return Fractional(Transform::apply(p));
   }
 };
+
+
+// a synonym for convenient passing of hkl
+using Miller = std::array<int, 3>;
 
 
 struct UnitCell {
@@ -117,14 +121,13 @@ struct UnitCell {
   }
 
   void calculate_properties() {
-    constexpr double deg2rad = pi() / 180.0;
     // ensure exact values for right angles
-    double cos_alpha = alpha == 90. ? 0. : std::cos(deg2rad * alpha);
-    double cos_beta  = beta  == 90. ? 0. : std::cos(deg2rad * beta);
-    double cos_gamma = gamma == 90. ? 0. : std::cos(deg2rad * gamma);
-    double sin_alpha = alpha == 90. ? 1. : std::sin(deg2rad * alpha);
-    double sin_beta  = beta  == 90. ? 1. : std::sin(deg2rad * beta);
-    double sin_gamma = gamma == 90. ? 1. : std::sin(deg2rad * gamma);
+    double cos_alpha = alpha == 90. ? 0. : std::cos(rad(alpha));
+    double cos_beta  = beta  == 90. ? 0. : std::cos(rad(beta));
+    double cos_gamma = gamma == 90. ? 0. : std::cos(rad(gamma));
+    double sin_alpha = alpha == 90. ? 1. : std::sin(rad(alpha));
+    double sin_beta  = beta  == 90. ? 1. : std::sin(rad(beta));
+    double sin_gamma = gamma == 90. ? 1. : std::sin(rad(gamma));
     if (sin_alpha == 0 || sin_beta == 0 || sin_gamma == 0)
       fail("Impossible angle - N*180deg.");
 
@@ -165,6 +168,34 @@ struct UnitCell {
                 0.,     1 / orth.mat[1][1],  o23,
                 0.,     0.,                  1 / orth.mat[2][2]};
     frac.vec = {0., 0., 0.};
+  }
+
+  // B matrix following convention from Busing & Levy (1967), not from cctbx.
+  // Cf. https://dials.github.io/documentation/conventions.html
+  Mat33 calculate_matrix_B() const {
+    double cos_alpha = alpha == 90. ? 0. : std::cos(rad(alpha));
+    double sin_gammar = std::sqrt(1 - cos_gammar * cos_gammar);
+    double sin_betar = std::sqrt(1 - cos_betar * cos_betar);
+    return Mat33(ar, br * cos_gammar, cr * cos_betar,
+                 0., br * sin_gammar, -cr * sin_betar * cos_alpha,
+                 0., 0., 1.0 / c);
+  }
+
+  // based on Fischer & Tillmanns (1988). Acta Cryst. C44, 775-776.
+  // "The equivalent isotropic displacement factor."
+  // The argument is a non-orthogonalized tensor U,
+  // i.e. the one from SmallStructure::Site, but not from Atom.
+  double calculate_u_eq(const SMat33<double>& ani) const {
+    double aar = a * ar;
+    double bbr = b * br;
+    double ccr = c * cr;
+    double cos_alpha = alpha == 90. ? 0. : std::cos(rad(alpha));
+    double cos_beta  = beta  == 90. ? 0. : std::cos(rad(beta));
+    double cos_gamma = gamma == 90. ? 0. : std::cos(rad(gamma));
+    return 1/3. * (sq(aar) * ani.u11 + sq(bbr) * ani.u22 + sq(ccr) * ani.u33 +
+                   2 * (aar * bbr * cos_gamma * ani.u12 +
+                        aar * ccr * cos_beta * ani.u13 +
+                        bbr * ccr * cos_alpha * ani.u23));
   }
 
   void set_matrices_from_fract(const Transform& f) {
@@ -293,9 +324,13 @@ struct UnitCell {
     SymImage sym_image;
     sym_image.dist_sq = INFINITY;
     sym_image.sym_id = image_idx;
+    Fractional fref = fractionalize(ref);
     Fractional fpos = fractionalize(pos);
     apply_transform(fpos, image_idx);
-    search_pbc_images(fpos - fractionalize(ref), sym_image);
+    if (is_crystal())
+      search_pbc_images(fpos - fref, sym_image);
+    else
+      sym_image.dist_sq = orthogonalize_difference(fpos - fref).length_sq();
     return sym_image;
   }
 
@@ -306,10 +341,9 @@ struct UnitCell {
   }
 
   // return number of nearby symmetry mates (0 = none, 3 = 4-fold axis, etc)
-  int is_special_position(const Position& pos, double max_dist = 0.8) const {
+  int is_special_position(const Fractional& fpos, double max_dist) const {
     const double max_dist_sq = max_dist * max_dist;
     int n = 0;
-    Fractional fpos = fractionalize(pos);
     for (const FTransform& image : images) {
       Fractional fdiff = (image.apply(fpos) - fpos).wrap_to_zero();
       if (orthogonalize_difference(fdiff).length_sq() < max_dist_sq)
@@ -317,24 +351,44 @@ struct UnitCell {
     }
     return n;
   }
+  int is_special_position(const Position& pos, double max_dist = 0.8) const {
+    return is_special_position(fractionalize(pos), max_dist);
+  }
 
   // Calculate 1/d^2 for specified hkl reflection.
   // 1/d^2 = (2*sin(theta)/lambda)^2
   // The indices are integers, but they may be stored as floating-point
   // numbers (MTZ format) so we use double to avoid conversions.
-  double calculate_1_d2(double h, double k, double l) const {
+  double calculate_1_d2_double(double h, double k, double l) const {
     double arh = ar * h;
     double brk = br * k;
     double crl = cr * l;
     return arh * arh + brk * brk + crl * crl + 2 * (arh * brk * cos_gammar +
-                                                    brk * crl * cos_alphar +
-                                                    arh * crl * cos_betar);
+                                                    arh * crl * cos_betar +
+                                                    brk * crl * cos_alphar);
+  }
+  double calculate_1_d2(const Miller& hkl) const {
+    return calculate_1_d2_double(hkl[0], hkl[1], hkl[2]);
   }
 
   // Calculate d-spacing.
   // d = lambda/(2*sin(theta))
-  double calculate_d(double h, double k, double l) const {
-    return 1.0 / std::sqrt(calculate_1_d2(h, k, l));
+  double calculate_d(const Miller& hkl) const {
+    return 1.0 / std::sqrt(calculate_1_d2(hkl));
+  }
+
+  // https://dictionary.iucr.org/Metric_tensor
+  SMat33<double> metric_tensor() const {
+    double cos_alpha = alpha == 90. ? 0. : std::cos(rad(alpha));
+    return {a*a, b*b, c*c, a*orth.mat[0][1], a*orth.mat[0][2], b*c*cos_alpha};
+  }
+
+  SMat33<double> reciprocal_metric_tensor() const {
+    return {ar*ar, br*br, cr*cr, ar*br*cos_gammar, ar*cr*cos_betar, br*cr*cos_alphar};
+  }
+
+  Miller get_hkl_limits(double dmin) const {
+    return {{int(a / dmin), int(b / dmin), int(c / dmin)}};
   }
 };
 

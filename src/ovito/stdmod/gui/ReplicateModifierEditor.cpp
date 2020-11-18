@@ -23,7 +23,7 @@
 #include <ovito/stdmod/gui/StdModGui.h>
 #include <ovito/gui/desktop/properties/BooleanParameterUI.h>
 #include <ovito/gui/desktop/properties/IntegerParameterUI.h>
-#include <ovito/gui/desktop/properties/ModifierDelegateListParameterUI.h>
+#include <ovito/gui/desktop/properties/ModifierDelegateFixedListParameterUI.h>
 #include <ovito/stdmod/modifiers/ReplicateModifier.h>
 #include "ReplicateModifierEditor.h"
 
@@ -74,7 +74,7 @@ void ReplicateModifierEditor::createUI(const RolloutInsertionParameters& rollout
 	topLayout->setContentsMargins(4,4,4,4);
 	topLayout->setSpacing(12);
 
-	ModifierDelegateListParameterUI* delegatesPUI = new ModifierDelegateListParameterUI(this, rolloutParams.after(rollout));
+	ModifierDelegateFixedListParameterUI* delegatesPUI = new ModifierDelegateFixedListParameterUI(this, rolloutParams.after(rollout));
 	topLayout->addWidget(delegatesPUI->listWidget());
 }
 

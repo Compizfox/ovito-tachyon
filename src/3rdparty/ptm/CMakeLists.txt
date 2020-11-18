@@ -21,7 +21,7 @@
 #######################################################################################
 
 IF(WIN32)
-	# Always build this module as a static library under Windows, because Voro++ does not explicitly export any symbols.
+	# Always build this module as a static library under Windows, because PTM does not explicitly export any symbols.
 	# Building as a DLL would require tagging all symbols to be exported with __declspec(dllexport) in the source  code.
 	SET(BUILD_SHARED_LIBS OFF)
 ENDIF()
@@ -50,11 +50,19 @@ ADD_LIBRARY(PolyhedralTemplateMatching
 # Give our library file a new name to not confuse it with any system versions of the library.
 SET_TARGET_PROPERTIES(PolyhedralTemplateMatching PROPERTIES OUTPUT_NAME "ovito_ptm")
 
+# PTM library does not support unity build. Need to turn it off.
+SET_TARGET_PROPERTIES(PolyhedralTemplateMatching PROPERTIES UNITY_BUILD OFF)
+
 # Link to Voro++ library.
 TARGET_LINK_LIBRARIES(PolyhedralTemplateMatching PRIVATE VoroPlusPlus)
 
 # Make header files of this library available to dependent targets.
 TARGET_INCLUDE_DIRECTORIES(PolyhedralTemplateMatching INTERFACE "${CMAKE_CURRENT_SOURCE_DIR}/..")
+
+IF(MSVC)
+	# Suppress warning on conversion from size_t to int, possible loss of data.
+	TARGET_COMPILE_OPTIONS(PolyhedralTemplateMatching PRIVATE "/wd4267" "/wd4244")
+ENDIF()
 
 IF(NOT BUILD_SHARED_LIBS AND OVITO_BUILD_PYTHON_PACKAGE)
 	# Since we will link this library into the dynamically loaded Python extension module, we need to use the fPIC flag.

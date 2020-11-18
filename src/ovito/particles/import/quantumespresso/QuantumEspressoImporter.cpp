@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Copyright 2019 Alexander Stukowski
+//  Copyright 2020 Alexander Stukowski
 //
 //  This file is part of OVITO (Open Visualization Tool).
 //
@@ -22,6 +22,8 @@
 
 #include <ovito/particles/Particles.h>
 #include <ovito/particles/import/ParticleFrameData.h>
+#include <ovito/particles/objects/ParticlesObject.h>
+#include <ovito/particles/objects/ParticleType.h>
 #include <ovito/core/utilities/io/CompressedTextReader.h>
 #include "QuantumEspressoImporter.h"
 
@@ -96,7 +98,7 @@ FileSourceImporter::FrameDataPtr QuantumEspressoImporter::FrameLoader::loadFile(
 	int ntypes = 0;
 	int ibrav = 0;
 	std::vector<FloatType> type_masses;
-	auto typeList = std::make_unique<ParticleFrameData::TypeList>();
+	auto typeList = std::make_unique<PropertyContainerImportData::TypeList>(ParticleType::OOClass());
 	bool hasCellVectors = false;
 	bool convertToAbsoluteCoordinates = false;
 	PropertyAccess<Point3> posProperty;
@@ -203,9 +205,9 @@ FileSourceImporter::FrameDataPtr QuantumEspressoImporter::FrameLoader::loadFile(
 			}
 
 			// Create particle properties.
-			posProperty = frameData->addParticleProperty(ParticlesObject::OOClass().createStandardStorage(natoms, ParticlesObject::PositionProperty, false));
-			PropertyAccess<int> typeProperty = frameData->addParticleProperty(ParticlesObject::OOClass().createStandardStorage(natoms, ParticlesObject::TypeProperty, false));
-			PropertyAccess<FloatType> massProperty = frameData->addParticleProperty(ParticlesObject::OOClass().createStandardStorage(natoms, ParticlesObject::MassProperty, true));
+			posProperty = frameData->particles().createStandardProperty<ParticlesObject>(natoms, ParticlesObject::PositionProperty, false);
+			PropertyAccess<int> typeProperty = frameData->particles().createStandardProperty<ParticlesObject>(natoms, ParticlesObject::TypeProperty, false);
+			PropertyAccess<FloatType> massProperty = frameData->particles().createStandardProperty<ParticlesObject>(natoms, ParticlesObject::MassProperty, true);
 
 			// Parse atom definitions.
 			for(int i = 0; i < natoms; i++) {
@@ -225,7 +227,7 @@ FileSourceImporter::FrameDataPtr QuantumEspressoImporter::FrameLoader::loadFile(
 					throw Exception(tr("Invalid atomic coordinates in line %1 of QE file: %2").arg(stream.lineNumber()).arg(stream.lineString()));
 				posProperty[i] = pos * scaling;
 			}
-			frameData->setPropertyTypesList(typeProperty, std::move(typeList));
+			frameData->particles().setPropertyTypesList(typeProperty, std::move(typeList));
 		}
 		else if(stream.lineStartsWithToken("CELL_PARAMETERS")) {
 			// Parse the unit specification.

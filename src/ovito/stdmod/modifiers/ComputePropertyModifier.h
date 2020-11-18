@@ -37,7 +37,7 @@ namespace Ovito { namespace StdMod {
 /**
  * \brief Base class for modifier delegates used by the ComputePropertyModifier class.
  */
-class OVITO_STDMOD_EXPORT ComputePropertyModifierDelegate : public AsynchronousModifierDelegate
+class OVITO_STDMOD_EXPORT ComputePropertyModifierDelegate : public ModifierDelegate
 {
 	Q_OBJECT
 	OVITO_CLASS(ComputePropertyModifierDelegate)
@@ -45,7 +45,7 @@ class OVITO_STDMOD_EXPORT ComputePropertyModifierDelegate : public AsynchronousM
 protected:
 
 	/// Constructor.
-	using AsynchronousModifierDelegate::AsynchronousModifierDelegate;
+	using ModifierDelegate::ModifierDelegate;
 
 	/// Asynchronous compute engine that does the actual work in a separate thread.
 	class OVITO_STDMOD_EXPORT PropertyComputeEngine : public AsynchronousModifier::Engine
@@ -56,7 +56,7 @@ protected:
 		PropertyComputeEngine(const TimeInterval& validityInterval,
 				TimePoint time,
 				const PipelineFlowState& input,
-				const PropertyContainer* container,
+				const ConstDataObjectPath& containerPath,
 				PropertyPtr outputProperty,
 				ConstPropertyPtr selectionProperty,
 				QStringList expressions,
@@ -137,10 +137,10 @@ public:
 	virtual std::shared_ptr<PropertyComputeEngine> createEngine(
 				TimePoint time,
 				const PipelineFlowState& input,
-				const PropertyContainer* container,
+				const ConstDataObjectPath& containerPath,
 				PropertyPtr outputProperty,
 				ConstPropertyPtr selectionProperty,
-				QStringList expressions) = 0;
+				QStringList expressions);
 };
 
 /**
@@ -157,13 +157,14 @@ class OVITO_STDMOD_EXPORT ComputePropertyModifier : public AsynchronousDelegatin
 		using AsynchronousDelegatingModifier::OOMetaClass::OOMetaClass;
 
 		/// Return the metaclass of delegates for this modifier type.
-		virtual const AsynchronousModifierDelegate::OOMetaClass& delegateMetaclass() const override { return ComputePropertyModifierDelegate::OOClass(); }
+		virtual const ModifierDelegate::OOMetaClass& delegateMetaclass() const override { return ComputePropertyModifierDelegate::OOClass(); }
 	};
 
 	Q_OBJECT
 	OVITO_CLASS_META(ComputePropertyModifier, ComputePropertyModifierClass)
 
 	Q_CLASSINFO("DisplayName", "Compute property");
+	Q_CLASSINFO("Description", "Enter a user-defined formula to set properties of particles, bonds and other elements.");
 	Q_CLASSINFO("ModifierCategory", "Modification");
 
 public:

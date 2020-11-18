@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Copyright 2013 Alexander Stukowski
+//  Copyright 2020 Alexander Stukowski
 //
 //  This file is part of OVITO (Open Visualization Tool).
 //
@@ -75,6 +75,7 @@ ApplicationSettingsDialog::ApplicationSettingsDialog(QWidget* parent, OvitoClass
 	connect(buttonBox, &QDialogButtonBox::accepted, this, &ApplicationSettingsDialog::onOk);
 	connect(buttonBox, &QDialogButtonBox::rejected, this, &ApplicationSettingsDialog::reject);
 	connect(buttonBox, &QDialogButtonBox::helpRequested, this, &ApplicationSettingsDialog::onHelp);
+	connect(this, &QDialog::rejected, this, &ApplicationSettingsDialog::onCancel);
 	layout1->addWidget(buttonBox);
 }
 
@@ -95,7 +96,23 @@ void ApplicationSettingsDialog::onOk()
 		// Close dialog box.
 		accept();
 	}
-	catch(const Exception& ex) {
+	catch(Exception& ex) {
+		ex.setContext(this);
+		ex.reportError(true);
+	}
+}
+
+/******************************************************************************
+* This is called when the user closes the dialog box using the Cancel button.
+******************************************************************************/
+void ApplicationSettingsDialog::onCancel()
+{
+	try {
+		// Let all pages restore their settings to the old values.
+		for(const OORef<ApplicationSettingsDialogPage>& page : _pages)
+			page->restoreValues(this, _tabWidget);
+	}
+	catch(Exception& ex) {
 		ex.reportError();
 	}
 }

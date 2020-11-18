@@ -16,13 +16,13 @@
   <simplesect>
     <title>Windows</title>
     <para>
-      OVITO for Windows includes binaries that have been built from the unmodified sources of libssh 0.9.0.
+      OVITO for Windows includes binaries that have been built from the unmodified sources of libssh 0.9.4.
       The following commands have been used to generate them:
 <programlisting>
 # Compiler: Microsoft Visual C++ 2019 (command line tools)
-# OpenSSL version: 1.1.0
+# OpenSSL version: 1.1.1g
 # Zlib version: 1.2.11
-cd libssh-0.9.0
+cd libssh-0.9.4
 mkdir build
 cd build
 cmake -G "NMake Makefiles" ^
@@ -40,7 +40,7 @@ nmake install
   <simplesect>
     <title>Linux</title>
     <para>
-      OVITO for Linux includes shared libraries that have been built from the unmodified sources of libssh 0.9.0.
+      OVITO for Linux includes shared libraries that have been built from the unmodified sources of libssh 0.9.4.
       The following commands have been used to build them:
 <programlisting>
 # Build platform: CentOS 6.9
@@ -54,7 +54,7 @@ make install
   <simplesect>
     <title>macOS</title>
     <para>
-      OVITO for macOS includes a binary version of libssh 0.8.7 that has been automatically generated with <link xlink:href="https://www.macports.org">MacPorts</link>.
+      OVITO for macOS includes a binary version of libssh 0.8.9 that has been automatically generated with <link xlink:href="https://www.macports.org">MacPorts</link>.
       See the corresponding <link xlink:href="https://github.com/macports/macports-ports/blob/master/devel/libssh/Portfile">Portfile</link>.
     </para>
   </simplesect>

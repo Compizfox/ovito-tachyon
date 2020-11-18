@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Copyright 2019 Alexander Stukowski
+//  Copyright 2020 Alexander Stukowski
 //
 //  This file is part of OVITO (Open Visualization Tool).
 //
@@ -32,7 +32,7 @@ namespace Ovito {
 ******************************************************************************/
 void ActionManager::on_ViewportMaximize_triggered()
 {
-	ViewportConfiguration* vpconf = _dataset->viewportConfig();
+	ViewportConfiguration* vpconf = dataset()->viewportConfig();
 	if(vpconf->maximizedViewport()) {
 		vpconf->setMaximizedViewport(nullptr);
 	}
@@ -50,7 +50,7 @@ void ActionManager::on_ViewportMaximize_triggered()
 ******************************************************************************/
 void ActionManager::on_ViewportZoomSceneExtents_triggered()
 {
-	ViewportConfiguration* vpconf = _dataset->viewportConfig();
+	ViewportConfiguration* vpconf = dataset()->viewportConfig();
 
 	if(vpconf->activeViewport() && !QGuiApplication::keyboardModifiers().testFlag(Qt::ControlModifier))
 		vpconf->activeViewport()->zoomToSceneExtents();
@@ -63,7 +63,7 @@ void ActionManager::on_ViewportZoomSceneExtents_triggered()
 ******************************************************************************/
 void ActionManager::on_ViewportZoomSceneExtentsAll_triggered()
 {
-	_dataset->viewportConfig()->zoomToSceneExtents();
+	dataset()->viewportConfig()->zoomToSceneExtents();
 }
 
 /******************************************************************************
@@ -71,7 +71,7 @@ void ActionManager::on_ViewportZoomSceneExtentsAll_triggered()
 ******************************************************************************/
 void ActionManager::on_ViewportZoomSelectionExtents_triggered()
 {
-	ViewportConfiguration* vpconf = _dataset->viewportConfig();
+	ViewportConfiguration* vpconf = dataset()->viewportConfig();
 	if(vpconf->activeViewport())
 		vpconf->activeViewport()->zoomToSelectionExtents();
 }
@@ -81,7 +81,7 @@ void ActionManager::on_ViewportZoomSelectionExtents_triggered()
 ******************************************************************************/
 void ActionManager::on_ViewportZoomSelectionExtentsAll_triggered()
 {
-	_dataset->viewportConfig()->zoomToSelectionExtents();
+	dataset()->viewportConfig()->zoomToSelectionExtents();
 }
 
 }	// End of namespace

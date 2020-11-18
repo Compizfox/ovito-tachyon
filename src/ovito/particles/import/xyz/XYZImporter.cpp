@@ -27,6 +27,7 @@
 
 #include <ovito/particles/Particles.h>
 #include <ovito/particles/import/ParticleFrameData.h>
+#include <ovito/particles/objects/ParticlesObject.h>
 #include <ovito/core/app/Application.h>
 #include <ovito/core/utilities/io/CompressedTextReader.h>
 #include <ovito/core/utilities/io/FileManager.h>
@@ -38,17 +39,9 @@ namespace Ovito { namespace Particles {
 
 IMPLEMENT_OVITO_CLASS(XYZImporter);
 DEFINE_PROPERTY_FIELD(XYZImporter, autoRescaleCoordinates);
+DEFINE_PROPERTY_FIELD(XYZImporter, columnMapping);
 SET_PROPERTY_FIELD_LABEL(XYZImporter, autoRescaleCoordinates, "Detect reduced coordinates");
-
-/******************************************************************************
- * Sets the user-defined mapping between data columns in the input file and
- * the internal particle properties.
- *****************************************************************************/
-void XYZImporter::setColumnMapping(const InputColumnMapping& mapping)
-{
-	_columnMapping = mapping;
-	notifyTargetChanged();
-}
+SET_PROPERTY_FIELD_LABEL(XYZImporter, columnMapping, "File column mapping");
 
 /******************************************************************************
 * Checks if the given file has format that can be read by this importer.
@@ -90,7 +83,7 @@ bool XYZImporter::OOMetaClass::checkFileFormat(const FileHandle& file) const
 /******************************************************************************
 * Inspects the header of the given file and returns the number of file columns.
 ******************************************************************************/
-Future<InputColumnMapping> XYZImporter::inspectFileHeader(const Frame& frame)
+Future<ParticleInputColumnMapping> XYZImporter::inspectFileHeader(const Frame& frame)
 {
 	// Retrieve file.
 	return Application::instance()->fileManager()->fetchUrl(dataset()->taskManager(), frame.sourceFile)
@@ -143,7 +136,7 @@ void XYZImporter::FrameFinder::discoverFramesInFile(QVector<FileSourceImporter::
 		}
 
 		// Create a new record for the time step.
-		frame.label = QString("%1 (Frame %2)").arg(filename).arg(frameNumber++);
+		frame.label = QStringLiteral("%1 (Frame %2)").arg(filename).arg(frameNumber++);
 		frames.push_back(frame);
 
 		// Skip comment line.
@@ -162,7 +155,7 @@ void XYZImporter::FrameFinder::discoverFramesInFile(QVector<FileSourceImporter::
  * Guesses the mapping of input file columns to internal particle properties.
  * Naming conventions followed are those used by QUIP code <http://www.libatoms.org>
  *****************************************************************************/
-bool XYZImporter::mapVariableToProperty(InputColumnMapping& columnMapping, int column, QString name, int dataType, int vec)
+bool XYZImporter::mapVariableToProperty(ParticleInputColumnMapping& columnMapping, int column, QString name, int dataType, int vec)
 {
 	if(column <= columnMapping.size()) columnMapping.resize(column+1);
 	columnMapping[column].columnName = name;
@@ -259,7 +252,7 @@ FileSourceImporter::FrameDataPtr XYZImporter::FrameLoader::loadFile()
 			throw Exception(tr("Parsing error in line %1 of XYZ file. According to the XYZ format specification, the first line should contain the number of particles. This is not a valid integer number of particles:\n\n\"%2\"").arg(stream.lineNumber()).arg(stream.lineString().trimmed()));
 	}
 	if(numParticlesLong > (unsigned long long)std::numeric_limits<int>::max())
-		throw Exception(tr("Too many particles in XYZ file. This program version can read XYZ file with up to %1 particles only.").arg(std::numeric_limits<int>::max()));
+		throw Exception(tr("Too many particles in XYZ file. This program version can read XYZ files with up to %1 particles only.").arg(std::numeric_limits<int>::max()));
 
 	setProgressMaximum(numParticlesLong);
 	QString fileExcerpt = stream.lineString();
@@ -494,10 +487,10 @@ FileSourceImporter::FrameDataPtr XYZImporter::FrameLoader::loadFile()
 		if(frameData->detectedColumnMapping().size() == 4) {
 			if(std::none_of(frameData->detectedColumnMapping().begin(), frameData->detectedColumnMapping().end(),
 					[](const InputColumnInfo& col) { return col.isMapped(); })) {
-				frameData->detectedColumnMapping()[0].mapStandardColumn(ParticlesObject::TypeProperty);
-				frameData->detectedColumnMapping()[1].mapStandardColumn(ParticlesObject::PositionProperty, 0);
-				frameData->detectedColumnMapping()[2].mapStandardColumn(ParticlesObject::PositionProperty, 1);
-				frameData->detectedColumnMapping()[3].mapStandardColumn(ParticlesObject::PositionProperty, 2);
+				frameData->detectedColumnMapping().mapStandardColumn(0, ParticlesObject::TypeProperty);
+				frameData->detectedColumnMapping().mapStandardColumn(1, ParticlesObject::PositionProperty, 0);
+				frameData->detectedColumnMapping().mapStandardColumn(2, ParticlesObject::PositionProperty, 1);
+				frameData->detectedColumnMapping().mapStandardColumn(3, ParticlesObject::PositionProperty, 2);
 			}
 		}
 
@@ -508,19 +501,19 @@ FileSourceImporter::FrameDataPtr XYZImporter::FrameLoader::loadFile()
 	// the file constains column metadata.
 	if(_columnMapping.empty()) {
 		_columnMapping.resize(4);
-		_columnMapping[0].mapStandardColumn(ParticlesObject::TypeProperty);
-		_columnMapping[1].mapStandardColumn(ParticlesObject::PositionProperty, 0);
-		_columnMapping[2].mapStandardColumn(ParticlesObject::PositionProperty, 1);
-		_columnMapping[3].mapStandardColumn(ParticlesObject::PositionProperty, 2);
+		_columnMapping.mapStandardColumn(0, ParticlesObject::TypeProperty);
+		_columnMapping.mapStandardColumn(1, ParticlesObject::PositionProperty, 0);
+		_columnMapping.mapStandardColumn(2, ParticlesObject::PositionProperty, 1);
+		_columnMapping.mapStandardColumn(3, ParticlesObject::PositionProperty, 2);
 	}
 
 	// Parse data columns.
-	InputColumnReader columnParser(_columnMapping, *frameData, numParticlesLong);
+	InputColumnReader columnParser(_columnMapping, frameData->particles(), numParticlesLong);
 	try {
 		for(size_t i = 0; i < numParticlesLong; i++) {
 			if(!setProgressValueIntermittent(i)) return {};
 			stream.readLine();
-			columnParser.readParticle(i, stream.line());
+			columnParser.readElement(i, stream.line());
 		}
 	}
 	catch(Exception& ex) {
@@ -530,9 +523,9 @@ FileSourceImporter::FrameDataPtr XYZImporter::FrameLoader::loadFile()
 	// Since we created particle types on the go while reading the particles, the assigned particle type IDs
 	// depend on the storage order of particles in the file. We rather want a well-defined particle type ordering, that's
 	// why we sort them now according to their names.
-	columnParser.sortParticleTypes();
+	columnParser.sortElementTypes();
 
-	PropertyAccess<Point3> posProperty = frameData->findStandardParticleProperty(ParticlesObject::PositionProperty);
+	PropertyAccess<Point3> posProperty = frameData->particles().findStandardProperty(ParticlesObject::PositionProperty);
 	if(posProperty && numParticlesLong != 0) {
 		Box3 boundingBox;
 		boundingBox.addPoints(posProperty);
@@ -587,8 +580,7 @@ void XYZImporter::saveToStream(ObjectSaveStream& stream, bool excludeRecomputabl
 {
 	ParticleImporter::saveToStream(stream, excludeRecomputableData);
 
-	stream.beginChunk(0x01);
-	_columnMapping.saveToStream(stream);
+	stream.beginChunk(0x02);
 	stream.endChunk();
 }
 
@@ -599,20 +591,11 @@ void XYZImporter::loadFromStream(ObjectLoadStream& stream)
 {
 	ParticleImporter::loadFromStream(stream);
 
-	stream.expectChunk(0x01);
-	_columnMapping.loadFromStream(stream);
+	// For backward compatibility with OVITO 3.1:
+	if(stream.expectChunkRange(0x00, 0x02) == 0x01) {
+		stream >> _columnMapping.mutableValue();
+	}
 	stream.closeChunk();
-}
-
-/******************************************************************************
- * Creates a copy of this object.
- *****************************************************************************/
-OORef<RefTarget> XYZImporter::clone(bool deepCopy, CloneHelper& cloneHelper) const
-{
-	// Let the base class create an instance of this class.
-	OORef<XYZImporter> clone = static_object_cast<XYZImporter>(ParticleImporter::clone(deepCopy, cloneHelper));
-	clone->_columnMapping = this->_columnMapping;
-	return clone;
 }
 
 }	// End of namespace

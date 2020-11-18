@@ -5,8 +5,9 @@
 #ifndef GEMMI_MODEL_HPP_
 #define GEMMI_MODEL_HPP_
 
-#include <algorithm>  // for find_if, count_if
+#include <algorithm>  // for find_if, count_if, lower_bound
 #include <array>
+#include <bitset>
 #include <iterator>   // for back_inserter
 #include <map>        // for map
 #include <stdexcept>  // for out_of_range
@@ -77,6 +78,12 @@ template<typename T, typename M> std::vector<T> model_subchains(M* model) {
 // UnknownAny = any format (coordinate file for a monomer/ligand/chemcomp)
 enum class CoorFormat { Unknown, UnknownAny, Pdb, Mmcif, Mmjson, ChemComp };
 
+// options affecting how pdb file is read
+struct PdbReadOptions {
+  int max_line_length = 0;
+  bool split_chain_on_ter = false;
+};
+
 enum class EntityType : unsigned char {
   Unknown,
   Polymer,
@@ -86,29 +93,19 @@ enum class EntityType : unsigned char {
   Water
 };
 
-// number of different _entity_poly.type values in the PDB in mid-2017:
-//   168923 polypeptide(L)
-//   9905   polydeoxyribonucleotide
-//   4559   polyribonucleotide
-//   156    polydeoxyribonucleotide/polyribonucleotide hybrid
-//   57     polypeptide(D)
-//   18     polysaccharide(D)
-//   4      other
-//   2      peptide nucleic acid
-//   1      cyclic-pseudo-peptide
-//   0      polysaccharide(L)  (never used but present in mmcif_pdbx_v50.dic)
+// values corresponding to mmCIF _entity_poly.type
 enum class PolymerType : unsigned char {
-  Unknown, // unknown or not applicable
-  PeptideL,
-  PeptideD,
-  Dna,
-  Rna,
-  DnaRnaHybrid,
-  SaccharideD,
-  SaccharideL,
-  Pna, // artificial thing
-  CyclicPseudoPeptide,
-  Other,
+  Unknown,       // unknown or not applicable
+  PeptideL,      // polypeptide(L) in mmCIF (168923 values in the PDB in 2017)
+  PeptideD,      // polypeptide(D) (57 values)
+  Dna,           // polydeoxyribonucleotide (9905)
+  Rna,           // polyribonucleotide (4559)
+  DnaRnaHybrid,  // polydeoxyribonucleotide/polyribonucleotide hybrid (156)
+  SaccharideD,   // polysaccharide(D) (18)
+  SaccharideL,   // polysaccharide(L) (0)
+  Pna,           // peptide nucleic acid (2)
+  CyclicPseudoPeptide,  // cyclic-pseudo-peptide (1)
+  Other,         // other (4)
 };
 
 inline bool is_polypeptide(PolymerType pt) {
@@ -121,10 +118,20 @@ inline bool is_polynucleotide(PolymerType pt) {
 }
 
 struct Entity {
+  struct DbRef {
+    std::string db_name;
+    std::string accession_code;
+    std::string id_code;
+    std::string isoform;  // pdbx_db_isoform
+    SeqId seq_begin, seq_end;
+    SeqId db_begin, db_end;
+    SeqId::OptionalNum label_seq_begin, label_seq_end;
+  };
   std::string name;
   std::vector<std::string> subchains;
   EntityType entity_type = EntityType::Unknown;
   PolymerType polymer_type = PolymerType::Unknown;
+  std::vector<DbRef> dbrefs;
   // SEQRES or entity_poly_seq with microheterogeneity as comma-separated names
   std::vector<std::string> full_sequence;
 
@@ -148,38 +155,41 @@ struct Atom {
   int serial = 0;
   Position pos;
   float occ = 1.0f;
+  // ADP - in MX it's usual to give isotropic ADP as B and anisotropic as U
   float b_iso = 20.0f; // arbitrary default value
-  float u11=0, u22=0, u33=0, u12=0, u13=0, u23=0;
+  SMat33<float> aniso = {0, 0, 0, 0, 0, 0};
 
   char altloc_or(char null_char) const { return altloc ? altloc : null_char; }
   bool same_conformer(const Atom& other) const {
     return is_same_conformer(altloc, other.altloc);
   }
-  // same_group() is for use in UniqIter
-  bool same_group(const Atom& other) const { return name == other.name; }
+  // group_key() is used in UniqIter and similar tools
+  const std::string& group_key() const { return name; }
   bool has_altloc() const { return altloc != '\0'; }
-  bool has_anisou() const {
-    return u11 != 0.f || u22 != 0.f || u33 != 0.f ||
-           u12 != 0.f || u13 != 0.f || u23 != 0.f;
-  }
-  double b_iso_from_aniso() const {
-    return 8 * pi() * pi() / 3. * (u11 + u22 + u33);
+  double b_eq() const {
+    return 8 * pi() * pi() / 3. * aniso.trace();
   }
   bool is_hydrogen() const { return gemmi::is_hydrogen(element); }
+  // a method present in Atom, Residue, ... Structure - used in templates
+  Atom empty_copy() const { return Atom(*this); }
 };
 
-struct AtomGroup : MutableVectorSpan<Atom> {
-  using MutableVectorSpan::MutableVectorSpan;
-  std::string name() const { return size() != 0 ? front().name : ""; }
-  Atom& by_altloc(char alt) { return impl::get_by_altloc(*this, alt); }
+template<typename AtomType>
+struct AtomGroup_ : ItemGroup<AtomType> {
+  using ItemGroup<AtomType>::ItemGroup;
+  std::string name() const { return !this->empty() ? this->front().name : ""; }
+  AtomType& by_altloc(char alt) {
+    for (int i = 0; i != this->extent(); ++i) {
+      AtomType* a = &this->front() + i;
+      if (a->altloc == alt && (a->name == this->front().name))
+        return *a;
+    }
+    fail("No such altloc");
+  }
 };
 
-struct ConstAtomGroup : Span<const Atom> {
-  ConstAtomGroup(const Atom* begin, size_t n) : Span(begin, n) {}
-  ConstAtomGroup(const AtomGroup& o) : Span(o.begin(), o.size()) {}
-  std::string name() const { return size() != 0 ? front().name : ""; }
-  const Atom& by_altloc(char a) const { return impl::get_by_altloc(*this, a); }
-};
+using AtomGroup = AtomGroup_<Atom>;
+using ConstAtomGroup = AtomGroup_<const Atom>;
 
 // Sequence ID (sequence number + insertion code) + residue name + segment ID
 struct ResidueId {
@@ -187,8 +197,8 @@ struct ResidueId {
   std::string segment; // segid - up to 4 characters in the PDB file
   std::string name;
 
-  // checks for equality of sequence ID; used for first_conformation iterators
-  bool same_group(const ResidueId& o) const { return seqid == o.seqid; }
+  // used for first_conformation iterators, etc.
+  SeqId group_key() const { return seqid; }
 
   bool matches(const ResidueId& o) const {
     return seqid == o.seqid && segment == o.segment && name == o.name;
@@ -205,11 +215,23 @@ struct Residue : public ResidueId {
   EntityType entity_type = EntityType::Unknown;
   char het_flag = '\0';   // 'A' = ATOM, 'H' = HETATM, 0 = unspecified
   bool is_cis = false;    // bond to the next residue marked as cis
+  char flag = '\0';       // custom flag
   std::vector<Atom> atoms;
 
   Residue() = default;
   explicit Residue(const ResidueId& rid) noexcept : ResidueId(rid) {}
 
+  // copy all but atoms (children) - for use in templates
+  Residue empty_copy() const {
+    Residue res((ResidueId&)*this);
+    res.subchain = subchain;
+    res.label_seq = label_seq;
+    res.entity_type = entity_type;
+    res.het_flag = het_flag;
+    res.is_cis = is_cis;
+    res.flag = flag;
+    return res;
+  }
   std::vector<Atom>& children() { return atoms; }
   const std::vector<Atom>& children() const { return atoms; }
 
@@ -239,25 +261,21 @@ struct Residue : public ResidueId {
                                              char altloc, El el=El::X) {
     if (Atom* a = find_atom(atom_name, altloc, el))
       return atoms.begin() + (a - atoms.data());
-    fail("Atom to be removed not found.");
+    fail("Atom not found.");
   }
 
   AtomGroup get(const std::string& atom_name) {
-    auto func = [&](const Atom& a) { return a.name == atom_name; };
-    auto g_begin = std::find_if(atoms.begin(), atoms.end(), func);
-    if (g_begin == atoms.end())
-      fail("No such atom: " + atom_name);
-    auto g_end = std::find_if_not(g_begin, atoms.end(), func);
-    if (std::find_if(g_end, atoms.end(), func) != atoms.end())
-      fail("Non-consecutive alternative location of the atom");
-    return AtomGroup(atoms, &*g_begin, g_end - g_begin);
+    for (Atom& atom : atoms)
+      if (atom.name == atom_name)
+        return AtomGroup(&atom, atoms.data() + atoms.size());
+    fail("No such atom: " + atom_name);
   }
 
   Atom& sole_atom(const std::string& atom_name) {
     AtomGroup aa = get(atom_name);
     if (aa.size() != 1)
       fail("Multiple alternative atoms " + atom_name);
-    return aa[0];
+    return aa.front();
   }
 
   // short-cuts to access peptide backbone atoms
@@ -322,24 +340,21 @@ struct ConstResidueSpan : Span<const Residue> {
   int length() const {
     int length = (int) size();
     for (int n = length - 1; n > 0; --n)
-      if ((begin() + n)->same_group(*(begin() + n - 1)))
+      if ((begin() + n)->group_key() == (begin() + n - 1)->group_key())
         --length;
     return length;
   }
 
-  SeqId::OptionalNum extreme_num(bool label, bool min) const {
+  // sign=-1 for min, sign=1 for max
+  SeqId::OptionalNum extreme_num(bool label, int sign) const {
     SeqId::OptionalNum result;
     for (const Residue& r : *this) {
       if (auto num = label ? r.label_seq : r.seqid.num)
-        if (!result || (min ? int(num) < int(result) : int(num) > int(result)))
+        if (!result || sign * int(num) > sign * int(result))
           result = num;
     }
     return result;
   }
-  SeqId::OptionalNum min_seqnum() const { return extreme_num(false, true); }
-  SeqId::OptionalNum max_seqnum() const { return extreme_num(false, false); }
-  SeqId::OptionalNum min_label_seq() const { return extreme_num(true, true); }
-  SeqId::OptionalNum max_label_seq() const { return extreme_num(true, false); }
 
   ConstUniqProxy<Residue, ConstResidueSpan> first_conformer() const {
     return {*this};
@@ -354,6 +369,47 @@ struct ConstResidueSpan : Span<const Residue> {
   }
 
   ConstResidueGroup find_residue_group(SeqId id) const;
+
+  // We assume residues are ordered. It works (approximately) also with
+  // missing numbers which can be present in DBREF.
+  SeqId label_seq_id_to_auth(SeqId::OptionalNum label_seq_id) const {
+    if (size() == 0)
+      throw std::out_of_range("label_seq_id_to_auth(): empty span");
+    auto it = std::lower_bound(begin(), end(), label_seq_id,
+        [](const Residue& r, SeqId::OptionalNum v){ return r.label_seq < v; });
+    if (it == end())
+      --it;
+    else if (it->label_seq == label_seq_id)
+      return it->seqid;
+    else if (it != begin() &&
+             label_seq_id - (it-1)->label_seq < it->label_seq - label_seq_id)
+      --it;
+    return {it->seqid.num + (label_seq_id - it->label_seq), ' '};
+  }
+  // The residue numbers (auth) are sometimes not ordered.
+  // That is why we use this multi-step heuristic.
+  SeqId::OptionalNum auth_seq_id_to_label(SeqId auth_seq_id) const {
+    if (size() == 0)
+      throw std::out_of_range("auth_seq_id_to_label(): empty span");
+    for (const Residue& r : *this)
+      if (r.seqid == auth_seq_id)
+        return r.label_seq;
+    const_iterator it;
+    if (auth_seq_id.num < front().seqid.num) {
+      it = begin();
+    } else if (back().seqid.num < auth_seq_id.num) {
+      it = end() - 1;
+    } else {
+      it = std::lower_bound(begin(), end(), auth_seq_id.num,
+        [](const Residue& r, SeqId::OptionalNum v){ return r.seqid.num < v; });
+      while (it != end() && it->seqid.num == auth_seq_id.num &&
+             it->seqid.icode != auth_seq_id.icode)
+        ++it;
+      if (it == end())
+        --it;
+    }
+    return it->label_seq + (auth_seq_id.num - it->seqid.num);
+  }
 };
 
 // ResidueSpan represents consecutive residues within the same chain.
@@ -361,20 +417,27 @@ struct ConstResidueSpan : Span<const Residue> {
 // and get_subchain().
 struct ResidueSpan : MutableVectorSpan<Residue> {
   using Parent = MutableVectorSpan<Residue>;
+  struct GroupingProxy;
   ResidueSpan() = default;
   ResidueSpan(Parent&& span) : Parent(std::move(span)) {}
   ResidueSpan(vector_type& v, iterator begin, std::size_t n)
     : Parent(v, begin, n) {}
   int length() const { return const_().length(); }
-  SeqId::OptionalNum min_seqnum() const { return const_().min_seqnum(); }
-  SeqId::OptionalNum max_seqnum() const { return const_().max_seqnum(); }
-  SeqId::OptionalNum min_label_seq() const { return const_().min_label_seq(); }
-  SeqId::OptionalNum max_label_seq() const { return const_().max_label_seq(); }
+  SeqId::OptionalNum extreme_num(bool label, int sign) const {
+    return const_().extreme_num(label, sign);
+  }
   UniqProxy<Residue, ResidueSpan> first_conformer() { return {*this}; }
   ConstUniqProxy<Residue, ResidueSpan> first_conformer() const { return {*this}; }
+  GroupingProxy residue_groups();
   const std::string& subchain_id() const { return const_().subchain_id(); }
   ResidueGroup find_residue_group(SeqId id);
   ConstResidueGroup find_residue_group(SeqId id) const;
+  SeqId label_seq_id_to_auth(SeqId::OptionalNum label_seq_id) const {
+    return const_().label_seq_id_to_auth(label_seq_id);
+  }
+  SeqId::OptionalNum auth_seq_id_to_label(SeqId auth_seq_id) const {
+    return const_().auth_seq_id_to_label(auth_seq_id);
+  }
 private:
   ConstResidueSpan const_() const { return ConstResidueSpan(begin(), size()); }
 };
@@ -405,6 +468,27 @@ struct ConstResidueGroup : ConstResidueSpan {
 inline ResidueGroup ResidueSpan::find_residue_group(SeqId id) {
   return ResidueSpan(subspan([&](const Residue& r) { return r.seqid == id; }));
 }
+inline ConstResidueGroup ResidueSpan::find_residue_group(SeqId id) const {
+  return const_().find_residue_group(id);
+}
+inline ConstResidueGroup ConstResidueSpan::find_residue_group(SeqId id) const {
+  return ConstResidueSpan(subspan([&](const Residue& r) { return r.seqid == id; }));
+}
+
+struct ResidueSpan::GroupingProxy {
+  ResidueSpan& span;
+  using iterator = GroupingIter<ResidueSpan, ResidueGroup>;
+  iterator begin() {
+    return ++iterator{ResidueGroup(span.sub(span.begin(), span.begin()))};
+  }
+  iterator end() {
+    return iterator{ResidueGroup(span.sub(span.end(), span.end()))};
+  }
+};
+
+inline ResidueSpan::GroupingProxy ResidueSpan::residue_groups() {
+  return {*this};
+}
 
 
 namespace impl {
@@ -429,10 +513,12 @@ struct Chain {
   explicit Chain(std::string cname) noexcept : name(cname) {}
 
   ResidueSpan whole() {
-    return ResidueSpan(residues, &residues.at(0), residues.size());
+    auto begin = residues.empty() ? nullptr : &residues.at(0);
+    return ResidueSpan(residues, begin, residues.size());
   }
   ConstResidueSpan whole() const {
-    return ConstResidueSpan(&residues.at(0), residues.size());
+    auto begin = residues.empty() ? nullptr : &residues.at(0);
+    return ConstResidueSpan(begin, residues.size());
   }
 
   template<typename F> ResidueSpan get_residue_span(F&& func) {
@@ -497,16 +583,24 @@ struct Chain {
 
   Residue* find_or_add_residue(const ResidueId& rid);
   void append_residues(std::vector<Residue> new_resi, int min_sep=0);
+
+  // methods present in Structure, Model, ... - used in templates
+  Chain empty_copy() const { return Chain(name); }
   std::vector<Residue>& children() { return residues; }
   const std::vector<Residue>& children() const { return residues; }
+
+  // Returns false only for alternative conformation (microheterogeneity).
+  bool is_first_in_group(const Residue& res) const {
+    return &res == residues.data() || (&res - 1)->group_key() != res.group_key();
+  }
 
   // Returns the previous residue or nullptr.
   // Got complicated by handling of multi-conformations / microheterogeneity.
   const Residue* previous_residue(const Residue& res) const {
     const Residue* start = residues.data();
     for (const Residue* p = &res; p != start; )
-      if (!res.same_group(*--p)) {
-        while (p != start && p->same_group(*(p-1)) &&
+      if (res.group_key() != (--p)->group_key()) {
+        while (p != start && p->group_key() == (p-1)->group_key() &&
                (res.atoms.at(0).altloc == '\0' || !res.same_conformer(*p)))
           --p;
         return p;
@@ -518,8 +612,9 @@ struct Chain {
   const Residue* next_residue(const Residue& res) const {
     const Residue* end = residues.data() + residues.size();
     for (const Residue* p = &res + 1; p != end; ++p)
-      if (!res.same_group(*p)) {
-        while (p+1 != end && p->same_group(*(p+1)) && !res.same_conformer(*p))
+      if (res.group_key() != p->group_key()) {
+        while (p+1 != end && p->group_key() == (p+1)->group_key() &&
+               !res.same_conformer(*p))
           ++p;
         return p;
       }
@@ -577,9 +672,11 @@ struct AtomAddress {
   char altloc = '\0';
 
   AtomAddress() = default;
+  AtomAddress(const std::string& ch, const SeqId& seqid, const std::string& res,
+              const std::string& atom, char alt='\0')
+    : chain_name(ch), res_id({seqid, "", res}), atom_name(atom), altloc(alt) {}
   AtomAddress(const Chain& ch, const Residue& res, const Atom& at)
-    : chain_name(ch.name), res_id(res), atom_name(at.name), altloc(at.altloc)
-  {}
+    : chain_name(ch.name), res_id(res), atom_name(at.name), altloc(at.altloc) {}
 
   bool operator==(const AtomAddress& o) const {
     return chain_name == o.chain_name && res_id.matches(o.res_id) &&
@@ -623,11 +720,12 @@ inline bool atom_matches(const const_CRA& cra, const AtomAddress& addr) {
 // Symmetry operators are not trusted and not stored.
 // We assume that the nearest symmetry mate is connected.
 struct Connection {
-  enum Type { Covale, Disulf, Hydrog, MetalC, None };
+  enum Type { Covale, Disulf, Hydrog, MetalC, Unknown };
   std::string name;
-  Type type = None;
+  std::string link_id;  // _struct_conn.ccp4_link_id (== _chem_link.id)
+  Type type = Unknown;
   Asu asu = Asu::Any;
-  AtomAddress atom[2];
+  AtomAddress partner1, partner2;
   double reported_distance = 0.0;
 };
 
@@ -688,8 +786,7 @@ class CraIterPolicy {
 public:
   typedef CraT value_type;
   CraIterPolicy() : chains_end(nullptr), cra{nullptr, nullptr, nullptr} {}
-  CraIterPolicy(const Chain* end, CraT cra_)
-    : chains_end(end), cra(cra_) {}
+  CraIterPolicy(const Chain* end, CraT cra_) : chains_end(end), cra(cra_) {}
   void increment() {
     if (cra.atom)
       if (++cra.atom == vector_end_ptr(cra.residue->atoms)) {
@@ -720,28 +817,35 @@ private:
   CraT cra;
 };
 
-struct ConstCraProxy {
-  const std::vector<Chain>& chains;
-  using iterator = BidirIterator<CraIterPolicy<const_CRA>>;
+template<typename CraT, typename ChainsRefT>
+struct CraProxy_ {
+  ChainsRefT chains;
+  using iterator = BidirIterator<CraIterPolicy<CraT>>;
   iterator begin() {
-    auto chain = &chains.at(0);
-    auto residue = &chain->residues.at(0);
-    auto atom = &residue->atoms.at(0);
-    return CraIterPolicy<const_CRA>{vector_end_ptr(chains), {chain, residue, atom}};
+    CraT cra;
+    cra.chain = &chains.at(0);
+    cra.residue = &cra.chain->residues.at(0);
+    cra.atom = &cra.residue->atoms.at(0);
+    return CraIterPolicy<CraT>{vector_end_ptr(chains), cra};
   }
   iterator end() { return {}; }
 };
+
+using CraProxy = CraProxy_<CRA, std::vector<Chain>&>;
+using ConstCraProxy = CraProxy_<const_CRA, const std::vector<Chain>&>;
 
 struct Model {
   static const char* what() { return "Model"; }
   std::string name;  // actually an integer number
   std::vector<Chain> chains;
-  std::vector<Connection> connections;
   explicit Model(std::string mname) noexcept : name(mname) {}
 
   // Returns the first chain with given name, or nullptr.
   Chain* find_chain(const std::string& chain_name) {
     return impl::find_or_null(chains, chain_name);
+  }
+  const Chain* find_chain(const std::string& chain_name) const {
+    return const_cast<Model*>(this)->find_chain(chain_name);
   }
 
   // Returns the last chain with given name, or nullptr.
@@ -783,6 +887,19 @@ struct Model {
     return impl::model_subchains<ConstResidueSpan>(this);
   }
 
+  std::map<std::string, std::string> subchain_to_chain() const {
+    std::map<std::string, std::string> mapping;
+    for (const Chain& chain : chains) {
+      std::string prev;
+      for (const Residue& res : chain.residues)
+        if (!res.subchain.empty() && res.subchain != prev) {
+          prev = res.subchain;
+          mapping[res.subchain] = chain.name;
+        }
+    }
+    return mapping;
+  }
+
   Residue* find_residue(const std::string& chain_name, const ResidueId& rid) {
     for (Chain& chain : chains)
       if (chain.name == chain_name)
@@ -815,10 +932,6 @@ struct Model {
     return names;
   }
 
-  Connection* find_connection_by_name(const std::string& conn_name) {
-    return impl::find_or_null(connections, conn_name);
-  }
-
   CRA find_cra(const AtomAddress& address) {
     for (Chain& chain : chains)
       if (chain.name == address.chain_name)
@@ -835,6 +948,7 @@ struct Model {
     return const_cast<Model*>(this)->find_cra(address);
   }
 
+  CraProxy all() { return {chains}; }
   ConstCraProxy all() const { return {chains}; }
 
   Atom* find_atom(const AtomAddress& address) { return find_cra(address).atom; }
@@ -846,6 +960,17 @@ struct Model {
               r && a ? static_cast<int>(a - r->atoms.data()) : -1 }};
   }
 
+  std::bitset<(size_t)El::END> present_elements() const {
+    std::bitset<(size_t)El::END> table;
+    for (const Chain& chain : chains)
+      for (const Residue& res : chain.residues)
+        for (const Atom& a : res.atoms)
+          table.set(a.element.ordinal());
+    return table;
+  }
+
+  // methods present in Structure, Model, ... - used in templates
+  Model empty_copy() const { return Model(name); }
   std::vector<Chain>& children() { return chains; }
   const std::vector<Chain>& children() const { return chains; }
 };
@@ -886,13 +1011,17 @@ struct Assembly {
   Assembly(const std::string& name_) : name(name_) {}
 };
 
-inline const Entity* get_entity_of(const ConstResidueSpan& sub,
-                                   const std::vector<Entity>& entities) {
-  if (sub && !sub.subchain_id().empty())
-    for (const Entity& ent : entities)
-      if (in_vector(sub.subchain_id(), ent.subchains))
+inline Entity* find_entity(const std::string& subchain_id,
+                           std::vector<Entity>& entities) {
+  if (!subchain_id.empty())
+    for (Entity& ent : entities)
+      if (in_vector(subchain_id, ent.subchains))
         return &ent;
   return nullptr;
+}
+inline const Entity* find_entity(const std::string& subchain_id,
+                                 const std::vector<Entity>& entities) {
+  return find_entity(subchain_id, const_cast<std::vector<Entity>&>(entities));
 }
 
 struct Structure {
@@ -902,6 +1031,7 @@ struct Structure {
   std::vector<Model> models;
   std::vector<NcsOp> ncs;
   std::vector<Entity> entities;
+  std::vector<Connection> connections;
   std::vector<Helix> helices;
   std::vector<Sheet> sheets;
   std::vector<Assembly> assemblies;
@@ -920,11 +1050,25 @@ struct Structure {
 
   CoorFormat input_format = CoorFormat::Unknown;
 
+  const SpaceGroup* find_spacegroup() const {
+    return find_spacegroup_by_name(spacegroup_hm, cell.alpha, cell.gamma);
+  }
+
   const std::string& get_info(const std::string& tag) const {
     static const std::string empty;
     auto it = info.find(tag);
     return it != info.end() ? it->second : empty;
   }
+
+  Model& first_model() {
+    if (models.empty())
+      fail("no structural models");
+    return models[0];
+  }
+  const Model& first_model() const {
+    return const_cast<Structure*>(this)->first_model();
+  }
+
   Model* find_model(const std::string& model_name) {
     return impl::find_or_null(models, model_name);
   }
@@ -948,11 +1092,36 @@ struct Structure {
     return const_cast<Structure*>(this)->get_entity(ent_id);
   }
 
-  const Entity* get_entity_of(const ConstResidueSpan& sub) const {
-    return gemmi::get_entity_of(sub, entities);
-  }
   Entity* get_entity_of(const ConstResidueSpan& sub) {
-    return const_cast<Entity*>(gemmi::get_entity_of(sub, entities));
+    return sub ? find_entity(sub.subchain_id(), entities) : nullptr;
+  }
+  const Entity* get_entity_of(const ConstResidueSpan& sub) const {
+    return const_cast<Structure*>(this)->get_entity_of(sub);
+  }
+
+  Assembly* find_assembly(const std::string& assembly_id) {
+    return impl::find_or_null(assemblies, assembly_id);
+  }
+
+  Connection* find_connection_by_name(const std::string& conn_name) {
+    return impl::find_or_null(connections, conn_name);
+  }
+
+  Connection* find_connection_by_cra(const const_CRA& cra1,
+                                     const const_CRA& cra2) {
+    for (Connection& c : connections)
+      if ((atom_matches(cra1, c.partner1) && atom_matches(cra2, c.partner2)) ||
+          (atom_matches(cra1, c.partner2) && atom_matches(cra2, c.partner1)))
+        return &c;
+    return nullptr;
+  }
+
+  Connection* find_connection(const AtomAddress& a1, const AtomAddress& a2) {
+    for (Connection& c : connections)
+      if ((a1 == c.partner1 && a2 == c.partner2) ||
+          (a1 == c.partner2 && a2 == c.partner1))
+        return &c;
+    return nullptr;
   }
 
   double get_ncs_multiplier() const {
@@ -966,8 +1135,30 @@ struct Structure {
       model.merge_chain_parts(min_sep);
   }
 
+  // copy all but models (in general, empty_copy copies all but children)
+  Structure empty_copy() const {
+    Structure st;
+    st.name = name;
+    st.cell = cell;
+    st.spacegroup_hm = spacegroup_hm;
+    st.ncs = ncs;
+    st.entities = entities;
+    st.connections = connections;
+    st.helices = helices;
+    st.sheets = sheets;
+    st.assemblies = assemblies;
+    st.meta = meta;
+    st.has_origx = has_origx;
+    st.origx = origx;
+    st.info = info;
+    st.raw_remarks = raw_remarks;
+    st.resolution = resolution;
+    st.input_format = input_format;
+    return st;
+  }
   std::vector<Model>& children() { return models; }
   const std::vector<Model>& children() const { return models; }
+
   void setup_cell_images();
 };
 
@@ -986,13 +1177,17 @@ inline Residue* Chain::find_or_add_residue(const ResidueId& rid) {
 }
 
 inline void Chain::append_residues(std::vector<Residue> new_resi, int min_sep) {
+  if (new_resi.empty())
+    return;
   if (min_sep > 0) {
     ConstResidueSpan new_span(&new_resi[0], new_resi.size());
-    auto diff = new_span.min_seqnum() - whole().max_seqnum();
+    // adjust sequence numbers if necessary
+    auto diff = new_span.extreme_num(false, -1) - whole().extreme_num(false, 1);
     if (diff && int(diff) < min_sep)
       for (Residue& res : new_resi)
         res.seqid.num += min_sep - int(diff);
-    diff = new_span.min_label_seq() - whole().max_label_seq();
+    // adjust label_seq_id if necessary
+    diff = new_span.extreme_num(true, -1) - whole().extreme_num(true, 1);
     if (diff && int(diff) < min_sep)
       for (Residue& res : new_resi)
         res.label_seq += min_sep - int(diff);
@@ -1001,7 +1196,8 @@ inline void Chain::append_residues(std::vector<Residue> new_resi, int min_sep) {
 }
 
 inline void Structure::setup_cell_images() {
-  cell.set_cell_images_from_spacegroup(find_spacegroup_by_name(spacegroup_hm));
+  const SpaceGroup* sg = find_spacegroup();
+  cell.set_cell_images_from_spacegroup(sg);
 
   // Strict NCS from MTRIXn.
   size_t n = cell.images.size();

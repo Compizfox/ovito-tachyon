@@ -68,20 +68,39 @@
     <para>
       The clusters identified by the modifier are numbered from 1 to <emphasis>N</emphasis>, the total number of clusters.
       The algorithm assigns each input particle to one of these clusters and outputs this information as a new particle property named <literal>Cluster</literal>.
-      Note that the ordering of clusters is arbitrary by default and can depend on the storage order of input particles.
-      You can activate the <emphasis>Sort clusters by size</emphasis> option to request the ordering of cluster IDs by descending particle count.
-      This guarantees that the first cluster (ID 1) will be the one having the largest number of particles.
+      Note that the ordering of clusters is arbitrary by default and will generally depend on the storage order of input particles.
+      You can, however, activate the <emphasis>Sort clusters by size</emphasis> option to request the sorting of cluster IDs by descending particle count.
+      This option guarantees that the first cluster (ID 1) will be the largest one in the system, i.e. the one consisting of the largest number of particles.
     </para>
   </simplesect>
 
   <simplesect>
-    <title>Center of mass calculation</title>
+    <title>Calculation of centers of mass</title>
     <para>
-      The modifier can optionally compute the center of mass of each cluster and output this information as an additional column
-      in the generated clusters list (see below). Note that the current program version does not take the particle masses into account in the calculation but 
-      uses the same uniform weight for every particle. The center of mass of a cluster cut by a periodic simulation
-      cell boundary will be correctly computed. However, if a cluster is infinite in the sense that it reconnects to itself through the periodic
+      The modifier provides the option to compute the center of mass of each cluster. The coordinates will be output as an additional column
+      in the generated clusters table (see below). The center of mass of clusters cut by a periodic simulation
+      cell boundary will be correctly computed. However, if the extent of a cluster is infinite in the sense that it reconnects to itself through the periodic
       boundaries of the simulation domain, the results will be undefined.
+      Since program release 3.2, OVITO takes into account the individual particle masses when calculting the center of mass.
+      The mass information will be taken from the <literal>Mass</literal> property of individual particles (if present) or
+      from the mass value set for each particle type. If neither the <literal>Mass</literal> particle property is present
+      nor at least one particle type with a positive mass, then the algorithm assumes that all particles to have the same uniform weight.
+    </para>
+  </simplesect>
+
+  <simplesect>
+    <title>Calculation of gyration radius and gyration tensor</title>
+    <para>
+      Furthermore, the modifier can compute the <link xlink:href="https://en.wikipedia.org/wiki/Radius_of_gyration">radius of gyration</link> 
+      of each cluster as well as the <link xlink:href="https://en.wikipedia.org/wiki/Gyration_tensor">gyration tensor</link>.
+      Both quantities will appear as additional columns in the generated table of clusters. 
+      The symmetric gyration tensor has six independent components: xx, yy, zz, xy, xz, yz (in simulation units of length squared).
+      The data table is accessible in the <link linkend="data_inspector.data_tables">data inspector panel</link>:
+      <screenshot><mediaobject><imageobject>
+        <imagedata fileref="images/modifiers/cluster_analysis_table.png" format="PNG" scale="160" />
+      </imageobject></mediaobject></screenshot>
+      The calculation of the radius of gyration and the gyration tensor in OVITO follows the <link xlink:href="https://lammps.sandia.gov/doc/compute_gyration.html">compute gyration</link> command 
+      found in the LAMMPS simulation code. It takes into account the individual particle masses (if present) or the masses assigned to the particle types (if present).
     </para>
   </simplesect>
 
@@ -150,10 +169,10 @@
         <term>Cluster size list and centers of mass</term>
         <listitem>
           <para>
-            The modifiers outputs the list of identified clusters as a <link linkend="scene_objects.data_table">data table</link> named <literal>Clusters</literal>,
-            which includes each cluster's size (number of particles) and center of mass (if calculation is enabled).
-            You can view this table in the <link linkend="data_inspector.data_tables">data inspector panel</link> of OVITO by pressing the <guibutton>Show list of clusters</guibutton>
-            button of the modifier. The data inspector panel provides functions for exporting the table to a text file.
+            The modifiers outputs the list of identified clusters as a <link linkend="scene_objects.data_table">data table</link>,
+            which consists of one row per cluster and columns for the cluster size (number of particles), center of mass and radius of gyration (if their calculation is enabled).
+            You can open this table in the <link linkend="data_inspector.data_tables">data inspector panel</link> of OVITO by pressing the <guibutton>Show list of clusters</guibutton>
+            button of the modifier. The data inspector panel provides a function for exporting the table data to a text file.
           </para>
         </listitem>
       </varlistentry>

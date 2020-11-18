@@ -25,10 +25,14 @@ struct ReflnBlock {
   cif::Loop* diffrn_refln_loop = nullptr;
   cif::Loop* default_loop = nullptr;
 
+  ReflnBlock() = default;
+  ReflnBlock(ReflnBlock&& rblock_) = default;
   ReflnBlock(cif::Block&& block_) : block(block_) {
     entry_id = cif::as_string(block.find_value("_entry.id"));
     impl::set_cell_from_mmcif(block, cell);
-    spacegroup = impl::read_spacegroup_from_block(block);
+    if (const std::string* hm = impl::find_spacegroup_hm_value(block))
+      spacegroup = find_spacegroup_by_name(cif::as_string(*hm),
+                                           cell.alpha, cell.gamma);
     cell.set_cell_images_from_spacegroup(spacegroup);
     const char* wave_tag = "_diffrn_radiation_wavelength.wavelength";
     cif::Column wave_col = block.find_values(wave_tag);
@@ -37,12 +41,26 @@ struct ReflnBlock {
     diffrn_refln_loop = block.find_loop("_diffrn_refln.index_h").get_loop();
     default_loop = refln_loop ? refln_loop : diffrn_refln_loop;
   }
+  ReflnBlock& operator=(ReflnBlock&&) = default;
+  ReflnBlock& operator=(const ReflnBlock& o) {
+    block = o.block;
+    entry_id = o.entry_id;
+    cell = o.cell;
+    spacegroup = o.spacegroup;
+    wavelength = o.wavelength;
+    if (o.refln_loop)
+      refln_loop = block.find_loop("_refln.index_h").get_loop();
+    if (o.diffrn_refln_loop)
+      diffrn_refln_loop = block.find_loop("_diffrn_refln.index_h").get_loop();
+    default_loop = refln_loop ? refln_loop : diffrn_refln_loop;
+    return *this;
+  }
 
   bool ok() const { return default_loop != nullptr; }
   void check_ok() const { if (!ok()) fail("Invalid ReflnBlock"); }
 
-  // position after "_refln." or "_diffrn_refln".
-  int tag_offset() const { return refln_loop ? 7 : 13; }
+  // position after "_refln." or "_diffrn_refln."
+  int tag_offset() const { return refln_loop ? 7 : 14; }
 
   void use_unmerged(bool unmerged) {
     default_loop = unmerged ? diffrn_refln_loop : refln_loop;
@@ -89,9 +107,9 @@ struct ReflnBlock {
              get_column_index("index_l")}};
   }
 
-  std::vector<std::array<int,3>> make_index_vector() const {
+  std::vector<Miller> make_miller_vector() const {
     auto hkl_idx = get_hkl_column_indices();
-    std::vector<std::array<int,3>> v(default_loop->length());
+    std::vector<Miller> v(default_loop->length());
     for (size_t j = 0, n = 0; j != v.size(); j++, n += default_loop->width())
       for (int i = 0; i != 3; ++i)
         v[j][i] = cif::as_int(default_loop->values[n + hkl_idx[i]]);
@@ -104,12 +122,19 @@ struct ReflnBlock {
     auto hkl_idx = get_hkl_column_indices();
     std::vector<double> r(default_loop->length());
     for (size_t j = 0, n = 0; j != r.size(); j++, n += default_loop->width()) {
-      int h = cif::as_int(default_loop->values[n + hkl_idx[0]]);
-      int k = cif::as_int(default_loop->values[n + hkl_idx[1]]);
-      int l = cif::as_int(default_loop->values[n + hkl_idx[2]]);
-      r[j] = cell.calculate_1_d2(h, k, l);
+      Miller hkl;
+      for (int i = 0; i != 3; ++i)
+        hkl[i] = cif::as_int(default_loop->values[n + hkl_idx[i]]);
+      r[j] = cell.calculate_1_d2(hkl);
     }
     return r;
+  }
+
+  std::vector<double> make_d_vector() const {
+    std::vector<double> vec = make_1_d2_vector();
+    for (double& d : vec)
+      d = 1.0 / std::sqrt(d);
+    return vec;
   }
 };
 
@@ -139,7 +164,15 @@ inline ReflnBlock get_refln_block(std::vector<cif::Block>&& blocks,
   const SpaceGroup* first_sg = nullptr;
   for (cif::Block& block : blocks) {
     if (!first_sg)
-      first_sg = impl::read_spacegroup_from_block(block);
+      if (const std::string* hm = impl::find_spacegroup_hm_value(block)) {
+        first_sg = find_spacegroup_by_name(cif::as_string(*hm));
+        if (first_sg && first_sg->ext == 'H') {
+          UnitCell cell;
+          impl::set_cell_from_mmcif(block, cell);
+          first_sg = find_spacegroup_by_name(cif::as_string(*hm),
+                                             cell.alpha, cell.gamma);
+        }
+      }
     if (block_name && block.name != block_name)
       continue;
     if (cif::Loop* loop = block.find_loop("_refln.index_h").get_loop())
@@ -154,18 +187,41 @@ inline ReflnBlock get_refln_block(std::vector<cif::Block>&& blocks,
   fail("Required block or tags not found in the SF-mmCIF file.");
 }
 
+inline ReflnBlock hkl_cif_as_refln_block(cif::Block& block) {
+  ReflnBlock rb;
+  rb.block.swap(block);
+  rb.entry_id = rb.block.name;
+  impl::set_cell_from_mmcif(rb.block, rb.cell, /*mmcif=*/false);
+  const char* hm_tag = "_symmetry_space_group_name_H-M";
+  if (const std::string* hm = block.find_value(hm_tag))
+    rb.spacegroup = find_spacegroup_by_name(cif::as_string(*hm),
+                                            rb.cell.alpha, rb.cell.gamma);
+  rb.cell.set_cell_images_from_spacegroup(rb.spacegroup);
+  rb.refln_loop = rb.block.find_loop("_refln_index_h").get_loop();
+  rb.default_loop = rb.refln_loop;
+  return rb;
+}
+
 // Abstraction of data source, cf. MtzDataProxy.
 struct ReflnDataProxy {
   const ReflnBlock& rb_;
-  const cif::Loop& loop() const { rb_.check_ok(); return *rb_.default_loop; }
-  bool ok() const { return rb_.ok(); }
-  std::array<size_t,3> hkl_col() const { return rb_.get_hkl_column_indices(); }
+  std::array<size_t,3> hkl_cols_;
+  explicit ReflnDataProxy(const ReflnBlock& rb)
+    : rb_(rb), hkl_cols_(rb_.get_hkl_column_indices()) {}
   size_t stride() const { return loop().tags.size(); }
   size_t size() const { return loop().values.size(); }
-  int get_int(size_t n) const { return cif::as_int(loop().values[n]); }
+  using num_type = double;
   double get_num(size_t n) const { return cif::as_number(loop().values[n]); }
   const UnitCell& unit_cell() const { return rb_.cell; }
   const SpaceGroup* spacegroup() const { return rb_.spacegroup; }
+  Miller get_hkl(size_t offset) const {
+    return {{get_int(offset + hkl_cols_[0]),
+             get_int(offset + hkl_cols_[1]),
+             get_int(offset + hkl_cols_[2])}};
+  }
+private:
+  const cif::Loop& loop() const { rb_.check_ok(); return *rb_.default_loop; }
+  int get_int(size_t n) const { return cif::as_int(loop().values[n]); }
 };
 
 } // namespace gemmi

@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Copyright 2019 Alexander Stukowski
+//  Copyright 2020 Alexander Stukowski
 //
 //  This file is part of OVITO (Open Visualization Tool).
 //
@@ -44,6 +44,7 @@ DEFINE_PROPERTY_FIELD(SurfaceMeshVis, showCap);
 DEFINE_PROPERTY_FIELD(SurfaceMeshVis, smoothShading);
 DEFINE_PROPERTY_FIELD(SurfaceMeshVis, reverseOrientation);
 DEFINE_PROPERTY_FIELD(SurfaceMeshVis, highlightEdges);
+DEFINE_PROPERTY_FIELD(SurfaceMeshVis, surfaceIsClosed);
 DEFINE_REFERENCE_FIELD(SurfaceMeshVis, surfaceTransparencyController);
 DEFINE_REFERENCE_FIELD(SurfaceMeshVis, capTransparencyController);
 SET_PROPERTY_FIELD_LABEL(SurfaceMeshVis, surfaceColor, "Surface color");
@@ -54,6 +55,7 @@ SET_PROPERTY_FIELD_LABEL(SurfaceMeshVis, surfaceTransparencyController, "Surface
 SET_PROPERTY_FIELD_LABEL(SurfaceMeshVis, capTransparencyController, "Cap transparency");
 SET_PROPERTY_FIELD_LABEL(SurfaceMeshVis, reverseOrientation, "Flip surface orientation");
 SET_PROPERTY_FIELD_LABEL(SurfaceMeshVis, highlightEdges, "Highlight edges");
+SET_PROPERTY_FIELD_LABEL(SurfaceMeshVis, surfaceIsClosed, "Closed surface");
 SET_PROPERTY_FIELD_UNITS_AND_RANGE(SurfaceMeshVis, surfaceTransparencyController, PercentParameterUnit, 0, 1);
 SET_PROPERTY_FIELD_UNITS_AND_RANGE(SurfaceMeshVis, capTransparencyController, PercentParameterUnit, 0, 1);
 
@@ -68,7 +70,8 @@ SurfaceMeshVis::SurfaceMeshVis(DataSet* dataset) : TransformingDataVis(dataset),
 	_showCap(true),
 	_smoothShading(true),
 	_reverseOrientation(false),
-	_highlightEdges(false)
+	_highlightEdges(false),
+	_surfaceIsClosed(true)
 {
 	setSurfaceTransparencyController(ControllerManager::createFloatController(dataset));
 	setCapTransparencyController(ControllerManager::createFloatController(dataset));
@@ -344,7 +347,7 @@ std::shared_ptr<SurfaceMeshVis::PrepareSurfaceEngine> SurfaceMeshVis::createSurf
 		mesh->cuttingPlanes(),
 		smoothShading(),
 		surfaceColor(),
-		true);
+		surfaceIsClosed());
 }
 
 /******************************************************************************
@@ -515,17 +518,104 @@ bool SurfaceMeshVis::PrepareSurfaceEngine::buildSurfaceTriangleMesh()
 	nextProgressSubStep();
 
 	// Convert vertex positions to reduced coordinates and transfer them to the output mesh.
-	SurfaceMeshData::vertex_index vidx = 0;
-	for(Point3& p : _surfaceMesh.vertices()) {
-		p = cell().absoluteToReduced(_inputMesh.vertexPosition(vidx++));
-		OVITO_ASSERT(std::isfinite(p.x()) && std::isfinite(p.y()) && std::isfinite(p.z()));
+	OVITO_ASSERT(_surfaceMesh.vertices().size() == _inputMesh.vertexCount());
+	if(cell().isValid()) {
+		SurfaceMeshData::vertex_index vidx = 0;
+		for(Point3& p : _surfaceMesh.vertices()) {
+			p = cell().absoluteToReduced(_inputMesh.vertexPosition(vidx++));
+			OVITO_ASSERT(std::isfinite(p.x()) && std::isfinite(p.y()) && std::isfinite(p.z()));
+		}
+	}
+
+	// Subdivide quadrilaterals, formed by pairs of adjacent triangles, into four smaller triangles 
+	// in order to obtain a more symmetric interpolation of vertex colors. This is needed for 
+	// correct visualization of voxel grid cross sections.
+	if(_surfaceMesh.hasVertexColors() && false) {
+		auto originalTriangleCount = _surfaceMesh.faceCount();
+		for(int triangleIndex = 1; triangleIndex < originalTriangleCount; triangleIndex++) {
+
+			// Check if the current pair of triangles are associated with the same source mesh face.
+			auto originalFace = _originalFaceMap[triangleIndex];
+			if(_originalFaceMap[triangleIndex - 1] != originalFace)
+				continue;
+
+			// Check the triangles' edge visibility: Do they form a quadrilateral?
+			TriMeshFace& face1 = _surfaceMesh.face(triangleIndex - 1);
+			TriMeshFace& face2 = _surfaceMesh.face(triangleIndex);
+			if(!face1.edgeVisible(0) || !face1.edgeVisible(1) || face1.edgeVisible(2)) continue;
+			if(face2.edgeVisible(0) || !face2.edgeVisible(1) || !face2.edgeVisible(2)) continue;
+
+			// We have found a quadrilateral made of two triangles.
+
+			// Compute center of the quadrilateral.
+			HalfEdgeMesh::edge_index edge1 = _inputMesh.firstFaceEdge(originalFace);
+			HalfEdgeMesh::edge_index edge2 = _inputMesh.nextFaceEdge(edge1);
+			Point3 p = _inputMesh.vertexPosition(_inputMesh.vertex1(edge1));
+			Vector3 edgeVector = _inputMesh.edgeVector(edge1) + _inputMesh.edgeVector(edge2);
+			p += FloatType(0.5) * edgeVector;
+
+			// Create additional vertex in the output mesh.
+			int newVertex = _surfaceMesh.addVertex(cell().absoluteToReduced(p));
+
+			// Compute color of new vertex via interpolation.
+			int v1 = face1.vertex(0);
+			int v2 = face1.vertex(1);
+			int v3 = face1.vertex(2);
+			int v4 = face2.vertex(2);
+			const ColorA& c1 = _surfaceMesh.vertexColor(v1);
+			const ColorA& c2 = _surfaceMesh.vertexColor(v2);
+			const ColorA& c3 = _surfaceMesh.vertexColor(v3);
+			const ColorA& c4 = _surfaceMesh.vertexColor(v4);
+			_surfaceMesh.setVertexColor(newVertex, FloatType(0.25) * (c1+c2+c3+c4));
+
+			// Compute normal of new vertex via interpolation.
+			Vector3 n2, n3, n4;
+			Vector3 centerNormal;
+			if(_surfaceMesh.hasNormals()) {
+				const Vector3& n1 = _surfaceMesh.faceVertexNormal(triangleIndex - 1, 0);
+				n2 = _surfaceMesh.faceVertexNormal(triangleIndex - 1, 1);
+				n3 = _surfaceMesh.faceVertexNormal(triangleIndex - 1, 2);
+				n4 = _surfaceMesh.faceVertexNormal(triangleIndex, 2);
+				centerNormal = (n1+n2+n3+n4).safelyNormalized();
+				_surfaceMesh.setFaceVertexNormal(triangleIndex - 1, 2, centerNormal);
+				_surfaceMesh.setFaceVertexNormal(triangleIndex, 1, centerNormal);
+			}
+
+			face1.setVertex(2, newVertex);
+			face1.setEdgeVisibility(true, false, false);
+			face2.setVertex(1, newVertex);
+			face2.setEdgeVisibility(false, false, true);
+
+			// Create two additional triangles.
+			TriMeshFace& face3 = _surfaceMesh.addFace();
+			face3.setVertices(v2, v3, newVertex);
+			face3.setEdgeVisibility(true, false, false);
+			TriMeshFace& face4 = _surfaceMesh.addFace();
+			face4.setVertices(v3, v4, newVertex);
+			face4.setEdgeVisibility(true, false, false);
+			if(_surfaceMesh.hasNormals()) {
+				auto n = _surfaceMesh.normals().end() - 6;
+				*n++ = n2;
+				*n++ = n3;
+				*n++ = centerNormal;
+				*n++ = n3;
+				*n++ = n4;
+				*n++ = centerNormal;
+			}
+
+			_originalFaceMap.push_back(originalFace);
+			_originalFaceMap.push_back(originalFace);
+
+			if(isCanceled())
+				return false;
+		}
 	}
 
 	nextProgressSubStep();
 
 	// Wrap mesh at periodic boundaries.
 	for(size_t dim = 0; dim < 3; dim++) {
-		if(cell().hasPbc(dim) == false) continue;
+		if(!cell().isValid() || cell().hasPbc(dim) == false) continue;
 
 		if(isCanceled())
 			return false;
@@ -563,9 +653,11 @@ bool SurfaceMeshVis::PrepareSurfaceEngine::buildSurfaceTriangleMesh()
 	nextProgressSubStep();
 
 	// Convert vertex positions back from reduced coordinates to absolute coordinates.
-	const AffineTransformation cellMatrix = cell().matrix();
-	for(Point3& p : _surfaceMesh.vertices())
-		p = cellMatrix * p;
+	if(cell().isValid()) {
+		const AffineTransformation cellMatrix = cell().matrix();
+		for(Point3& p : _surfaceMesh.vertices())
+			p = cellMatrix * p;
+	}
 
 	nextProgressSubStep();
 

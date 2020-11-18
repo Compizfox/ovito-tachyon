@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Copyright 2019 Alexander Stukowski
+//  Copyright 2020 Alexander Stukowski
 //
 //  This file is part of OVITO (Open Visualization Tool).
 //
@@ -41,17 +41,6 @@ QVector<DataObjectReference> SurfaceMeshRegionsExpressionSelectionModifierDelega
 		objects.push_back(path);
 	}
 	return objects;
-}
-
-/******************************************************************************
-* Creates and initializes the expression evaluator object.
-******************************************************************************/
-std::unique_ptr<PropertyExpressionEvaluator> SurfaceMeshRegionsExpressionSelectionModifierDelegate::initializeExpressionEvaluator(const QStringList& expressions, const PipelineFlowState& inputState, const DataObjectPath& objectPath, int animationFrame)
-{
-	const PropertyContainer* container = static_object_cast<PropertyContainer>(objectPath.back());
-	std::unique_ptr<PropertyExpressionEvaluator> evaluator = std::make_unique<PropertyExpressionEvaluator>();
-	evaluator->initialize(expressions, inputState, container, animationFrame);
-	return evaluator;
 }
 
 }	// End of namespace

@@ -485,6 +485,10 @@ Quaternion snuggle(Quaternion q, Vector3& k)
     }
     k.x() = ka[X]; k.y() = ka[Y]; k.z() = ka[Z];
     return p;
+#undef SQRTHALF
+#undef sgn
+#undef swap
+#undef cycle
 }
 
 /******* Decompose Affine AffineTransformation *******/

@@ -460,9 +460,9 @@ void PipelineSceneNode::propertyChanged(const PropertyFieldDescriptor& field)
 * This method is called once for this object after it has been completely
 * loaded from a stream.
 ******************************************************************************/
-void PipelineSceneNode::loadFromStreamComplete()
+void PipelineSceneNode::loadFromStreamComplete(ObjectLoadStream& stream)
 {
-	SceneNode::loadFromStreamComplete();
+	SceneNode::loadFromStreamComplete(stream);
 
 	// Remove null entries from the replacedVisElements list due to expired weak references.
 	for(int i = replacedVisElements().size() - 1; i >= 0; i--) {

@@ -21,12 +21,12 @@
         <tgroup cols="1">
           <tbody>
             <row valign="bottom">
-              <entry>Example: Two isosurfaces of the charge density field:</entry>
+              <entry>Two isosurfaces of the charge density field:</entry>
             </row>
             <row valign="top">
               <entry>
 		        <mediaobject><imageobject>
-		        <imagedata fileref="images/modifiers/create_isosurface_example.png" format="PNG" />
+		        <imagedata fileref="images/modifiers/create_isosurface_example.png" format="PNG" scale="50" />
 		        </imageobject></mediaobject>
               </entry>
             </row>
@@ -37,16 +37,22 @@
 
     This modifier generates an <link xlink:href="https://en.wikipedia.org/wiki/Isosurface">isosurface</link> for a field quantity defined on a structured 
     <link linkend="scene_objects.voxel_grid">voxel grid</link>.
-    The computed isosurface is output as a <link linkend="scene_objects.surface_mesh">surface mesh</link> data object in OVITO and 
+    The computed isosurface is a <link linkend="scene_objects.surface_mesh">surface mesh</link> data object and 
     its visual appearance is controlled by the accompanying <link linkend="visual_elements.surface_mesh">surface mesh</link> visual element.
   </para>
   <para>
     See the <link linkend="file_formats.input">list of input file formats</link> supported by OVITO to find out how to import
-    voxel grids into the program. You can also apply the isosurface modifier on a dynamically generated voxel grid output by the
-    <link linkend="particles.modifiers.bin_and_reduce">Spatial binning</link> modifier of OVITO.
+    voxel grids into the program. You can also apply the isosurface modifier to a dynamically generated voxel grid produced by the
+    <link linkend="particles.modifiers.bin_and_reduce">Spatial binning</link> modifier.
   </para>
   <para>
-    Note that you can apply the modifier more than once to create multiple surfaces at different iso-levels.
+    Note that you can apply this modifier several times in a pipeline to create multiple surfaces at different iso-levels.
+  </para>
+  <para>
+    The option <emphasis>Transfer field values to surface</emphasis> lets the modifier copy all field quantities defined on the voxel grid over to the isosurface's vertices.
+    This includes any secondary field quantities in addition to the selected primary field quantity for which the isosurface is being constructed, and which is constant and equal to the iso-level value on the
+    entire surface. Subsequently, OVITO's <link linkend="particles.modifiers.color_coding">Color coding</link> modifier may be used to color the isosurface based on a secondary 
+    field quantity. The locally varying values for a secondary field quantity on the surface are computed at each mesh vertex using trilinear interpolation from the voxel grid values. 
   </para>
 
   <simplesect>

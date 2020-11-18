@@ -61,6 +61,9 @@ public:
 		return property->dataType() == PropertyStorage::Float && property->componentCount() == 3 && property->name().contains(QStringLiteral("Color"));
 	}
 
+	/// Creates an optional ad-hoc property that serves as header column for the table.
+	virtual OORef<PropertyObject> createHeaderColumnProperty(const PropertyContainer* container) override;
+
 private Q_SLOTS:
 
 	/// Is called when the user selects a different container object from the list.

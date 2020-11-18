@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Copyright 2017 Alexander Stukowski
+//  Copyright 2020 Alexander Stukowski
 //
 //  This file is part of OVITO (Open Visualization Tool).
 //
@@ -55,6 +55,12 @@ protected Q_SLOTS:
 	/// Replots the value histogram computed by the modifier.
 	void plotHistogram();
 
+	/// Is called when the user starts or stops picking a location in the plot widget.
+	void onPickerActivated(bool on);
+
+	/// Is called when the user picks a location in the plot widget.
+	void onPickerPoint(const QPointF& pt);
+
 private:
 
 	/// The graph widget to display the histogram.
@@ -65,6 +71,9 @@ private:
 
 	/// For deferred invocation of the plot repaint function.
 	DeferredMethodInvocation<CreateIsosurfaceModifierEditor, &CreateIsosurfaceModifierEditor::plotHistogram> plotHistogramLater;
+
+	/// Indicates that the user is currently interacting with the plot widget.
+	bool _interactionInProgress = false;
 };
 
 }	// End of namespace

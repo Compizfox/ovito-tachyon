@@ -88,6 +88,10 @@ inline std::string read_string(const char* p, int field_length) {
 inline bool is_record_type(const char* s, const char* record) {
   return ialpha4_id(s) == ialpha4_id(record);
 }
+// for record "TER": "TER ", TER\n, TER\r, TER\t match, TERE, TER1 don't
+inline bool is_record_type3(const char* s, const char* record) {
+  return (ialpha4_id(s) & ~0xf) == ialpha4_id(record);
+}
 
 // The standard charge format is 2+, but some files have +2.
 inline signed char read_charge(char digit, char sign) {
@@ -118,22 +122,26 @@ inline int read_matrix(Transform& t, char* line, size_t len) {
   return n;
 }
 
-inline ResidueId read_res_id(const char* seq_id, const char* name) {
-  ResidueId rid;
-  rid.seqid.icode = seq_id[4];
+inline SeqId read_seq_id(const char* str) {
+  SeqId seqid;
+  if (str[4] != '\r' && str[4] != '\n')
+    seqid.icode = str[4];
   // We support hybrid-36 extension, although it is never used in practice
   // as 9999 residues per chain are enough.
-  if (seq_id[0] < 'A') {
-    for (int i = 4; i != 0; --i, ++seq_id)
-      if (!is_space(*seq_id)) {
-        rid.seqid.num = read_int(seq_id, i);
+  if (str[0] < 'A') {
+    for (int i = 4; i != 0; --i, ++str)
+      if (!is_space(*str)) {
+        seqid.num = read_int(str, i);
         break;
       }
   } else {
-    rid.seqid.num = read_base36<4>(seq_id) - 466560 + 10000;
+    seqid.num = read_base36<4>(str) - 466560 + 10000;
   }
-  rid.name = read_string(name, 3);
-  return rid;
+  return seqid;
+}
+
+inline ResidueId read_res_id(const char* seq_id, const char* name) {
+  return {read_seq_id(seq_id), {}, read_string(name, 3)};
 }
 
 inline char read_altloc(char c) { return c == ' ' ? '\0' : c; }
@@ -190,6 +198,19 @@ inline Asu compare_link_symops(const std::string& record) {
   return Asu::Different;
 }
 
+// Atom name and altloc are not provided in the SSBOND record.
+// Usually it is SG (cysteine), but other disulfide bonds are also possible.
+// If it's not SG, we pick the first sulfur atom in the residue.
+inline void complete_ssbond_atom(AtomAddress& ad, const Model& mdl) {
+  ad.atom_name = "SG";
+  const_CRA cra = mdl.find_cra(ad);
+  if (cra.residue && (!cra.atom || cra.atom->element != El::S))
+    if (const Atom* a = cra.residue->find_by_element(El::S)) {
+      ad.atom_name = a->name;
+      ad.altloc = a->altloc;
+    }
+}
+
 inline
 void process_conn(Structure& st, const std::vector<std::string>& conn_records) {
   int disulf_count = 0;
@@ -197,38 +218,24 @@ void process_conn(Structure& st, const std::vector<std::string>& conn_records) {
   int metalc_count = 0;
   for (const std::string& record : conn_records) {
     if (record[0] == 'S' || record[0] == 's') { // SSBOND
-      if (record.length() < 35)
+      if (record.length() < 32)
         continue;
       Connection c;
       c.name = "disulf" + std::to_string(++disulf_count);
       c.type = Connection::Disulf;
       const char* r = record.c_str();
-      c.atom[0].chain_name = read_string(r + 14, 2);
-      c.atom[0].res_id = read_res_id(r + 17, r + 11);
-      c.atom[0].atom_name = "SG";
-      c.atom[1].chain_name = read_string(r + 28, 2);
-      c.atom[1].res_id = read_res_id(r + 31, r + 25);
-      c.atom[1].atom_name = "SG";
+      c.partner1.chain_name = read_string(r + 14, 2);
+      c.partner1.res_id = read_res_id(r + 17, r + 11);
+      c.partner2.chain_name = read_string(r + 28, 2);
+      char res_id2[5] = {' ', ' ', ' ', ' ', ' '};
+      std::memcpy(res_id2, r + 31, std::min((size_t)5, record.length() - 31));
+      c.partner2.res_id = read_res_id(res_id2, r + 25);
       c.asu = compare_link_symops(record);
       if (record.length() > 73)
         c.reported_distance = read_double(r + 73, 5);
-      for (Model& mdl : st.models) {
-        for (AtomAddress& ad : c.atom) {
-          CRA cra = mdl.find_cra(ad);
-          if (cra.residue) {
-            // Atom name and altloc are not provided in the SSBOND record.
-            // Usually it is SG (cysteine), but other disulfide bonds
-            // are also possible, so if it's not CYS and SG is absent
-            // we pick the first sulfur atom in the residue.
-            if (!cra.atom)
-              if (const Atom* a = cra.residue->find_by_element(El::S)) {
-                ad.atom_name = a->name;
-                ad.altloc = a->altloc;
-              }
-          }
-        }
-        mdl.connections.emplace_back(c);
-      }
+      complete_ssbond_atom(c.partner1, st.first_model());
+      complete_ssbond_atom(c.partner2, st.models[0]);
+      st.connections.emplace_back(c);
     } else if (record[0] == 'L' || record[0] == 'l') { // LINK
       if (record.length() < 57)
         continue;
@@ -244,16 +251,20 @@ void process_conn(Structure& st, const std::vector<std::string>& conn_records) {
       }
       for (int i : {0, 1}) {
         const char* t = record.c_str() + 30 * i;
-        c.atom[i].chain_name = read_string(t + 20, 2);
-        c.atom[i].res_id = read_res_id(t + 22, t + 17);
-        c.atom[i].atom_name = read_string(t + 12, 4);
-        c.atom[i].altloc = read_altloc(t[16]);
+        AtomAddress& ad = (i == 0 ? c.partner1 : c.partner2);
+        ad.chain_name = read_string(t + 20, 2);
+        ad.res_id = read_res_id(t + 22, t + 17);
+        ad.atom_name = read_string(t + 12, 4);
+        ad.altloc = read_altloc(t[16]);
       }
       c.asu = compare_link_symops(record);
-      if (record.length() > 73)
-        c.reported_distance = read_double(&record[73], 5);
-      for (Model& mdl : st.models)
-        mdl.connections.emplace_back(c);
+      if (record.length() > 73) {
+        if (record[4] == 'R')
+          c.link_id = read_string(&record[72], 8);
+        else
+          c.reported_distance = read_double(&record[73], 5);
+      }
+      st.connections.emplace_back(c);
     } else if (record[0] == 'C' || record[0] == 'c') { // CISPEP
       if (record.length() < 22)
         continue;
@@ -273,7 +284,8 @@ inline bool same_str(const std::string& s, const char (&literal)[N]) {
 }
 
 template<typename Input>
-Structure read_pdb_from_line_input(Input&& infile, const std::string& source) {
+Structure read_pdb_from_line_input(Input&& infile, const std::string& source,
+                                   const PdbReadOptions& options) {
   using namespace pdb_impl;
   int line_num = 0;
   auto wrong = [&line_num](const std::string& msg) {
@@ -288,9 +300,12 @@ Structure read_pdb_from_line_input(Input&& infile, const std::string& source) {
   Chain *chain = nullptr;
   Residue *resi = nullptr;
   char line[122] = {0};
+  int max_line_length = options.max_line_length;
+  if (max_line_length <= 0 || max_line_length > 120)
+    max_line_length = 120;
   bool after_ter = false;
   Transform matrix;
-  while (size_t len = copy_line_from_stream(line, 121, infile)) {
+  while (size_t len = copy_line_from_stream(line, max_line_length+1, infile)) {
     ++line_num;
     if (is_record_type(line, "ATOM") || is_record_type(line, "HETATM")) {
       if (len < 66)
@@ -340,9 +355,14 @@ Structure read_pdb_from_line_input(Input&& infile, const std::string& source) {
       atom.pos.z = read_double(line+46, 8);
       atom.occ = (float) read_double(line+54, 6);
       atom.b_iso = (float) read_double(line+60, 6);
-      bool has_elem = len > 76 && (std::isalpha(line[76]) ||
-                                   std::isalpha(line[77]));
-      atom.element = Element(line + (has_elem ? 76 : 12));
+      if (len > 76 && (std::isalpha(line[76]) || std::isalpha(line[77])))
+        atom.element = Element(line + 76);
+      // Atom names HXXX are ambiguous, but Hg, He, Hf, Ho and Hs (almost)
+      // never have 4-character names, so H is assumed.
+      else if (alpha_up(line[12]) == 'H' && line[15] != ' ')
+        atom.element = El::H;
+      else
+        atom.element = Element(line + 12);
       atom.charge = (len > 78 ? read_charge(line[78], line[79]) : 0);
       resi->atoms.emplace_back(atom);
 
@@ -352,14 +372,14 @@ Structure read_pdb_from_line_input(Input&& infile, const std::string& source) {
       // We assume that ANISOU refers to the last atom.
       // Can it not be the case?
       Atom &atom = resi->atoms.back();
-      if (atom.u11 != 0.)
+      if (atom.aniso.u11 != 0.)
         wrong("Duplicated ANISOU record or not directly after ATOM/HETATM.");
-      atom.u11 = read_int(line+28, 7) * 1e-4f;
-      atom.u22 = read_int(line+35, 7) * 1e-4f;
-      atom.u33 = read_int(line+42, 7) * 1e-4f;
-      atom.u12 = read_int(line+49, 7) * 1e-4f;
-      atom.u13 = read_int(line+56, 7) * 1e-4f;
-      atom.u23 = read_int(line+63, 7) * 1e-4f;
+      atom.aniso.u11 = read_int(line+28, 7) * 1e-4f;
+      atom.aniso.u22 = read_int(line+35, 7) * 1e-4f;
+      atom.aniso.u33 = read_int(line+42, 7) * 1e-4f;
+      atom.aniso.u12 = read_int(line+49, 7) * 1e-4f;
+      atom.aniso.u13 = read_int(line+56, 7) * 1e-4f;
+      atom.aniso.u23 = read_int(line+63, 7) * 1e-4f;
 
     } else if (is_record_type(line, "REMARK")) {
       st.raw_remarks.push_back(line);
@@ -390,7 +410,7 @@ Structure read_pdb_from_line_input(Input&& infile, const std::string& source) {
             if (!assembly.generators.empty()) {
               auto& opers = assembly.generators.back().opers;
               opers.emplace_back();
-              opers.back().name = read_string(line+7, 3);
+              opers.back().name = read_string(line+20, 3);
               opers.back().transform = matrix;
               matrix.set_identity();
             }
@@ -434,6 +454,33 @@ Structure read_pdb_from_line_input(Input&& infile, const std::string& source) {
           ent.full_sequence.emplace_back(res_name);
       }
 
+    } else if (is_record_type(line, "DBREF")) { // DBREF or DBREF1 or DBREF2
+      std::string chain_name = read_string(line+11, 2);
+      Entity& ent = impl::find_or_add(st.entities, chain_name);
+      if (line[5] == ' ' || line[5] == '1')
+        ent.dbrefs.emplace_back();
+      else if (ent.dbrefs.empty()) // DBREF2 without DBREF1?
+        continue;
+      Entity::DbRef& dbref = ent.dbrefs.back();
+      if (line[5] == ' ' || line[5] == '1') {
+        dbref.seq_begin = read_seq_id(line+14);
+        dbref.seq_end = read_seq_id(line+20);
+        dbref.db_name = read_string(line+26, 6);
+        if (line[5] == ' ') {
+          dbref.accession_code = read_string(line+33, 8);
+          dbref.id_code = read_string(line+42, 12);
+          dbref.db_begin.num = read_int(line+55, 5);
+          dbref.db_begin.icode = line[60];
+          dbref.db_end.num = read_int(line+62, 5);
+          dbref.db_end.icode = line[67];
+        } else {  // line[5] == '1'
+          dbref.id_code = read_string(line+47, 20);
+        }
+      } else if (line[5] == '2') {
+        dbref.accession_code = read_string(line+18, 22);
+        dbref.db_begin.num = read_int(line+45, 10);
+        dbref.db_end.num = read_int(line+57, 10);
+      }
     } else if (is_record_type(line, "HEADER")) {
       if (len > 50)
         st.info["_struct_keywords.pdbx_keywords"] = rtrim_str(std::string(line+10, 40));
@@ -492,10 +539,16 @@ Structure read_pdb_from_line_input(Input&& infile, const std::string& source) {
       model = nullptr;
       chain = nullptr;
 
-    } else if (is_record_type(line, "TER")) { // finishes polymer chains
+    } else if (is_record_type3(line, "TER")) { // finishes polymer chains
       // we don't expect more than one TER record in one chain
       if (!chain || after_ter)
         continue;
+      if (options.split_chain_on_ter) {
+        chain = nullptr;
+        // split_chain_on_ter is used for AMBER files that can have TER records
+        // in various places. So in such case TER doesn't imply entity_type.
+        continue;
+      }
       for (Residue& res : chain->residues)
         res.entity_type = EntityType::Polymer;
       after_ter = true;
@@ -513,9 +566,9 @@ Structure read_pdb_from_line_input(Input&& infile, const std::string& source) {
       if (len < 40)
         continue;
       Helix helix;
-      helix.start.chain_name = read_string(line+19, 2);
+      helix.start.chain_name = read_string(line+18, 2);
       helix.start.res_id = read_res_id(line+21, line+15);
-      helix.end.chain_name = read_string(line+31, 2);
+      helix.end.chain_name = read_string(line+30, 2);
       helix.end.res_id = read_res_id(line+33, line+27);
       helix.set_helix_class_as_int(read_int(line+38, 2));
       if (len > 72)
@@ -529,9 +582,9 @@ Structure read_pdb_from_line_input(Input&& infile, const std::string& source) {
       Sheet& sheet = impl::find_or_add(st.sheets, sheet_id);
       sheet.strands.emplace_back();
       Sheet::Strand& strand = sheet.strands.back();
-      strand.start.chain_name = read_string(line+21, 2);
+      strand.start.chain_name = read_string(line+20, 2);
       strand.start.res_id = read_res_id(line+22, line+17);
-      strand.end.chain_name = read_string(line+32, 2);
+      strand.end.chain_name = read_string(line+31, 2);
       strand.end.res_id = read_res_id(line+33, line+28);
       strand.sense = read_int(line+38, 2);
       if (len > 67) {
@@ -549,7 +602,7 @@ Structure read_pdb_from_line_input(Input&& infile, const std::string& source) {
                is_record_type(line, "CISPEP")) {
       conn_records.emplace_back(line);
 
-    } else if (is_record_type(line, "END")) {  // NUL == ' ' & ~0x20
+    } else if (is_record_type3(line, "END")) {
       break;
     } else if (is_record_type(line, "data")) {
       if (line[4] == '_' && model && model->chains.empty())
@@ -575,31 +628,35 @@ Structure read_pdb_from_line_input(Input&& infile, const std::string& source) {
 
 }  // namespace pdb_impl
 
-inline Structure read_pdb_file(const std::string& path) {
+inline Structure read_pdb_file(const std::string& path,
+                               PdbReadOptions options=PdbReadOptions()) {
   auto f = file_open(path.c_str(), "rb");
-  return pdb_impl::read_pdb_from_line_input(FileStream{f.get()}, path);
+  return pdb_impl::read_pdb_from_line_input(FileStream{f.get()}, path, options);
 }
 
 inline Structure read_pdb_from_memory(const char* data, size_t size,
-                                      const std::string& name) {
+                                      const std::string& name,
+                                      PdbReadOptions options=PdbReadOptions()) {
   return pdb_impl::read_pdb_from_line_input(MemoryStream{data, data + size},
-                                            name);
+                                            name, options);
 }
 
 inline Structure read_pdb_string(const std::string& str,
-                                 const std::string& name) {
-  return read_pdb_from_memory(str.c_str(), str.length(), name);
+                                 const std::string& name,
+                                 PdbReadOptions options=PdbReadOptions()) {
+  return read_pdb_from_memory(str.c_str(), str.length(), name, options);
 }
 
 // A function for transparent reading of stdin and/or gzipped files.
 template<typename T>
-inline Structure read_pdb(T&& input) {
+inline Structure read_pdb(T&& input, PdbReadOptions options=PdbReadOptions()) {
   if (input.is_stdin())
-    return pdb_impl::read_pdb_from_line_input(FileStream{stdin}, "stdin");
+    return pdb_impl::read_pdb_from_line_input(FileStream{stdin},
+                                              "stdin", options);
   if (input.is_compressed())
     return pdb_impl::read_pdb_from_line_input(input.get_uncompressing_stream(),
-                                              input.path());
-  return read_pdb_file(input.path());
+                                              input.path(), options);
+  return read_pdb_file(input.path(), options);
 }
 
 } // namespace gemmi

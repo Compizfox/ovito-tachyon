@@ -12,7 +12,7 @@
 
   <para>
     <informalfigure><screenshot><mediaobject><imageobject>
-       <imagedata fileref="images/visual_elements/visual_elements_panel.svg" format="SVG" scale="65" />
+       <imagedata fileref="images/visual_elements/visual_elements_panel.png" format="PNG" scale="65" />
     </imageobject></mediaobject></screenshot></informalfigure>
     OVITO distinguishes between the underlying data and the visual representations produced from that data.
     One typical example for this separation between <link linkend="scene_objects"><emphasis>data objects</emphasis></link>

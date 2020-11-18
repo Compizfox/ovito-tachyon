@@ -111,6 +111,8 @@ namespace rules {
   struct simunq : pegtl::seq<pegtl::plus<ordinary_char>, pegtl::at<ws_char>> {};
   struct value : pegtl::sor<simunq, singlequoted, doublequoted,
                             textfield, unquoted> {};
+  struct item_tag : tag {};
+  struct item_value : value {};
   struct loop_tag : tag {};
   struct loop_value : value {};
   struct loop_end : pegtl::opt<str_stop, ws_or_eof> {};
@@ -122,7 +124,10 @@ namespace rules {
                   // handle incorrect CIF with empty loop
                   pegtl::at<pegtl::sor<str_loop, pegtl::eof>>>,
                   loop_end> {};
-  struct dataitem : pegtl::if_must<tag, whitespace, value, ws_or_eof,
+  struct missing_value : pegtl::bol {};
+  struct dataitem : pegtl::if_must<item_tag, whitespace,
+                                   pegtl::if_then_else<item_value, ws_or_eof,
+                                                       missing_value>,
                                    pegtl::discard> {};
   struct framename : pegtl::plus<nonblank_ch> {};
   struct endframe : str_save {};
@@ -131,9 +136,10 @@ namespace rules {
                                 endframe, ws_or_eof> {};
   struct datablock : pegtl::seq<datablockheading, ws_or_eof,
                              pegtl::star<pegtl::sor<dataitem, loop, frame>>> {};
-  struct file : pegtl::must<pegtl::opt<whitespace>,
-                            pegtl::star<datablock>,
-                            pegtl::eof> {};
+  struct content : pegtl::plus<datablock> {};
+  struct file : pegtl::seq<pegtl::opt<whitespace>,
+                           pegtl::if_must<pegtl::not_at<pegtl::eof>,
+                                          content, pegtl::eof>> {};
 
 } // namespace rules
 
@@ -152,8 +158,8 @@ template<typename Rule> const std::string& error_message() {
 error_msg(rules::quoted_tail<pegtl::one<'\''>>, "unterminated 'string'")
 error_msg(rules::quoted_tail<pegtl::one<'"'>>, "unterminated \"string\"")
 error_msg(pegtl::until<rules::field_sep>, "unterminated text field")
-error_msg(rules::value, "expected value")
 error_msg(rules::framename, "unnamed save_ frame")
+error_msg(rules::content, "expected block header (data_)")
 #undef error_msg
 
 template<typename Rule> struct Errors : public pegtl::normal<Rule> {
@@ -196,13 +202,13 @@ template<> struct Action<rules::endframe> {
     out.items_ = &out.blocks.back().items;
   }
 };
-template<> struct Action<rules::tag> {
+template<> struct Action<rules::item_tag> {
   template<typename Input> static void apply(const Input& in, Document& out) {
     out.items_->emplace_back(in.string());
     out.items_->back().line_number = in.iterator().line;
   }
 };
-template<> struct Action<rules::value> {
+template<> struct Action<rules::item_value> {
   template<typename Input> static void apply(const Input& in, Document& out) {
     Item& last_item = out.items_->back();
     assert(last_item.type == ItemType::Pair);
@@ -242,23 +248,29 @@ template<> struct Action<rules::loop> {
 
 template<typename Input> void parse_input(Document& d, Input&& in) {
   pegtl::parse<rules::file, Action, Errors>(in, d);
-  d.source = in.source();
-  check_duplicates(d);
 }
 
 template<typename Input> Document read_input(Input&& in) {
   Document doc;
+  doc.source = in.source();
   parse_input(doc, in);
+  check_for_missing_values(doc);
+  check_for_duplicates(doc);
   return doc;
 }
 
-inline Document read_file(const std::string& filename) {
+// pegtl::read_input may use mmap and be faster, but does not work
+// on Windows with Unicode filenames.
 #if defined(_WIN32)
-  FILE* f = file_open(filename.c_str(), "rb").release();
-  pegtl::read_input<> in(f, filename);
+#define GEMMI_CIF_FILE_INPUT(in, path) \
+  tao::pegtl::read_input<> in(gemmi::file_open(path.c_str(), "rb").release(), path)
 #else
-  pegtl::file_input<> in(filename);
+#define GEMMI_CIF_FILE_INPUT(in, path) \
+  tao::pegtl::file_input<> in(path)
 #endif
+
+inline Document read_file(const std::string& filename) {
+  GEMMI_CIF_FILE_INPUT(in, filename);
   return read_input(in);
 }
 
@@ -284,9 +296,17 @@ inline Document read_istream(std::istream &is,
 }
 
 
+template<typename Rule> struct CheckAction : pegtl::nothing<Rule> {};
+
+template<> struct CheckAction<rules::missing_value> {
+  template<typename Input> static void apply(const Input& in) {
+    throw pegtl::parse_error("tag without value", in);
+  }
+};
+
 template<typename Input> bool check_syntax(Input&& in, std::string* msg) {
   try {
-    return pegtl::parse<rules::file, pegtl::nothing, Errors>(in);
+    return pegtl::parse<rules::file, CheckAction, Errors>(in);
   } catch (pegtl::parse_error& e) {
     if (msg)
       *msg = e.what();
@@ -311,7 +331,7 @@ bool check_syntax_any(T&& input, std::string* msg) {
     pegtl::memory_input<> in(mem.get(), input.memory_size(), input.path());
     return check_syntax(in, msg);
   }
-  pegtl::file_input<> in(input.path());
+  GEMMI_CIF_FILE_INPUT(in, input.path());
   return check_syntax(in, msg);
 }
 

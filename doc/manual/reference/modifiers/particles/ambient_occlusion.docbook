@@ -94,7 +94,7 @@
             renders the particles as seen from that light source. All visible particles will receive
             a certain amount of light while occluded particles do not. This parameter controls
             the resolution of the internal rendering buffer. For systems with a large number of particles it
-            might be necessary to increase this value such that every particles occupies at least one
+            might be necessary to increase this value such that every particle occupies at least one
             pixel in the rendering buffer.
           </para>
         </listitem>

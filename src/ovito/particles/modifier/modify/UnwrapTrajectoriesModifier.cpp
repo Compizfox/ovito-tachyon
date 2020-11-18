@@ -365,7 +365,7 @@ void UnwrapTrajectoriesModifierApplication::fetchNextFrame()
 			// Schedule the pipeline evaluation for the next frame.
 			fetchNextFrame();
 		}
-		catch(const Exception& ex) {
+		catch(const Exception&) {
 			// In case of an error during pipeline evaluation or the unwrapping calculation, 
 			// abort the operation and forward the exception to the pipeline.
 			_unwrapOperation.captureException();
@@ -498,8 +498,7 @@ void UnwrapTrajectoriesModifierApplication::loadFromStream(ObjectLoadStream& str
 	stream >> _unwrappedUpToTime;
 	stream.closeChunk();
 	int version = stream.expectChunkRange(0x01, 1);
-	size_t numItems;
-	stream.readSizeT(numItems);
+	size_t numItems = stream.readSizeT();
 	_unwrapRecords.reserve(numItems);
 	for(size_t i = 0; i < numItems; i++) {
 		UnwrapData::key_type particleId;
