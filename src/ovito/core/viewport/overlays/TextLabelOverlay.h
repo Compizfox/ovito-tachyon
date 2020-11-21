@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Copyright 2018 Alexander Stukowski
+//  Copyright 2020 Alexander Stukowski
 //
 //  This file is part of OVITO (Open Visualization Tool).
 //
@@ -112,6 +112,9 @@ private:
 
 	/// The PipelineSceneNode providing global attributes that can be reference in the text.
 	DECLARE_MODIFIABLE_REFERENCE_FIELD_FLAGS(PipelineSceneNode, sourceNode, setSourceNode, PROPERTY_FIELD_NO_SUB_ANIM);
+
+	/// Controls the formatting of floating-point variable values referenced in the text string.
+	DECLARE_MODIFIABLE_PROPERTY_FIELD(QString, valueFormatString, setValueFormatString);
 };
 
 }	// End of namespace

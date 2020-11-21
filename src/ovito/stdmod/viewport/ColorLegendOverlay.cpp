@@ -63,6 +63,7 @@ SET_PROPERTY_FIELD_LABEL(ColorLegendOverlay, outlineEnabled, "Enable outline");
 SET_PROPERTY_FIELD_LABEL(ColorLegendOverlay, title, "Title");
 SET_PROPERTY_FIELD_LABEL(ColorLegendOverlay, label1, "Label 1");
 SET_PROPERTY_FIELD_LABEL(ColorLegendOverlay, label2, "Label 2");
+SET_PROPERTY_FIELD_LABEL(ColorLegendOverlay, valueFormatString, "Number format");
 SET_PROPERTY_FIELD_UNITS(ColorLegendOverlay, offsetX, PercentParameterUnit);
 SET_PROPERTY_FIELD_UNITS(ColorLegendOverlay, offsetY, PercentParameterUnit);
 SET_PROPERTY_FIELD_UNITS_AND_MINIMUM(ColorLegendOverlay, legendSize, FloatParameterUnit, 0);
@@ -180,11 +181,11 @@ void ColorLegendOverlay::renderImplementation(QPainter& painter, const ViewProje
 
 	QString titleLabel, topLabel, bottomLabel;
 	if(label1().isEmpty())
-		topLabel.sprintf(format.constData(), endValue);
+		topLabel = QString::asprintf(format.constData(), endValue);
 	else
 		topLabel = label1();
 	if(label2().isEmpty())
-		bottomLabel.sprintf(format.constData(), startValue);
+		bottomLabel = QString::asprintf(format.constData(), startValue);
 	else
 		bottomLabel = label2();
 	if(title().isEmpty())

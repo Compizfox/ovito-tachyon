@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Copyright 2018 Alexander Stukowski
+//  Copyright 2020 Alexander Stukowski
 //
 //  This file is part of OVITO (Open Visualization Tool).
 //
@@ -43,6 +43,7 @@ DEFINE_PROPERTY_FIELD(TextLabelOverlay, textColor);
 DEFINE_PROPERTY_FIELD(TextLabelOverlay, outlineColor);
 DEFINE_PROPERTY_FIELD(TextLabelOverlay, outlineEnabled);
 DEFINE_REFERENCE_FIELD(TextLabelOverlay, sourceNode);
+DEFINE_PROPERTY_FIELD(TextLabelOverlay, valueFormatString);
 SET_PROPERTY_FIELD_LABEL(TextLabelOverlay, alignment, "Position");
 SET_PROPERTY_FIELD_LABEL(TextLabelOverlay, font, "Font");
 SET_PROPERTY_FIELD_LABEL(TextLabelOverlay, fontSize, "Font size");
@@ -52,6 +53,7 @@ SET_PROPERTY_FIELD_LABEL(TextLabelOverlay, textColor, "Text color");
 SET_PROPERTY_FIELD_LABEL(TextLabelOverlay, outlineColor, "Outline color");
 SET_PROPERTY_FIELD_LABEL(TextLabelOverlay, outlineEnabled, "Enable outline");
 SET_PROPERTY_FIELD_LABEL(TextLabelOverlay, sourceNode, "Attributes source");
+SET_PROPERTY_FIELD_LABEL(TextLabelOverlay, valueFormatString, "Number format");
 SET_PROPERTY_FIELD_UNITS(TextLabelOverlay, offsetX, PercentParameterUnit);
 SET_PROPERTY_FIELD_UNITS(TextLabelOverlay, offsetY, PercentParameterUnit);
 SET_PROPERTY_FIELD_UNITS_AND_MINIMUM(TextLabelOverlay, fontSize, FloatParameterUnit, 0);
@@ -66,7 +68,8 @@ TextLabelOverlay::TextLabelOverlay(DataSet* dataset) : ViewportOverlay(dataset),
 		_labelText(tr("Text label")),
 		_textColor(0,0,0.5),
 		_outlineColor(1,1,1),
-		_outlineEnabled(false)
+		_outlineEnabled(false),
+		_valueFormatString("%.6g")
 {
 	// Automatically connect to the currently selected pipeline.
 	setSourceNode(dynamic_object_cast<PipelineSceneNode>(dataset->selection()->firstNode()));
@@ -86,10 +89,24 @@ void TextLabelOverlay::renderImplementation(QPainter& painter, const RenderSetti
 	QString textString = labelText();
 
 	// Resolve global attributes referenced by placeholders in the text string.
-	if(flowState) {
+	if(flowState && textString.contains('[')) {
 		const QVariantMap& attributes = flowState.buildAttributesMap();
+
+		// Prepare the floating-point format string.
+		QByteArray format = valueFormatString().toUtf8();
+		if(format.isEmpty() || format.contains("%s")) format = QByteArrayLiteral("###");
+
 		for(auto a = attributes.cbegin(); a != attributes.cend(); ++a) {
-			textString.replace(QStringLiteral("[") + a.key() + QStringLiteral("]"), a.value().toString());
+
+			QString valueString;
+			if(a.value().type() == QMetaType::Double || a.value().type() == QMetaType::Float) {
+				valueString = QString::asprintf(format.constData(), a.value().toDouble());
+			}
+			else {
+				valueString = a.value().toString();
+			}
+
+			textString.replace(QStringLiteral("[") + a.key() + QStringLiteral("]"), valueString);
 		}
 	}
 

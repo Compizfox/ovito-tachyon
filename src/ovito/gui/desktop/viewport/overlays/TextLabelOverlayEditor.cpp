@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Copyright 2016 Alexander Stukowski
+//  Copyright 2020 Alexander Stukowski
 //
 //  This file is part of OVITO (Open Visualization Tool).
 //
@@ -115,6 +115,10 @@ void TextLabelOverlayEditor::createUI(const RolloutInsertionParameters& rolloutP
 	_textEdit = new AutocompleteTextEdit();
 	labelTextPUI->setTextBox(_textEdit);
 	layout->addWidget(labelTextPUI->textBox(), row++, 1, 1, 2);
+
+	StringParameterUI* valueFormatStringPUI = new StringParameterUI(this, PROPERTY_FIELD(TextLabelOverlay::valueFormatString));
+	layout->addWidget(new QLabel(tr("Value format string:")), row, 0);
+	layout->addWidget(valueFormatStringPUI->textBox(), row++, 1, 1, 2);
 
 	VariantComboBoxParameterUI* alignmentPUI = new VariantComboBoxParameterUI(this, PROPERTY_FIELD(TextLabelOverlay::alignment));
 	layout->addWidget(new QLabel(tr("Position:")), row, 0);
