@@ -474,7 +474,7 @@ public:
 
 	/// Determines which spatial region contains the given point in space.
 	/// Returns no result if the point is exactly on a region boundary.
-	boost::optional<region_index> locatePoint(const Point3& location, FloatType epsilon = FLOATTYPE_EPSILON, const boost::dynamic_bitset<>& faceSubset = boost::dynamic_bitset<>()) const;
+	boost::optional<std::pair<region_index, FloatType>> locatePoint(const Point3& location, FloatType epsilon = FLOATTYPE_EPSILON, const boost::dynamic_bitset<>& faceSubset = boost::dynamic_bitset<>()) const;
 
     /// Returns one of the standard vertex properties (or null if the property is not defined).
     PropertyPtr vertexProperty(SurfaceMeshVertices::Type ptype) const {

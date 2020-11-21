@@ -90,11 +90,12 @@ private:
 	public:
 
 		/// Constructor.
-		ConstructSurfaceEngineBase(ConstPropertyPtr positions, ConstPropertyPtr selection, const SimulationCell& simCell, std::vector<ConstPropertyPtr> particleProperties) :
+		ConstructSurfaceEngineBase(ConstPropertyPtr positions, ConstPropertyPtr selection, const SimulationCell& simCell, bool computeSurfaceDistance, std::vector<ConstPropertyPtr> particleProperties) :
 			_positions(positions),
 			_selection(std::move(selection)),
 			_mesh(simCell),
-			_particleProperties(std::move(particleProperties)) {}
+			_particleProperties(std::move(particleProperties)),
+			_surfaceDistances(computeSurfaceDistance ? std::make_shared<PropertyStorage>(_positions->size(), PropertyStorage::Float, 1, 0, tr("Surface Distance"), false) : nullptr) {}
 
 		/// Returns the generated surface mesh.
 		const SurfaceMeshData& mesh() const { return _mesh; }
@@ -117,6 +118,9 @@ private:
 		/// Returns the list of particle properties to copy over to the generated mesh.
 		const std::vector<ConstPropertyPtr>& particleProperties() const { return _particleProperties; }
 
+		/// Returns the output surface distance property.
+		const PropertyPtr& surfaceDistances() const { return _surfaceDistances; }
+
 	protected:
 
 		/// Releases data that is no longer needed.
@@ -124,7 +128,10 @@ private:
 			_positions.reset();
 			_selection.reset();
 			_particleProperties.clear();
-		}	
+		}
+
+		/// Compute the distance of each input particle from the constructed surface.
+		void computeSurfaceDistances();
 
 	private:
 
@@ -140,6 +147,9 @@ private:
 		/// The computed total surface area.
 		double _totalSurfaceArea = 0;
 
+		/// The computed distance of each particle from the constructed surface.
+		PropertyPtr _surfaceDistances;
+
 		/// The list of particle properties to copy over to the generated mesh.
 		std::vector<ConstPropertyPtr> _particleProperties;
 	};
@@ -150,8 +160,8 @@ private:
 	public:
 
 		/// Constructor.
-		AlphaShapeEngine(ConstPropertyPtr positions, ConstPropertyPtr selection, ConstPropertyPtr particleGrains, const SimulationCell& simCell, FloatType probeSphereRadius, int smoothingLevel, bool selectSurfaceParticles, bool identifyRegions, std::vector<ConstPropertyPtr> particleProperties) :
-			ConstructSurfaceEngineBase(std::move(positions), std::move(selection), simCell, std::move(particleProperties)),
+		AlphaShapeEngine(ConstPropertyPtr positions, ConstPropertyPtr selection, ConstPropertyPtr particleGrains, const SimulationCell& simCell, FloatType probeSphereRadius, int smoothingLevel, bool selectSurfaceParticles, bool identifyRegions, bool computeSurfaceDistance, std::vector<ConstPropertyPtr> particleProperties) :
+			ConstructSurfaceEngineBase(std::move(positions), std::move(selection), simCell, computeSurfaceDistance, std::move(particleProperties)),
 			_particleGrains(particleGrains),
 			_probeSphereRadius(probeSphereRadius),
 			_smoothingLevel(smoothingLevel),
@@ -214,8 +224,8 @@ private:
 
 		/// Constructor.
 		GaussianDensityEngine(ConstPropertyPtr positions, ConstPropertyPtr selection, const SimulationCell& simCell,
-				FloatType radiusFactor, FloatType isoLevel, int gridResolution, std::vector<FloatType> radii, std::vector<ConstPropertyPtr> particleProperties) :
-			ConstructSurfaceEngineBase(std::move(positions), std::move(selection), simCell, std::move(particleProperties)),
+				FloatType radiusFactor, FloatType isoLevel, int gridResolution, bool computeSurfaceDistance, std::vector<FloatType> radii, std::vector<ConstPropertyPtr> particleProperties) :
+			ConstructSurfaceEngineBase(std::move(positions), std::move(selection), simCell, computeSurfaceDistance, std::move(particleProperties)),
 			_radiusFactor(radiusFactor),
 			_isoLevel(isoLevel),
 			_gridResolution(gridResolution),
@@ -274,6 +284,9 @@ private:
 
 	/// The threshold value for constructing the isosurface of the density field (density field method).
 	DECLARE_MODIFIABLE_PROPERTY_FIELD_FLAGS(FloatType, isoValue, setIsoValue, PROPERTY_FIELD_MEMORIZE);
+
+	/// Controls whether the algorithm should compute the shortest distance of each particle from the constructed surface.
+	DECLARE_MODIFIABLE_PROPERTY_FIELD(bool, computeSurfaceDistance, setComputeSurfaceDistance);
 };
 
 }	// End of namespace

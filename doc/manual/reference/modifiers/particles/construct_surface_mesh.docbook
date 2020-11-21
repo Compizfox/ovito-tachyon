@@ -97,6 +97,18 @@
       to compute the value at each output mesh vertex. In case of the alpha-shape method, all types of properties can be transferred, because there 
       is a one-to-one mapping between particles and mesh vertices.
     </para>
+    <para>
+      <informalfigure><screenshot><mediaobject><imageobject>
+        <imagedata fileref="images/modifiers/construct_surface_mesh_distance_calculation.png" format="PNG" scale="50" />
+      </imageobject></mediaobject></screenshot></informalfigure>
+      Upon request, the modifier can compute the distance of each particle to the closest point on the constructed surface. 
+      The computed distances are stored as a new particle property named <literal>Surface Distance</literal>, which
+      may subsequently be used to select particles within a certain range from the surface, e.g. using the <link linkend="particles.modifiers.expression_select">Expression selection</link> modifier.
+      Note, however, that the distance calculation is a very expensive operation, which can take a long time for systems with many particles or a complex surface.
+      If you just want to select particles located <emphasis>exactly on</emphasis> the surface, then the 
+      option "Select particles on the surface" should be used instead. It is only available for the alpha-shape method and lets the modifier
+      directly select particles that are part of the surface mesh, i.e. which are touched by the virtual probe sphere.
+    </para>
   </simplesect>
 
   <simplesect>

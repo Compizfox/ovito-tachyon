@@ -107,7 +107,7 @@ const HalfEdgeMeshPtr& SurfaceMesh::modifiableTopology()
 * Determines which spatial region contains the given point in space.
 * Returns -1 if the point is exactly on a region boundary.
 ******************************************************************************/
-boost::optional<SurfaceMeshData::region_index> SurfaceMesh::locatePoint(const Point3& location, FloatType epsilon) const
+boost::optional<std::pair<SurfaceMeshData::region_index, FloatType>> SurfaceMesh::locatePoint(const Point3& location, FloatType epsilon) const
 {
 	verifyMeshIntegrity();
 	return SurfaceMeshData(this).locatePoint(location, epsilon);

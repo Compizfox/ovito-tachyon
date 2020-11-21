@@ -174,7 +174,7 @@ bool SurfaceMeshData::smoothMesh(int numIterations, Task& task, FloatType k_PB, 
 * Signed Distance Computation Using the Angle Weighted Pseudonormal
 * IEEE Transactions on Visualization and Computer Graphics 11 (2005), Page 243
 ******************************************************************************/
-boost::optional<SurfaceMeshData::region_index> SurfaceMeshData::locatePoint(const Point3& location, FloatType epsilon, const boost::dynamic_bitset<>& faceSubset) const
+boost::optional<std::pair<SurfaceMeshData::region_index, FloatType>> SurfaceMeshData::locatePoint(const Point3& location, FloatType epsilon, const boost::dynamic_bitset<>& faceSubset) const
 {
 	// Determine which vertex is closest to the test point.
 	FloatType closestDistanceSq = FLOATTYPE_MAX;
@@ -203,7 +203,7 @@ boost::optional<SurfaceMeshData::region_index> SurfaceMeshData::locatePoint(cons
 
 	// If the surface is degenerate, any point is inside the space-filling region.
 	if(closestVertex == HalfEdgeMesh::InvalidIndex)
-		return spaceFillingRegion();
+		return std::make_pair(spaceFillingRegion(), closestDistanceSq);
 
 	// Check if any edge is closer to the test point than the closest vertex.
 	size_type edgeCount = this->edgeCount();
@@ -340,8 +340,8 @@ boost::optional<SurfaceMeshData::region_index> SurfaceMeshData::locatePoint(cons
 	}
 
 	FloatType dot = closestNormal.dot(closestVector);
-	if(dot >= epsilon) return closestRegion;
-	if(dot <= -epsilon) return spaceFillingRegion();
+	if(dot >= epsilon) return std::make_pair(closestRegion, sqrt(closestDistanceSq));
+	if(dot <= -epsilon) return std::make_pair(spaceFillingRegion(), sqrt(closestDistanceSq));
 	return {};
 }
 

@@ -79,7 +79,7 @@ public:
 	}
 
 	/// Determines which spatial region contains the given location in space.
-	boost::optional<SurfaceMeshData::region_index> locatePoint(const Point3& location, FloatType epsilon = FLOATTYPE_EPSILON) const;
+	boost::optional<std::pair<SurfaceMeshData::region_index, FloatType>> locatePoint(const Point3& location, FloatType epsilon = FLOATTYPE_EPSILON) const;
 
 private:
 

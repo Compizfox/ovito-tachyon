@@ -132,6 +132,9 @@ void ConstructSurfaceModifierEditor::createUI(const RolloutInsertionParameters& 
 	BooleanParameterUI* transferParticlePropertiesUI = new BooleanParameterUI(this, PROPERTY_FIELD(ConstructSurfaceModifier::transferParticleProperties));
 	sublayout->addWidget(transferParticlePropertiesUI->checkBox(), 2, 0, 1, 2);
 
+	BooleanParameterUI* computeSurfaceDistanceUI = new BooleanParameterUI(this, PROPERTY_FIELD(ConstructSurfaceModifier::computeSurfaceDistance));
+	sublayout->addWidget(computeSurfaceDistanceUI->checkBox(), 3, 0, 1, 2);
+
 	// Status label.
 	layout->addWidget(statusLabel());
 	statusLabel()->setMinimumHeight(56);
