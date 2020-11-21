@@ -111,9 +111,6 @@ private:
 		FrameLoader(const FileSourceImporter::Frame& frame, const FileHandle& file)
 			: FileSourceImporter::FrameLoader(frame, file), _parseFileHeaderOnly(true) {}
 
-		/// Returns the file column mapping used to load the file.
-		const ParticleInputColumnMapping& columnMapping() const { return _columnMapping; }
-
 	protected:
 
 		/// Reads the frame data from the external file.

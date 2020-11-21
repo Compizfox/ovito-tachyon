@@ -26,8 +26,10 @@
 #include <ovito/core/app/Application.h>
 #include <ovito/core/utilities/io/FileManager.h>
 #include "LAMMPSBinaryDumpImporter.h"
+#include "LAMMPSTextDumpImporter.h"
 
 #include <QtEndian>
+#include <QRegularExpression>
 
 namespace Ovito { namespace Particles {
 
@@ -62,11 +64,14 @@ struct LAMMPSBinaryDumpHeader
 			memset(tiltFactors, 0, sizeof(tiltFactors));
 		}
 
-	int ntimestep;
+	qlonglong ntimestep;
+	int formatRevision = 0;
 	qlonglong natoms;
 	int boundaryFlags[3][2];
 	double bbox[3][2];
 	double tiltFactors[3];
+	double simulationTime = std::numeric_limits<double>::lowest();
+	QByteArray columnsString;
 	int size_one;
 	int nchunk;
 
@@ -100,10 +105,9 @@ struct LAMMPSBinaryDumpHeader
 			return qFromBigEndian(val);
 	}
 
-	// Parses a "big" LAMMPS integer (may be 32 or 64 bit, depending on currently selected data type);
-	// We downcast the result value to 32-bit int, because OVITO currently supports only 2^31 atoms anyway.
+	// Parses a "big" LAMMPS integer (may be 32 or 64 bit, depending on currently selected data type).
 	// A return value of -1 indicates a number overflow.
-	int readBigInt(QIODevice& input) {
+	qlonglong readBigInt(QIODevice& input) {
 		if(dataType == LAMMPS_SMALLSMALL) {
 			return parseInt(input);
 		}
@@ -114,7 +118,7 @@ struct LAMMPSBinaryDumpHeader
 				val = qFromLittleEndian(val);
 			else
 				val = qFromBigEndian(val);
-			if(val > (qint64)std::numeric_limits<int>::max())
+			if(val > (qint64)std::numeric_limits<qlonglong>::max())
 				return -1;
 			else
 				return val;
@@ -204,7 +208,7 @@ void LAMMPSBinaryDumpImporter::FrameFinder::discoverFramesInFile(QVector<FileSou
 				return;
 		}
 
-		// Create a new record for the time step.
+		// Create a new record for the timestep.
 		frame.label = tr("Timestep %1").arg(header.ntimestep);
 		frames.push_back(frame);
 	}
@@ -230,7 +234,39 @@ bool LAMMPSBinaryDumpHeader::parse(QIODevice& input)
 			input.seek(headerPos);
 
 			ntimestep = readBigInt(input);
-			if(ntimestep < 0 || input.atEnd()) continue;
+			if(ntimestep < 0) {
+
+				// Detect newer file format, which is indicated by a negative number of timesteps followed by the magic string "DUMPATOM".
+				const char MAGIC_STRING[] = "DUMPATOM";
+				const int magicStringLen = sizeof(MAGIC_STRING) - 1;
+				if(ntimestep != -magicStringLen)
+					continue;
+				
+				// Read magic string.
+				char magicString[magicStringLen];
+				input.read(magicString, sizeof(magicString));
+				if(!std::equal(magicString, magicString + magicStringLen, MAGIC_STRING, MAGIC_STRING + magicStringLen))
+					continue;
+
+				// Read endianess indicator and check if we assumed the right endianess for this file.
+				const int ENDIAN = 0x0001;
+				if(parseInt(input) != ENDIAN)
+					continue;
+
+				// Read format revision number.
+				const int FORMAT_REVISION = 0x0002;
+				formatRevision = parseInt(input);
+				if(formatRevision != FORMAT_REVISION) {
+					formatRevision = 0;
+					continue;
+				}
+
+				// Now read actual number of timesteps.			
+				ntimestep = readBigInt(input);
+				if(ntimestep < 0)
+					continue;
+			}
+			if(input.atEnd()) return false;
 
 			natoms = readBigInt(input);
 			if(natoms < 0 || input.atEnd()) continue;
@@ -246,18 +282,20 @@ bool LAMMPSBinaryDumpHeader::parse(QIODevice& input)
 				continue;
 
 			bool isValid = true;
-			for(int i = 0; i < 3; i++) {
-				for(int j = 0; j < 2; j++) {
-					if(boundaryFlags[i][j] < 0 || boundaryFlags[i][j] > 3)
-						isValid = false;
+			if(formatRevision < 2) {
+				for(int i = 0; i < 3; i++) {
+					for(int j = 0; j < 2; j++) {
+						if(boundaryFlags[i][j] < 0 || boundaryFlags[i][j] > 3)
+							isValid = false;
+					}
 				}
-			}
 
-			if(!isValid) {
-				// Try parsing the old bounding box format now.
-				input.seek(startPos);
-				isValid = true;
-				triclinic = -1;
+				if(!isValid) {
+					// Try parsing the old bounding box format now.
+					input.seek(startPos);
+					isValid = true;
+					triclinic = -1;
+				}
 			}
 
 			// Read bounding box.
@@ -291,6 +329,24 @@ bool LAMMPSBinaryDumpHeader::parse(QIODevice& input)
 
 			size_one = parseInt(input);
 			if(size_one <= 0 || size_one > 40) continue;
+
+			// Newer file format includes units string, columns string and time.
+			columnsString.clear();
+			if(formatRevision >= 2) {
+				// Parse unit style.
+				int unitStyleLen = parseInt(input);
+				input.skip(unitStyleLen);
+
+				// Parse simulation time.
+				char time_flag = 0;
+				input.getChar(&time_flag);
+				if(time_flag)
+					simulationTime = readDouble(input);
+
+				// Parse data columns string.
+				int columnsLen = parseInt(input);
+				columnsString = input.read(columnsLen);
+			}
 
 			nchunk = parseInt(input);
 			if(nchunk <= 0 || nchunk > natoms) continue;
@@ -327,18 +383,27 @@ FileSourceImporter::FrameDataPtr LAMMPSBinaryDumpImporter::FrameLoader::loadFile
 	auto frameData = std::make_shared<LAMMPSFrameData>();
 
 	if(_parseFileHeaderOnly) {
-		// We are done at this point if we are only supposed to detect the
-		// number of file columns.
-		frameData->detectedColumnMapping().resize(header.size_one);
+		// Set up column-to-property mapping.
+		if(header.columnsString.isEmpty()) {
+			// We are done at this point if we are only supposed to detect the
+			// number of file columns.
+			frameData->detectedColumnMapping().resize(header.size_one);
+		}
+		else {
+			QStringList fileColumnNames = QString::fromLatin1(header.columnsString).split(QRegularExpression(QStringLiteral("\\s+")), QString::SkipEmptyParts);
+			frameData->detectedColumnMapping() = LAMMPSTextDumpImporter::generateAutomaticColumnMapping(fileColumnNames);
+		}
 		return frameData;
 	}
 
 	frameData->attributes().insert(QStringLiteral("Timestep"), QVariant::fromValue(header.ntimestep));
+	if(header.simulationTime != std::numeric_limits<double>::lowest())
+		frameData->attributes().insert(QStringLiteral("Time"), QVariant::fromValue(header.simulationTime));
 
 	setProgressMaximum(header.natoms);
 
-	// LAMMPS only stores the outer bounding box of the simulation cell in the dump file.
-	// We have to determine the size of the actual triclinic cell.
+	// LAMMPS only stores the outer bounding box dimensions of the simulation cell in the dump file.
+	// Now calculate the size of the actual triclinic cell.
 	Box3 simBox;
 	simBox.minc = Point3(header.bbox[0][0], header.bbox[1][0], header.bbox[2][0]);
 	simBox.maxc = Point3(header.bbox[0][1], header.bbox[1][1], header.bbox[2][1]);
@@ -352,6 +417,12 @@ FileSourceImporter::FrameDataPtr LAMMPSBinaryDumpImporter::FrameLoader::loadFile
 			Vector3(header.tiltFactors[1], header.tiltFactors[2], simBox.sizeZ()),
 			simBox.minc - Point3::Origin()));
 	frameData->simulationCell().setPbcFlags(header.boundaryFlags[0][0] == 0, header.boundaryFlags[1][0] == 0, header.boundaryFlags[2][0] == 0);
+
+	// Set up column-to-property mapping.
+	if(_columnMapping.empty() && !header.columnsString.isEmpty()) {
+		QStringList fileColumnNames = QString::fromLatin1(header.columnsString).split(QRegularExpression(QStringLiteral("\\s+")), QString::SkipEmptyParts);
+		_columnMapping = LAMMPSTextDumpImporter::generateAutomaticColumnMapping(fileColumnNames);
+	}
 
 	// Parse particle data.
 	InputColumnReader columnParser(_columnMapping, frameData->particles(), header.natoms);
@@ -421,7 +492,7 @@ FileSourceImporter::FrameDataPtr LAMMPSBinaryDumpImporter::FrameLoader::loadFile
 		}
 	}
 
-	// Detect if there are more simulation frames following in the file.
+	// Detect when there are more simulation frames following in the file.
 	if(!file->atEnd())
 		frameData->signalAdditionalFrames();
 

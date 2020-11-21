@@ -48,7 +48,7 @@ public:
 protected:
 
 	/// Displays a dialog box that allows the user to edit the custom file column to particle property mapping.
-	bool showEditColumnMappingDialog(LAMMPSBinaryDumpImporter* importer, MainWindow* mainWindow);
+	bool showEditColumnMappingDialog(LAMMPSBinaryDumpImporter* importer, const FileSourceImporter::Frame& frame, MainWindow* mainWindow);
 
 	/// Creates the user interface controls for the editor.
 	virtual void createUI(const RolloutInsertionParameters& rolloutParams) override;
