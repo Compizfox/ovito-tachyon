@@ -19,8 +19,8 @@
     </orderedlist>
   </para>
   <para>
-  The modifier assigns the <literal>Cluster</literal> output property to particles 
-  to indicate the grain each atom belongs to encoded as an integer value. The special cluster value 0 means an atom does not 
+  The modifier assigns a new property named <literal>Grain</literal> to particles
+  to indicate which grain each atom belongs to (encoded as an integer grain identifier). The special grain identifier 0 means an atom does not 
   belong to any grain.
   The modifier furthermore computes a mean lattice orientation for each identified grain and outputs a list of
   all grains as a <link linkend="scene_objects.data_table">data table</link>.

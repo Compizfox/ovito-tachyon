@@ -150,9 +150,9 @@ private:
 	public:
 
 		/// Constructor.
-		AlphaShapeEngine(ConstPropertyPtr positions, ConstPropertyPtr selection, ConstPropertyPtr particleClusters, const SimulationCell& simCell, FloatType probeSphereRadius, int smoothingLevel, bool selectSurfaceParticles, bool identifyRegions, std::vector<ConstPropertyPtr> particleProperties) :
+		AlphaShapeEngine(ConstPropertyPtr positions, ConstPropertyPtr selection, ConstPropertyPtr particleGrains, const SimulationCell& simCell, FloatType probeSphereRadius, int smoothingLevel, bool selectSurfaceParticles, bool identifyRegions, std::vector<ConstPropertyPtr> particleProperties) :
 			ConstructSurfaceEngineBase(std::move(positions), std::move(selection), simCell, std::move(particleProperties)),
-			_particleClusters(particleClusters),
+			_particleGrains(particleGrains),
 			_probeSphereRadius(probeSphereRadius),
 			_smoothingLevel(smoothingLevel),
 			_identifyRegions(identifyRegions),
@@ -165,8 +165,8 @@ private:
 		/// Injects the computed results into the data pipeline.
 		virtual void applyResults(TimePoint time, ModifierApplication* modApp, PipelineFlowState& state) override;
 
-		/// Returns the input particle cluster IDs.
-		const ConstPropertyPtr& particleClusters() const { return _particleClusters; }
+		/// Returns the input particle grain IDs.
+		const ConstPropertyPtr& particleGrains() const { return _particleGrains; }
 
 		/// Returns the selection set containing the particles at the constructed surfaces.
 		const PropertyPtr& surfaceParticleSelection() const { return _surfaceParticleSelection; }
@@ -185,8 +185,8 @@ private:
 		/// Controls the identification of disconnected spatial regions (filled and empty).
 		const bool _identifyRegions;
 
-		/// The input particle cluster property.
-		ConstPropertyPtr _particleClusters;
+		/// The input particle grain property.
+		ConstPropertyPtr _particleGrains;
 
 		/// Number of filled regions that have been identified.
 		SurfaceMeshData::size_type _filledRegionCount = 0;

@@ -111,8 +111,10 @@ Future<AsynchronousModifier::EnginePtr> ConstructSurfaceModifier::createEngine(c
 	if(onlySelectedParticles())
 		selProperty = particles->expectProperty(ParticlesObject::SelectionProperty)->storage();
 
-	// Get particle cluster property.
-	const PropertyObject* clusterProperty = particles->getProperty(ParticlesObject::ClusterProperty);
+	// Get particle "Grain" property.
+	const PropertyObject* grainProperty = particles->getProperty(QStringLiteral("Grain"));
+	if(grainProperty && (grainProperty->dataType() != PropertyStorage::Int64 || grainProperty->componentCount() != 1))
+		grainProperty = nullptr;
 
 	// Get simulation cell.
 	const SimulationCellObject* simCell = input.expectObject<SimulationCellObject>();
@@ -135,7 +137,7 @@ Future<AsynchronousModifier::EnginePtr> ConstructSurfaceModifier::createEngine(c
 		// Create engine object. Pass all relevant modifier parameters to the engine as well as the input data.
 		return std::make_shared<AlphaShapeEngine>(posProperty->storage(),
 				std::move(selProperty),
-				clusterProperty ? clusterProperty->storage() : nullptr,
+				grainProperty ? grainProperty->storage() : nullptr,
 				simCell->data(),
 				probeSphereRadius(),
 				smoothingLevel(),
@@ -201,30 +203,30 @@ void ConstructSurfaceModifier::AlphaShapeEngine::perform()
 
 	nextProgressSubStep();
 
-	// Predefine the filled spatial regions if there is already a particle cluster assignement. 
-	if(_identifyRegions && particleClusters()) {
+	// Predefine the filled spatial regions if there is already a particle grain assignment. 
+	if(_identifyRegions && particleGrains()) {
 		
-		// Determine the maximum cluster ID.
-		qlonglong maxClusterId = 0;
-		if(particleClusters()->size() != 0) {
-			maxClusterId = qBound<qlonglong>(0, 
-				*boost::max_element(ConstPropertyAccess<qlonglong>(particleClusters())), 
+		// Determine the maximum grain ID.
+		qlonglong maxGrainId = 0;
+		if(particleGrains()->size() != 0) {
+			maxGrainId = qBound<qlonglong>(0, 
+				*boost::max_element(ConstPropertyAccess<qlonglong>(particleGrains())), 
 				std::numeric_limits<SurfaceMeshData::region_index>::max() - 1);
 		}
 
-		// Create one region in the output mesh for each particle cluster.
-		mesh().createRegions(maxClusterId + 1);
+		// Create one region in the output mesh for each input grain.
+		mesh().createRegions(maxGrainId + 1);
 	}
 
 	// Helper function that determines which spatial region a filled Delaunay cell belongs to.
-	auto tetrahedronRegion = [&,clusters = ConstPropertyAccess<qlonglong>(_identifyRegions ? particleClusters() : nullptr)](DelaunayTessellation::CellHandle cell) -> SurfaceMeshData::region_index {
-		if(clusters) {
+	auto tetrahedronRegion = [&,grains = ConstPropertyAccess<qlonglong>(_identifyRegions ? particleGrains() : nullptr)](DelaunayTessellation::CellHandle cell) -> SurfaceMeshData::region_index {
+		if(grains) {
 			// Decide which particle cluster the Delaunay cell belongs to.
-			// We need a tie-breaker in case the four vertex atoms belong to different clusters.
+			// We need a tie-breaker in case the four vertex atoms belong to different grains.
 			qlonglong result = 0;
 			for(int v = 0; v < 4; v++) {
 				size_t particleIndex = tessellation.vertexIndex(tessellation.cellVertex(cell, v));
-				qlonglong clusterId = clusters[particleIndex];
+				qlonglong clusterId = grains[particleIndex];
 				if(clusterId > result)
 					result = clusterId;
 			}
