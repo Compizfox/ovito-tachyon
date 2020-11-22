@@ -236,16 +236,15 @@ bool LAMMPSBinaryDumpHeader::parse(QIODevice& input)
 			ntimestep = readBigInt(input);
 			if(ntimestep < 0) {
 
-				// Detect newer file format, which is indicated by a negative number of timesteps followed by the magic string "DUMPATOM".
-				const char MAGIC_STRING[] = "DUMPATOM";
-				const int magicStringLen = sizeof(MAGIC_STRING) - 1;
-				if(ntimestep != -magicStringLen)
+				// Detect newer file format, which is indicated by a negative number of timesteps followed by the magic strings "DUMPATOM" or "DUMPCUSTOM".
+				const char MAGIC_STRING_ATOM[] = "DUMPATOM";
+				const char MAGIC_STRING_CUSTOM[] = "DUMPCUSTOM";
+				if(-ntimestep != sizeof(MAGIC_STRING_ATOM)-1 && -ntimestep != sizeof(MAGIC_STRING_CUSTOM)-1)
 					continue;
 				
 				// Read magic string.
-				char magicString[magicStringLen];
-				input.read(magicString, sizeof(magicString));
-				if(!std::equal(magicString, magicString + magicStringLen, MAGIC_STRING, MAGIC_STRING + magicStringLen))
+				QByteArray magicString = input.read(-ntimestep);
+				if(magicString != MAGIC_STRING_ATOM && magicString != MAGIC_STRING_CUSTOM)
 					continue;
 
 				// Read endianess indicator and check if we assumed the right endianess for this file.
