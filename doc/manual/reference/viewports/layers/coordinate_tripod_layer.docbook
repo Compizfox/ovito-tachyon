@@ -14,8 +14,8 @@
     <informalfigure><screenshot><mediaobject><imageobject>
        <imagedata fileref="images/viewport_layers/coordinate_tripod_overlay_panel.png" format="PNG" scale="50" />
     </imageobject></mediaobject></screenshot></informalfigure>
-    This <link linkend="viewport_layers">viewport layer</link> renders a tripod into the picture that 
-    indicates the orientation of the simulation coordinate system relative to the viewport camera.
+    This <link linkend="viewport_layers">viewport layer</link> renders a tripod into the picture to 
+    indicate the orientation of the simulation coordinate system.
 
     <screenshot><mediaobject><imageobject>
        <imagedata fileref="images/viewport_layers/coordinate_tripod_example.jpg" format="JPG" scale="50" />

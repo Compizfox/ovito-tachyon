@@ -14,13 +14,38 @@
     <informalfigure><screenshot><mediaobject><imageobject>
        <imagedata fileref="images/viewport_layers/color_legend_overlay_panel.png" format="PNG" scale="50" />
     </imageobject></mediaobject></screenshot></informalfigure>
-    This <link linkend="viewport_layers">viewport layer</link> renders the color map of a 
-    <link linkend="particles.modifiers.color_coding">Color coding</link> modifier as a legend into the
-    picture. The modifier must be part of a data pipeline in the current scene.
-
+    This <link linkend="viewport_layers">viewport layer</link> renders the color scale associated with a 
+    <link linkend="particles.modifiers.color_coding">Color coding</link> modifier into the
+    picture. The color legend allows a viewer to translate the colors in the picture into corresponding numeric values. 
     <screenshot><mediaobject><imageobject>
        <imagedata fileref="images/viewport_layers/color_legend_example.jpg" format="JPG" scale="50" />
     </imageobject></mediaobject></screenshot>
+  </para>
+  
+  <para>
+    The color legend layer will render the color map only if is linked to a <emphasis>source modifier</emphasis>, which is the <link linkend="particles.modifiers.color_coding">Color coding</link> 
+    modifier in the current data pipeline from which the color legend layer adopts the color map and numeric range of values.
+    When you first insert the color legend layer into a viewport, it gets automatically linked to the first <link linkend="particles.modifiers.color_coding">Color coding</link> modifier
+    in the current data pipeline. You may have to pick the right color coding modifier manually in case there are multiple 
+    such modifiers in your pipeline or if you insert the modifier <emphasis>after</emphasis> you've already created the color legend layer. 
+  </para>
+
+  <para>
+    The parameters of the color legend layer allow you control the size and the positioning of the color map in the rendered picture.
+    By default, the legend will be labeled with the name of the selected input property that was used to produce the coloring and the 
+    minimum and maximum value of the numeric range set in the <link linkend="particles.modifiers.color_coding">Color coding</link> modifier.
+    You can override these defaults by entering text into the <emphasis>Custom title</emphasis> and <emphasis>Custom label</emphasis> fields.
+  </para>
+
+  <para>
+    The text presentation of the numeric interval range is controlled by the format specification string. You have the choice between decimal notation 
+    (<literal>%f</literal>), exponential notation (<literal>%e</literal>) and an automatic mode (<literal>%g</literal>), which chooses the best representation 
+    depending on the value. 
+    Furthermore, the format string allows you to control the output precision, i.e. the number of digits that
+    appear after the decimal point. Use <literal>"%.2f"</literal>, for example, to always show two digits after the decimal point. 
+    The format string must follow the standard convention of the 
+    <link xlink:href="https://en.cppreference.com/w/cpp/io/c/fprintf">printf()</link> C function.
+    Futhermore, it is possible to include a physical unit in the format string, e.g. <literal>"%g eV"</literal>. 
   </para>
 
   <simplesect>

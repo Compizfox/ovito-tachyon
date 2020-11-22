@@ -25,7 +25,8 @@
     When a placeholder in the text string is replaced with a floating-point value, that value gets formatted using the 
     format specification string. You have the choice between decimal notation (<literal>%f</literal>), exponential notation (<literal>%e</literal>)
     and an automatic mode (<literal>%g</literal>). Furthermore, the format string allows you to control the output precision, i.e. the number of digits that
-    appear after the decimal point. The format string must follow the standard convention of the <link xlink:href="https://en.cppreference.com/w/cpp/io/c/fprintf">printf()</link> C function.
+    appear after the decimal point. Use <literal>%.2f</literal>, for example, to always show two digits after the decimal point. 
+    The format string must follow the standard convention of the <link xlink:href="https://en.cppreference.com/w/cpp/io/c/fprintf">printf()</link> C function.
   </para>
 
   <para>

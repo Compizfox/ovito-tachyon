@@ -15,16 +15,20 @@
        <imagedata fileref="images/viewport_layers/viewport_overlay_command_panel.png" format="PNG" scale="60" />
     </imageobject></mediaobject></screenshot></informalfigure>
     Viewport layers render two-dimensional text and graphics on top of the three-dimensional scene.
+    They allow you to include additional information in output pictures and animations.
     OVITO provides several layer types (see table below), which you can add to a viewport.
     Go to the <guilabel>Viewport layers</guilabel> tab of OVITO's command panel
     (screenshot on the right) to manage the layers of the active viewport.
   </para>
   <para>
-    Note that layers will only be visible within the interactive viewport window
-    when <link linkend="usage.viewports.menu">Preview Mode</link> is enabled for that viewport.
-    OVITO activates this mode automatically whenever you add a new layer to a viewport.
+    Note that viewport layers are only visible in the interactive viewport windows
+    while <link linkend="usage.viewports.menu">render preview mode</link> is turned on for a viewport.
+    OVITO activates the render preview mode automatically for the active viewport whenever you add a new layer.
   </para>
   <para>
+    <informalfigure><screenshot><mediaobject><imageobject>
+       <imagedata fileref="images/viewport_layers/viewport_layers_schematic.png" format="PNG" scale="60" />
+    </imageobject></mediaobject></screenshot></informalfigure>
     Available viewport layer types:
     <informaltable>
         <tgroup cols="2">

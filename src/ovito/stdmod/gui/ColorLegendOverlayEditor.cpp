@@ -49,7 +49,7 @@ SET_OVITO_OBJECT_EDITOR(ColorLegendOverlay, ColorLegendOverlayEditor);
 void ColorLegendOverlayEditor::createUI(const RolloutInsertionParameters& rolloutParams)
 {
 	// Create a rollout.
-	QWidget* rollout = createRollout(tr("Color legend"), rolloutParams);
+	QWidget* rollout = createRollout(tr("Color legend"), rolloutParams, "viewport_layers.color_legend.html");
 
     // Create the rollout contents.
 	QGridLayout* layout = new QGridLayout(rollout);
