@@ -112,7 +112,7 @@ bool GrainSegmentationEngine1::createNeighborBonds()
 
 		// Construct local neighbor list builder.
 		NearestNeighborFinder::Query<PTMAlgorithm::MAX_INPUT_NEIGHBORS> neighQuery(neighFinder);
-        auto ptmNeighQuery = PTMNeighborFinder(false);
+		auto ptmNeighQuery = PTMNeighborFinder(false);
 		ptmNeighQuery.prepare(&neighQuery, structureTypes(), orientations(), correspondences(), this);
 
 		// Thread-local list of generated bonds connecting neighboring lattice atoms.
@@ -145,9 +145,9 @@ bool GrainSegmentationEngine1::createNeighborBonds()
 				// Create a bond to the neighbor, but skip every other bond to create just one bond per particle pair.
 				if(index < neighborIndex)
 					threadlocalNeighborBonds.push_back({index,
-                                                        neighborIndex,
-                                                        std::numeric_limits<FloatType>::infinity(),
-                                                        length});
+														neighborIndex,
+														std::numeric_limits<FloatType>::infinity(),
+														length});
 
 				// Check if neighbor vector spans more than half of a periodic simulation cell.
 				Vector3 neighborVector = ptmNeighQuery.results()[j].delta;
@@ -258,7 +258,7 @@ bool GrainSegmentationEngine1::rotateHexagonalAtoms()
 
 	// Construct local neighbor list builder.
 	NearestNeighborFinder::Query<PTMAlgorithm::MAX_INPUT_NEIGHBORS> neighQuery(neighFinder);
-    auto ptmNeighQuery = PTMNeighborFinder(false);
+	auto ptmNeighQuery = PTMNeighborFinder(false);
 	if(!ptmNeighQuery.prepare(&neighQuery, structureTypes(), orientations(), correspondences(), this))
 		return false;
 
@@ -756,23 +756,23 @@ bool GrainSegmentationEngine2::mergeOrphanAtoms()
 			// Add bonds for both atoms
 			noncrystallineBonds.push_back(nb);
 
-            std::swap(nb.a, nb.b);
+			std::swap(nb.a, nb.b);
 			noncrystallineBonds.push_back(nb);
 		}
 	}
 	if(isCanceled())
 		return false;
 
-    boost::sort(noncrystallineBonds,
-                 [](const GrainSegmentationEngine1::NeighborBond& a, const GrainSegmentationEngine1::NeighborBond& b)
-                 {return a.a < b.a;});
+	boost::sort(noncrystallineBonds,
+				 [](const GrainSegmentationEngine1::NeighborBond& a, const GrainSegmentationEngine1::NeighborBond& b)
+				 {return a.a < b.a;});
 
 	boost::heap::priority_queue<PQNode, boost::heap::compare<PQCompareLength>> pq;
 
 	// Populate priority queue with bonds at a crystalline-noncrystalline interface
 	for (auto bond: _engine1->neighborBonds()) {
-        auto clusterA = atomClustersArray[bond.a];
-        auto clusterB = atomClustersArray[bond.b];
+		auto clusterA = atomClustersArray[bond.a];
+		auto clusterB = atomClustersArray[bond.b];
 
 		if (clusterA != 0 && clusterB == 0) {
 			pq.push({clusterA, bond.b, bond.length});
@@ -786,16 +786,16 @@ bool GrainSegmentationEngine2::mergeOrphanAtoms()
 		auto node = *pq.begin();
 		pq.pop();
 
-        if (atomClustersArray[node.particleIndex] != 0)
-            continue;
+		if (atomClustersArray[node.particleIndex] != 0)
+			continue;
 
-        atomClustersArray[node.particleIndex] = node.cluster;
-        grainSizeArray[node.cluster - 1]++;
+		atomClustersArray[node.particleIndex] = node.cluster;
+		grainSizeArray[node.cluster - 1]++;
 
 		// Get the range of bonds adjacent to the current atom.
 		auto bondsRange = boost::range::equal_range(noncrystallineBonds, GrainSegmentationEngine1::NeighborBond{node.particleIndex, 0, 0, 0},
 			[](const GrainSegmentationEngine1::NeighborBond& a, const GrainSegmentationEngine1::NeighborBond& b)
-            { return a.a < b.a; });
+			{ return a.a < b.a; });
 
 		// Find the closest cluster atom in the neighborhood (using PTM ordering).
 		for(const GrainSegmentationEngine1::NeighborBond& bond : boost::make_iterator_range(bondsRange.first, bondsRange.second)) {

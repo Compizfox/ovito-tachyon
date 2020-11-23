@@ -30,33 +30,24 @@
 namespace Ovito { namespace Particles {
 
 /**
- * \brief This utility class finds the *k* nearest neighbors of a particle or around some point in space.
- *        *k* is a positive integer.
+ * \brief This utility class finds the neighbors of a particle whose local crystalline order has been determined
+ *        with the PolyhedralTemplateMatching modifier. In order to use this class, the "output_orientation"
+ *        parameter must be set (in the scripting interface) or "Lattice orientations" (in the GUI).
  *
- * OVITO provides two facilities for finding the neighbors of particles: The CutoffNeighborFinder class, which
- * finds all neighbors within a certain cutoff radius, and the PTMNeighborFinder class, which finds
- * the *k* nearest neighbor of a particle, where *k* is some positive integer. Note that the cutoff-based neighbor finder
- * can return an unknown number of neighbor particles, while the nearest neighbor finder will return exactly
- * the requested number of nearest neighbors (ordered by increasing distance from the central particle).
- * Whether CutoffNeighborFinder or PTMNeighborFinder is the right choice depends on the application.
- *
- * The PTMNeighborFinder class must be initialized by a call to prepare(). This function sorts all input particles
- * in a binary search for fast nearest neighbor queries.
+ * The PTMNeighborFinder class must be initialized by a call to prepare().
  *
  * After the PTMNeighborFinder has been initialized, one can find the nearest neighbors of some central
- * particle by constructing an instance of the PTMNeighborFinder::Query class. This is a light-weight class generates
- * the sorted list of nearest neighbors of a particle.
- *
- * The PTMNeighborFinder class takes into account periodic boundary conditions. With periodic boundary conditions,
- * a particle can be appear multiple times in the neighbor list of another particle. Note, however, that a different neighbor *vector* is
- * reported for each periodic image of a neighbor.
+ * particle by constructing an instance of the PTMNeighborFinder::Query class. This class also contains some
+ * properties computed by PTM.
  */
 class OVITO_PARTICLES_EXPORT PTMNeighborFinder
 {
 public:
 	//// Constructor
+	/// \param _all_properties Determines whether to compute disorientations between neighbors.
 	PTMNeighborFinder(bool _all_properties)
 	{
+		// scripting interface should always set this to true;
 		all_properties = _all_properties;
 	}
 

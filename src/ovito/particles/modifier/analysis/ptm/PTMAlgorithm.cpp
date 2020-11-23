@@ -74,7 +74,6 @@ static int get_neighbours(void* vdata, size_t _unused_lammps_variable, size_t at
 	neighQuery.findNeighbors(atom_index);
 	int numNeighbors = std::min(num_requested - 1, neighQuery.results().size());
 	OVITO_ASSERT(numNeighbors <= PTMAlgorithm::MAX_INPUT_NEIGHBORS);
-	OVITO_ASSERT(cachedNeighbors[atom_index] != 0);
 
 	int dummy = 0;
 	ptm_decode_correspondences(PTM_MATCH_FCC,   //this gives us default behaviour
