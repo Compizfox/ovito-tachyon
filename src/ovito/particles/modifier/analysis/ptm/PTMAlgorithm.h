@@ -27,16 +27,17 @@
 #include <ovito/stdobj/properties/PropertyAccess.h>
 #include <ovito/particles/util/NearestNeighborFinder.h>
 #include <3rdparty/ptm/ptm_functions.h>
+#include <3rdparty/ptm/ptm_initialize_data.h>
 
 extern "C" {
-    typedef struct ptm_local_handle* ptm_local_handle_t;
+	typedef struct ptm_local_handle* ptm_local_handle_t;
 }
 
 namespace Ovito { namespace Particles {
 
 /**
  * \brief This class is a wrapper around the Polyhedral Template Matching algorithm
- *        implemented in the PTM third-party library.
+ *		implemented in the PTM third-party library.
  *
  * It allows clients to perform the PTM structure analysis for individual atoms.
  *
@@ -46,56 +47,56 @@ namespace Ovito { namespace Particles {
 class OVITO_PARTICLES_EXPORT PTMAlgorithm : private NearestNeighborFinder
 {
 public:
-    /// The structure types known by the PTM routine.
-    enum StructureType {
-        OTHER = 0,			//< Unidentified structure
-        FCC,				//< Face-centered cubic
-        HCP,				//< Hexagonal close-packed
-        BCC,				//< Body-centered cubic
-        ICO,				//< Icosahedral structure
-        SC,				//< Simple cubic structure
-        CUBIC_DIAMOND,			//< Cubic diamond structure
-        HEX_DIAMOND,			//< Hexagonal diamond structure
-        GRAPHENE,			//< Graphene structure
+	/// The structure types known by the PTM routine.
+	enum StructureType {
+		OTHER = 0,			//< Unidentified structure
+		FCC,				//< Face-centered cubic
+		HCP,				//< Hexagonal close-packed
+		BCC,				//< Body-centered cubic
+		ICO,				//< Icosahedral structure
+		SC,				//< Simple cubic structure
+		CUBIC_DIAMOND,			//< Cubic diamond structure
+		HEX_DIAMOND,			//< Hexagonal diamond structure
+		GRAPHENE,			//< Graphene structure
 
-        NUM_STRUCTURE_TYPES //< This counts the number of defined structure types.
-    };
-    Q_ENUMS(StructureType);
+		NUM_STRUCTURE_TYPES //< This counts the number of defined structure types.
+	};
+	Q_ENUMS(StructureType);
 
-    /// The lattice ordering types known by the PTM routine.
-    enum OrderingType {
-        ORDERING_NONE = 0,
-        ORDERING_PURE = 1,
-        ORDERING_L10 = 2,
-        ORDERING_L12_A = 3,
-        ORDERING_L12_B = 4,
-        ORDERING_B2 = 5,
-        ORDERING_ZINCBLENDE_WURTZITE = 6,
-        ORDERING_BORON_NITRIDE = 7,
+	/// The lattice ordering types known by the PTM routine.
+	enum OrderingType {
+		ORDERING_NONE = 0,
+		ORDERING_PURE = 1,
+		ORDERING_L10 = 2,
+		ORDERING_L12_A = 3,
+		ORDERING_L12_B = 4,
+		ORDERING_B2 = 5,
+		ORDERING_ZINCBLENDE_WURTZITE = 6,
+		ORDERING_BORON_NITRIDE = 7,
 
-        NUM_ORDERING_TYPES 	//< This just counts the number of defined ordering types.
-    };
-    Q_ENUMS(OrderingType);
+		NUM_ORDERING_TYPES 	//< This just counts the number of defined ordering types.
+	};
+	Q_ENUMS(OrderingType);
 
 #ifndef Q_CC_MSVC
-    /// Maximum number of input nearest neighbors needed for the PTM analysis.
-    static constexpr int MAX_INPUT_NEIGHBORS = 18;
+	/// Maximum number of input nearest neighbors needed for the PTM analysis.
+	static constexpr int MAX_INPUT_NEIGHBORS = 18;
 #else // Workaround for a deficiency in the MSVC compiler:
-    /// Maximum number of input nearest neighbors needed for the PTM analysis.
-    enum { MAX_INPUT_NEIGHBORS = 18 };
+	/// Maximum number of input nearest neighbors needed for the PTM analysis.
+	enum { MAX_INPUT_NEIGHBORS = 18 };
 #endif
 
 
 #ifndef Q_CC_MSVC
-    /// Maximum number of nearest neighbors for any structure returned by the PTM analysis routine.
-    static constexpr int MAX_OUTPUT_NEIGHBORS = 16;
+	/// Maximum number of nearest neighbors for any structure returned by the PTM analysis routine.
+	static constexpr int MAX_OUTPUT_NEIGHBORS = 16;
 #else // Workaround for a deficiency in the MSVC compiler:
-    /// Maximum number of nearest neighbors for any structure returned by the PTM analysis routine.
-    enum { MAX_OUTPUT_NEIGHBORS = 16 };
+	/// Maximum number of nearest neighbors for any structure returned by the PTM analysis routine.
+	enum { MAX_OUTPUT_NEIGHBORS = 16 };
 #endif
 
-    /// Converts a PTM Ovito StructureType to the PTM index.
-    static StructureType ptm_to_ovito_structure_type(int type) {
+	/// Converts a PTM Ovito StructureType to the PTM index.
+	static StructureType ptm_to_ovito_structure_type(int type) {
 		if(type == PTM_MATCH_NONE) return OTHER;
 		if(type == PTM_MATCH_SC) return SC;
 		if(type == PTM_MATCH_FCC) return FCC;
@@ -109,8 +110,8 @@ public:
         return OTHER;
     }
 
-    /// Converts an Ovito StructureType to the PTM index.
-    static int ovito_to_ptm_structure_type(StructureType type) {
+	/// Converts an Ovito StructureType to the PTM index.
+	static int ovito_to_ptm_structure_type(StructureType type) {
 		if(type == OTHER) return PTM_MATCH_NONE;
 		if(type == SC) return PTM_MATCH_SC;
 		if(type == FCC) return PTM_MATCH_FCC;
@@ -120,9 +121,54 @@ public:
 		if(type == CUBIC_DIAMOND) return PTM_MATCH_DCUB;
 		if(type == HEX_DIAMOND) return PTM_MATCH_DHEX;
 		if(type == GRAPHENE) return PTM_MATCH_GRAPHENE;
-        OVITO_ASSERT(0);
+		OVITO_ASSERT(0);
         return PTM_MATCH_NONE;
-    }
+	}
+
+	static const double (*get_template(StructureType structureType, int templateIndex))[3]
+	{
+		if (structureType == OTHER) {
+			return nullptr;
+		}
+
+		int ptm_type = ovito_to_ptm_structure_type(structureType);
+		const ptm::refdata_t* ref = ptm::refdata[ptm_type];
+		if (templateIndex == 0) {
+			return ref->points;
+		}
+		else if (templateIndex == 1) {
+			return ref->points_alt1;
+		}
+		else if (templateIndex == 2) {
+			return ref->points_alt2;
+		}
+		else if (templateIndex == 3) {
+			return ref->points_alt3;
+		}
+		OVITO_ASSERT(0);
+		return nullptr;
+	}
+
+	static FloatType calculate_disorientation(StructureType structureTypeA,
+											  StructureType structureTypeB,
+											  const Quaternion& qa,
+											  const Quaternion& qb)
+	{
+		FloatType disorientation = std::numeric_limits<FloatType>::max();
+		if (structureTypeA != structureTypeB)
+			return disorientation;
+	
+		double orientA[4] = { qa.w(), qa.x(), qa.y(), qa.z() };
+		double orientB[4] = { qb.w(), qb.x(), qb.y(), qb.z() };
+
+		int structureType = structureTypeA;
+		if(structureType == PTMAlgorithm::SC || structureType == PTMAlgorithm::FCC || structureType == PTMAlgorithm::BCC || structureType == PTMAlgorithm::CUBIC_DIAMOND)
+			disorientation = (FloatType)ptm::quat_disorientation_cubic(orientA, orientB);
+		else if(structureType == PTMAlgorithm::HCP || structureType == PTMAlgorithm::HEX_DIAMOND || structureType == PTMAlgorithm::GRAPHENE)
+			disorientation = (FloatType)ptm::quat_disorientation_hcp_conventional(orientA, orientB);
+
+		return qRadiansToDegrees(disorientation);
+	}
 
     /// Creates the algorithm object.
     PTMAlgorithm();
@@ -192,7 +238,7 @@ public:
         /// Identifies the local structure of the given particle and builds the list of nearest neighbors
         /// that form that structure. Subsequently, in case of a successful match, additional outputs of the calculation
         /// can be retrieved with the query methods below.
-        StructureType identifyStructure(size_t particleIndex, const std::vector<uint64_t>& cachedNeighbors, Quaternion* qtarget);
+        StructureType identifyStructure(size_t particleIndex, const std::vector<uint64_t>& cachedNeighbors);
 
         // Calculates the topological ordering of a particle's neighbors.
         int cacheNeighbors(size_t particleIndex, uint64_t* res);
@@ -253,62 +299,70 @@ public:
 		}
 
 		uint64_t correspondence() {
-            int type = ovito_to_ptm_structure_type(structureType());
-            return ptm_encode_correspondences(type, _env.correspondences);
+			int type = ovito_to_ptm_structure_type(structureType());
+			return ptm_encode_correspondences(type, _env.num, _env.correspondences, _bestTemplateIndex);
 		}
 
-        /// Returns the neighbor information for the i-th nearest neighbor of the current particle.
-        const NearestNeighborFinder::Neighbor& getNearestNeighbor(int index) const {
-            OVITO_ASSERT(index >= 0 && index < results().size());
-            return results()[index];
-        }
+	private:
+		/// Reference to the parent algorithm object.
+		const PTMAlgorithm& _algo;
 
-        /// Returns the neighbor information corresponding to the i-th neighbor in the PTM template
-        /// identified for the current particle.
-        const NearestNeighborFinder::Neighbor& getTemplateNeighbor(int index) const;
+		/// Thread-local storage needed by the PTM.
+		ptm_local_handle_t _handle;
 
-        /// Returns the ideal vector corresponding to the i-th neighbor in the PTM template
-        /// identified for the current particle.
-        const Vector_3<double>& getIdealNeighborVector(int index) const;
+		// Output quantities computed by the PTM routine during the last call to identifyStructure():
+		double _rmsd;
+		double _scale;
+		double _interatomicDistance;
+		double _q[4];
+		Matrix_3<double> _F{Matrix_3<double>::Zero()};
+		StructureType _structureType = OTHER;
+		int32_t _orderingType = ORDERING_NONE;
+		int _bestTemplateIndex;
+		const double (*_bestTemplate)[3] = nullptr;
+		ptm_atomicenv_t _env;		
+	};
 
-    private:
-        /// Reference to the parent algorithm object.
-        const PTMAlgorithm& _algo;
+	static FloatType calculate_interfacial_disorientation(StructureType structureTypeA,
+														  StructureType structureTypeB,
+														  const Quaternion& qa,
+														  const Quaternion& qb,
+														  Quaternion& output)
+	{
+		FloatType disorientation = std::numeric_limits<FloatType>::infinity();
+		double orientA[4] = { qa.w(), qa.x(), qa.y(), qa.z() };
+		double orientB[4] = { qb.w(), qb.x(), qb.y(), qb.z() };
 
-        /// Thread-local storage needed by the PTM.
-        ptm_local_handle_t _handle;
+		if (structureTypeA == PTMAlgorithm::FCC || structureTypeA == PTMAlgorithm::CUBIC_DIAMOND) {
+			disorientation = (FloatType)ptm::quat_disorientation_hexagonal_to_cubic(orientA, orientB);
+		}
+		else {
+			disorientation = (FloatType)ptm::quat_disorientation_cubic_to_hexagonal(orientA, orientB);
+		}
 
-        // Output quantities computed by the PTM routine during the last call to identifyStructure():
-        double _rmsd;
-        double _scale;
-        double _interatomicDistance;
-        double _q[4];
-        Matrix_3<double> _F{Matrix_3<double>::Zero()};
-        StructureType _structureType = OTHER;
-        int32_t _orderingType = ORDERING_NONE;
-        int _bestTemplateIndex;
-        const double (*_bestTemplate)[3] = nullptr;
-        //int8_t _correspondences[MAX_INPUT_NEIGHBORS+1];
-        std::vector<uint64_t> _cachedNeighbors;
-        ptm_atomicenv_t _env;
-    };
+		output.w() = orientB[0];
+		output.x() = orientB[1];
+		output.y() = orientB[2];
+		output.z() = orientB[3];
+		return qRadiansToDegrees(disorientation);
+	}
 
 private:
 
-    /// Bit array controlling which structures the PTM algorithm will look for.
-    std::array<bool, NUM_STRUCTURE_TYPES> _typesToIdentify = {};
+	/// Bit array controlling which structures the PTM algorithm will look for.
+	std::array<bool, NUM_STRUCTURE_TYPES> _typesToIdentify = {};
 
-    /// Activates the identification of chemical orderings.
-    bool _identifyOrdering = false;
+	/// Activates the identification of chemical orderings.
+	bool _identifyOrdering = false;
 
-    /// The chemical types of the input particles, needed for ordering analysis.
-    ConstPropertyPtr _particleTypes;
+	/// The chemical types of the input particles, needed for ordering analysis.
+	ConstPropertyPtr _particleTypes;
 
-    /// Activates the calculation of the elastic deformation gradient by PTM.
-    bool _calculateDefGradient = false;
+	/// Activates the calculation of the elastic deformation gradient by PTM.
+	bool _calculateDefGradient = false;
 
-    /// The RMSD threshold that must not be exceeded.
-    FloatType _rmsdCutoff = 0.1;
+	/// The RMSD threshold that must not be exceeded.
+	FloatType _rmsdCutoff = 0.1;
 };
 
 }	// End of namespace

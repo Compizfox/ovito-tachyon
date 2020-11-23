@@ -98,6 +98,7 @@ SET(SourceFiles
 	export/gsd/GSDExporter.cpp
 	util/NearestNeighborFinder.cpp
 	util/CutoffNeighborFinder.cpp
+	util/PTMNeighborFinder.cpp
 	util/ParticleExpressionEvaluator.cpp
 )
 

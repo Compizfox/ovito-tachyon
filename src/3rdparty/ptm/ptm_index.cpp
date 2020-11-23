@@ -243,72 +243,71 @@ static void output_data(ptm::result_t *res, ptm_atomicenv_t* env,
 						bool output_conventional_orientation, bool calculate_ordering_type, bool calculate_deformation,
 						ptm_result_t* result, ptm_atomicenv_t* output_env) {
 	const ptm::refdata_t *ref = res->ref_struct;
+	if (ref != NULL) {
+		result->structure_type = ref->type;
+		if (calculate_ordering_type) {
+			result->ordering_type = ptm::find_alloy_type(ref, res->mapping, env->numbers);
+		}
+
+		const double (*ref_template)[3] = NULL;
+		result->best_template_index = ptm_remap_template(	ref->type, output_conventional_orientation, 0,
+															NULL, res->q, NULL, res->mapping, &ref_template);
+		if (result->best_template_index >= 0) {
+			result->best_template = ref_template;
+
+			const double (*ref_penrose)[3] = ref->penrose;
+			if (output_conventional_orientation & (    ref->type == PTM_MATCH_HCP
+								|| ref->type == PTM_MATCH_GRAPHENE
+								|| ref->type == PTM_MATCH_DCUB
+								|| ref->type == PTM_MATCH_DHEX))
+			{
+				if (result->best_template_index == 1)
+					ref_penrose = ref->penrose_alt1;
+				else if (result->best_template_index == 2)
+					ref_penrose = ref->penrose_alt2;
+				else if (result->best_template_index == 3)
+					ref_penrose = ref->penrose_alt3;
+			}
+
+			if (calculate_deformation) {
+				double scaled_points[PTM_MAX_INPUT_POINTS][3];
+				ptm::subtract_barycentre(ref->num_nbrs + 1, env->points, scaled_points);
+				for (int i = 0; i < ref->num_nbrs + 1; i++) {
+					scaled_points[i][0] *= res->scale;
+					scaled_points[i][1] *= res->scale;
+					scaled_points[i][2] *= res->scale;
+				}
+
+				ptm::calculate_deformation_gradient(ref->num_nbrs + 1, ref_template,
+													res->mapping, scaled_points, ref_penrose,
+													result->F, result->F_res);
+				if (ref->type == PTM_MATCH_GRAPHENE) // hack for pseudo-2d structures
+					result->F[8] = 1;
+
+				ptm::polar_decomposition_3x3(result->F, false, result->U, result->P);
+			}
+		}
+
+		double interatomic_distance = calculate_interatomic_distance(ref->type, res->scale);
+		double lattice_constant = calculate_lattice_constant(ref->type, interatomic_distance);
+
+		result->interatomic_distance = interatomic_distance;
+		result->lattice_constant = lattice_constant;
+		result->rmsd = res->rmsd;
+		result->scale = res->scale;
+		memcpy(result->orientation, res->q, 4 * sizeof(double));
+	}
 
 	if (output_env != NULL) {
 		int num_nbrs = ref == NULL ? env->num - 1 : ref->num_nbrs;
 		output_env->num = num_nbrs + 1;
+
 		for (int i = 0; i < num_nbrs + 1; i++) {
 			output_env->correspondences[i] = env->correspondences[res->mapping[i]];
 			output_env->atom_indices[i] = env->atom_indices[res->mapping[i]];
 			memcpy(output_env->points[i], env->points[res->mapping[i]], 3 * sizeof(double));
 		}
 	}
-
-	if (ref == NULL)
-		return;
-
-	result->structure_type = ref->type;
-	if (calculate_ordering_type) {
-		result->ordering_type = ptm::find_alloy_type(ref, res->mapping, env->numbers);
-	}
-
-	const double (*ref_template)[3] = NULL;
-	result->best_template_index = ptm_remap_template(	ref->type, output_conventional_orientation, 0,
-														NULL, res->q, NULL, res->mapping, &ref_template);
-	if (result->best_template_index >= 0) {
-		result->best_template = ref_template;
-
-		const double (*ref_penrose)[3] = ref->penrose;
-		if (output_conventional_orientation & (    ref->type == PTM_MATCH_HCP
-							|| ref->type == PTM_MATCH_GRAPHENE
-							|| ref->type == PTM_MATCH_DCUB
-							|| ref->type == PTM_MATCH_DHEX))
-		{
-			if (result->best_template_index == 1)
-				ref_penrose = ref->penrose_alt1;
-			else if (result->best_template_index == 2)
-				ref_penrose = ref->penrose_alt2;
-			else if (result->best_template_index == 3)
-				ref_penrose = ref->penrose_alt3;
-		}
-
-		if (calculate_deformation) {
-			double scaled_points[PTM_MAX_INPUT_POINTS][3];
-			ptm::subtract_barycentre(ref->num_nbrs + 1, env->points, scaled_points);
-			for (int i = 0; i < ref->num_nbrs + 1; i++) {
-				scaled_points[i][0] *= res->scale;
-				scaled_points[i][1] *= res->scale;
-				scaled_points[i][2] *= res->scale;
-			}
-
-			ptm::calculate_deformation_gradient(ref->num_nbrs + 1, ref_template,
-												res->mapping, scaled_points, ref_penrose,
-												result->F, result->F_res);
-			if (ref->type == PTM_MATCH_GRAPHENE) // hack for pseudo-2d structures
-				result->F[8] = 1;
-
-			ptm::polar_decomposition_3x3(result->F, false, result->U, result->P);
-		}
-	}
-
-	double interatomic_distance = calculate_interatomic_distance(ref->type, res->scale);
-	double lattice_constant = calculate_lattice_constant(ref->type, interatomic_distance);
-
-	result->interatomic_distance = interatomic_distance;
-	result->lattice_constant = lattice_constant;
-	result->rmsd = res->rmsd;
-	result->scale = res->scale;
-	memcpy(result->orientation, res->q, 4 * sizeof(double));
 }
 
 extern bool ptm_initialized;

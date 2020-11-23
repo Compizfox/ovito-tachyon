@@ -26,6 +26,7 @@
 #include <ovito/particles/util/NearestNeighborFinder.h>
 #include <ovito/core/dataset/pipeline/ModifierApplication.h>
 #include <ovito/core/utilities/concurrent/ParallelFor.h>
+#include <ovito/particles/util/PTMNeighborFinder.h>
 #include "GrainSegmentationEngine.h"
 #include "GrainSegmentationModifier.h"
 #include "DisjointSet.h"
@@ -33,7 +34,6 @@
 
 #include <boost/heap/priority_queue.hpp>
 #include <ptm/ptm_functions.h>
-#include <ptm/ptm_quat.h>
 
 #define DEBUG_OUTPUT 0
 #if DEBUG_OUTPUT
@@ -78,7 +78,7 @@ GrainSegmentationEngine1::GrainSegmentationEngine1(
 void GrainSegmentationEngine1::perform()
 {
 	// First phase of grain segmentation algorithm:
-	if(!identifyAtomicStructures()) return;
+	if(!createNeighborBonds()) return;
 	if(!rotateHexagonalAtoms()) return;
 	if(!computeDisorientationAngles()) return;
 	if(!determineMergeSequence()) return;
@@ -91,87 +91,10 @@ void GrainSegmentationEngine1::perform()
 }
 
 
-static bool fill_neighbors(NearestNeighborFinder::Query<PTMAlgorithm::MAX_INPUT_NEIGHBORS>& neighQuery,
-						   size_t particleIndex,
-						   size_t offset,
-						   size_t num,
-						   ptm_atomicenv_t* env,
-                           double* delta)
-{
-	neighQuery.findNeighbors(particleIndex);
-	int numNeighbors = neighQuery.results().size();
-
-	if (numNeighbors < num) {
-		return false;
-	}
-
-	if (offset == 0) {
-		env->atom_indices[0] = particleIndex;
-		env->points[0][0] = 0;
-		env->points[0][1] = 0;
-		env->points[0][2] = 0;
-	}
-
-	for(int i = 0; i < num; i++) {
-		int p = env->correspondences[i + 1 + offset] - 1;
-		env->atom_indices[i + 1 + offset] = neighQuery.results()[p].index;
-		env->points[i + 1 + offset][0] = neighQuery.results()[p].delta.x() + delta[0];
-		env->points[i + 1 + offset][1] = neighQuery.results()[p].delta.y() + delta[1];
-		env->points[i + 1 + offset][2] = neighQuery.results()[p].delta.z() + delta[2];
-	}
-
-	return true;
-}
-
-// TODO: add numbers
-static void establish_atomic_environment(NearestNeighborFinder::Query<PTMAlgorithm::MAX_INPUT_NEIGHBORS>& neighQuery,
-										 ConstPropertyAccess<qlonglong> correspondenceArray,
-										 PTMAlgorithm::StructureType structureType,
-										 size_t particleIndex,
-										 ptm_atomicenv_t* env)
-{
-	int ptm_type = PTMAlgorithm::ovito_to_ptm_structure_type(structureType);
-
-	neighQuery.findNeighbors(particleIndex);
-	int numNeighbors = neighQuery.results().size();
-	int num_inner = ptm_num_nbrs[ptm_type], num_outer = 0;
-
-	if (ptm_type == PTM_MATCH_NONE) {
-		for (int i=0;i<PTM_MAX_INPUT_POINTS;i++) {
-			env->correspondences[i] = i;
-		}
-
-		num_inner = numNeighbors;
-	}
-	else {
-		numNeighbors = ptm_num_nbrs[ptm_type];
-		ptm_decode_correspondences(ptm_type, correspondenceArray[particleIndex], env->correspondences);
-	}
-
-	env->num = numNeighbors + 1;
-
-	if (ptm_type == PTM_MATCH_DCUB || ptm_type == PTM_MATCH_DHEX) {
-		num_inner = 4;
-		num_outer = 3;
-	}
-	else if (ptm_type == PTM_MATCH_GRAPHENE) {
-		num_inner = 3;
-		num_outer = 2;
-	}
-
-	fill_neighbors(neighQuery, particleIndex, 0, num_inner, env, env->points[0]);
-	if (num_outer) {
-		for (int i=0;i<num_inner;i++) {
-			fill_neighbors(neighQuery, env->atom_indices[1 + i], num_inner + i * num_outer, num_outer, env, env->points[i + 1]);
-		}
-	}
-}
-
 /******************************************************************************
-* Performs the PTM algorithm. Determines the local structure type and the
-* local lattice orientation at each atomic site.
+* Creates neighbor bonds from stored PTM data.
 ******************************************************************************/
-bool GrainSegmentationEngine1::identifyAtomicStructures()
+bool GrainSegmentationEngine1::createNeighborBonds()
 {
 	NearestNeighborFinder neighFinder(PTMAlgorithm::MAX_INPUT_NEIGHBORS);
 	if(!neighFinder.prepare(*positions(), cell(), nullptr, this))
@@ -181,9 +104,6 @@ bool GrainSegmentationEngine1::identifyAtomicStructures()
 	setProgressMaximum(_numParticles);
 	setProgressText(GrainSegmentationModifier::tr("Grain segmentation - building neighbor lists"));
 
-	ConstPropertyAccess<qlonglong> correspondenceArray(correspondences());
-	ConstPropertyAccess<int> structuresArray(structureTypes());
-
 	// Mutex is needed to synchronize access to bonds list in parallelized loop.
 	std::mutex bondsMutex;
 
@@ -192,6 +112,8 @@ bool GrainSegmentationEngine1::identifyAtomicStructures()
 
 		// Construct local neighbor list builder.
 		NearestNeighborFinder::Query<PTMAlgorithm::MAX_INPUT_NEIGHBORS> neighQuery(neighFinder);
+        auto ptmNeighQuery = PTMNeighborFinder(false);
+		ptmNeighQuery.prepare(&neighQuery, structureTypes(), orientations(), correspondences(), this);
 
 		// Thread-local list of generated bonds connecting neighboring lattice atoms.
 		std::vector<NeighborBond> threadlocalNeighborBonds;
@@ -207,23 +129,17 @@ bool GrainSegmentationEngine1::identifyAtomicStructures()
 			if(task.isCanceled())
 				break;
 
-			// Decode the PTM correspondence
-			ptm_atomicenv_t env;
-			auto structureType = (PTMAlgorithm::StructureType)structuresArray[index];
-			establish_atomic_environment(neighQuery, correspondenceArray, structureType, index, &env);
-
-			int numNeighbors = env.num - 1;
+			// Get PTM information
+			ptmNeighQuery.findNeighbors(index, nullptr);
+			auto structureType = ptmNeighQuery.structureType;
+			int numNeighbors = ptmNeighQuery.results().size();
 			if (structureType == PTMAlgorithm::OTHER) {
 				numNeighbors = std::min(numNeighbors, (int)MAX_DISORDERED_NEIGHBORS);
 			}
 
 			for(int j = 0; j < numNeighbors; j++) {
-				size_t neighborIndex = env.atom_indices[j + 1];
-
-				FloatType dx = env.points[j + 1][0];
-				FloatType dy = env.points[j + 1][1];
-				FloatType dz = env.points[j + 1][2];
-				FloatType length = sqrt(dx * dx + dy * dy + dz * dz);
+				size_t neighborIndex = ptmNeighQuery.results()[j].index;
+				FloatType length = sqrt(ptmNeighQuery.results()[j].distanceSq);
 
 // TODO: apply canonical selection here rather than just using particle indices
 				// Create a bond to the neighbor, but skip every other bond to create just one bond per particle pair.
@@ -234,8 +150,7 @@ bool GrainSegmentationEngine1::identifyAtomicStructures()
                                                         length});
 
 				// Check if neighbor vector spans more than half of a periodic simulation cell.
-				double* delta = env.points[j + 1];
-				Vector3 neighborVector(delta[0], delta[1], delta[2]);
+				Vector3 neighborVector = ptmNeighQuery.results()[j].delta;
 				for(size_t dim = 0; dim < 3; dim++) {
 					if(cell().pbcFlags()[dim]) {
 						if(std::abs(cell().inverseMatrix().prodrow(neighborVector, dim)) >= FloatType(0.5)+FLOATTYPE_EPSILON) {
@@ -270,40 +185,25 @@ bool GrainSegmentationEngine1::interface_cubic_hex(NeighborBond& bond, bool pare
 
 	auto a = bond.a;
 	auto b = bond.b;
-	auto structureA = _adjustedStructureTypes[a];
-	auto structureB = _adjustedStructureTypes[b];
-	if (structureA == structureB) {
+	if (_adjustedStructureTypes[a] == _adjustedStructureTypes[b]) {
 		return false;
 	}
 
 	// We want ordering of (a, b) to be (parent phase, defect phase)
 	bool flipped = false;
-	flipped |= parent_fcc && structureA == PTMAlgorithm::HCP;
-	flipped |= !parent_fcc && structureA == PTMAlgorithm::FCC;
-	flipped |= parent_dcub && structureA == PTMAlgorithm::HEX_DIAMOND;
-	flipped |= !parent_dcub && structureA == PTMAlgorithm::CUBIC_DIAMOND;
+	flipped |= parent_fcc   && _adjustedStructureTypes[a] == PTMAlgorithm::HCP;
+	flipped |= !parent_fcc  && _adjustedStructureTypes[a] == PTMAlgorithm::FCC;
+	flipped |= parent_dcub  && _adjustedStructureTypes[a] == PTMAlgorithm::HEX_DIAMOND;
+	flipped |= !parent_dcub && _adjustedStructureTypes[a] == PTMAlgorithm::CUBIC_DIAMOND;
 	if (flipped) {
 		std::swap(a, b);
-		std::swap(structureA, structureB);
 	}
 
-	const Quaternion& qa = _adjustedOrientations[a];
-	const Quaternion& qb = _adjustedOrientations[b];
-	double orientA[4] = { qa.w(), qa.x(), qa.y(), qa.z() };
-	double orientB[4] = { qb.w(), qb.x(), qb.y(), qb.z() };
-
-	if (structureA == PTMAlgorithm::FCC || structureA == PTMAlgorithm::CUBIC_DIAMOND) {
-		disorientation = (FloatType)ptm::quat_disorientation_hexagonal_to_cubic(orientA, orientB);
-	}
-	else {
-		disorientation = (FloatType)ptm::quat_disorientation_cubic_to_hexagonal(orientA, orientB);
-	}
-	disorientation = qRadiansToDegrees(disorientation);
-
-	output.w() = orientB[0];
-	output.x() = orientB[1];
-	output.y() = orientB[2];
-	output.z() = orientB[3];
+	disorientation = PTMAlgorithm::calculate_interfacial_disorientation(_adjustedStructureTypes[a],
+																		_adjustedStructureTypes[b],
+																		_adjustedOrientations[a],
+																		_adjustedOrientations[b],
+																		output);
 	index = b;
 	return true;
 }
@@ -315,7 +215,6 @@ bool GrainSegmentationEngine1::rotateHexagonalAtoms()
 {
 	ConstPropertyAccess<PTMAlgorithm::StructureType> structuresArray(structureTypes());
 	ConstPropertyAccess<Quaternion> orientationsArray(orientations());
-	ConstPropertyAccess<qlonglong> correspondenceArray(correspondences());
 
 	// Make a copy of structure types and orientations.
 	_adjustedStructureTypes = std::vector<PTMAlgorithm::StructureType>(structuresArray.cbegin(), structuresArray.cend());
@@ -359,6 +258,10 @@ bool GrainSegmentationEngine1::rotateHexagonalAtoms()
 
 	// Construct local neighbor list builder.
 	NearestNeighborFinder::Query<PTMAlgorithm::MAX_INPUT_NEIGHBORS> neighQuery(neighFinder);
+    auto ptmNeighQuery = PTMNeighborFinder(false);
+	if(!ptmNeighQuery.prepare(&neighQuery, structureTypes(), orientations(), correspondences(), this))
+		return false;
+
 
 	// TODO: replace comparator with a lambda function
 	boost::heap::priority_queue<NeighborBond, boost::heap::compare<PriorityQueueCompare>> pq;
@@ -389,14 +292,11 @@ bool GrainSegmentationEngine1::rotateHexagonalAtoms()
 		_adjustedStructureTypes[index] = targetStructureType;
 		_adjustedOrientations[index] = rotated;
 
-		// Decode the PTM correspondences.
-		ptm_atomicenv_t env;
-		auto structureType = (PTMAlgorithm::StructureType)structuresArray[index];   // Use original structure type for decoding correspondences.
-		establish_atomic_environment(neighQuery, correspondenceArray, structureType, index, &env);
-
-		int numNeighbors = env.num - 1;
+		// find neighbors to add to the queue
+		ptmNeighQuery.findNeighbors(index, nullptr);
+		int numNeighbors = ptmNeighQuery.results().size();
 		for(int j = 0; j < numNeighbors; j++) {
-			size_t neighborIndex = env.atom_indices[j + 1];
+			size_t neighborIndex = ptmNeighQuery.results()[j].index;
 
 			size_t dummy;
 			if (interface_cubic_hex(bond, parent_fcc, parent_dcub, disorientation, rotated, dummy)
@@ -419,29 +319,10 @@ bool GrainSegmentationEngine1::computeDisorientationAngles()
 
 	parallelFor(_neighborBonds.size(), *this, [&](size_t bondIndex) {
 		NeighborBond& bond = _neighborBonds[bondIndex];
-		bond.disorientation = std::numeric_limits<FloatType>::max();
-
-		int a = bond.a;
-		int b = bond.b;
-		if (_adjustedStructureTypes[b] < _adjustedStructureTypes[a]) {
-			std::swap(a, b);
-		}
-
-		const Quaternion& qa = _adjustedOrientations[a];
-		const Quaternion& qb = _adjustedOrientations[b];
-		double orientA[4] = { qa.w(), qa.x(), qa.y(), qa.z() };
-		double orientB[4] = { qb.w(), qb.x(), qb.y(), qb.z() };
-
-		if(_adjustedStructureTypes[a] == _adjustedStructureTypes[b]) {
-			int structureType = _adjustedStructureTypes[a];
-
-			if(structureType == PTMAlgorithm::SC || structureType == PTMAlgorithm::FCC || structureType == PTMAlgorithm::BCC || structureType == PTMAlgorithm::CUBIC_DIAMOND)
-				bond.disorientation = (FloatType)ptm::quat_disorientation_cubic(orientA, orientB);
-			else if(structureType == PTMAlgorithm::HCP || structureType == PTMAlgorithm::HEX_DIAMOND || structureType == PTMAlgorithm::GRAPHENE)
-				bond.disorientation = (FloatType)ptm::quat_disorientation_hcp_conventional(orientA, orientB);
-
-			bond.disorientation = qRadiansToDegrees(bond.disorientation);
-		}
+		bond.disorientation = PTMAlgorithm::calculate_disorientation(_adjustedStructureTypes[bond.a],
+																	 _adjustedStructureTypes[bond.b],
+																	 _adjustedOrientations[bond.a],
+																	 _adjustedOrientations[bond.b]);
 	});
 	if(isCanceled()) return false;
 

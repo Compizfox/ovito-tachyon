@@ -17,8 +17,8 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 namespace ptm {
 
 void complete_correspondences(int n, int8_t* correspondences);
-uint64_t encode_correspondences(int type, int8_t* correspondences);
-void decode_correspondences(int type, uint64_t encoded, int8_t* correspondences);
+uint64_t encode_correspondences(int type, int num, int8_t* correspondences, int best_template_index);
+void decode_correspondences(int type, uint64_t encoded, int8_t* correspondences, int* p_best_template_index);
 
 }
 

@@ -188,8 +188,8 @@ int preorder_neighbours(void* _voronoi_handle, int num_input_points, double (*in
 		correspondences[i + 1] = data[i].ordering + 1;
 
     complete_correspondences(num + 1, correspondences);
-    *res = encode_correspondences(PTM_MATCH_FCC,    //this gives us default behaviour
-                                  correspondences);
+    *res = encode_correspondences(PTM_MATCH_NONE, num,    //this gives us default behaviour
+                                  correspondences, 0);
 	return PTM_NO_ERROR;
 }
 

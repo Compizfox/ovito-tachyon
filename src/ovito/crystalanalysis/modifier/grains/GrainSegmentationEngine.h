@@ -289,8 +289,8 @@ private:
 	/// Returns the list of bonds connecting neighboring lattice atoms.
 	std::vector<NeighborBond>& neighborBonds() { return _neighborBonds; }
 
-	/// Performs the PTM algorithm. Determines the local structure type and the local lattice orientation.
-	bool identifyAtomicStructures();
+	/// Creates neighbor bonds from stored PTM data.
+	bool createNeighborBonds();
 
 	/// Rotates hexagonal atoms (HCP and hex-diamond) to an equivalent cubic orientation.
 	bool rotateHexagonalAtoms();

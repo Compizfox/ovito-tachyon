@@ -8,171 +8,190 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 */
 
 
+#include <algorithm>
+#include <cmath>
 #include <cmath>
 #include <cassert>
 #include "ptm_constants.h"
 #include "ptm_correspondences.h"
+#include "ptm_multishell.h"
 
+
+#define BITMASK(x) (((uint64_t)1 << x) - 1)
 
 namespace ptm {
 
-// taken from http://antoinecomeau.blogspot.com/2014/07/mapping-between-permutations-and.html
-void index_to_permutation(int n, uint64_t k, int8_t* permuted)
+static void index_to_permutation(int base, int n, uint64_t encoded, int8_t* permutation)
 {
-	int elems[PTM_MAX_INPUT_POINTS];
-	for(int i=0;i<n;i++)
-		elems[i] = i;
+	uint64_t code[PTM_MAX_INPUT_POINTS] = {0};
 
-	uint64_t m = k;
-	for(int i=0;i<n;i++)
-	{
-		uint64_t ind = m % (n - i);
-		m = m / (n - i);
-		permuted[i] = elems[ind];
-		elems[ind] = elems[n - i - 1];
+	for (int i=0;i<base;i++) {
+		code[i] = encoded % (base - i);
+		encoded /= base - i;
+	}
+
+	int8_t temp[PTM_MAX_INPUT_POINTS];
+	for (int i=0;i<base;i++) {
+		temp[i] = i;
+	}
+
+	for (int i=0;i<std::min(n, base);i++) {
+		std::swap(temp[i], temp[i + code[i]]);
+	}
+
+	for (int i=0;i<std::min(n, base);i++) {
+		permutation[i] = temp[i];
 	}
 }
 
-// taken from http://antoinecomeau.blogspot.com/2014/07/mapping-between-permutations-and.html
-uint64_t permutation_to_index(int n, int8_t* permutation)
+static uint64_t permutation_to_index(int base, int n, int8_t* permutation)
 {
-	int pos[PTM_MAX_INPUT_POINTS];
-	int elems[PTM_MAX_INPUT_POINTS];
-	for(int i=0;i<n;i++)
-	{
-		pos[i] = i;
-		elems[i] = i;
+	int p[PTM_MAX_INPUT_POINTS];
+	int q[PTM_MAX_INPUT_POINTS];
+	for (int i=0;i<base;i++) {
+		p[i] = i;
+		q[i] = i;
 	}
 
-	uint64_t m = 1;
-	uint64_t k = 0;
-	for(int i=0;i<n-1;i++)
-	{
-		k += m * pos[permutation[i]];
-		m = m * (n - i);
-		pos[elems[n - i - 1]] = pos[permutation[i]];
-		elems[pos[permutation[i]]] = elems[n - i - 1];
+	int8_t code[PTM_MAX_INPUT_POINTS] = {0};
+	for (int i=0;i<n;i++) {
+		int e = permutation[i];
+		int d = q[e] - i;
+		code[i] = d;
+		if (d > 0) {
+			int j = q[e];
+			std::swap(q[p[i]], q[p[j]]);
+			std::swap(p[i], p[j]);
+		}
 	}
 
-	return k;
+	uint64_t encoded = 0;
+	for (int it=0;it<n;it++) {
+		uint64_t v = code[n - it - 1];
+		encoded *= 1 + base - n + it;
+		encoded += v;
+	}
+
+	return encoded;
 }
 
 static bool is_single_shell(int type)
 {
-    if (type == PTM_MATCH_FCC
-        || type == PTM_MATCH_HCP
-        || type == PTM_MATCH_BCC
-        || type == PTM_MATCH_ICO
-        || type == PTM_MATCH_SC) {
-        return true;
-    }
-    else if (type == PTM_MATCH_DCUB
-             || type == PTM_MATCH_DHEX
-             || type == PTM_MATCH_GRAPHENE) {
-        return false;
-    }
-    else {
-        assert(0);
-        return false;
-    }
+	if (type == PTM_MATCH_NONE
+		|| type == PTM_MATCH_FCC
+		|| type == PTM_MATCH_HCP
+		|| type == PTM_MATCH_BCC
+		|| type == PTM_MATCH_ICO
+		|| type == PTM_MATCH_SC) {
+		return true;
+	}
+	else if (type == PTM_MATCH_DCUB
+			 || type == PTM_MATCH_DHEX
+			 || type == PTM_MATCH_GRAPHENE) {
+		return false;
+	}
+	else {
+		assert(0);
+		return false;
+	}
 }
 
 static void vector_add(int n, int8_t* input, int8_t* transformed, int c)
 {
-    for (int i=0;i<n;i++) {
-        transformed[i] = input[i] + c;
-    }
+	for (int i=0;i<n;i++) {
+		transformed[i] = input[i] + c;
+	}
 }
 
 void complete_correspondences(int n, int8_t* correspondences)
 {
-    bool hit[PTM_MAX_INPUT_POINTS] = {false};
+	bool hit[PTM_MAX_INPUT_POINTS] = {false};
 
-    for (int i=0;i<n;i++) {
-        int c = correspondences[i];
-        hit[c] = true;
-    }
+	for (int i=0;i<n;i++) {
+		int c = correspondences[i];
+		hit[c] = true;
+	}
 
-    int c = n;
-    for (int i=0;i<PTM_MAX_INPUT_POINTS;i++) {
-        if (!hit[i]) {
-            correspondences[c++] = i;
-        }
-    }
+	int c = n;
+	for (int i=0;i<PTM_MAX_INPUT_POINTS;i++) {
+		if (!hit[i]) {
+			correspondences[c++] = i;
+		}
+	}
 }
 
-uint64_t encode_correspondences(int type, int8_t* correspondences)
+uint64_t encode_correspondences(int type, int num, int8_t* correspondences, int best_template_index)
 {
-    int num_nbrs = ptm_num_nbrs[type];
-    int8_t transformed[PTM_MAX_INPUT_POINTS];
+	int8_t transformed[PTM_MAX_INPUT_POINTS];
+	int num_nbrs = ptm_num_nbrs[type];
+	if (type == PTM_MATCH_NONE) {
+		num_nbrs = num;
+	}
 
-    if (is_single_shell(type)) {
-        complete_correspondences(num_nbrs + 1, correspondences);
-        vector_add(PTM_MAX_INPUT_POINTS - 1, &correspondences[1], transformed, -1);
-        return permutation_to_index(PTM_MAX_INPUT_POINTS - 1, transformed);
-    }
-    else {
-        int num_inner = 4, num_outer = 3;   //diamond types
-        if (type == PTM_MATCH_GRAPHENE) {
-            num_inner = 3;
-            num_outer = 2;
-        }
+	if (is_single_shell(type)) {
+		complete_correspondences(num_nbrs + 1, correspondences);
+		vector_add(PTM_MAX_INPUT_POINTS - 1, &correspondences[1], transformed, -1);
+		uint64_t encoded = permutation_to_index(PTM_MAX_INPUT_POINTS - 1, PTM_MAX_INPUT_POINTS - 1, transformed);
+		encoded |= (uint64_t)(best_template_index) << 62;
+		return encoded;
+	}
+	else {
+		int num_inner = 4, num_outer = 3;   //diamond types
+		if (type == PTM_MATCH_GRAPHENE) {
+			num_inner = 3;
+			num_outer = 2;
+		}
 
-        for (int i=0;i<num_nbrs + 1;i++) {
-            assert(correspondences[i] <= 17);
-        }
+		for (int i=0;i<num_nbrs + 1;i++) {
+			assert(correspondences[i] <= MAX_MULTISHELL_NEIGHBOURS);
+		}
 
-        vector_add(num_inner, &correspondences[1], &transformed[0], -1);
-        for (int i=0;i<num_inner;i++) {
-            vector_add(num_outer,
-                       &correspondences[1 + num_inner + i * num_outer],
-                       &transformed[num_inner + i * num_outer], -1);
-        }
+		vector_add(num_nbrs, &correspondences[1], &transformed[0], -1);
+		uint64_t encoded = permutation_to_index(MAX_MULTISHELL_NEIGHBOURS, num_inner, transformed);
 
-        uint64_t encoded = 0;
-        for (int i=0;i<num_nbrs;i++) {
-            uint64_t t = transformed[i];
-            encoded |= t << (4 * i);
-        }
+		for (int i=0;i<num_inner;i++) {
+			uint64_t partial_encoded = permutation_to_index(MAX_MULTISHELL_NEIGHBOURS,
+															num_outer, &transformed[num_inner + i * num_outer]);
+			// log2(13*12*11*10) < 15
+			// log2(13*12*11) < 11
+			encoded |= partial_encoded << (15 + 11 * i);
+		}
 
-        return encoded;
-    }
+		encoded |= (uint64_t)(best_template_index) << 62;
+		return encoded;
+	}
 }
 
-void decode_correspondences(int type, uint64_t encoded, int8_t* correspondences)
+void decode_correspondences(int type, uint64_t encoded, int8_t* correspondences, int* p_best_template_index)
 {
-    int8_t decoded[PTM_MAX_INPUT_POINTS];
+	int8_t decoded[PTM_MAX_INPUT_POINTS];
 
-    if (is_single_shell(type)) {
-        index_to_permutation(PTM_MAX_INPUT_POINTS - 1, encoded, decoded);
+	*p_best_template_index = (int)(encoded >> 62);
+	encoded &= BITMASK(62);
 
-        correspondences[0] = 0;
-        for (int i=0;i<PTM_MAX_INPUT_POINTS - 1;i++)
-            correspondences[i + 1] = decoded[i] + 1;
-    }
-    else {
-        int num_inner = 4, num_outer = 3;   //diamond types
-        if (type == PTM_MATCH_GRAPHENE) {
-            num_inner = 3;
-            num_outer = 2;
-        }
+	if (is_single_shell(type)) {
+		index_to_permutation(PTM_MAX_INPUT_POINTS - 1, PTM_MAX_INPUT_POINTS - 1, encoded, decoded);
+		correspondences[0] = 0;
+		vector_add(PTM_MAX_INPUT_POINTS - 1, &decoded[0], &correspondences[1], +1);
+	}
+	else {
+		int num_inner = 4, num_outer = 3;   //diamond types
+		if (type == PTM_MATCH_GRAPHENE) {
+			num_inner = 3;
+			num_outer = 2;
+		}
 
-        int num_nbrs = ptm_num_nbrs[type];
-        for (int i=0;i<num_nbrs;i++) {
-            decoded[i] = encoded & 0xF;
-            encoded >>= 4;
-        }
+		uint64_t partial = encoded & BITMASK(15);
+		index_to_permutation(MAX_MULTISHELL_NEIGHBOURS, num_inner, partial, decoded);
+		for (int i=0;i<num_inner;i++) {
+			partial = (encoded >> (15 + 11 * i)) & BITMASK(11);
+			index_to_permutation(MAX_MULTISHELL_NEIGHBOURS, num_outer, partial, &decoded[num_inner + i * num_outer]);
+		}
 
-        correspondences[0] = 0;
-        vector_add(num_inner, &decoded[0], &correspondences[1], +1);
-        for (int i=0;i<num_inner;i++) {
-            vector_add(num_outer,
-                       &decoded[num_inner + i * num_outer],
-                       &correspondences[1 + num_inner + i * num_outer], +1);
-        }
-
-        complete_correspondences(num_nbrs + 1, correspondences);
-    }
+		int num_nbrs = ptm_num_nbrs[type];
+		correspondences[0] = 0;
+		vector_add(num_nbrs, &decoded[0], &correspondences[1], +1);
+	}
 }
 
 }
@@ -181,14 +200,14 @@ void decode_correspondences(int type, uint64_t encoded, int8_t* correspondences)
 extern "C" {
 #endif
 
-uint64_t ptm_encode_correspondences(int type, int8_t* correspondences)
+uint64_t ptm_encode_correspondences(int type, int num, int8_t* correspondences, int best_template_index)
 {
-    return ptm::encode_correspondences(type, correspondences);
+	return ptm::encode_correspondences(type, num, correspondences, best_template_index);
 }
 
-void ptm_decode_correspondences(int type, uint64_t encoded, int8_t* correspondences)
+void ptm_decode_correspondences(int type, uint64_t encoded, int8_t* correspondences, int* p_best_template_index)
 {
-    return ptm::decode_correspondences(type, encoded, correspondences);
+	return ptm::decode_correspondences(type, encoded, correspondences, p_best_template_index);
 }
 
 #ifdef __cplusplus

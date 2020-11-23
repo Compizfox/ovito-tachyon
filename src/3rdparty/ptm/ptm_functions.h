@@ -37,8 +37,8 @@ int ptm_undo_conventional_orientation(int type, int input_template_index, double
 
 int ptm_preorder_neighbours(void* _voronoi_handle, int num_input_points, double (*input_points)[3], uint64_t* res);
 
-uint64_t ptm_encode_correspondences(int type, int8_t* correspondences);
-void ptm_decode_correspondences(int type, uint64_t encoded, int8_t* correspondences);
+uint64_t ptm_encode_correspondences(int type, int num, int8_t* correspondences, int best_template_index);
+void ptm_decode_correspondences(int type, uint64_t encoded, int8_t* correspondences, int* p_best_template_index);
 
 
 #ifdef __cplusplus
