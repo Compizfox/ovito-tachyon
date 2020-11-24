@@ -16,7 +16,7 @@
   <simplesect>
     <title>Windows</title>
     <para>
-      OVITO for Windows is built against the original, unmodified binary DLLs of Qt 5.15.1 (MSVC 2019 64-bit) distributed by the Qt Company.
+      OVITO for Windows is built against the original, unmodified binary DLLs of Qt 5.15.2 (MSVC 2019 64-bit) distributed by the Qt Company.
     </para>
   </simplesect>
 
