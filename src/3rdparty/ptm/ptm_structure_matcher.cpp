@@ -113,8 +113,15 @@ int match_general(const refdata_t* s, double (*ch_points)[3], double (*points)[3
         int8_t degree[PTM_MAX_NBRS];
         int8_t facets[PTM_MAX_FACETS][3];
 
+        bool prev_ok = ch->ok;
         int ret = get_convex_hull(s->num_nbrs + 1, (const double (*)[3])ch_points, ch, facets);
         ch->ok = ret >= 0;
+
+        // kludge fix
+        if (prev_ok && !ch->ok) {
+            ret = get_convex_hull(s->num_nbrs + 1, (const double (*)[3])ch_points, ch, facets);
+            ch->ok = ret >= 0;
+        }
         if (ret != 0)
                 return PTM_NO_ERROR;
 

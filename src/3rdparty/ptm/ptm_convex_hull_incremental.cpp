@@ -201,7 +201,8 @@ static bool visible(const double* w, const double* plane_point, const double* pl
         return point_plane_distance(w, plane_point, plane_normal) > 0;
 }
 
-void add_facet(const double (*points)[3], int a, int b, int c, int8_t* facet, double* plane_normal, double* barycentre)
+bool add_facet(const double (*points)[3], int a, int b, int c, int8_t* facet,
+               double* plane_normal, double* barycentre, int num_facets, int8_t (*facets)[3])
 {
         calculate_plane_normal(points, a, b, c, plane_normal);
         if (visible(barycentre, points[a], plane_normal))
@@ -220,6 +221,41 @@ void add_facet(const double (*points)[3], int a, int b, int c, int8_t* facet, do
                 facet[1] = b;
                 facet[2] = c;
         }
+
+        // permute facet so minimum element is first
+        int bi = -1, min = 9999;
+        for (int i=0;i<3;i++) {
+            if (facet[i] < min) {
+                min = facet[i];
+                bi = i;
+            }
+        }
+
+        a = facet[0];
+        b = facet[1];
+        c = facet[2];
+
+        if (bi == 1) {
+            facet[0] = b;
+            facet[1] = c;
+            facet[2] = a;
+        }
+        else if (bi == 2) {
+            facet[0] = c;
+            facet[1] = a;
+            facet[2] = b;
+        }
+
+        // check for duplicates
+        for (int i=0;i<num_facets;i++) {
+            if (   facets[i][0] == facet[0]
+                && facets[i][1] == facet[1]
+                && facets[i][2] == facet[2]) {
+                return false;
+            }
+        }
+
+        return true;
 }
 
 static int initialize_convex_hull(int num_points, const double (*points)[3], int8_t facets[][3], double plane_normal[][3], bool* processed, int* initial_vertices, double* barycentre)
@@ -243,10 +279,10 @@ static int initialize_convex_hull(int num_points, const double (*points)[3], int
         barycentre[1] /= 4;
         barycentre[2] /= 4;
 
-        add_facet(points, initial_vertices[0], initial_vertices[1], initial_vertices[2], facets[0], plane_normal[0], barycentre);
-        add_facet(points, initial_vertices[0], initial_vertices[1], initial_vertices[3], facets[1], plane_normal[1], barycentre);
-        add_facet(points, initial_vertices[0], initial_vertices[2], initial_vertices[3], facets[2], plane_normal[2], barycentre);
-        add_facet(points, initial_vertices[1], initial_vertices[2], initial_vertices[3], facets[3], plane_normal[3], barycentre);
+        add_facet(points, initial_vertices[0], initial_vertices[1], initial_vertices[2], facets[0], plane_normal[0], barycentre, 0, NULL);
+        add_facet(points, initial_vertices[0], initial_vertices[1], initial_vertices[3], facets[1], plane_normal[1], barycentre, 0, NULL);
+        add_facet(points, initial_vertices[0], initial_vertices[2], initial_vertices[3], facets[2], plane_normal[2], barycentre, 0, NULL);
+        add_facet(points, initial_vertices[1], initial_vertices[2], initial_vertices[3], facets[3], plane_normal[3], barycentre, 0, NULL);
         return 0;
 }
 
@@ -351,7 +387,11 @@ int get_convex_hull(int num_points, const double (*points)[3], convexhull_t* ch,
                         if (ch->num_facets >= PTM_MAX_FACETS)
                                 return -4;
 
-                        add_facet(points, to_add[j][0], to_add[j][1], to_add[j][2], ch->facets[ch->num_facets], ch->plane_normal[ch->num_facets], ch->barycentre); ch->num_facets++;
+                        bool success = add_facet(points, to_add[j][0], to_add[j][1], to_add[j][2], ch->facets[ch->num_facets], ch->plane_normal[ch->num_facets], ch->barycentre, ch->num_facets, ch->facets);
+                        if (!success) {
+                            return -5;
+                        }
+                        ch->num_facets++;
                 }
         }
 
