@@ -23,7 +23,7 @@ static void make_facets_clockwise(int num_facets, int8_t (*facets)[3], const dou
         double origin[3] = {0, 0, 0};
 
         for (int i = 0;i<num_facets;i++)
-                ptm::add_facet(points, facets[i][0], facets[i][1], facets[i][2], facets[i], plane_normal, origin);
+                ptm::add_facet(points, facets[i][0], facets[i][1], facets[i][2], facets[i], plane_normal, origin, 0, NULL);
 }
 
 static int initialize_graphs(const ptm::refdata_t* s, int8_t* colours)
