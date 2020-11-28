@@ -225,7 +225,7 @@ public:
     {
     private:
         /// The internal query type for finding the input set of nearest neighbors.
-        using NeighborQuery =  NearestNeighborFinder::Query<MAX_INPUT_NEIGHBORS>;
+        using NeighborQuery = NearestNeighborFinder::Query<MAX_INPUT_NEIGHBORS>;
 
     public:
         /// Constructs a new kernel from the given algorithm object, which must have previously been initialized

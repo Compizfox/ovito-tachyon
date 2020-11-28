@@ -96,8 +96,8 @@ void GrainSegmentationEngine1::perform()
 ******************************************************************************/
 bool GrainSegmentationEngine1::createNeighborBonds()
 {
-	NearestNeighborFinder neighFinder(PTMAlgorithm::MAX_INPUT_NEIGHBORS);
-	if(!neighFinder.prepare(*positions(), cell(), nullptr, this))
+	PTMNeighborFinder neighFinder(false);
+	if(!neighFinder.prepare(positions(), cell(), nullptr, structureTypes(), orientations(), correspondences(), this))
 		return false;
 
 	setProgressValue(0);
@@ -110,11 +110,9 @@ bool GrainSegmentationEngine1::createNeighborBonds()
 	// Perform analysis on each particle.
 	parallelForChunks(_numParticles, *this, [&](size_t startIndex, size_t count, Task& task) {
 
-		// Construct local neighbor list builder.
-		NearestNeighborFinder::Query<PTMAlgorithm::MAX_INPUT_NEIGHBORS> neighQuery(neighFinder);
-		auto ptmNeighQuery = PTMNeighborFinder(false);
-		ptmNeighQuery.prepare(&neighQuery, structureTypes(), orientations(), correspondences(), this);
-
+		// Construct thread-local neighbor finder.
+		PTMNeighborFinder::Query neighQuery(neighFinder);
+		
 		// Thread-local list of generated bonds connecting neighboring lattice atoms.
 		std::vector<NeighborBond> threadlocalNeighborBonds;
 
@@ -129,17 +127,16 @@ bool GrainSegmentationEngine1::createNeighborBonds()
 			if(task.isCanceled())
 				break;
 
-			// Get PTM information
-			ptmNeighQuery.findNeighbors(index, nullptr);
-			auto structureType = ptmNeighQuery.structureType;
-			int numNeighbors = ptmNeighQuery.results().size();
-			if (structureType == PTMAlgorithm::OTHER) {
+			// Get PTM information.
+			neighQuery.findNeighbors(index, nullptr);
+			auto structureType = neighQuery.structureType();
+			int numNeighbors = neighQuery.neighborCount();
+			if(structureType == PTMAlgorithm::OTHER)
 				numNeighbors = std::min(numNeighbors, (int)MAX_DISORDERED_NEIGHBORS);
-			}
 
 			for(int j = 0; j < numNeighbors; j++) {
-				size_t neighborIndex = ptmNeighQuery.results()[j].index;
-				FloatType length = sqrt(ptmNeighQuery.results()[j].distanceSq);
+				size_t neighborIndex = neighQuery.neighbors()[j].index;
+				FloatType length = sqrt(neighQuery.neighbors()[j].distanceSq);
 
 // TODO: apply canonical selection here rather than just using particle indices
 				// Create a bond to the neighbor, but skip every other bond to create just one bond per particle pair.
@@ -150,7 +147,7 @@ bool GrainSegmentationEngine1::createNeighborBonds()
 														length});
 
 				// Check if neighbor vector spans more than half of a periodic simulation cell.
-				Vector3 neighborVector = ptmNeighQuery.results()[j].delta;
+				Vector3 neighborVector = neighQuery.neighbors()[j].delta;
 				for(size_t dim = 0; dim < 3; dim++) {
 					if(cell().pbcFlags()[dim]) {
 						if(std::abs(cell().inverseMatrix().prodrow(neighborVector, dim)) >= FloatType(0.5)+FLOATTYPE_EPSILON) {
@@ -252,16 +249,11 @@ bool GrainSegmentationEngine1::rotateHexagonalAtoms()
 	}
 
 
-	NearestNeighborFinder neighFinder(PTMAlgorithm::MAX_INPUT_NEIGHBORS);
-	if(!neighFinder.prepare(*positions(), cell(), nullptr, this))
-		return false;
-
 	// Construct local neighbor list builder.
-	NearestNeighborFinder::Query<PTMAlgorithm::MAX_INPUT_NEIGHBORS> neighQuery(neighFinder);
-	auto ptmNeighQuery = PTMNeighborFinder(false);
-	if(!ptmNeighQuery.prepare(&neighQuery, structureTypes(), orientations(), correspondences(), this))
+	PTMNeighborFinder neighFinder(false);
+	if(!neighFinder.prepare(positions(), cell(), nullptr, structureTypes(), orientations(), correspondences(), this))
 		return false;
-
+	PTMNeighborFinder::Query neighQuery(neighFinder);
 
 	// TODO: replace comparator with a lambda function
 	boost::heap::priority_queue<NeighborBond, boost::heap::compare<PriorityQueueCompare>> pq;
@@ -293,10 +285,10 @@ bool GrainSegmentationEngine1::rotateHexagonalAtoms()
 		_adjustedOrientations[index] = rotated;
 
 		// find neighbors to add to the queue
-		ptmNeighQuery.findNeighbors(index, nullptr);
-		int numNeighbors = ptmNeighQuery.results().size();
+		neighQuery.findNeighbors(index);
+		int numNeighbors = neighQuery.neighborCount();
 		for(int j = 0; j < numNeighbors; j++) {
-			size_t neighborIndex = ptmNeighQuery.results()[j].index;
+			size_t neighborIndex = neighQuery.neighbors()[j].index;
 
 			size_t dummy;
 			if (interface_cubic_hex(bond, parent_fcc, parent_dcub, disorientation, rotated, dummy)
