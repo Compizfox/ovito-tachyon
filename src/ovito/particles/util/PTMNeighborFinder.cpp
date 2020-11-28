@@ -65,7 +65,7 @@ bool PTMNeighborFinder::prepare(ConstPropertyAccess<Point3> positions, const Sim
 /******************************************************************************
 * Computes the ordered list of neighbor particles.
 ******************************************************************************/
-void PTMNeighborFinder::Query::findNeighbors(size_t particleIndex, Quaternion* targetOrientation)
+void PTMNeighborFinder::Query::findNeighbors(size_t particleIndex, boost::optional<Quaternion> targetOrientation)
 {
 	_structureType = _finder._structuresArray[particleIndex];
 	_orientation = _finder._orientationsArray[particleIndex];
@@ -77,7 +77,7 @@ void PTMNeighborFinder::Query::findNeighbors(size_t particleIndex, Quaternion* t
 	int8_t remap_permutation[PTM_MAX_INPUT_POINTS];
 	std::iota(std::begin(remap_permutation), std::end(remap_permutation), 0);
 
-	if(_structureType != PTMAlgorithm::OTHER && targetOrientation != nullptr) {
+	if(_structureType != PTMAlgorithm::OTHER && targetOrientation) {
 		//arrange orientation in PTM format
 		double qtarget[4] = {targetOrientation->w(),
 								targetOrientation->x(),

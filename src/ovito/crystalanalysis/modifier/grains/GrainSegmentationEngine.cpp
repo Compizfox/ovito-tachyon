@@ -128,7 +128,7 @@ bool GrainSegmentationEngine1::createNeighborBonds()
 				break;
 
 			// Get PTM information.
-			neighQuery.findNeighbors(index, nullptr);
+			neighQuery.findNeighbors(index);
 			auto structureType = neighQuery.structureType();
 			int numNeighbors = neighQuery.neighborCount();
 			if(structureType == PTMAlgorithm::OTHER)

@@ -82,7 +82,7 @@ public:
         Query(const PTMNeighborFinder& finder) : _finder(finder) {}
 
 		/// Computes the ordered list of neighbor particles fo rthe given central particle.
-		void findNeighbors(size_t particleIndex, Quaternion* targetOrientation = nullptr);
+		void findNeighbors(size_t particleIndex, boost::optional<Quaternion> targetOrientation = {});
 
         /// Returns the structure type identified by the PTM for the current particle.
         PTMAlgorithm::StructureType structureType() const { return _structureType; }
