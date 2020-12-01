@@ -84,7 +84,7 @@ make install
   <simplesect>
     <title>macOS</title>
     <para>
-      OVITO for macOS uses an installation of the original Qt 5.12.9 framework distributed by the Qt Company.
+      OVITO for macOS ships with a standard installation of the Qt 5.15.2 framework distributed by the Qt Company.
     </para>
   </simplesect>
 
