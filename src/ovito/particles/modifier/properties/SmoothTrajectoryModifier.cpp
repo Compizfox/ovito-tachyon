@@ -324,6 +324,33 @@ void SmoothTrajectoryModifier::interpolateState(PipelineFlowState& state1, const
 		}
 	}
 
+	// Interpolate all scalar and continuous particle properties.
+	for(const PropertyObject* property1 : particles1->properties()) {
+		if(property1->dataType() == PropertyStorage::Float && property1->componentCount() == 1) {
+			const PropertyObject* property2 = (property1->type() != 0) ? particles2->getProperty(property1->type()) : particles2->getProperty(property1->name());
+			if(property2 && property2->dataType() == property1->dataType() && property2->componentCount() == property1->componentCount()) {
+				PropertyAccess<FloatType> data1 = outputParticles->makeMutable(property1);
+				ConstPropertyAccess<FloatType> data2(property2);
+				if(idProperty1 && idProperty2 && !boost::equal(idProperty1, idProperty2)) {
+					auto id = idProperty1.cbegin();
+					for(FloatType& v1 : data1) {
+						auto mapEntry = idmap.find(*id);
+						OVITO_ASSERT(mapEntry != idmap.end());
+						v1 = v1 * (FloatType(1) - t) + data2[mapEntry->second] * t;
+						++id;
+					}
+				}
+				else {
+					const FloatType* v2 = data2.cbegin();
+					for(FloatType& v1 : data1) {
+						v1 = v1 * (FloatType(1) - t) + *v2++ * t;
+					}
+				}
+
+			}
+		}
+	}
+
 	// Interpolate simulation cell vectors.
 	if(cell1 && cell2) {
 		SimulationCellObject* outputCell = state1.expectMutableObject<SimulationCellObject>();
@@ -358,6 +385,14 @@ void SmoothTrajectoryModifier::averageState(PipelineFlowState& state1, const std
 	PropertyAccess<Quaternion> outputOrientations = particles1->getProperty(ParticlesObject::OrientationProperty)
 		? outputParticles->createProperty(ParticlesObject::OrientationProperty, true)
 		: nullptr;
+
+	// Create copies of all scalar continuous particle properties.
+	std::vector<PropertyAccess<FloatType>> outputScalarProperties;
+	for(const PropertyObject* property : particles1->properties()) {
+		if(property->dataType() == PropertyStorage::Float && property->componentCount() == 1) {
+			outputScalarProperties.emplace_back(outputParticles->makeMutable(property));
+		}
+	}
 
 	// For interpolating the simulation cell vectors.
 	AffineTransformation averageCellMat;
@@ -435,6 +470,21 @@ void SmoothTrajectoryModifier::averageState(PipelineFlowState& state1, const std
 					}
 				}
 			}
+
+			// Average all scalar continuous properties.
+			for(auto& accessor : outputScalarProperties) {
+				const PropertyObject* property2 = (accessor.storage()->type() != 0) ? particles2->getProperty(accessor.storage()->type()) : particles2->getProperty(accessor.storage()->name());
+				if(property2 && property2->dataType() == accessor.storage()->dataType() && property2->componentCount() == accessor.componentCount()) {
+					ConstPropertyAccess<FloatType> accessor2(property2);
+					auto id = idProperty1.cbegin();
+					for(FloatType& v : accessor) {
+						auto mapEntry = idmap.find(*id);
+						OVITO_ASSERT(mapEntry != idmap.end());
+						v += accessor2[mapEntry->second];
+						++id;
+					}
+				}
+			}
 		}
 		else {
 			// Average particle positions over time.
@@ -465,6 +515,18 @@ void SmoothTrajectoryModifier::averageState(PipelineFlowState& state1, const std
 					}
 				}
 			}
+
+			// Average all scalar continuous properties.
+			for(auto& accessor : outputScalarProperties) {
+				const PropertyObject* property2 = (accessor.storage()->type() != 0) ? particles2->getProperty(accessor.storage()->type()) : particles2->getProperty(accessor.storage()->name());
+				if(property2 && property2->dataType() == accessor.storage()->dataType() && property2->componentCount() == accessor.componentCount()) {
+					ConstPropertyAccess<FloatType> accessor2(property2);
+					const FloatType* v2 = accessor2.cbegin();
+					for(FloatType& v : accessor) {
+						v += *v2++;
+					}
+				}
+			}
 		}
 	}
 
@@ -474,6 +536,12 @@ void SmoothTrajectoryModifier::averageState(PipelineFlowState& state1, const std
 			if(q.dot(q) >= FLOATTYPE_EPSILON*FLOATTYPE_EPSILON)
 				q.normalize();
 		}
+	}
+
+	// Normalize the auxiliary properties.
+	for(auto& accessor : outputScalarProperties) {
+		for(FloatType& v : accessor)
+			v *= weight;
 	}
 
 	// Compute average of simulation cell vectors.

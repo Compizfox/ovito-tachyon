@@ -14,14 +14,15 @@
     <informalfigure><screenshot><mediaobject><imageobject>
        <imagedata fileref="images/modifiers/smooth_trajectory_panel.png" format="png" scale="50" />
     </imageobject></mediaobject></screenshot></informalfigure>
-    This modifier smoothes the particle motion by taking into account successive snapshots of a simulation trajectory.
+    This modifier smoothes the particle motion by combining several successive snapshots of a simulation trajectory or by interpolating in between successive snapshots.
+    It can be used to create smooth-looking animations from a relatively coarse sequence of simulation snapshots and reduce fluctuations or thermal vibrations in particle trajectories.
     Depending on the value of the <emphasis>Smoothing window size</emphasis> parameter, the modifier will either perform 
-    a time-based averaging of the particle coordinates over several input frames or a linear interpolation between consecutive frames, see below. 
+    a time-based averaging of the particle coordinates over several input simulation frames or a linear interpolation between consecutive frames, see below. 
   </para>
   <para>
     If the particles have <link linkend="howto.aspherical_particles">orientational information</link> associated with them, then
     the modifier will smoothen or interpolate the <literal>Orientation</literal> particle property in the same way as the
-    particle positions.
+    particle positions. Furthermore, smoothing will also be applied to any particle property that is scalar and continuous, i.e., which has a single vector component of data type <literal>float</literal>. 
   </para>
 
   <simplesect>
