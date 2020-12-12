@@ -219,7 +219,7 @@ public:
 			}
 		}
 
-	private:
+	protected:
 		const NearestNeighborFinder& t;
 		Point3 q, qr;
 		BoundedPriorityQueue<Neighbor, std::less<Neighbor>, MAX_NEIGHBORS_LIMIT> queue;
